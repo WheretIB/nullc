@@ -561,6 +561,13 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
 	vmState->callStackTop++;
 
+	// TODO: only for callptr
+	/*if(functionId == 0)
+	{
+		ctx.x86rvm->Stop("ERROR: invalid function pointer");
+		return;
+	}*/
+
 	unsigned address = target.regVmAddress;
 
 	if(address == ~0u)
@@ -646,17 +653,8 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	}
 }
 
-void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
+unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
-	unsigned microcodePos = (cmd.rA << 16) | (cmd.rB << 8) | cmd.rC;
-
-	ctx.vmState->callWrap = CallWrap;
-
-#if defined(_M_X64)
-	// TODO: ERROR: call argument buffer overflow
-
 	// Push arguments
 	unsigned *microcode = ctx.exRegVmConstants + microcodePos;
 
@@ -711,16 +709,12 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	microcode++;
 
-	unsigned char resultReg = *microcode++ & 0xff;
-	unsigned char resultType = *microcode++ & 0xff;
+	return microcode;
+}
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
-	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
-	EMIT_OP_REG_NUM(ctx.ctx, o_sub64, rRSP, 16);
-	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
-	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 16);
+void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsigned char resultReg, unsigned char resultType)
+{
+	x86Reg rTempStack = rRBP;
 
 	switch(resultType)
 	{
@@ -740,7 +734,7 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		break;
 	}
 
-	tempStackPtrOffset = 0;
+	unsigned tempStackPtrOffset = 0;
 
 	while(*microcode != rvmiReturn)
 	{
@@ -773,6 +767,31 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		break;
 		}
 	}
+}
+
+void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
+{
+	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
+
+	ctx.vmState->callWrap = CallWrap;
+
+#if defined(_M_X64)
+	// TODO: ERROR: call argument buffer overflow
+
+	unsigned *microcode = GetCodeCmdCallPrologue(ctx, (cmd.rA << 16) | (cmd.rB << 8) | cmd.rC);
+
+	unsigned char resultReg = *microcode++ & 0xff;
+	unsigned char resultType = *microcode++ & 0xff;
+
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
+	EMIT_OP_REG_NUM(ctx.ctx, o_sub64, rRSP, 16);
+	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 16);
+
+	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
 #else
 	assert(!"not implemented");
 #endif
@@ -785,7 +804,20 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	// TODO: complex instruction with microcode and exceptions
 
-	//assert(!"not implemented");
+	unsigned *microcode = GetCodeCmdCallPrologue(ctx, cmd.argument);
+
+	unsigned char resultReg = *microcode++ & 0xff;
+	unsigned char resultType = *microcode++ & 0xff;
+
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Get function id
+	EMIT_OP_REG_NUM(ctx.ctx, o_sub64, rRSP, 16);
+	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 16);
+
+	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
 #else
 	assert(!"not implemented");
 #endif
