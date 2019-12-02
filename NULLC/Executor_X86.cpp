@@ -472,12 +472,14 @@ bool ExecutorX86::Initialize()
 	pos += x86PUSH(pos, rEDI);
 	pos += x86PUSH(pos, rESI);
 	pos += x86PUSH(pos, rESP);
+	pos += x86PUSH(pos, rESP);
 	// TODO: save non-volatile r12 r13 r14 and r15
 
 	pos += x64MOV(pos, rRBX, rRDX);
 	pos += x86CALL(pos, rECX);
 
 	// Restore registers
+	pos += x86POP(pos, rESP);
 	pos += x86POP(pos, rESP);
 	pos += x86POP(pos, rESI);
 	pos += x86POP(pos, rEDI);
@@ -1885,6 +1887,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			assert(cmd.argB.type == x86Argument::argPtr);
 			code += x86MOVSXD(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
+
+		case o_neg64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			code += x64NEG(code, cmd.argA.reg);
+			break;
 		case o_add64:
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
@@ -1933,6 +1940,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			assert(cmd.argA.type == x86Argument::argReg);
 			assert(cmd.argB.reg == rECX);
 			code += x64SAR(code, cmd.argA.reg);
+			break;
+		case o_not64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			code += x64NOT(code, cmd.argA.reg);
 			break;
 		case o_and64:
 			assert(cmd.argA.type == x86Argument::argReg);

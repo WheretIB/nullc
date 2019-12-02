@@ -158,6 +158,10 @@ int x86LEA(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int mu
 
 // neg reg
 int x86NEG(unsigned char *stream, x86Reg reg);
+
+// REX.W neg reg
+int x64NEG(unsigned char *stream, x86Reg reg);
+
 // neg dword [index*mult+base+shift]
 int x86NEG(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 
@@ -248,6 +252,10 @@ int x64SAR(unsigned char *stream, x86Reg reg);
 
 // not reg
 int x86NOT(unsigned char *stream, x86Reg reg);
+
+// REX.W not reg
+int x64NOT(unsigned char *stream, x86Reg reg);
+
 // not dword [index*mult+base+shift]
 int x86NOT(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 

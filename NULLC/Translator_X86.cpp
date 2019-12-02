@@ -988,10 +988,26 @@ int x86LEA(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int mu
 // neg reg
 int x86NEG(unsigned char *stream, x86Reg reg)
 {
-	stream[0] = 0xf7;
-	stream[1] = encodeRegister(reg, 3);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0xf7;
+	*stream++ = encodeRegister(reg, 3);
+
+	return int(stream - start);
 }
+
+// REX.W neg reg
+int x64NEG(unsigned char *stream, x86Reg reg)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, reg, rNONE, rNONE);
+	*stream++ = 0xf7;
+	*stream++ = encodeRegister(reg, 3);
+
+	return int(stream - start);
+}
+
 // neg dword [index*mult+base+shift]
 int x86NEG(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -1487,6 +1503,18 @@ int x86NOT(unsigned char *stream, x86Reg reg)
 {
 	unsigned char *start = stream;
 
+	*stream++ = 0xf7;
+	*stream++ = encodeRegister(reg, 2);
+
+	return int(stream - start);
+}
+
+// not reg
+int x64NOT(unsigned char *stream, x86Reg reg)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, reg, rNONE, rNONE);
 	*stream++ = 0xf7;
 	*stream++ = encodeRegister(reg, 2);
 
