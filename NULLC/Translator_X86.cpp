@@ -14,6 +14,8 @@ char	condCode[] = { 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10
 // encode register as address
 unsigned char encodeRegister(x86Reg reg, char spareField)
 {
+	assert(unsigned(spareField) <= 0x7);
+
 	unsigned char mod = 3 << 6;
 	unsigned char spare = spareField << 3;
 	unsigned char RM = regCode[reg];
@@ -22,6 +24,9 @@ unsigned char encodeRegister(x86Reg reg, char spareField)
 
 unsigned char encodeRegister(x86XmmReg dst, x86XmmReg src)
 {
+	assert(unsigned(dst) <= 0x7);
+	assert(unsigned(src) <= 0x7);
+
 	unsigned char mod = 3 << 6;
 	unsigned char spare = (unsigned char)src << 3;
 	unsigned char RM = (unsigned char)dst;
@@ -30,14 +35,19 @@ unsigned char encodeRegister(x86XmmReg dst, x86XmmReg src)
 
 unsigned char encodeRegister(x86Reg dst, x86XmmReg src)
 {
+	assert(unsigned(src) <= 0x7);
+
 	unsigned char mod = 3 << 6;
 	unsigned char spare = (unsigned char)src << 3;
-	unsigned char RM = (unsigned char)dst;
+	unsigned char RM = regCode[dst];
 	return mod | spare | RM;
 }
 
 unsigned char encodeRegister(x86XmmReg dst, char spareField)
 {
+	assert(unsigned(spareField) <= 0x7);
+	assert(unsigned(dst) <= 0x7);
+
 	unsigned char mod = 3 << 6;
 	unsigned char spare = spareField << 3;
 	unsigned char RM = (unsigned char)dst;
@@ -513,7 +523,7 @@ int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src)
 	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0x7e;
-	*stream++ = encodeRegister(src, regCode[dst]);
+	*stream++ = encodeRegister(dst, src);
 
 	return int(stream - start);
 }
