@@ -136,15 +136,15 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
 
-	ExternSourceInfo *exInfo = execID == NULLC_REG_VM ? &NULLC::commonLinker->exRegVmSourceInfo[0] : &NULLC::commonLinker->exVmSourceInfo[0];
-	unsigned int infoSize = execID == NULLC_REG_VM ? NULLC::commonLinker->exRegVmSourceInfo.size() : NULLC::commonLinker->exVmSourceInfo.size();
+	ExternSourceInfo *exInfo = execID == NULLC_REG_VM || execID == NULLC_X86 ? &NULLC::commonLinker->exRegVmSourceInfo[0] : &NULLC::commonLinker->exVmSourceInfo[0];
+	unsigned int infoSize = execID == NULLC_REG_VM || execID == NULLC_X86 ? NULLC::commonLinker->exRegVmSourceInfo.size() : NULLC::commonLinker->exVmSourceInfo.size();
 
 	const char *source = &NULLC::commonLinker->exSource[0];
 
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 	{
-		if(execID == NULLC_REG_VM)
+		if(execID == NULLC_REG_VM || execID == NULLC_X86)
 		{
 			if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
 				funcID = i;
@@ -588,7 +588,7 @@ namespace GC
 
 	void PrintMarker(markerType marker)
 	{
-		GC_DEBUG_PRINT("\tMarker is 0x%2x [", marker);
+		GC_DEBUG_PRINT("\tMarker is 0x%2x [", unsigned(marker));
 
 		const uintptr_t OBJECT_VISIBLE		= 1 << 0;
 		const uintptr_t OBJECT_FREED		= 1 << 1;
@@ -610,7 +610,7 @@ namespace GC
 		if(marker & OBJECT_ARRAY)
 			GC_DEBUG_PRINT(" array");
 
-		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[marker >> 8].offsetToName);
+		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[unsigned(marker >> 8)].offsetToName);
 	}
 
 	char* ReadVmMemoryPointer(void* address)
@@ -1018,7 +1018,7 @@ void MarkUsedBlocks()
 		}else{
 			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
-				if(execID == NULLC_REG_VM)
+				if(execID == NULLC_REG_VM || execID == NULLC_X86)
 				{
 					if(address >= functions[i].regVmAddress && address < (functions[i].regVmAddress + functions[i].regVmCodeSize))
 						funcID = i;

@@ -1620,7 +1620,7 @@ ExternSourceInfo* nullcDebugSourceInfo(unsigned int *count)
 {
 	using namespace NULLC;
 
-	if(nullcGetCurrentExecutor(NULL) == NULLC_REG_VM)
+	if(nullcGetCurrentExecutor(NULL) == NULLC_REG_VM || nullcGetCurrentExecutor(NULL) == NULLC_X86)
 	{
 		if(count && linker)
 			*count = linker->exRegVmSourceInfo.size();
@@ -1873,7 +1873,7 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM || currExec == NULLC_X86)
+	if(currExec == NULLC_VM)
 	{
 		for(unsigned i = 0; i < functionCount; i++)
 		{
@@ -1881,7 +1881,7 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 				return &codeFunctions[i];
 		}
 	}
-	else if(currExec == NULLC_REG_VM)
+	else if(currExec == NULLC_REG_VM || currExec == NULLC_X86)
 	{
 		for(unsigned i = 0; i < functionCount; i++)
 		{
