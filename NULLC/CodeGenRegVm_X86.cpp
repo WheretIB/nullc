@@ -1042,10 +1042,19 @@ void GenCodeCmdMod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP(ctx.ctx, o_cdq);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rRCX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG(ctx.ctx, o_idiv, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEDX); // Store int to target
+
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rECX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
 #else
 	assert(!"not implemented");
 #endif
@@ -1352,10 +1361,15 @@ void GenCodeCmdDivl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP(ctx.ctx, o_cqo);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sDWORD, rRCX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG(ctx.ctx, o_idiv64, rRCX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sDWORD, rREG, cmd.rA * 8, rRAX); // Store int to target
 #else
 	assert(!"not implemented");
 #endif
@@ -1395,10 +1409,15 @@ void GenCodeCmdModl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP(ctx.ctx, o_cqo);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sDWORD, rRCX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG(ctx.ctx, o_idiv64, rRCX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sDWORD, rREG, cmd.rA * 8, rRDX); // Store int to target
 #else
 	assert(!"not implemented");
 #endif

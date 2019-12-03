@@ -1439,18 +1439,37 @@ int x86IMUL(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multip
 // imul src
 int x86IMUL(unsigned char *stream, x86Reg src)
 {
-	stream[0] = 0xf7;
-	stream[1] = encodeRegister(src, 5);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0xf7;
+	*stream++ = encodeRegister(src, 5);
+
+	return int(stream - start);
 }
 
 // idiv src
 int x86IDIV(unsigned char *stream, x86Reg src)
 {
-	stream[0] = 0xf7;
-	stream[1] = encodeRegister(src, 7);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0xf7;
+	*stream++ = encodeRegister(src, 7);
+
+	return int(stream - start);
 }
+
+// REX.W idiv src
+int x64IDIV(unsigned char *stream, x86Reg src)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, src, rNONE, rNONE);
+	*stream++ = 0xf7;
+	*stream++ = encodeRegister(src, 7);
+
+	return int(stream - start);
+}
+
 // idiv dword [index*mult+base+shift]
 int x86IDIV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -1856,10 +1875,25 @@ int x86XCHG(unsigned char *stream, x86Reg regA, x86Reg regB)
 	return 2;
 }
 
+// cdq
 int x86CDQ(unsigned char *stream)
 {
-	stream[0] = 0x99;
-	return 1;
+	unsigned char *start = stream;
+
+	*stream++ = 0x99;
+
+	return int(stream - start);
+}
+
+// cqo
+int x86CQO(unsigned char *stream)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, rNONE, rNONE, rNONE);
+	*stream++ = 0x99;
+
+	return int(stream - start);
 }
 
 // setcc *l

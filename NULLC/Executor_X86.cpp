@@ -1422,6 +1422,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		case o_cdq:
 			code += x86CDQ(code);
 			break;
+		case o_cqo:
+			code += x86CQO(code);
+			break;
 		case o_rep_movsd:
 			code += x86REP_MOVSD(code);
 			break;
@@ -1940,6 +1943,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			assert(cmd.argA.type == x86Argument::argReg);
 			assert(cmd.argB.type == x86Argument::argReg);
 			code += x64IMUL(code, cmd.argA.reg, cmd.argB.reg);
+			break;
+		case o_idiv64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			code += x64IDIV(code, cmd.argA.reg);
 			break;
 		case o_sal64:
 			assert(cmd.argA.type == x86Argument::argReg);

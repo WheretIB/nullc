@@ -119,6 +119,7 @@ enum x86Command
 	o_pop,
 	o_lea,
 	o_cdq,
+	o_cqo,
 	o_rep_movsd,
 	o_rep_stosb,
 	o_rep_stosw,
@@ -226,6 +227,7 @@ enum x86Command
 	o_add64,
 	o_sub64,
 	o_imul64,
+	o_idiv64,
 	o_sal64,
 	o_sar64,
 	o_not64,
@@ -243,7 +245,7 @@ enum x86Command
 };
 
 static const char* x86CmdText[] = 
-{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
+{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "cqo", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
 	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
 	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
@@ -253,7 +255,7 @@ static const char* x86CmdText[] =
 	"int", "label", "use32", "nop", "other",
 
 	"mov",
-	"neg", "add", "sub", "imul", "sal", "sar", "not", "and", "or", "xor", "cmp",
+	"neg", "add", "sub", "imul", "idiv", "sal", "sar", "not", "and", "or", "xor", "cmp",
 	"cvttsd2si64"
 };
 

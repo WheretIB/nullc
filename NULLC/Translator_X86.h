@@ -233,6 +233,10 @@ int x86IMUL(unsigned char *stream, x86Reg src);
 
 // idiv src
 int x86IDIV(unsigned char *stream, x86Reg src);
+
+// REX.W idiv src
+int x64IDIV(unsigned char *stream, x86Reg src);
+
 // idiv dword [index*mult+base+shift]
 int x86IDIV(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 
@@ -327,7 +331,11 @@ int x86XCHG(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
 // xchg regA, regB
 int x86XCHG(unsigned char *stream, x86Reg regA, x86Reg regB);
 
+// cdq
 int x86CDQ(unsigned char *stream);
+
+// cqo
+int x86CQO(unsigned char *stream);
 
 // setcc *l
 int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg);
