@@ -1846,7 +1846,7 @@ void GenCodeCmdGreaterd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
 
-	EMIT_OP_REG_REG(ctx.ctx, o_cmplesd, rXMM1, rXMM0);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmpltsd, rXMM1, rXMM0);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, rXMM1);
 	EMIT_OP_REG_NUM(ctx.ctx, o_and, rEAX, 0x01);
 
@@ -1884,7 +1884,7 @@ void GenCodeCmdGequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
 
-	EMIT_OP_REG_REG(ctx.ctx, o_cmpltsd, rXMM1, rXMM0);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmplesd, rXMM1, rXMM0);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, rXMM1);
 	EMIT_OP_REG_NUM(ctx.ctx, o_and, rEAX, 0x01);
 
