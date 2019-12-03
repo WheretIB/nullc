@@ -1156,8 +1156,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	// Add extra global return if there is none
 	codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
 
-	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
-	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rEBX, ~0u);
+	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
 	EMIT_OP(codeGenCtx->ctx, o_ret);
 
 	instList.resize((int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]));
@@ -1345,7 +1344,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Translate to x86
 	unsigned char *bytecode = binCode + 16 + binCodeSize;
-	unsigned char *code = bytecode + (!binCodeSize ? 0 : -7 /* we must destroy the pop ebp; mov ebx, code; ret; sequence */);
+	unsigned char *code = bytecode +(!binCodeSize ? 0 : -3 /* we must destroy the xor eax, eax; ret; sequence */);
 
 	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
 	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
