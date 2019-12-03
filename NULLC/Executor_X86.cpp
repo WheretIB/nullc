@@ -1005,6 +1005,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		return;
 	}
 
+	if(lastFinalReturn == 0)
+		codeRunning = false;
+
 	lastFinalReturn = prevLastFinalReturn;
 
 	lastResultType = retType;
@@ -1023,9 +1026,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	default:
 		break;
 	}
-
-	if(lastFinalReturn == 0)
-		codeRunning = false;
 }
 
 void ExecutorX86::Stop(const char* error)
