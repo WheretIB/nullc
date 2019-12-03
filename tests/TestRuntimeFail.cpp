@@ -244,9 +244,9 @@ struct Test_testDepthOverflow : TestQueue
 		if(Tests::messageVerbose)
 			printf("Call depth test\r\n");
 
-		if(Tests::testFailureExecutor[1])
+		if(Tests::testFailureExecutor[TEST_TYPE_X86])
 		{
-			testsCount[1]++;
+			testsCount[TEST_TYPE_X86]++;
 			nullcSetExecutor(NULLC_X86);
 			nullres good = nullcBuild(testDepthOverflow);
 			assert(good);
@@ -311,9 +311,9 @@ struct Test_testGlobalOverflow : TestQueue
 		if(Tests::messageVerbose)
 			printf("Global overflow test\r\n");
 
-		if(Tests::testFailureExecutor[1])
+		if(Tests::testFailureExecutor[TEST_TYPE_X86])
 		{
-			testsCount[1]++;
+			testsCount[TEST_TYPE_X86]++;
 			nullcSetExecutor(NULLC_X86);
 			nullres good = nullcBuild(testGlobalOverflow);
 			assert(good);
@@ -368,9 +368,9 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 		nullcSetExecutorStackSize(1024 * 1024);
 		if(Tests::messageVerbose)
 			printf("Depth overflow in unmanaged memory\r\n");
-		if(Tests::testFailureExecutor[1])
+		if(Tests::testFailureExecutor[TEST_TYPE_X86])
 		{
-			testsCount[1]++;
+			testsCount[TEST_TYPE_X86]++;
 			nullcSetExecutor(NULLC_X86);
 			nullres good = nullcBuild(testDepthOverflowUnmanaged);
 			assert(good);
