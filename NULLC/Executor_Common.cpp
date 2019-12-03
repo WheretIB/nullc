@@ -1525,3 +1525,41 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 	}
 }
 #endif
+
+int VmIntPow(int power, int number)
+{
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+	int result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
+}
+
+long long VmLongPow(long long power, long long number)
+{
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+	long long result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
+}

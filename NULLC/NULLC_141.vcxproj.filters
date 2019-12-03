@@ -286,9 +286,6 @@
     <ClInclude Include="Instruction_X86.h">
       <Filter>Executor_X86</Filter>
     </ClInclude>
-    <ClInclude Include="StdLib_X86.h">
-      <Filter>Executor_X86</Filter>
-    </ClInclude>
     <ClInclude Include="Translator_X86.h">
       <Filter>Executor_X86</Filter>
     </ClInclude>

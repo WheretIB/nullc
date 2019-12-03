@@ -2,7 +2,6 @@
 
 #ifdef NULLC_BUILD_X86_JIT
 
-#include "StdLib_X86.h"
 #include "Executor_Common.h"
 #include "StdLib.h"
 

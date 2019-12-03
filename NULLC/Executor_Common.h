@@ -33,3 +33,6 @@ typedef struct DCCallVM_ DCCallVM;
 
 void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, unsigned *callStorage);
 #endif
+
+int VmIntPow(int power, int number);
+long long VmLongPow(long long power, long long number);

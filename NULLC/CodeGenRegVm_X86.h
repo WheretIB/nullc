@@ -76,8 +76,10 @@ struct CodeGenRegVmStateContext
 	void (*callWrap)(CodeGenRegVmStateContext *ctx, unsigned functionId);
 	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
 
+	void (*powWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
 	void (*powdWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
 	void (*moddWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
+	void (*powlWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
 };
 
 class ExecutorX86;

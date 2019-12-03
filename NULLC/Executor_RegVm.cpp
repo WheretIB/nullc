@@ -19,44 +19,6 @@
 
 namespace
 {
-	int vmIntPow(int power, int number)
-	{
-		if(power < 0)
-			return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
-
-		int result = 1;
-		while(power)
-		{
-			if(power & 1)
-			{
-				result *= number;
-				power--;
-			}
-			number *= number;
-			power >>= 1;
-		}
-		return result;
-	}
-
-	long long vmLongPow(long long power, long long number)
-	{
-		if(power < 0)
-			return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
-
-		long long result = 1;
-		while(power)
-		{
-			if(power & 1)
-			{
-				result *= number;
-				power--;
-			}
-			number *= number;
-			power >>= 1;
-		}
-		return result;
-	}
-
 	long long vmLoadLong(void* target)
 	{
 		long long value;
@@ -850,7 +812,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
-			regFilePtr[cmd.rA].intValue = vmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
+			regFilePtr[cmd.rA].intValue = VmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
 			instruction++;
 			BREAK;
 		CASE(rviMod)
@@ -979,7 +941,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
-			regFilePtr[cmd.rA].longValue = vmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
+			regFilePtr[cmd.rA].longValue = VmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
 			instruction++;
 			BREAK;
 		CASE(rviModl)

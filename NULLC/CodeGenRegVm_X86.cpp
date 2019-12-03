@@ -1008,14 +1008,31 @@ void GenCodeCmdDiv(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #endif
 }
 
+void PowWrap(RegVmRegister *regFilePtr, uintptr_t cmdValue)
+{
+	RegVmCmd cmd;
+	memcpy(&cmd, &cmdValue, sizeof(cmd));
+
+	regFilePtr[cmd.rA].intValue = VmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
+}
+
 void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
+	ctx.vmState->powWrap = PowWrap;
 
 #if defined(_M_X64)
-	assert(!"not implemented");
+	uintptr_t cmdValue;
+	memcpy(&cmdValue, &cmd, sizeof(cmdValue));
+
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->powWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRCX, rRBX);
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
+	EMIT_OP_REG_NUM(ctx.ctx, o_sub64, rRSP, 16);
+	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 16);
 #else
 	assert(!"not implemented");
 #endif
@@ -1344,14 +1361,31 @@ void GenCodeCmdDivl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #endif
 }
 
+void PowlWrap(RegVmRegister *regFilePtr, uintptr_t cmdValue)
+{
+	RegVmCmd cmd;
+	memcpy(&cmd, &cmdValue, sizeof(cmd));
+
+	regFilePtr[cmd.rA].longValue = VmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
+}
+
 void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
+	ctx.vmState->powlWrap = PowlWrap;
 
 #if defined(_M_X64)
-	assert(!"not implemented");
+	uintptr_t cmdValue;
+	memcpy(&cmdValue, &cmd, sizeof(cmdValue));
+
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->powlWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRCX, rRBX);
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
+	EMIT_OP_REG_NUM(ctx.ctx, o_sub64, rRSP, 16);
+	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 16);
 #else
 	assert(!"not implemented");
 #endif

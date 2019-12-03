@@ -307,7 +307,6 @@
     <ClInclude Include="CodeGen_X86.h" />
     <ClInclude Include="Executor_X86.h" />
     <ClInclude Include="Instruction_X86.h" />
-    <ClInclude Include="StdLib_X86.h" />
     <ClInclude Include="Trace.h" />
     <ClInclude Include="Translator_X86.h" />
     <ClInclude Include="Linker.h" />
