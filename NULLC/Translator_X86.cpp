@@ -45,9 +45,10 @@ unsigned char encodeRegister(x86XmmReg dst, char spareField)
 }
 
 // encode [base], [base+displacement], [index*multiplier+displacement] and [index*multiplier+base+displacement]
-unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, int displacement, char spareField)
+unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, int displacement, unsigned spareField)
 {
 	assert(index != rESP);
+	assert((unsigned char)spareField == spareField);
 	unsigned char* start = stream;
 
 	bool dispImm8 = (char)(displacement) == displacement && base != rNONE;
@@ -67,7 +68,7 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	if(index == rNONE && base == rNONE)
 		mod = 0;
 
-	unsigned char spare = spareField << 3;
+	unsigned char spare = (unsigned char)spareField << 3;
 
 	unsigned char RM = regCode[rEBP]; // by default, it's simply [displacement]
 	if(base != rNONE)
@@ -526,7 +527,7 @@ int x86MOVSXD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int
 
 	stream += encodeRex(stream, true, dst, index, base);
 	*stream++ = 0x63;
-	stream += encodeAddress(stream, index, multiplier, base, shift, (char)dst);
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[dst]);
 
 	return int(stream - start);
 }

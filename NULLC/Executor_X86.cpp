@@ -1371,16 +1371,27 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			if(cmd.argA.type == x86Argument::argReg)
 			{
 				if(cmd.argB.type == x86Argument::argNumber)
+				{
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.num);
+				}
 				else if(cmd.argB.type == x86Argument::argPtr)
-					code += x86MOV(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				{
+					assert(cmd.argB.ptrSize == sDWORD);
+					code += x86MOV(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
 				else if(cmd.argB.type == x86Argument::argReg)
+				{
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.reg);
+				}
 				else
+				{
 					assert(!"unknown argument");
+				}
 			}
 			else if(cmd.argA.type == x86Argument::argPtr)
 			{
+				assert(cmd.argA.ptrSize != sQWORD);
+
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 				else if(cmd.argB.type == x86Argument::argReg)
@@ -1879,16 +1890,32 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			if(cmd.argA.type != x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argNumber)
+				{
 					code += x64MOV(code, cmd.argA.reg, cmd.argB.num);
+				}
 				else if(cmd.argB.type == x86Argument::argImm64)
+				{
 					code += x64MOV(code, cmd.argA.reg, cmd.argB.imm64Arg);
+				}
 				else if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sQWORD);
+
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-				else
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
 					code += x64MOV(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
 			}
 			else
 			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 				else
