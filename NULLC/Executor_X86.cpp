@@ -2145,13 +2145,11 @@ unsigned int ExecutorX86::GetNextAddress()
 
 void* ExecutorX86::GetStackStart()
 {
-	// TODO: what about temp stack?
 	return vmState.regFileArrayBase;
 }
 
 void* ExecutorX86::GetStackEnd()
 {
-	// TODO: what about temp stack?
 	return vmState.regFileLastTop;
 }
 

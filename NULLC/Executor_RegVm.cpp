@@ -1758,13 +1758,11 @@ unsigned ExecutorRegVm::GetNextAddress()
 
 void* ExecutorRegVm::GetStackStart()
 {
-	// TODO: what about temp stack?
 	return regFileArrayBase;
 }
 
 void* ExecutorRegVm::GetStackEnd()
 {
-	// TODO: what about temp stack?
 	return regFileLastTop;
 }
 
