@@ -18,16 +18,61 @@
 #endif
 
 #ifndef __linux
-	#define WIN32_LEAN_AND_MEAN
-	#include <Windows.h>
+
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+#define UNW_FLAG_NHANDLER 0x0
+#define UNW_FLAG_EHANDLER 0x1
+#define UNW_FLAG_UHANDLER 0x2
+#define UNW_FLAG_CHAININFO 0x4
+
+#define UWOP_PUSH_NONVOL 0
+#define UWOP_PUSH_ALLOC_LARGE 1
+#define UWOP_PUSH_ALLOC_SMALL 2
+#define UWOP_SET_FPREG 3
+#define UWOP_SAVE_NONVOL 4
+#define UWOP_SAVE_NONVOL_FAR 5
+#define UWOP_SAVE_XMM128 6
+#define UWOP_SAVE_XMM128_FAR 7
+#define UWOP_PUSH_MACHFRAME 8
+
+#define UWOP_REGISTER_RAX 0
+#define UWOP_REGISTER_RCX 1
+#define UWOP_REGISTER_RDX 2
+#define UWOP_REGISTER_RBX 3
+#define UWOP_REGISTER_RSP 4
+#define UWOP_REGISTER_RBP 5
+#define UWOP_REGISTER_RSI 6
+#define UWOP_REGISTER_RDI 7
+
+struct UNWIND_CODE
+{
+	unsigned char offsetInPrologue;
+	unsigned char operationCode : 4;
+	unsigned char operationInfo : 4;
+};
+
+struct UNWIND_INFO
+{
+	unsigned char version : 3;
+	unsigned char flags : 5;
+	unsigned char sizeOfProlog;
+	unsigned char countOfCodes;
+	unsigned char frameRegister : 4;
+	unsigned char frameOffset : 4;
+	UNWIND_CODE unwindCode[8];
+};
+
 #else
-	typedef unsigned int DWORD;
-	#include <sys/mman.h>
-	#ifndef PAGESIZE
-		// $ sysconf()
-		#define PAGESIZE 4096
-	#endif
-	#include <signal.h>
+
+#include <sys/mman.h>
+#ifndef PAGESIZE
+	// $ sysconf()
+	#define PAGESIZE 4096
+#endif
+#include <signal.h>
+
 #endif
 
 namespace NULLC
@@ -269,6 +314,11 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	memset(codeLaunchHeader, 0, codeLaunchHeaderSize);
 	oldCodeLaunchHeaderProtect = 0;
 
+	codeLaunchHeaderLength = 0;
+	codeLaunchUnwindOffset = 0;
+	codeLaunchDataLength = 0;
+	codeLaunchWin64UnwindTable = NULL;
+
 	binCode = NULL;
 	binCodeStart = 0;
 	binCodeSize = 0;
@@ -350,6 +400,14 @@ ExecutorX86::~ExecutorX86()
 	if(codeGenCtx)
 		NULLC::destruct(codeGenCtx);
 	codeGenCtx = NULL;
+
+#ifndef __linux
+	if(codeLaunchWin64UnwindTable)
+	{
+		RtlDeleteFunctionTable(codeLaunchWin64UnwindTable);
+		NULLC::dealloc(codeLaunchWin64UnwindTable);
+	}
+#endif
 
 	x86ResetLabels();
 }
@@ -533,13 +591,72 @@ bool ExecutorX86::Initialize()
 #endif
 
 	assert(pos <= codeLaunchHeader + codeLaunchHeaderSize);
+	codeLaunchHeaderLength = unsigned(pos - codeLaunchHeader);
 
 	// Enable execution of code head
 #ifndef __linux
 	VirtualProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeLaunchHeaderProtect);
 
-	static RUNTIME_FUNCTION table[1] = { { 0, unsigned(pos - codeLaunchHeader), 0 } };
-	RtlAddFunctionTable(table, 1, (uintptr_t)codeLaunchHeader);
+#if defined(_M_X64)
+	pos += 16 - unsigned(uintptr_t(pos) % 16);
+
+	codeLaunchUnwindOffset = unsigned(pos - codeLaunchHeader);
+
+	assert(sizeof(UNWIND_CODE) == 2);
+	assert(sizeof(UNWIND_INFO) == 4 + 8 * 2);
+
+	UNWIND_INFO unwindInfo = { 0 };
+
+	unwindInfo.version = 1;
+	unwindInfo.flags = 0; // No EH
+	unwindInfo.sizeOfProlog = 6;
+	unwindInfo.countOfCodes = 6;
+	unwindInfo.frameRegister = 0;
+	unwindInfo.frameOffset = 0;
+
+	unwindInfo.unwindCode[0].offsetInPrologue = 6;
+	unwindInfo.unwindCode[0].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[0].operationInfo = UWOP_REGISTER_RSP;
+
+	unwindInfo.unwindCode[1].offsetInPrologue = 5;
+	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[1].operationInfo = UWOP_REGISTER_RSP;
+
+	unwindInfo.unwindCode[2].offsetInPrologue = 4;
+	unwindInfo.unwindCode[2].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[2].operationInfo = UWOP_REGISTER_RSI;
+
+	unwindInfo.unwindCode[3].offsetInPrologue = 3;
+	unwindInfo.unwindCode[3].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[3].operationInfo = UWOP_REGISTER_RDI;
+
+	unwindInfo.unwindCode[4].offsetInPrologue = 2;
+	unwindInfo.unwindCode[4].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[4].operationInfo = UWOP_REGISTER_RBX;
+
+	unwindInfo.unwindCode[5].offsetInPrologue = 1;
+	unwindInfo.unwindCode[5].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RBP;
+
+	memcpy(pos, &unwindInfo, sizeof(unwindInfo));
+	pos += sizeof(unwindInfo);
+
+	uintptr_t baseAddress = (uintptr_t)codeLaunchHeader;
+
+	codeLaunchWin64UnwindTable = (RUNTIME_FUNCTION*)NULLC::alloc(sizeof(RUNTIME_FUNCTION) * 1);
+
+	codeLaunchWin64UnwindTable[0].BeginAddress = 0;
+	codeLaunchWin64UnwindTable[0].EndAddress = codeLaunchHeaderLength;
+	codeLaunchWin64UnwindTable[0].UnwindData = codeLaunchUnwindOffset;
+
+	// Can't get RtlInstallFunctionTableCallback to work (it's not getting called)
+
+	if(!RtlAddFunctionTable(codeLaunchWin64UnwindTable, 1, baseAddress))
+		printf("Failed to install function table");
+#endif
+
+	codeLaunchDataLength = unsigned(pos - codeLaunchHeader);
+
 #else
 	NULLC::MemProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PROT_READ | PROT_EXEC);
 #endif
