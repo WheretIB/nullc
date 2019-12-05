@@ -919,6 +919,7 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	{
 		assert((char)(num) == num);
 
+		stream += encodeRex(stream, false, rNONE, index, base);
 		*stream++ = 0xc6;
 		stream += encodeAddress(stream, index, multiplier, base, shift, 0);
 		stream += encodeImmByte(stream, (char)num);
@@ -930,6 +931,7 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 		assert((short int)(num) == num);
 
 		*stream++ = 0x66;	// switch to word
+		stream += encodeRex(stream, false, rNONE, index, base);
 		*stream++ = 0xc7;
 
 		stream += encodeAddress(stream, index, multiplier, base, shift, 0);
@@ -968,6 +970,7 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 			return int(stream - start);
 		}
 
+		stream += encodeRex(stream, false, src, index, base);
 		*stream++ = 0x88;
 		stream += encodeAddress(stream, index, multiplier, base, shift, regCode[src]);
 
@@ -976,6 +979,7 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	else if(size == sWORD)
 	{
 		*stream++ = 0x66;	// switch to word
+
 		if(src == rEAX && index == rNONE && base == rNONE)
 		{
 			*stream++ = 0xa3;
@@ -983,6 +987,8 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 
 			return int(stream - start);
 		}
+
+		stream += encodeRex(stream, false, src, index, base);
 		*stream++ = 0x89;
 		stream += encodeAddress(stream, index, multiplier, base, shift, regCode[src]);
 
