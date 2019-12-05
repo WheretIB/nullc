@@ -1061,6 +1061,13 @@ void ExecutorX86::ClearNative()
 
 	oldJumpTargetCount = 0;
 	oldFunctionSize = 0;
+
+	// Create new code generation context
+	if(codeGenCtx)
+		NULLC::destruct(codeGenCtx);
+	codeGenCtx = NULL;
+
+	codeRunning = false;
 }
 
 bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
@@ -1086,11 +1093,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	instList.clear();
 	instList.reserve(64);
 
-	// Create new code generation context
-	if(codeGenCtx)
-		NULLC::destruct(codeGenCtx);
-
-	codeGenCtx = NULLC::construct<CodeGenRegVmContext>();
+	if(!codeGenCtx)
+		codeGenCtx = NULLC::construct<CodeGenRegVmContext>();
 
 	codeGenCtx->x86rvm = this;
 
