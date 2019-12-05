@@ -801,7 +801,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	RegVmReturnType retType = rvrVoid;
 
-	unsigned instructionPos = exLinker->regVmOffsetToGlobalCode;
+	unsigned instructionPos = 0;
 
 	bool errorState = false;
 

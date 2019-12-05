@@ -58,8 +58,6 @@ public:
 	FixedArray<unsigned int, 256>	exRegVmInstructionExecCount;
 	FastVector<unsigned int>		exRegVmConstants;
 
-	unsigned int					regVmOffsetToGlobalCode;
-
 	FastVector<unsigned int>		regVmJumpTargets;
 
 	unsigned int					globalVarSize;

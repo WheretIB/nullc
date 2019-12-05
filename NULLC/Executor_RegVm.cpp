@@ -165,7 +165,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	RegVmReturnType retType = rvrVoid;
 
 	codeBase = &exLinker->exRegVmCode[0];
-	RegVmCmd *instruction = &exLinker->exRegVmCode[exLinker->regVmOffsetToGlobalCode];
+	RegVmCmd *instruction = &exLinker->exRegVmCode[0];
 
 	bool errorState = false;
 

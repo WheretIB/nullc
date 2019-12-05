@@ -82,8 +82,6 @@ void Linker::CleanCode()
 
 	regVmJumpTargets.clear();
 
-	regVmOffsetToGlobalCode = 0;
-
 	globalVarSize = 0;
 
 	typeRemap.clear();
