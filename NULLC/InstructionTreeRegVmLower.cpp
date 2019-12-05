@@ -3530,7 +3530,7 @@ void RegVmFinalizeModule(InstructionRegVmFinalizeContext &ctx, RegVmLoweredModul
 	TRACE_SCOPE("InstructionTreeRegVmLower", "RegVmFinalizeModule");
 
 	ctx.locations.push_back(NULL);
-	ctx.cmds.push_back(RegVmCmd(rviJmp, 0, 0, 0, 0));
+	ctx.cmds.push_back(RegVmCmd(rviJmp, 1, 0, 0, 0));
 
 	for(unsigned i = 0; i < lowModule->functions.size(); i++)
 	{

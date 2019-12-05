@@ -78,7 +78,7 @@ private:
 	FastVector<ExternFuncInfo>	&exFunctions;
 	FastVector<RegVmCmd>		&exRegVmCode;
 	FastVector<unsigned int>	&exRegVmConstants;
-	FastVector<bool>			codeJumpTargets;
+	FastVector<unsigned char>	codeJumpTargets;
 
 	// Data stack
 	unsigned int	minStackSize;

@@ -1253,13 +1253,19 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	if(codeJumpTargets.size())
 		memset(&codeJumpTargets[lastInstructionCount], 0, codeJumpTargets.size() - lastInstructionCount);
 
-	// Mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
-	codeJumpTargets.push_back(false);
+	// Mirror extra global return so that jump to global return can be marked (rviNop, because we will have some custom code)
+	codeJumpTargets.push_back(0);
 	for(unsigned i = oldJumpTargetCount, e = exLinker->regVmJumpTargets.size(); i != e; i++)
-		codeJumpTargets[exLinker->regVmJumpTargets[i]] = true;
+		codeJumpTargets[exLinker->regVmJumpTargets[i]] = 1;
 
-	// Remove cmdNop, because we don't want to generate code for it
-	codeJumpTargets.pop_back();
+	// Mark function locations
+	for(unsigned i = 0, e = exLinker->exFunctions.size(); i != e; i++)
+	{
+		unsigned address = exLinker->exFunctions[i].regVmAddress;
+
+		if(address != ~0u)
+			codeJumpTargets[address] |= 2;
+	}
 
 	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
@@ -1282,7 +1288,30 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 		codeGenCtx->currInstructionPos = pos;
 
+		// Frame setup
+		if((codeJumpTargets[pos] & 6) != 0)
+		{
+#if defined(_M_X64)
+			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+#else
+			assert(!"not implemented");
+#endif
+		}
+
+		if(cmd.code == rviJmp && cmd.rA)
+		{
+			codeJumpTargets[cmd.argument] |= 4;
+
+#if defined(_M_X64)
+			if(pos)
+				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+#else
+			assert(!"not implemented");
+#endif
+		}
+
 		pos++;
+
 		NULLC::cgFuncs[cmd.code](*codeGenCtx, cmd);
 
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
@@ -1291,8 +1320,21 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	// Add extra global return if there is none
 	codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
 
+	if((codeJumpTargets[exRegVmCode.size()] & 6) != 0)
+	{
+#if defined(_M_X64)
+		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+#else
+		assert(!"not implemented");
+#endif
+	}
+
 	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
+	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
 	EMIT_OP(codeGenCtx->ctx, o_ret);
+
+	// Remove rviNop, because we don't want to generate code for it
+	codeJumpTargets.pop_back();
 
 	instList.resize((int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]));
 
@@ -1479,7 +1521,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Translate to x86
 	unsigned char *bytecode = binCode + 16 + binCodeSize;
-	unsigned char *code = bytecode +(!binCodeSize ? 0 : -3 /* we must destroy the xor eax, eax; ret; sequence */);
+	unsigned char *code = bytecode +(!binCodeSize ? 0 : -7 /* we must destroy the xor eax, eax; ret; sequence */);
 
 	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
 	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
@@ -2220,10 +2262,10 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
 
 			output.Print('\n');
-
-			if(instList[i].name == o_other)
-				continue;
 		}
+
+		if(instList[i].name == o_other)
+			continue;
 
 		instList[i].Decode(instBuf);
 
