@@ -17,6 +17,32 @@ const x86Reg rREG = rEBX;
 // TODO: special handling for rvrrConstants
 // TODO: special handling for rvrrRegisters
 
+void GenCodeLoadInt32FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrRegisters)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, rREG, offset); // Load int value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, tempReg, offset); // Load int value
+	}
+}
+
+void GenCodeLoadDoubleFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg targetReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrRegisters)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rREG, offset); // Load double value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, tempReg, offset); // Load double value
+	}
+}
+
 void GenCodeCmdNop(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
@@ -932,8 +958,8 @@ void GenCodeCmdAdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_add, rEAX, rEDX);
 
@@ -952,8 +978,8 @@ void GenCodeCmdSub(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_sub, rEAX, rEDX);
 
@@ -972,8 +998,8 @@ void GenCodeCmdMul(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_imul, rEAX, rEDX);
 
@@ -993,8 +1019,8 @@ void GenCodeCmdDiv(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 	EMIT_OP(ctx.ctx, o_cdq);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rRCX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRCX, rECX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG(ctx.ctx, o_idiv, rECX);
 
@@ -1045,8 +1071,8 @@ void GenCodeCmdMod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 	EMIT_OP(ctx.ctx, o_cdq);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rRCX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRCX, rECX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG(ctx.ctx, o_idiv, rECX);
 
@@ -1066,8 +1092,8 @@ void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
@@ -1089,8 +1115,8 @@ void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
@@ -1112,8 +1138,8 @@ void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
@@ -1135,8 +1161,8 @@ void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
@@ -1158,8 +1184,8 @@ void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
@@ -1181,8 +1207,8 @@ void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
@@ -1238,8 +1264,8 @@ void GenCodeCmdBitAnd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_and, rEAX, rEDX);
 
@@ -1255,8 +1281,8 @@ void GenCodeCmdBitOr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_or, rEAX, rEDX);
 
@@ -1272,8 +1298,8 @@ void GenCodeCmdBitXor(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rRDX, cmd.argument); // Load int rhs value
+
+	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rEAX, rEDX);
 
@@ -1628,8 +1654,9 @@ void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
+
+	GenCodeLoadDoubleFromPointer(ctx, rRAX, rXMM1, cmd.rC, cmd.argument);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_addsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
@@ -1645,8 +1672,9 @@ void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
+
+	GenCodeLoadDoubleFromPointer(ctx, rRAX, rXMM1, cmd.rC, cmd.argument);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_subsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
@@ -1662,8 +1690,9 @@ void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
+
+	GenCodeLoadDoubleFromPointer(ctx, rRAX, rXMM1, cmd.rC, cmd.argument);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_mulsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
@@ -1679,8 +1708,9 @@ void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
+
+	GenCodeLoadDoubleFromPointer(ctx, rRAX, rXMM1, cmd.rC, cmd.argument);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_divsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
