@@ -775,22 +775,33 @@ int x86PUSH(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 6);
 	return 1+asize;
 }
+
 int x86PUSH(unsigned char *stream, x86Reg reg)
 {
-	stream[0] = 0x50 + regCode[reg];
-	return 1;
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, false, rNONE, rNONE, reg);
+	*stream++ = 0x50 + regCode[reg];
+
+	return int(stream - start);
 }
+
 int x86PUSH(unsigned char *stream, int num)
 {
+	unsigned char *start = stream;
+
 	if((char)(num) == num)
 	{
-		stream[0] = 0x6a;
-		stream[1] = (char)(num);
-		return 2;
+		*stream++ = 0x6a;
+		stream += encodeImmByte(stream, (char)num);
+
+		return int(stream - start);
 	}
-	stream[0] = 0x68;
-	*(int*)(stream+1) = num;
-	return 5;
+
+	*stream++ = 0x68;
+	stream += encodeImmDword(stream, num);
+
+	return int(stream - start);
 }
 
 // pop dword [index*mult+base+shift]
@@ -807,11 +818,16 @@ int x86POP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 0);
 	return 1+asize;
 }
+
 // pop reg
 int x86POP(unsigned char *stream, x86Reg reg)
 {
-	stream[0] = 0x58 + regCode[reg];
-	return 1;
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, false, rNONE, rNONE, reg);
+	*stream++ = 0x58 + regCode[reg];
+
+	return int(stream - start);
 }
 
 int x86PUSHAD(unsigned char *stream)
@@ -992,16 +1008,22 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 // movsx dst, *word [index*mult+base+shift]
 int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
+	unsigned char *start = stream;
+
 	assert(size != sDWORD && size != sQWORD);
 	if(base == rNONE && index != rNONE && multiplier == 1)	// swap so if there is only one register, it will be base
 	{
 		base = index;
 		index = rNONE;
 	}
-	stream[0] = 0x0f;
-	stream[1] = size == sBYTE ? 0xbe : 0xbf;
-	unsigned int asize = encodeAddress(stream+2, index, multiplier, base, shift, regCode[dst]);
-	return 2+asize;
+
+	stream += encodeRex(stream, false, dst, index, base);
+
+	*stream++ = 0x0f;
+	*stream++ = size == sBYTE ? 0xbe : 0xbf;
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[dst]);
+
+	return int(stream - start);
 }
 
 // lea dst, [label+shift]

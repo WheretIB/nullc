@@ -525,24 +525,28 @@ bool ExecutorX86::Initialize()
 
 #if defined(_M_X64)
 	// Save non-volatile registers
-	pos += x86PUSH(pos, rEBP);
-	pos += x86PUSH(pos, rEBX);
-	pos += x86PUSH(pos, rEDI);
-	pos += x86PUSH(pos, rESI);
-	pos += x86PUSH(pos, rESP);
-	pos += x86PUSH(pos, rESP);
-	// TODO: save non-volatile r12 r13 r14 and r15
+	pos += x86PUSH(pos, rRBP);
+	pos += x86PUSH(pos, rRBX);
+	pos += x86PUSH(pos, rRDI);
+	pos += x86PUSH(pos, rRSI);
+	pos += x86PUSH(pos, rR12);
+	pos += x86PUSH(pos, rR13);
+	pos += x86PUSH(pos, rR14);
+	pos += x86PUSH(pos, rR15);
 
 	pos += x64MOV(pos, rRBX, rRDX);
+	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
 	pos += x86CALL(pos, rECX);
 
 	// Restore registers
-	pos += x86POP(pos, rESP);
-	pos += x86POP(pos, rESP);
-	pos += x86POP(pos, rESI);
-	pos += x86POP(pos, rEDI);
-	pos += x86POP(pos, rEBX);
-	pos += x86POP(pos, rEBP);
+	pos += x86POP(pos, rR15);
+	pos += x86POP(pos, rR14);
+	pos += x86POP(pos, rR13);
+	pos += x86POP(pos, rR12);
+	pos += x86POP(pos, rRSI);
+	pos += x86POP(pos, rRDI);
+	pos += x86POP(pos, rRBX);
+	pos += x86POP(pos, rRBP);
 
 	pos += x86RET(pos);
 #else
@@ -609,37 +613,47 @@ bool ExecutorX86::Initialize()
 
 	unwindInfo.version = 1;
 	unwindInfo.flags = 0; // No EH
-	unwindInfo.sizeOfProlog = 6;
-	unwindInfo.countOfCodes = 6;
+	unwindInfo.sizeOfProlog = 12;
+	unwindInfo.countOfCodes = 8;
 	unwindInfo.frameRegister = 0;
 	unwindInfo.frameOffset = 0;
 
-	unwindInfo.unwindCode[0].offsetInPrologue = 6;
+	unwindInfo.unwindCode[0].offsetInPrologue = 12;
 	unwindInfo.unwindCode[0].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[0].operationInfo = UWOP_REGISTER_RSP;
+	unwindInfo.unwindCode[0].operationInfo = 15; // r15
 
-	unwindInfo.unwindCode[1].offsetInPrologue = 5;
+	unwindInfo.unwindCode[1].offsetInPrologue = 10;
 	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[1].operationInfo = UWOP_REGISTER_RSP;
+	unwindInfo.unwindCode[1].operationInfo = 14; // r14
 
-	unwindInfo.unwindCode[2].offsetInPrologue = 4;
+	unwindInfo.unwindCode[2].offsetInPrologue = 8;
 	unwindInfo.unwindCode[2].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[2].operationInfo = UWOP_REGISTER_RSI;
+	unwindInfo.unwindCode[2].operationInfo = 13; // r13
 
-	unwindInfo.unwindCode[3].offsetInPrologue = 3;
+	unwindInfo.unwindCode[3].offsetInPrologue = 6;
 	unwindInfo.unwindCode[3].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[3].operationInfo = UWOP_REGISTER_RDI;
+	unwindInfo.unwindCode[3].operationInfo = 12; // r12
 
-	unwindInfo.unwindCode[4].offsetInPrologue = 2;
+	unwindInfo.unwindCode[4].offsetInPrologue = 4;
 	unwindInfo.unwindCode[4].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[4].operationInfo = UWOP_REGISTER_RBX;
+	unwindInfo.unwindCode[4].operationInfo = UWOP_REGISTER_RSI;
 
-	unwindInfo.unwindCode[5].offsetInPrologue = 1;
+	unwindInfo.unwindCode[5].offsetInPrologue = 3;
 	unwindInfo.unwindCode[5].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RBP;
+	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RDI;
+
+	unwindInfo.unwindCode[6].offsetInPrologue = 2;
+	unwindInfo.unwindCode[6].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[6].operationInfo = UWOP_REGISTER_RBX;
+
+	unwindInfo.unwindCode[7].offsetInPrologue = 1;
+	unwindInfo.unwindCode[7].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[7].operationInfo = UWOP_REGISTER_RBP;
 
 	memcpy(pos, &unwindInfo, sizeof(unwindInfo));
 	pos += sizeof(unwindInfo);
+
+	assert(pos <= codeLaunchHeader + codeLaunchHeaderSize);
 
 	uintptr_t baseAddress = (uintptr_t)codeLaunchHeader;
 
