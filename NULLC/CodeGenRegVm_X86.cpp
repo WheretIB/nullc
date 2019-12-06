@@ -936,6 +936,8 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
+	EMIT_REG_READ(ctx.ctx, rRCX);
+	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
 
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
@@ -960,6 +962,8 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Get function id
+	EMIT_REG_READ(ctx.ctx, rRCX);
+	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
 
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
