@@ -36,29 +36,6 @@ enum x86Reg
 static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
 static const char* x64RegText[] = { "none", "rax", "rbx", "rcx", "rdx", "rsp", "rdi", "rbp", "rsi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15" };
 
-enum x87Reg
-{
-	rST0,
-	rST1,
-	rST2,
-	rST3,
-	rST4,
-	rST5,
-	rST6,
-	rST7
-};
-
-static const char* x87RegText[] = {
-	"st0",
-	"st1",
-	"st2",
-	"st3",
-	"st4",
-	"st5",
-	"st6",
-	"st7"
-};
-
 enum x86XmmReg
 {
 	rXMM0,
@@ -142,15 +119,6 @@ enum x86Command
 	o_call,
 	o_ret,
 
-	o_fld,
-	o_fild,
-	o_fistp,
-	o_fst,
-	o_fstp,
-	o_fnstsw,
-	o_fstcw,
-	o_fldcw,
-
 	o_neg,
 	o_add,
 	o_adc,
@@ -176,27 +144,6 @@ enum x86Command
 	o_setne,
 	o_setz,
 	o_setnz,
-
-	o_fadd,
-	o_faddp,
-	o_fmul,
-	o_fmulp,
-	o_fsub,
-	o_fsubr,
-	o_fsubp,
-	o_fsubrp,
-	o_fdiv,
-	o_fdivr,
-	o_fdivrp,
-	o_fchs,
-	o_fprem,
-	o_fcomp,
-	o_fldz,
-	o_fld1,
-	o_fsincos,
-	o_fptan,
-	o_fsqrt,
-	o_frndint,
 
 	o_movss,
 	o_movsd,
@@ -247,10 +194,8 @@ enum x86Command
 static const char* x86CmdText[] = 
 {	"", "mov", "movsx", "push", "pop", "lea", "cdq", "cqo", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
 	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
-	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
-	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
 	"movss", "movsd", "movd", "movsxd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd", "cmpeqsd", "cmpltsd", "cmplesd", "cmpneqsd",
 	"int", "label", "use32", "nop", "other",
 
@@ -268,7 +213,6 @@ struct x86Argument
 		
 		argNumber,
 		argReg,
-		argFpReg,
 		argXmmReg,
 		argPtr,
 		argPtrLabel,
@@ -300,13 +244,6 @@ struct x86Argument
 		Empty();
 		type = argReg;
 		reg = Register;
-	}
-	// fp register
-	explicit x86Argument(x87Reg fpReg)
-	{
-		Empty();
-		type = argFpReg;
-		fpArg = fpReg;
 	}
 	// sse register
 	explicit x86Argument(x86XmmReg xmmReg)
@@ -371,7 +308,6 @@ struct x86Argument
 	{
 		x86Reg reg;				// Used only when type == argReg
 		int num;				// Used only when type == argNumber
-		x87Reg fpArg;			// Used only when type == argFpReg
 		x86XmmReg xmmArg;		// Used only when type == argXmmReg
 		unsigned labelID;		// Used only when type == argLabel or argPtrLabel
 		x86Size	ptrSize;		// Used only when type == argPtr
@@ -395,14 +331,9 @@ struct x86Argument
 			strcpy(curr, (x64 ? x64RegText : x86RegText)[reg]);
 			curr += strlen(curr);
 		}
-		else if(type == argFpReg)
-		{
-			strcpy(curr, x87RegText[fpArg]);
-			curr += strlen(curr);
-		}
 		else if(type == argXmmReg)
 		{
-			strcpy(curr, x86XmmRegText[fpArg]);
+			strcpy(curr, x86XmmRegText[xmmArg]);
 			curr += strlen(curr);
 		}
 		else if(type == argLabel)

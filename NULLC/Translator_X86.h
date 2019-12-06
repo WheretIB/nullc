@@ -6,65 +6,6 @@ void x86ResetLabels();
 void x86ClearLabels();
 void x86ReserveLabels(unsigned int count);
 
-int x86FLDZ(unsigned char* stream);
-int x86FLD1(unsigned char* stream);
-
-// fld st*
-int x86FLD(unsigned char *stream, x87Reg reg);
-// fld *word [index*mult+base+shift]
-int x86FLD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-
-// fild *word [index*mult+base+shift]
-int x86FILD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-
-// fst *word [index*mult+base+shift]
-int x86FST(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-
-// fstp st*
-int x86FSTP(unsigned char *stream, x87Reg dst);
-// fstp *word [index*mult+base+shift]
-int x86FSTP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-
-// fistp *word [index*mult+base+shift]
-int x86FISTP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-
-// fadd *word [index*mult+base+shift]
-int x86FADD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// faddp
-int x86FADDP(unsigned char *stream);
-
-// fsub *word [index*mult+base+shift]
-int x86FSUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fsubr *word [index*mult+base+shift]
-int x86FSUBR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fsubp
-int x86FSUBP(unsigned char *stream);
-// fsubrp
-int x86FSUBRP(unsigned char *stream);
-
-// fmul *word [index*mult+base+shift]
-int x86FMUL(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fmulp
-int x86FMULP(unsigned char *stream);
-
-// fdiv *word [index*mult+base+shift]
-int x86FDIV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fdivr *word [index*mult+base+shift]
-int x86FDIVR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fdivrp
-int x86FDIVRP(unsigned char *stream);
-
-int x86FCHS(unsigned char *stream);
-
-int x86FPREM(unsigned char *stream);
-
-int x86FSQRT(unsigned char *stream);
-
-int x86FSINCOS(unsigned char *stream);
-int x86FPTAN(unsigned char *stream);
-
-int x86FRNDINT(unsigned char *stream);
-
 // movss dword [index*mult+base+shift], xmm*
 int x86MOVSS(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86XmmReg src);
 
@@ -104,17 +45,6 @@ int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86CMPLTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86CMPLESD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86CMPNEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
-
-// fcomp *word [index*mult+base+shift]
-int x86FCOMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-
-// fnstsw ax
-int x86FNSTSW(unsigned char *stream);
-
-// fstcw word [esp]
-int x86FSTCW(unsigned char *stream);
-// fldcw word [esp+shift]
-int x86FLDCW(unsigned char *stream, int shift);
 
 // push dword [index*mult+base+shift]
 int x86PUSH(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);

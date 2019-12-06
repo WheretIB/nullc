@@ -1393,7 +1393,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		}
 	}
 
-#ifdef NULLC_OPTIMIZE_X86
+#if defined(NULLC_OPTIMIZE_X86)
 	// Second optimization pass, just feed generated instructions again
 
 	// Set iterator at beginning
@@ -1428,34 +1428,31 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		switch(inst.argA.type)
 		{
 		case x86Argument::argNone:
-			EMIT_OP(inst.name);
+			EMIT_OP(codeGenCtx->ctx, inst.name);
 			break;
 		case x86Argument::argNumber:
-			EMIT_OP_NUM(inst.name, inst.argA.num);
-			break;
-		case x86Argument::argFPReg:
-			EMIT_OP_FPUREG(inst.name, inst.argA.fpArg);
+			EMIT_OP_NUM(codeGenCtx->ctx, inst.name, inst.argA.num);
 			break;
 		case x86Argument::argLabel:
-			EMIT_OP_LABEL(inst.name, inst.argA.labelID, inst.argB.num, inst.argB.ptrNum);
+			EMIT_OP_LABEL(codeGenCtx->ctx, inst.name, inst.argA.labelID, inst.argB.num, inst.argB.ptrNum);
 			break;
 		case x86Argument::argReg:
 			switch(inst.argB.type)
 			{
 			case x86Argument::argNone:
-				EMIT_OP_REG(inst.name, inst.argA.reg);
+				EMIT_OP_REG(codeGenCtx->ctx, inst.name, inst.argA.reg);
 				break;
 			case x86Argument::argNumber:
-				EMIT_OP_REG_NUM(inst.name, inst.argA.reg, inst.argB.num);
+				EMIT_OP_REG_NUM(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.num);
 				break;
 			case x86Argument::argReg:
-				EMIT_OP_REG_REG(inst.name, inst.argA.reg, inst.argB.reg);
+				EMIT_OP_REG_REG(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.reg);
 				break;
 			case x86Argument::argPtr:
-				EMIT_OP_REG_RPTR(inst.name, inst.argA.reg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
 				break;
 			case x86Argument::argPtrLabel:
-				EMIT_OP_REG_LABEL(inst.name, inst.argA.reg, inst.argB.labelID, inst.argB.ptrNum);
+				EMIT_OP_REG_LABEL(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.labelID, inst.argB.ptrNum);
 				break;
 			default:
 				break;
@@ -1465,13 +1462,13 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			switch(inst.argB.type)
 			{
 			case x86Argument::argNone:
-				EMIT_OP_RPTR(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum);
+				EMIT_OP_RPTR(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum);
 				break;
 			case x86Argument::argNumber:
-				EMIT_OP_RPTR_NUM(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.num);
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.num);
 				break;
 			case x86Argument::argReg:
-				EMIT_OP_RPTR_REG(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
+				EMIT_OP_RPTR_REG(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
 				break;
 			default:
 				break;
@@ -1721,39 +1718,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			code += x86RET(code);
 			break;
 
-		case o_fld:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86FLD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86FLD(code, (x87Reg)cmd.argA.fpArg);
-			break;
-		case o_fild:
-			code += x86FILD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fistp:
-			code += x86FISTP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fst:
-			code += x86FST(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fstp:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				code += x86FSTP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			}else{
-				code += x86FSTP(code, (x87Reg)cmd.argA.fpArg);
-			}
-			break;
-		case o_fnstsw:
-			code += x86FNSTSW(code);
-			break;
-		case o_fstcw:
-			code += x86FSTCW(code);
-			break;
-		case o_fldcw:
-			code += x86FLDCW(code, cmd.argA.ptrNum);
-			break;
-
 		case o_neg:
 			if(cmd.argA.type == x86Argument::argPtr)
 				code += x86NEG(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
@@ -1944,67 +1908,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			break;
 		case o_setnz:
 			code += x86SETcc(code, condNZ, cmd.argA.reg);
-			break;
-
-		case o_fadd:
-			code += x86FADD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_faddp:
-			code += x86FADDP(code);
-			break;
-		case o_fmul:
-			code += x86FMUL(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fmulp:
-			code += x86FMULP(code);
-			break;
-		case o_fsub:
-			code += x86FSUB(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fsubr:
-			code += x86FSUBR(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fsubp:
-			code += x86FSUBP(code);
-			break;
-		case o_fsubrp:
-			code += x86FSUBRP(code);
-			break;
-		case o_fdiv:
-			code += x86FDIV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fdivr:
-			code += x86FDIVR(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fdivrp:
-			code += x86FDIVRP(code);
-			break;
-		case o_fchs:
-			code += x86FCHS(code);
-			break;
-		case o_fprem:
-			code += x86FPREM(code);
-			break;
-		case o_fcomp:
-			code += x86FCOMP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fldz:
-			code += x86FLDZ(code);
-			break;
-		case o_fld1:
-			code += x86FLD1(code);
-			break;
-		case o_fsincos:
-			code += x86FSINCOS(code);
-			break;
-		case o_fptan:
-			code += x86FPTAN(code);
-			break;
-		case o_fsqrt:
-			code += x86FSQRT(code);
-			break;
-		case o_frndint:
-			code += x86FRNDINT(code);
 			break;
 
 		case o_movss:
