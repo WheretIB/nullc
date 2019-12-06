@@ -226,6 +226,7 @@
     <ClCompile Include="InstructionTreeVmGraph.cpp" />
     <ClCompile Include="InstructionTreeVmLower.cpp" />
     <ClCompile Include="InstructionTreeVmLowerGraph.cpp" />
+    <ClCompile Include="Instruction_X86.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseGraph.cpp" />
     <ClCompile Include="ParseTree.cpp" />

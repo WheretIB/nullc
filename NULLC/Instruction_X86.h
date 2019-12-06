@@ -31,6 +31,8 @@ enum x86Reg
 	rR13,
 	rR14,
 	rR15,
+
+	rRegCount
 };
 
 static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
@@ -54,6 +56,8 @@ enum x86XmmReg
 	rXMM13,
 	rXMM14,
 	rXMM15,
+
+	rXmmRegCount
 };
 
 static const char* x86XmmRegText[] = {
@@ -204,6 +208,8 @@ static const char* x86CmdText[] =
 	"cvttsd2si64"
 };
 
+struct CodeGenRegVmStateContext;
+
 struct x86Argument
 {
 	// Argument type
@@ -287,6 +293,13 @@ struct x86Argument
 		type = argImm64;
 		imm64Arg = Num;
 	}
+	// long immediate number
+	explicit x86Argument(unsigned long long Num)
+	{
+		Empty();
+		type = argImm64;
+		imm64Arg = Num;
+	}
 
 	void Empty()
 	{
@@ -318,73 +331,7 @@ struct x86Argument
 	int		ptrMult;
 	int		ptrNum;
 
-	int	Decode(char *buf, bool x64)
-	{
-		char *curr = buf;
-
-		if(type == argNumber)
-		{
-			curr += sprintf(curr, "%d", num);
-		}
-		else if(type == argReg)
-		{
-			strcpy(curr, (x64 ? x64RegText : x86RegText)[reg]);
-			curr += strlen(curr);
-		}
-		else if(type == argXmmReg)
-		{
-			strcpy(curr, x86XmmRegText[xmmArg]);
-			curr += strlen(curr);
-		}
-		else if(type == argLabel)
-		{
-			curr += sprintf(curr, "'0x%x'", labelID);
-		}
-		else if(type == argPtrLabel)
-		{
-			curr += sprintf(curr, "['0x%x'+%d]", labelID, ptrNum);
-		}
-		else if(type == argPtr)
-		{
-			strcpy(curr, x86SizeText[ptrSize]);
-			curr += strlen(curr);
-
-			*curr++ = ' ';
-			*curr++ = '[';
-			*curr = 0;
-
-			if(ptrIndex != rNONE)
-			{
-				strcpy(curr, (x64 ? x64RegText : x86RegText)[ptrIndex]);
-				curr += strlen(curr);
-			}
-
-			if(ptrMult > 1)
-				curr += sprintf(curr, "*%d", ptrMult);
-
-			if(ptrBase != rNONE)
-			{
-				if(ptrIndex != rNONE)
-					curr += sprintf(curr, " + %s", (x64 ? x64RegText : x86RegText)[ptrBase]);
-				else
-					curr += sprintf(curr, "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
-			}
-
-			if(ptrIndex == rNONE && ptrBase == rNONE)
-				curr += sprintf(curr, "%d", ptrNum);
-			else if(ptrNum != 0)
-				curr += sprintf(curr, "%+d", ptrNum);
-
-			*curr++ = ']';
-			*curr = 0;
-		}
-		else if(type == argImm64)
-		{
-			curr += sprintf(curr, "%lld", imm64Arg);
-		}
-
-		return (int)(curr - buf);
-	}
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64);
 };
 
 const int INST_COMMENT = 1;
@@ -425,42 +372,5 @@ struct x86Instruction
 	};
 
 	// returns string length
-	int	Decode(char *buf)
-	{
-		char *curr = buf;
-
-		if(name == o_label)
-		{
-			curr += sprintf(curr, "0x%p:", (void*)(intptr_t)labelID);
-		}
-		else if(name == o_other)
-		{
-			strcpy(curr, "  ; ");
-			curr += strlen(curr);
-
-			strcpy(curr, comment);
-			curr += strlen(curr);
-		}
-		else
-		{
-			strcpy(curr, x86CmdText[name]);
-			curr += strlen(curr);
-		}
-
-		if(name != o_none)
-		{
-			if(argA.type != x86Argument::argNone)
-			{
-				curr += sprintf(curr, " ");
-				curr += argA.Decode(curr, name >= o_mov64 || argA.type == x86Argument::argPtr);
-			}
-			if(argB.type != x86Argument::argNone)
-			{
-				curr += sprintf(curr, ", ");
-				curr += argB.Decode(curr, name >= o_mov64 || argB.type == x86Argument::argPtr);
-			}
-		}
-
-		return (int)(curr-buf);
-	}
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf);
 };

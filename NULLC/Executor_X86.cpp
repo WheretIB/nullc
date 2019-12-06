@@ -2298,7 +2298,7 @@ void ExecutorX86::SaveListing(OutputContext &output)
 		if(instList[i].name == o_other)
 			continue;
 
-		instList[i].Decode(instBuf);
+		instList[i].Decode(vmState, instBuf);
 
 		output.Print(instBuf);
 		output.Print('\n');

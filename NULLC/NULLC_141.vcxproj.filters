@@ -221,6 +221,9 @@
     <ClCompile Include="CodeGenRegVm_X86.cpp">
       <Filter>Executor_X86</Filter>
     </ClCompile>
+    <ClCompile Include="Instruction_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
