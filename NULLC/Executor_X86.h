@@ -87,7 +87,6 @@ private:
 
 	unsigned	lastFinalReturn;
 
-public:
 	CodeGenRegVmStateContext vmState;
 
 	// Native code data
@@ -99,7 +98,6 @@ public:
 	unsigned oldCodeLaunchHeaderProtect;
 	RUNTIME_FUNCTION *codeLaunchWin64UnwindTable;
 
-private:
 	FastVector<x86Instruction, true, true>	instList;
 
 	unsigned char	*binCode;
@@ -120,6 +118,9 @@ public:
 #endif
 
 	FastVector<unsigned char*>	instAddress;
+
+	FastVector<unsigned> globalCodeRanges;
+	FastVector<RUNTIME_FUNCTION> functionWin64UnwindTable;
 
 	void *breakFunctionContext;
 	unsigned (*breakFunction)(void*, unsigned);

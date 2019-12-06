@@ -28,8 +28,8 @@
 #define UNW_FLAG_CHAININFO 0x4
 
 #define UWOP_PUSH_NONVOL 0
-#define UWOP_PUSH_ALLOC_LARGE 1
-#define UWOP_PUSH_ALLOC_SMALL 2
+#define UWOP_ALLOC_LARGE 1
+#define UWOP_ALLOC_SMALL 2
 #define UWOP_SET_FPREG 3
 #define UWOP_SAVE_NONVOL 4
 #define UWOP_SAVE_NONVOL_FAR 5
@@ -53,7 +53,7 @@ struct UNWIND_CODE
 	unsigned char operationInfo : 4;
 };
 
-struct UNWIND_INFO
+struct UNWIND_INFO_ENTRY
 {
 	unsigned char version : 3;
 	unsigned char flags : 5;
@@ -62,6 +62,17 @@ struct UNWIND_INFO
 	unsigned char frameRegister : 4;
 	unsigned char frameOffset : 4;
 	UNWIND_CODE unwindCode[8];
+};
+
+struct UNWIND_INFO_FUNCTION
+{
+	unsigned char version : 3;
+	unsigned char flags : 5;
+	unsigned char sizeOfProlog;
+	unsigned char countOfCodes;
+	unsigned char frameRegister : 4;
+	unsigned char frameOffset : 4;
+	UNWIND_CODE unwindCode[2];
 };
 
 #else
@@ -607,9 +618,9 @@ bool ExecutorX86::Initialize()
 	codeLaunchUnwindOffset = unsigned(pos - codeLaunchHeader);
 
 	assert(sizeof(UNWIND_CODE) == 2);
-	assert(sizeof(UNWIND_INFO) == 4 + 8 * 2);
+	assert(sizeof(UNWIND_INFO_ENTRY) == 4 + 8 * 2);
 
-	UNWIND_INFO unwindInfo = { 0 };
+	UNWIND_INFO_ENTRY unwindInfo = { 0 };
 
 	unwindInfo.version = 1;
 	unwindInfo.flags = 0; // No EH
@@ -1190,6 +1201,20 @@ void ExecutorX86::ClearNative()
 
 	functionAddress.clear();
 
+	globalCodeRanges.clear();
+
+#ifndef __linux
+
+#if defined(_M_X64)
+	// Create function table for unwind information
+	if(!functionWin64UnwindTable.empty())
+		RtlDeleteFunctionTable(functionWin64UnwindTable.data);
+
+	functionWin64UnwindTable.clear();
+#endif
+
+#endif
+
 	oldJumpTargetCount = 0;
 	oldFunctionSize = 0;
 
@@ -1269,6 +1294,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
+	unsigned activeGlobalCodeStart = 0;
+
 	unsigned int pos = lastInstructionCount;
 	while(pos < exRegVmCode.size())
 	{
@@ -1291,6 +1318,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		// Frame setup
 		if((codeJumpTargets[pos] & 6) != 0)
 		{
+			if(codeJumpTargets[pos] & 4)
+				activeGlobalCodeStart = pos;
+
 #if defined(_M_X64)
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
 #else
@@ -1301,6 +1331,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		if(cmd.code == rviJmp && cmd.rA)
 		{
 			codeJumpTargets[cmd.argument] |= 4;
+
+			if(activeGlobalCodeStart != 0)
+				globalCodeRanges.push_back(pos);
+
+			globalCodeRanges.push_back(cmd.argument);
 
 #if defined(_M_X64)
 			if(pos)
@@ -1316,6 +1351,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
+
+	if(activeGlobalCodeStart != 0)
+		globalCodeRanges.push_back(pos);
 
 	// Add extra global return if there is none
 	codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
@@ -1467,7 +1505,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	codeJumpTargets.pop_back();
 
 	bool codeRelocated = false;
-	if((binCodeSize + instList.size() * 6) > binCodeReserved)
+
+	if((binCodeSize + instList.size() * 8) > binCodeReserved)
 	{
 		unsigned int oldBinCodeReserved = binCodeReserved;
 		binCodeReserved = binCodeSize + (instList.size()) * 8 + 4096;	// Average instruction size is 8 bytes.
@@ -2193,9 +2232,91 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		default:
 			assert(!"unknown instruction");
 		}
+
+		assert(code < binCode + binCodeReserved);
+
 		curr++;
 	}
+
 	assert(binCodeSize < binCodeReserved);
+
+#ifndef __linux
+
+#if defined(_M_X64)
+	// Create function table for unwind information
+	if(!functionWin64UnwindTable.empty())
+		RtlDeleteFunctionTable(functionWin64UnwindTable.data);
+
+	functionWin64UnwindTable.clear();
+
+	// Align data block
+	code += 16 - unsigned(uintptr_t(code) % 16);
+
+	// Write the unwind data
+	assert(sizeof(UNWIND_CODE) == 2);
+	assert(sizeof(UNWIND_INFO_FUNCTION) == 4 + 2 * 2);
+
+	UNWIND_INFO_FUNCTION unwindInfo = { 0 };
+
+	unwindInfo.version = 1;
+	unwindInfo.flags = 0; // No EH
+	unwindInfo.sizeOfProlog = 4;
+	unwindInfo.countOfCodes = 1;
+	unwindInfo.frameRegister = 0;
+	unwindInfo.frameOffset = 0;
+
+	unwindInfo.unwindCode[0].offsetInPrologue = 4;
+	unwindInfo.unwindCode[0].operationCode = UWOP_ALLOC_SMALL;
+	unwindInfo.unwindCode[0].operationInfo = (32 - 8) / 8;
+
+	unsigned char *unwindPos = code;
+
+	memcpy(code, &unwindInfo, sizeof(unwindInfo));
+	code += sizeof(unwindInfo);
+
+	assert(code < binCode + binCodeReserved);
+
+	for(unsigned i = 0, e = exLinker->exFunctions.size(); i != e; i++)
+	{
+		ExternFuncInfo &funcInfo = exLinker->exFunctions[i];
+
+		if(funcInfo.regVmAddress != ~0u)
+		{
+			unsigned char *codeStart = instAddress[funcInfo.regVmAddress];
+			unsigned char *codeEnd = instAddress[funcInfo.regVmAddress + funcInfo.regVmCodeSize];
+
+			// Store function info
+			RUNTIME_FUNCTION rtFunc;
+
+			rtFunc.BeginAddress = unsigned(codeStart - binCode);
+			rtFunc.EndAddress = unsigned(codeEnd - binCode);
+			rtFunc.UnwindData = unsigned(unwindPos - binCode);
+
+			functionWin64UnwindTable.push_back(rtFunc);
+		}
+	}
+
+	for(unsigned i = 0, e = globalCodeRanges.size(); i != e; i += 2)
+	{
+		unsigned char *codeStart = instAddress[globalCodeRanges[i]];
+		unsigned char *codeEnd = instAddress[globalCodeRanges[i + 1]] + 4; // add 'sub rsp, 32'
+
+		// Store function info
+		RUNTIME_FUNCTION rtFunc;
+
+		rtFunc.BeginAddress = unsigned(codeStart - binCode);
+		rtFunc.EndAddress = unsigned(codeEnd - binCode);
+		rtFunc.UnwindData = unsigned(unwindPos - binCode);
+
+		functionWin64UnwindTable.push_back(rtFunc);
+	}
+
+	if(!RtlAddFunctionTable(functionWin64UnwindTable.data, functionWin64UnwindTable.size(), uintptr_t(binCode)))
+		assert(!"failed to install function table");
+#endif
+
+#endif
+
 	binCodeSize = (unsigned int)(code - (binCode + 16));
 
 	x86SatisfyJumps(instAddress);
