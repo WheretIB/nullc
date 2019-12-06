@@ -1311,7 +1311,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
 
 		if(codeJumpTargets[pos])
-			SetOptimizationLookBehind(codeGenCtx->ctx,  false);
+			SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
 		codeGenCtx->currInstructionPos = pos;
 
@@ -1393,12 +1393,12 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		}
 	}
 
-#if defined(NULLC_OPTIMIZE_X86)
+#if defined(NULLC_OPTIMIZE_X86) && 0
 	// Second optimization pass, just feed generated instructions again
 
 	// Set iterator at beginning
-	SetLastInstruction(instList.data, instList.data);
-	OptimizationLookBehind(false);
+	codeGenCtx->ctx.SetLastInstruction(instList.data, instList.data);
+	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 	// Now regenerate instructions
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
@@ -1407,24 +1407,25 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		{
 			if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 			{
-				GetLastInstruction()->instID = instList[i].instID;
-				EMIT_OP(o_none);
-				OptimizationLookBehind(false);
+				codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
+				EMIT_OP(codeGenCtx->ctx, o_none);
+				SetOptimizationLookBehind(codeGenCtx->ctx, false);
 			}
 			continue;
 		}
 		// If invalidation flag is set
 		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
-			OptimizationLookBehind(false);
-		GetLastInstruction()->instID = instList[i].instID;
+			SetOptimizationLookBehind(codeGenCtx->ctx, false);
+		codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
 
 		x86Instruction &inst = instList[i];
 		if(inst.name == o_label)
 		{
-			EMIT_LABEL(inst.labelID, inst.argA.num);
-			OptimizationLookBehind(true);
+			EMIT_LABEL(codeGenCtx->ctx, inst.labelID, inst.argA.num);
+			SetOptimizationLookBehind(codeGenCtx->ctx, true);
 			continue;
 		}
+
 		switch(inst.argA.type)
 		{
 		case x86Argument::argNone:
@@ -1455,6 +1456,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				EMIT_OP_REG_LABEL(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.labelID, inst.argB.ptrNum);
 				break;
 			default:
+				assert(!"unknown type");
 				break;
 			}
 			break;
@@ -1471,13 +1473,18 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				EMIT_OP_RPTR_REG(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
 				break;
 			default:
+				assert(!"unknown type");
 				break;
 			}
 			break;
+		default:
+			assert(!"unknown type");
+			break;
 		}
-		OptimizationLookBehind(true);
+
+		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
-	unsigned int currSize = (int)(GetLastInstruction() - &instList[0]);
+	unsigned int currSize = (int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]);
 	for(unsigned int i = currSize; i < instList.size(); i++)
 	{
 		instList[i].name = o_other;
