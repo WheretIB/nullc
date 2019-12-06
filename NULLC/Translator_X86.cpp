@@ -659,7 +659,7 @@ int x64MOV(unsigned char *stream, x86Reg dst, uintptr_t num)
 {
 	unsigned char *start = stream;
 
-	stream += encodeRex(stream, true, dst, rNONE, rNONE);
+	stream += encodeRex(stream, true, rNONE, rNONE, dst);
 	*stream++ = 0xb8 + regCode[dst];
 	stream += encodeImmQword(stream, num);
 
