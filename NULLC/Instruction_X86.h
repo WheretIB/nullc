@@ -288,6 +288,12 @@ struct x86Argument
 		type = argNumber;
 		num = Num;
 	}
+	explicit x86Argument(unsigned Num)
+	{
+		Empty();
+		type = argNumber;
+		num = Num;
+	}
 	// register
 	explicit x86Argument(x86Reg Register)
 	{
