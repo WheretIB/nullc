@@ -2,13 +2,16 @@
 
 #include "CodeGenRegVm_X86.h"
 
-int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64)
+int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize)
 {
 	char *curr = buf;
 
 	if(type == argNumber)
 	{
-		curr += sprintf(curr, "%d", num);
+		if(ctx.vsAsmStyle)
+			curr += sprintf(curr, "%x%s", num, num > 9 ? "h" : "");
+		else
+			curr += sprintf(curr, "%d", num);
 	}
 	else if(type == argReg)
 	{
@@ -30,32 +33,68 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64)
 	}
 	else if(type == argPtr)
 	{
-		strcpy(curr, x86SizeText[ptrSize]);
-		curr += strlen(curr);
+		if(!skipSize)
+		{
+			strcpy(curr, (useMmWord ? x86XmmSizeText : x86SizeText)[ptrSize]);
+			curr += strlen(curr);
 
-		*curr++ = ' ';
+			if(ctx.vsAsmStyle)
+			{
+				*curr++ = ' ';
+				*curr++ = 'p';
+				*curr++ = 't';
+				*curr++ = 'r';
+			}
+
+			*curr++ = ' ';
+		}
+
 		*curr++ = '[';
 		*curr = 0;
 
-		if(ptrIndex != rNONE)
+		if(!ctx.vsAsmStyle)
 		{
-			strcpy(curr, (x64 ? x64RegText : x86RegText)[ptrIndex]);
-			curr += strlen(curr);
-		}
+			if(ptrIndex != rNONE)
+			{
+				strcpy(curr, (x64 ? x64RegText : x86RegText)[ptrIndex]);
+				curr += strlen(curr);
+			}
 
-		if(ptrMult > 1)
-			curr += sprintf(curr, "*%d", ptrMult);
+			if(ptrMult > 1)
+				curr += sprintf(curr, "*%d", ptrMult);
+		}
 
 		if(ptrBase != rNONE)
 		{
-			if(ptrIndex != rNONE)
+			if(ctx.vsAsmStyle)
+				curr += sprintf(curr, "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
+			else if(ptrIndex != rNONE)
 				curr += sprintf(curr, " + %s", (x64 ? x64RegText : x86RegText)[ptrBase]);
 			else
 				curr += sprintf(curr, "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
 		}
 
-		if(ptrIndex == rNONE && ptrBase == rNONE)
+		if(ctx.vsAsmStyle)
+		{
+			if(ptrIndex != rNONE)
+			{
+				if(ptrBase != rNONE)
+					*curr++ = '+';
+
+				strcpy(curr, (x64 ? x64RegText : x86RegText)[ptrIndex]);
+				curr += strlen(curr);
+			}
+
+			if(ptrMult > 1)
+				curr += sprintf(curr, "*%d", ptrMult);
+		}
+
+		if(ptrIndex == rNONE && ptrBase == rNONE && ctx.vsAsmStyle)
+			curr += sprintf(curr, "%x%s", ptrNum, ptrNum > 9 ? "h" : "");
+		else if(ptrIndex == rNONE && ptrBase == rNONE)
 			curr += sprintf(curr, "%d", ptrNum);
+		else if(ptrNum != 0 && ctx.vsAsmStyle)
+			curr += sprintf(curr, "+%x%s", ptrNum, ptrNum > 9 ? "h" : "");
 		else if(ptrNum != 0)
 			curr += sprintf(curr, "%+d", ptrNum);
 
@@ -68,6 +107,8 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64)
 			curr += sprintf(curr, "&vmState");
 		else if(imm64Arg == uintptr_t(&ctx.tempStackArrayBase))
 			curr += sprintf(curr, "&vmState.tempStackArrayBase");
+		else if(ctx.vsAsmStyle)
+			curr += sprintf(curr, "%llXh", imm64Arg);
 		else
 			curr += sprintf(curr, "%lld", imm64Arg);
 	}
@@ -78,6 +119,9 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64)
 int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 {
 	char *curr = buf;
+
+	if(ctx.vsAsmStyle)
+		*curr++ = ' ';
 
 	if(name == o_label)
 	{
@@ -95,20 +139,37 @@ int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 	{
 		strcpy(curr, x86CmdText[name]);
 		curr += strlen(curr);
+
+		if(ctx.vsAsmStyle)
+		{
+			for(unsigned width = (unsigned)strlen(x86CmdText[name]); width < 11; width++)
+				*curr++ = ' ';
+		}
 	}
 
 	if(name != o_none)
 	{
 		if(argA.type != x86Argument::argNone)
 		{
-			curr += sprintf(curr, " ");
-			curr += argA.Decode(ctx, curr, name >= o_mov64 || argA.type == x86Argument::argPtr);
+			*curr++ = ' ';
+			curr += argA.Decode(ctx, curr, name >= o_mov64 || argA.type == x86Argument::argPtr || name == o_movsxd || (name == o_push && sizeof(void*) == 8) || (name == o_pop && sizeof(void*) == 8) || (argB.type == x86Argument::argPtr && argB.ptrSize == sQWORD), argB.type == x86Argument::argXmmReg, name == o_lea);
 		}
 		if(argB.type != x86Argument::argNone)
 		{
-			curr += sprintf(curr, ", ");
-			curr += argB.Decode(ctx, curr, name >= o_mov64 || argB.type == x86Argument::argPtr);
+			*curr++ = ',';
+
+			if(!ctx.vsAsmStyle)
+				*curr++ = ' ';
+
+			curr += argB.Decode(ctx, curr, name >= o_mov64 || argB.type == x86Argument::argPtr || name == o_movsxd || (argA.type == x86Argument::argPtr && argA.ptrSize == sQWORD), argA.type == x86Argument::argXmmReg || name == o_cvttsd2si || name == o_cvttsd2si64, name == o_lea);
 		}
+	}
+
+	if(ctx.vsAsmStyle)
+	{
+		*curr++ = ' ';
+		*curr++ = ' ';
+		*curr = 0;
 	}
 
 	return (int)(curr-buf);

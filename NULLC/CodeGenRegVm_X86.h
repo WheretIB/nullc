@@ -50,6 +50,8 @@ struct CodeGenRegVmStateContext
 		powdWrap = NULL;
 		moddWrap = NULL;
 		powlWrap = NULL;
+
+		vsAsmStyle = false;
 	}
 
 	CodeGenRegVmContext *ctx;
@@ -82,6 +84,8 @@ struct CodeGenRegVmStateContext
 	void (*powdWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
 	void (*moddWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
 	void (*powlWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
+
+	bool vsAsmStyle;
 };
 
 class ExecutorX86;

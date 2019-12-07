@@ -81,6 +81,7 @@ static const char* x86XmmRegText[] = {
 
 enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD };
 static const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
+static const char* x86XmmSizeText[] = { "none", "byte", "word", "dword", "mmword" };
 
 enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
 				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
@@ -205,7 +206,7 @@ static const char* x86CmdText[] =
 
 	"mov",
 	"neg", "add", "sub", "imul", "idiv", "sal", "sar", "not", "and", "or", "xor", "cmp",
-	"cvttsd2si64"
+	"cvttsd2si"
 };
 
 struct CodeGenRegVmStateContext;
@@ -332,7 +333,7 @@ struct x86Argument
 	int		ptrMult;
 	int		ptrNum;
 
-	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64);
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize);
 };
 
 const int INST_COMMENT = 1;
