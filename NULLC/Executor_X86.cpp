@@ -547,6 +547,7 @@ bool ExecutorX86::Initialize()
 
 	pos += x64MOV(pos, rRBX, rRDX);
 	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
 	pos += x86CALL(pos, rECX);
 
 	// Restore registers
