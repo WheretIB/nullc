@@ -360,11 +360,13 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 	switch(op)
 	{
 	case o_ret:
-		ctx.InvalidateState();
-
 		// Mark return registers as implicitly used
 		ctx.ReadRegister(rEAX);
 		ctx.ReadRegister(rEDX);
+
+		ctx.KillUnreadRegisters();
+
+		ctx.InvalidateState();
 		break;
 	case o_rep_movsd:
 		assert(ctx.genReg[rECX].type == x86Argument::argNumber);
@@ -1321,6 +1323,10 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, x86XmmReg reg2)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	ctx.RedirectAddressComputation(index, multiplier, base, shift);
+
+	reg2 = ctx.RedirectRegister(reg2);
+
 	x86Argument arg = x86Argument(size, index, multiplier, base, shift);
 
 	// Register reads
