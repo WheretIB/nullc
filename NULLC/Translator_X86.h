@@ -15,6 +15,9 @@ int x86MOVSD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, 
 // movsd xmm*, qword [index*mult+base+shift]
 int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
+// movsd xmm*, xmm*
+int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+
 // movd reg, xmm*
 int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src);
 

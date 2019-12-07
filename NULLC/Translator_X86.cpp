@@ -307,6 +307,20 @@ int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, i
 	return int(stream - start);
 }
 
+// movsd xmm*, xmm*
+int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x10;
+	*stream++ = encodeRegister(src, dst);
+
+	return int(stream - start);
+}
+
 // movd reg, xmm*
 int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src)
 {

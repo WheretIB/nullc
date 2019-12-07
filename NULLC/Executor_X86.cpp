@@ -1970,8 +1970,13 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			else
 			{
 				assert(cmd.argA.type == x86Argument::argXmmReg);
-				assert(cmd.argB.type == x86Argument::argPtr);
-				code += x86MOVSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+
+				if(cmd.argB.type == x86Argument::argPtr)
+					code += x86MOVSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else if(cmd.argB.type == x86Argument::argXmmReg)
+					code += x86MOVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+				else
+					assert(!"unknown argument");
 			}
 			break;
 		case o_movd:
