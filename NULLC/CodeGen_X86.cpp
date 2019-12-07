@@ -162,6 +162,14 @@ void CodeGenGenericContext::InvalidateAddressValue(x86Argument arg)
 			if(data.ptrIndex == rNONE && data.ptrBase == rR14)
 				continue;
 
+			// If register contains data from register memory block, no memory update using a different register can overwrite it
+			if(data.ptrIndex == rNONE && data.ptrBase == rEBX && (arg.ptrIndex != rNONE || arg.ptrBase != rEBX))
+				continue;
+
+			// If register doesn't contain data from a register memory block, register memory update can't overwrite it
+			if((data.ptrIndex != rNONE || data.ptrBase != rEBX) && arg.ptrIndex == rNONE && arg.ptrBase == rEBX)
+				continue;
+
 			if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
 			{
 				assert(data.ptrSize != sNONE);
@@ -396,6 +404,12 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 		ctx.ReadRegister(rESI);
 		ctx.ReadRegister(rEDI);
 		break;
+	case o_cdq:
+	case o_cqo:
+		ctx.ReadRegister(rEAX);
+
+		ctx.OverwriteRegisterWithUnknown(rEDX);
+		break;
 	case o_use32:
 		break;
 	default:
@@ -549,6 +563,17 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	case o_setz:
 	case o_setnz:
 		ctx.ReadAndModifyRegister(reg1); // Since instruction sets only lower bits, it 'reads' the rest
+		break;
+	case o_idiv:
+	case o_idiv64:
+		ctx.ReadRegister(reg1);
+
+		ctx.ReadAndModifyRegister(rEAX);
+		ctx.ReadAndModifyRegister(rEDX);
+
+		// Implicitly read the result so when one of the registers is killed, it will not remove the instruction (there's room for improvement)
+		ctx.ReadRegister(rEAX);
+		ctx.ReadRegister(rEDX);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1084,21 +1109,45 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	ctx.ReadRegister(base);
 	ctx.ReadRegister(index);
 
+	x86Argument address = x86Argument(size, index, multiplier, base, shift);
+
 	switch(op)
 	{
 	case o_mov:
 	case o_mov64:
-		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+		if(unsigned memIndex = ctx.MemFind(address))
+		{
+			memIndex--;
+
+			if(ctx.memCache[memIndex].value.type == x86Argument::argReg)
+			{
+				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
+				ctx.MemUpdate(memIndex);
+				return;
+			}
+		}
+
+		// If another register contains data from memory
+		for(unsigned i = 0; i < rRegCount; i++)
+		{
+			if(ctx.genReg[i].type == x86Argument::argPtr && ctx.genReg[i] == address)
+			{
+				EMIT_OP_REG_REG(ctx, op, reg1, (x86Reg)i);
+				return;
+			}
+		}
+
+		ctx.MemRead(address);
 
 		// If write doesn't invalidate the source registers, mark that register contains value from source address
 		if(reg1 != base && reg1 != index)
-			ctx.OverwriteRegisterWithValue(reg1, x86Argument(size, index, multiplier, base, shift));
+			ctx.OverwriteRegisterWithValue(reg1, address);
 		else
 			ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
 	case o_movsx:
 	case o_movsxd:
-		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+		ctx.MemRead(address);
 
 		ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
@@ -1115,7 +1164,7 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	case o_and64:
 	case o_or64:
 	case o_xor64:
-		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+		ctx.MemRead(address);
 
 		ctx.ReadAndModifyRegister(reg1);
 		break;
@@ -1234,6 +1283,7 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 			}
 		}
 
+		// If another register contains data from memory
 		for(unsigned i = 0; i < rXmmRegCount; i++)
 		{
 			if(ctx.xmmReg[i].type == x86Argument::argPtr && ctx.xmmReg[i] == newArg)
