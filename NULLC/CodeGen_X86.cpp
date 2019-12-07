@@ -151,19 +151,58 @@ namespace NULLC
 
 	void InvalidateAddressValue(CodeGenGenericContext &ctx, x86Argument arg)
 	{
-		// TODO: it's hard to say which registers might alias, so we invalidate all
-		(void)arg;
+		assert(arg.type == x86Argument::argPtr);
 
 		for(unsigned i = 0; i < rRegCount; i++)
 		{
-			if(genReg[i].type == x86Argument::argPtr)
-				genReg[i].type = x86Argument::argNone;
+			x86Argument &data = genReg[i];
+
+			if(data.type == x86Argument::argPtr)
+			{
+				// Can't rewrite constants
+				if(data.ptrIndex == rNONE && data.ptrBase == rR14)
+					continue;
+
+				if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
+				{
+					assert(data.ptrSize != sNONE);
+					assert(arg.ptrSize != sNONE);
+
+					unsigned dataSize = data.ptrSize == sBYTE ? 1 : (data.ptrSize == sWORD ? 2 : (data.ptrSize == sDWORD ? 4 : 8));
+					unsigned argSize = arg.ptrSize == sBYTE ? 1 : (arg.ptrSize == sWORD ? 2 : (arg.ptrSize == sDWORD ? 4 : 8));
+
+					if(unsigned(arg.ptrNum) + argSize <= unsigned(data.ptrNum) || unsigned(arg.ptrNum) >= unsigned(data.ptrNum) + dataSize)
+						continue;
+				}
+
+				data.type = x86Argument::argNone;
+			}
 		}
 
 		for(unsigned i = 0; i < rXmmRegCount; i++)
 		{
-			if(xmmReg[i].type == x86Argument::argPtr)
-				xmmReg[i].type = x86Argument::argNone;
+			x86Argument &data = xmmReg[i];
+
+			if(data.type == x86Argument::argPtr)
+			{
+				// Can't rewrite constants
+				if(data.ptrIndex == rNONE && data.ptrBase == rR14)
+					continue;
+
+				if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
+				{
+					assert(data.ptrSize == sDWORD || data.ptrSize == sQWORD);
+					assert(data.ptrSize == sDWORD || data.ptrSize == sQWORD);
+
+					unsigned dataSize = data.ptrSize == sDWORD ? 4 : 8;
+					unsigned argSize = arg.ptrSize == sDWORD ? 4 : 8;
+
+					if(unsigned(arg.ptrNum) + argSize <= unsigned(data.ptrNum) || unsigned(arg.ptrNum) >= unsigned(data.ptrNum) + dataSize)
+						continue;
+				}
+
+				data.type = x86Argument::argNone;
+			}
 		}
 	}
 
@@ -627,7 +666,12 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 	switch(op)
 	{
 	case o_mov:
-		// TODO: skip move if the target already contains the same number
+		// Skip move if the target already contains the same number
+		if(NULLC::genReg[reg1].type == x86Argument::argNumber && NULLC::genReg[reg1].num == int(num))
+		{
+			ctx.optimizationCount++;
+			return;
+		}
 
 		NULLC::OverwriteRegisterWithValue(ctx, reg1, x86Argument(num));
 		break;
@@ -711,7 +755,12 @@ void EMIT_OP_REG_NUM64(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, u
 	switch(op)
 	{
 	case o_mov64:
-		// TODO: skip move if the target already contains the same number
+		// Skip move if the target already contains the same number
+		if(NULLC::genReg[reg1].type == x86Argument::argImm64 && NULLC::genReg[reg1].imm64Arg == num)
+		{
+			ctx.optimizationCount++;
+			return;
+		}
 
 		NULLC::OverwriteRegisterWithValue(ctx, reg1, x86Argument(num));
 		break;
@@ -1025,6 +1074,8 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	x86Argument newArg = x86Argument(size, index, multiplier, base, shift);
+
 	switch(op)
 	{
 	case o_cvtss2sd:
@@ -1037,7 +1088,7 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 		break;
 	case o_movss:
 	case o_movsd:
-		if(unsigned memIndex = NULLC::MemFind(x86Argument(size, index, multiplier, base, shift)))
+		if(unsigned memIndex = NULLC::MemFind(newArg))
 		{
 			memIndex--;
 
@@ -1049,11 +1100,20 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 			}
 		}
 
+		for(unsigned i = 0; i < rXmmRegCount; i++)
+		{
+			if(NULLC::xmmReg[i].type == x86Argument::argPtr && NULLC::xmmReg[i] == newArg)
+			{
+				EMIT_OP_REG_REG(ctx, op, reg1, (x86XmmReg)i);
+				return;
+			}
+		}
+
 		// Register reads
 		NULLC::ReadRegister(ctx, base);
 		NULLC::ReadRegister(ctx, index);
 
-		NULLC::OverwriteRegisterWithValue(ctx, reg1, x86Argument(size, index, multiplier, base, shift));
+		NULLC::OverwriteRegisterWithValue(ctx, reg1, newArg);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1112,6 +1172,12 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 {
 #ifdef NULLC_OPTIMIZE_X86
 	NULLC::RedirectAddressComputation(index, multiplier, base, shift);
+
+	if(size == sDWORD && NULLC::genReg[reg2].type == x86Argument::argNumber)
+	{
+		EMIT_OP_RPTR_NUM(ctx, op, size, index, multiplier, base, shift, NULLC::genReg[reg2].num);
+		return;
+	}
 
 	// Register reads
 	NULLC::ReadRegister(ctx, base);
@@ -1284,6 +1350,9 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 
 		// Track target memory value
 		NULLC::MemWrite(arg, x86Argument(num));
+		break;
+	case o_add:
+		NULLC::InvalidateAddressValue(ctx, arg);
 		break;
 	default:
 		assert(!"unknown instruction");
