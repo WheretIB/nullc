@@ -826,6 +826,40 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		ctx.ReadRegister(reg2);
 		ctx.ReadAndModifyRegister(reg1);
 		break;
+	case o_and:
+	case o_or:
+	case o_and64:
+	case o_or64:
+		reg2 = ctx.RedirectRegister(reg2);
+
+		// Load source directly from memory
+		if(ctx.genReg[reg2].type == x86Argument::argPtr)
+		{
+			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
+			return;
+		}
+
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
+		break;
+	case o_imul:
+		// Constant propagation
+		if(ctx.genReg[reg1].type == x86Argument::argNumber && ctx.genReg[reg2].type == x86Argument::argNumber)
+		{
+			EMIT_OP_REG_NUM(ctx, o_mov, reg1, ctx.genReg[reg1].num * ctx.genReg[reg2].num);
+			return;
+		}
+
+		// Load source directly from memory
+		if(ctx.genReg[reg2].type == x86Argument::argPtr)
+		{
+			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
+			return;
+		}
+
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
@@ -863,21 +897,6 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		}
 
 		NULLC::regRead[reg1] = true;
-	}
-	else if(op == o_imul)
-	{
-		if(NULLC::reg[reg1].type == x86Argument::argNumber && NULLC::reg[reg2].type == x86Argument::argNumber)
-		{
-			EMIT_OP_REG_NUM(ctx, o_mov, reg1, NULLC::reg[reg1].num * NULLC::reg[reg2].num);
-			return;
-		}
-		if(NULLC::reg[reg2].type == x86Argument::argPtr)
-		{
-			EMIT_OP_REG_RPTR(ctx, o_imul, reg1, sDWORD, NULLC::reg[reg2].ptrIndex, NULLC::reg[reg2].ptrMult, NULLC::reg[reg2].ptrBase, NULLC::reg[reg2].ptrNum);
-			return;
-		}
-		NULLC::InvalidateDependand(reg1);
-		NULLC::reg[reg1].type = x86Argument::argNone;
 	}
 	else
 	{
@@ -979,6 +998,9 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	case o_lea:
 		ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
+	case o_imul:
+		ctx.ReadAndModifyRegister(reg1);
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
@@ -1071,6 +1093,7 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 	{
 	case o_cvtss2sd:
 	case o_cvtsd2ss:
+	case o_cvtsi2sd:
 		// Register reads
 		ctx.ReadRegister(base);
 		ctx.ReadRegister(index);
