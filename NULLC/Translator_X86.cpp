@@ -1499,6 +1499,20 @@ int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 	return asize + 5;
 }
 
+// and op1, *word [index*mult+base+shift]
+int x86AND(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	unsigned char *start = stream;
+
+	assert(size == sDWORD || size == sQWORD);
+
+	stream += encodeRex(stream, size == sQWORD, op1, index, base);
+	*stream++ = 0x23;
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[op1]);
+
+	return int(stream - start);
+}
+
 // or op1, op2
 int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
@@ -1553,11 +1567,15 @@ int x86OR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86
 // or op1, dword [index*mult+base+shift]
 int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
-	(void)size;
-	assert(size == sDWORD);
-	stream[0] = 0x0B;
-	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op1]);
-	return 1 + asize;
+	unsigned char *start = stream;
+
+	assert(size == sDWORD || size == sQWORD);
+
+	stream += encodeRex(stream, size == sQWORD, op1, index, base);
+	*stream++ = 0x0B;
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[op1]);
+
+	return int(stream - start);
 }
 
 // xor op1, op2
@@ -1602,6 +1620,20 @@ int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 6);
 	*(int*)(stream+1+asize) = num;
 	return 5 + asize;
+}
+
+// xor op1, dword [index*mult+base+shift]
+int x86XOR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	unsigned char *start = stream;
+
+	assert(size == sDWORD || size == sQWORD);
+
+	stream += encodeRex(stream, size == sQWORD, op1, index, base);
+	*stream++ = 0x33;
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[op1]);
+
+	return int(stream - start);
 }
 
 // cmp reg, num

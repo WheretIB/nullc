@@ -2160,18 +2160,57 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			break;
 		case o_and64:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.type == x86Argument::argReg);
-			code += x64AND(code, cmd.argA.reg, cmd.argB.reg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.ptrSize == sQWORD);
+
+				code += x86AND(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x64AND(code, cmd.argA.reg, cmd.argB.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
 			break;
 		case o_or64:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.type == x86Argument::argReg);
-			code += x64OR(code, cmd.argA.reg, cmd.argB.reg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.ptrSize == sQWORD);
+
+				code += x86OR(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x64OR(code, cmd.argA.reg, cmd.argB.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
 			break;
 		case o_xor64:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.type == x86Argument::argReg);
-			code += x64XOR(code, cmd.argA.reg, cmd.argB.reg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.ptrSize == sQWORD);
+
+				code += x86XOR(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x64XOR(code, cmd.argA.reg, cmd.argB.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
 			break;
 		case o_cmp64:
 			assert(cmd.argA.type == x86Argument::argReg);
