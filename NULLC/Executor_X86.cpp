@@ -1847,21 +1847,26 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			if(cmd.argA.type == x86Argument::argPtr)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
-					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+					code += x86AND(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else if(cmd.argB.type == x86Argument::argNumber)
-					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+					code += x86AND(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86AND(code, cmd.argA.reg, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argPtr)
+					code += x86AND(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 				else
 					assert(!"unknown argument");
 			}
 			else
 			{
-				assert(cmd.argA.type == x86Argument::argReg);
-				assert(cmd.argB.type == x86Argument::argReg || cmd.argB.type == x86Argument::argNumber);
-
-				if(cmd.argB.type == x86Argument::argNumber)
-					code += x86AND(code, cmd.argA.reg, cmd.argB.num);
-				else
-					code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
+				assert(!"unknown argument");
 			}
 			break;
 		case o_or:
@@ -1874,18 +1879,20 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				else
 					assert(!"unknown argument");
 			}
-			else if(cmd.argB.type == x86Argument::argPtr)
+			else if(cmd.argA.type == x86Argument::argReg)
 			{
-				assert(cmd.argA.type == x86Argument::argReg);
-
-				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86OR(code, cmd.argA.reg, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argPtr)
+					code += x86OR(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else
+					assert(!"unknown argument");
 			}
 			else
 			{
-				assert(cmd.argA.type == x86Argument::argReg);
-				assert(cmd.argB.type == x86Argument::argReg);
-
-				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
+				assert(!"unknown argument");
 			}
 			break;
 		case o_xor:
@@ -1898,12 +1905,20 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				else
 					assert(!"unknown argument");
 			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86XOR(code, cmd.argA.reg, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argPtr)
+					code += x86XOR(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else
+					assert(!"unknown argument");
+			}
 			else
 			{
-				assert(cmd.argA.type == x86Argument::argReg);
-				assert(cmd.argB.type == x86Argument::argReg);
-
-				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
+				assert(!"unknown argument");
 			}
 			break;
 		case o_cmp:
@@ -2137,8 +2152,21 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			break;
 		case o_imul64:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.type == x86Argument::argReg);
-			code += x64IMUL(code, cmd.argA.reg, cmd.argB.reg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.ptrSize == sQWORD);
+
+				code += x86IMUL(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x64IMUL(code, cmd.argA.reg, cmd.argB.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
 			break;
 		case o_idiv64:
 			assert(cmd.argA.type == x86Argument::argReg);

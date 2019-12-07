@@ -221,6 +221,9 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2);
 // REX.W or op1, op2
 int x64OR(unsigned char *stream, x86Reg op1, x86Reg op2);
 
+// or op1, num
+int x86OR(unsigned char *stream, x86Reg op1, int num);
+
 // or dword [index*mult+base+shift], op2
 int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // or dword [index*mult+base+shift], num
@@ -233,6 +236,9 @@ int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2);
 
 // REX.W xor op1, op2
 int x64XOR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// xor op1, num
+int x86XOR(unsigned char *stream, x86Reg op1, int num);
 
 // xor dword [index*mult+base+shift], op2
 int x86XOR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);

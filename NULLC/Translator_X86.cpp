@@ -536,37 +536,6 @@ int x86CMPNEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 
 	return int(stream - start);
 }
-// fcomp *word [index*mult+base+shift]
-int x86FCOMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
-{
-	assert(size != sBYTE && size != sWORD);
-	stream[0] = size == sDWORD ? 0xd8 : 0xdc;
-	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 3);
-	return 1+asize;
-}
-
-// fnstsw ax
-int x86FNSTSW(unsigned char *stream)
-{
-	stream[0] = 0xdf;
-	stream[1] = 0xe0;
-	return 2;
-}
-
-// target - word [esp]
-int x86FSTCW(unsigned char *stream)
-{
-	stream[0] = 0x9b;
-	stream[1] = 0xd9;
-	unsigned int asize = encodeAddress(stream+2, rNONE, 1, rESP, 0, 7);
-	return 2+asize;
-}
-int x86FLDCW(unsigned char *stream, int shift)
-{
-	stream[0] = 0xd9;
-	unsigned int asize = encodeAddress(stream+1, rNONE, 1, rESP, shift, 5);
-	return 1+asize;
-}
 
 // push dword [index*mult+base+shift]
 int x86PUSH(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
@@ -873,6 +842,7 @@ int x86NEG(unsigned char *stream, x86Reg reg)
 {
 	unsigned char *start = stream;
 
+	stream += encodeRex(stream, false, reg, rNONE, rNONE);
 	*stream++ = 0xf7;
 	*stream++ = encodeRegister(reg, 3);
 
@@ -1458,6 +1428,7 @@ int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
 	unsigned char *start = stream;
 
+	stream += encodeRex(stream, false, op1, op2);
 	*stream++ = 0x21;
 	*stream++ = encodeRegister(op1, regCode[op2]);
 
@@ -1479,17 +1450,23 @@ int x64AND(unsigned char *stream, x86Reg op1, x86Reg op2)
 // and op1, num
 int x86AND(unsigned char *stream, x86Reg op1, int num)
 {
+	unsigned char *start = stream;
+
 	if(op1 == rEAX)
 	{
-		stream[0] = 0x25;
-		memcpy(stream + 1, &num, sizeof(num));
-		return 5;
+		stream += encodeRex(stream, false, rNONE, rNONE, op1);
+		*stream++ = 0x25;
+		stream += encodeImmDword(stream, num);
+
+		return int(stream - start);
 	}
 
-	stream[0] = 0x81;
-	stream[1] = encodeRegister(op1, 4);
-	memcpy(stream + 2, &num, sizeof(num));
-	return 6;
+	stream += encodeRex(stream, false, rNONE, rNONE, op1);
+	*stream++ = 0x81;
+	*stream++ = encodeRegister(op1, 4);
+	stream += encodeImmDword(stream, num);
+
+	return int(stream - start);
 }
 
 // and dword [index*mult+base+shift], op2
@@ -1538,6 +1515,7 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
 	unsigned char *start = stream;
 
+	stream += encodeRex(stream, false, op1, op2);
 	*stream++ = 0x09;
 	*stream++ = encodeRegister(op1, regCode[op2]);
 
@@ -1552,6 +1530,28 @@ int x64OR(unsigned char *stream, x86Reg op1, x86Reg op2)
 	stream += encodeRex(stream, true, op1, op2);
 	*stream++ = 0x09;
 	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
+}
+
+// or op1, num
+int x86OR(unsigned char *stream, x86Reg op1, int num)
+{
+	unsigned char *start = stream;
+
+	if(op1 == rEAX)
+	{
+		stream += encodeRex(stream, false, rNONE, rNONE, op1);
+		*stream++ = 0x0d;
+		stream += encodeImmDword(stream, num);
+
+		return int(stream - start);
+	}
+
+	stream += encodeRex(stream, false, rNONE, rNONE, op1);
+	*stream++ = 0x81;
+	*stream++ = encodeRegister(op1, 4);
+	stream += encodeImmDword(stream, num);
 
 	return int(stream - start);
 }
@@ -1603,6 +1603,7 @@ int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
 	unsigned char *start = stream;
 
+	stream += encodeRex(stream, false, op1, op2);
 	*stream++ = 0x31;
 	*stream++ = encodeRegister(op1, regCode[op2]);
 
@@ -1617,6 +1618,28 @@ int x64XOR(unsigned char *stream, x86Reg op1, x86Reg op2)
 	stream += encodeRex(stream, true, op1, op2);
 	*stream++ = 0x31;
 	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
+}
+
+// xor op1, num
+int x86XOR(unsigned char *stream, x86Reg op1, int num)
+{
+	unsigned char *start = stream;
+
+	if(op1 == rEAX)
+	{
+		stream += encodeRex(stream, false, rNONE, rNONE, op1);
+		*stream++ = 0x35;
+		stream += encodeImmDword(stream, num);
+
+		return int(stream - start);
+	}
+
+	stream += encodeRex(stream, false, rNONE, rNONE, op1);
+	*stream++ = 0x81;
+	*stream++ = encodeRegister(op1, 4);
+	stream += encodeImmDword(stream, num);
 
 	return int(stream - start);
 }
