@@ -1235,17 +1235,24 @@ int x86SBB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 // imul dst, num
 int x86IMUL(unsigned char *stream, x86Reg srcdst, int num)
 {
+	unsigned char *start = stream;
+
 	if((char)(num) == num)
 	{
-		stream[0] = 0x6b;
-		stream[1] = encodeRegister(srcdst, regCode[srcdst]);
-		stream[2] = (char)(num);
-		return 3;
+		stream += encodeRex(stream, false, rNONE, rNONE, srcdst);
+		*stream++ = 0x6b;
+		*stream++ = encodeRegister(srcdst, regCode[srcdst]);
+		stream += encodeImmByte(stream, (char)num);
+
+		return int(stream - start);
 	}
-	stream[0] = 0x69;
-	stream[1] = encodeRegister(srcdst, regCode[srcdst]);
-	*(int*)(stream+2) = num;
-	return 6;
+
+	stream += encodeRex(stream, false, rNONE, rNONE, srcdst);
+	*stream++ = 0x69;
+	*stream++ = encodeRegister(srcdst, regCode[srcdst]);
+	stream += encodeImmDword(stream, num);
+
+	return int(stream - start);
 }
 
 // imul dst, src
@@ -1253,6 +1260,7 @@ int x86IMUL(unsigned char *stream, x86Reg dst, x86Reg src)
 {
 	unsigned char *start = stream;
 
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0xaf;
 	*stream++ = encodeRegister(src, regCode[dst]);
@@ -1274,12 +1282,18 @@ int x64IMUL(unsigned char *stream, x86Reg dst, x86Reg src)
 }
 
 // imul dst, dword [index*mult+base+shift]
-int x86IMUL(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift)
+int x86IMUL(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
-	stream[0] = 0x0f;
-	stream[1] = 0xaf;
-	unsigned int asize = encodeAddress(stream+2, index, multiplier, base, shift, regCode[dst]);
-	return 2+asize;
+	unsigned char *start = stream;
+
+	assert(size == sDWORD || size == sQWORD);
+
+	stream += encodeRex(stream, size == sQWORD, dst, index, base);
+	*stream++ = 0x0f;
+	*stream++ = 0xaf;
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[dst]);
+
+	return int(stream - start);
 }
 
 // imul src
@@ -1287,6 +1301,7 @@ int x86IMUL(unsigned char *stream, x86Reg src)
 {
 	unsigned char *start = stream;
 
+	stream += encodeRex(stream, false, rNONE, rNONE, src);
 	*stream++ = 0xf7;
 	*stream++ = encodeRegister(src, 5);
 
@@ -1298,6 +1313,7 @@ int x86IDIV(unsigned char *stream, x86Reg src)
 {
 	unsigned char *start = stream;
 
+	stream += encodeRex(stream, false, rNONE, rNONE, src);
 	*stream++ = 0xf7;
 	*stream++ = encodeRegister(src, 7);
 
@@ -1319,11 +1335,15 @@ int x64IDIV(unsigned char *stream, x86Reg src)
 // idiv dword [index*mult+base+shift]
 int x86IDIV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
-	(void)size;
-	assert(size == sDWORD);
-	stream[0] = 0xf7;
-	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 7);
-	return 1+asize;
+	unsigned char *start = stream;
+
+	assert(size == sDWORD || size == sQWORD);
+
+	stream += encodeRex(stream, size == sQWORD, rNONE, index, base);
+	*stream++ = 0xf7;
+	stream += encodeAddress(stream, index, multiplier, base, shift, 7);
+
+	return int(stream - start);
 }
 
 // shl reg, shift
