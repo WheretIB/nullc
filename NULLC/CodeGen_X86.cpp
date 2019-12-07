@@ -7,329 +7,304 @@
 #include "Executor_Common.h"
 #include "StdLib.h"
 
-#ifdef NULLC_OPTIMIZE_X86
-namespace NULLC
+unsigned CodeGenGenericContext::MemFind(const x86Argument &address)
 {
-	unsigned lastInvalidate = 0;
-
-	x86Argument genReg[rRegCount];		// Holds current register value
-	unsigned genRegUpdate[rRegCount];	// Marks the last instruction that wrote to the register
-	bool genRegRead[rRegCount];			// Marks if there was a read from the register after last write
-
-	x86Argument xmmReg[rXmmRegCount];		// Holds current register value
-	unsigned xmmRegUpdate[rXmmRegCount];	// Marks the last instruction that wrote to the register
-	bool xmmRegRead[rXmmRegCount];			// Marks if there was a read from the register after last write
-
-	struct MemCache
+	for(unsigned i = 0; i < memoryStateSize; i++)
 	{
-		x86Argument	address;
-		x86Argument value;
-	};
+		MemCache &entry = memCache[i];
 
-	const unsigned memoryStateSize = 16;
-	MemCache memCache[memoryStateSize];
-	unsigned memCacheEntries = 0;
-
-	unsigned MemFind(const x86Argument &address)
-	{
-		for(unsigned i = 0; i < memoryStateSize; i++)
+		if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone &&
+			entry.address.ptrSize == address.ptrSize && entry.address.ptrNum == address.ptrNum &&
+			entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex)
 		{
-			MemCache &entry = memCache[i];
-
-			if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone &&
-				entry.address.ptrSize == address.ptrSize && entry.address.ptrNum == address.ptrNum &&
-				entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex)
-			{
-				return i + 1;
-			}
-		}
-		return 0;
-	}
-
-	void MemWrite(const x86Argument &address, const x86Argument &value)
-	{
-		if(unsigned index = MemFind(address))
-		{
-			index--;
-
-			if(index != 0)
-			{
-				MemCache tmp = memCache[index - 1];
-
-				memCache[index - 1] = memCache[index];
-				memCache[index] = tmp;
-				memCache[index - 1].value = value;
-			}
-			else
-			{
-				memCache[0].value = value;
-			}
-		}
-		else
-		{
-			unsigned newIndex = memCacheEntries < memoryStateSize ? memCacheEntries : memoryStateSize - 1;
-
-			if(memCacheEntries < memoryStateSize)
-				memCacheEntries++;
-			else
-				memCacheEntries = memoryStateSize >> 1;	// Wrap to the middle
-
-			memCache[newIndex].address = address;
-			memCache[newIndex].value = value;
+			return i + 1;
 		}
 	}
+	return 0;
+}
 
-	void MemUpdate(unsigned index)
+void CodeGenGenericContext::MemWrite(const x86Argument &address, const x86Argument &value)
+{
+	if(unsigned index = MemFind(address))
 	{
+		index--;
+
 		if(index != 0)
 		{
 			MemCache tmp = memCache[index - 1];
+
 			memCache[index - 1] = memCache[index];
 			memCache[index] = tmp;
+			memCache[index - 1].value = value;
 		}
-	}
-
-	void InvalidateState()
-	{
-		for(unsigned i = 0; i < rRegCount; i++)
-			genReg[i].type = x86Argument::argNone;
-
-		for(unsigned i = 0; i < rXmmRegCount; i++)
-			xmmReg[i].type = x86Argument::argNone;
-
-		for(unsigned i = 0; i < memoryStateSize; i++)
-			memCache[i].address.type = x86Argument::argNone;
-
-		memCacheEntries = 0;
-	}
-
-	void InvalidateDependand(x86Reg dreg)
-	{
-		for(unsigned i = 0; i < rRegCount; i++)
+		else
 		{
-			if(genReg[i].type == x86Argument::argReg && genReg[i].reg == dreg)
-				genReg[i].type = x86Argument::argPtrLabel;
-
-			if(genReg[i].type == x86Argument::argPtr && (genReg[i].ptrBase == dreg || genReg[i].ptrIndex == dreg))
-				genReg[i].type = x86Argument::argPtrLabel;
-		}
-
-		for(unsigned i = 0; i < memoryStateSize; i++)
-		{
-			MemCache &entry = memCache[i];
-
-			if(entry.address.type == x86Argument::argReg && entry.address.reg == dreg)
-				entry.address.type = x86Argument::argNone;
-
-			if(entry.address.type == x86Argument::argPtr && (entry.address.ptrBase == dreg || entry.address.ptrIndex == dreg))
-				entry.address.type = x86Argument::argNone;
-
-			if(entry.value.type == x86Argument::argReg && entry.value.reg == dreg)
-				entry.value.type = x86Argument::argNone;
-
-			if(entry.value.type == x86Argument::argPtr && (entry.value.ptrBase == dreg || entry.value.ptrIndex == dreg))
-				entry.value.type = x86Argument::argNone;
+			memCache[0].value = value;
 		}
 	}
-
-	void InvalidateDependand(x86XmmReg dreg)
+	else
 	{
-		for(unsigned i = 0; i < rXmmRegCount; i++)
-		{
-			if(xmmReg[i].type == x86Argument::argReg && xmmReg[i].xmmArg == dreg)
-				xmmReg[i].type = x86Argument::argPtrLabel;
-		}
+		unsigned newIndex = memCacheEntries < memoryStateSize ? memCacheEntries : memoryStateSize - 1;
 
-		for(unsigned i = 0; i < memoryStateSize; i++)
-		{
-			MemCache &entry = memCache[i];
+		if(memCacheEntries < memoryStateSize)
+			memCacheEntries++;
+		else
+			memCacheEntries = memoryStateSize >> 1;	// Wrap to the middle
 
-			if(entry.value.type == x86Argument::argXmmReg && entry.value.xmmArg == dreg)
-				entry.value.type = x86Argument::argNone;
-		}
-	}
-
-	void InvalidateAddressValue(CodeGenGenericContext &ctx, x86Argument arg)
-	{
-		assert(arg.type == x86Argument::argPtr);
-
-		for(unsigned i = 0; i < rRegCount; i++)
-		{
-			x86Argument &data = genReg[i];
-
-			if(data.type == x86Argument::argPtr)
-			{
-				// Can't rewrite constants
-				if(data.ptrIndex == rNONE && data.ptrBase == rR14)
-					continue;
-
-				if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
-				{
-					assert(data.ptrSize != sNONE);
-					assert(arg.ptrSize != sNONE);
-
-					unsigned dataSize = data.ptrSize == sBYTE ? 1 : (data.ptrSize == sWORD ? 2 : (data.ptrSize == sDWORD ? 4 : 8));
-					unsigned argSize = arg.ptrSize == sBYTE ? 1 : (arg.ptrSize == sWORD ? 2 : (arg.ptrSize == sDWORD ? 4 : 8));
-
-					if(unsigned(arg.ptrNum) + argSize <= unsigned(data.ptrNum) || unsigned(arg.ptrNum) >= unsigned(data.ptrNum) + dataSize)
-						continue;
-				}
-
-				data.type = x86Argument::argNone;
-			}
-		}
-
-		for(unsigned i = 0; i < rXmmRegCount; i++)
-		{
-			x86Argument &data = xmmReg[i];
-
-			if(data.type == x86Argument::argPtr)
-			{
-				// Can't rewrite constants
-				if(data.ptrIndex == rNONE && data.ptrBase == rR14)
-					continue;
-
-				if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
-				{
-					assert(data.ptrSize == sDWORD || data.ptrSize == sQWORD);
-					assert(data.ptrSize == sDWORD || data.ptrSize == sQWORD);
-
-					unsigned dataSize = data.ptrSize == sDWORD ? 4 : 8;
-					unsigned argSize = arg.ptrSize == sDWORD ? 4 : 8;
-
-					if(unsigned(arg.ptrNum) + argSize <= unsigned(data.ptrNum) || unsigned(arg.ptrNum) >= unsigned(data.ptrNum) + dataSize)
-						continue;
-				}
-
-				data.type = x86Argument::argNone;
-			}
-		}
-	}
-
-	void KillUnreadRegisters(CodeGenGenericContext &ctx)
-	{
-		for(unsigned i = 0; i < rRegCount; i++)
-			EMIT_REG_KILL(ctx, x86Reg(i));
-
-		for(unsigned i = 0; i < rXmmRegCount; i++)
-			EMIT_REG_KILL(ctx, x86XmmReg(i));
-	}
-
-	void ReadRegister(CodeGenGenericContext &ctx, x86Reg reg)
-	{
-		genRegRead[reg] = true;
-	}
-
-	void ReadRegister(CodeGenGenericContext &ctx, x86XmmReg reg)
-	{
-		xmmRegRead[reg] = true;
-	}
-
-	void OverwriteRegisterWithValue(CodeGenGenericContext &ctx, x86Reg reg, x86Argument arg)
-	{
-		// Destination is updated
-		EMIT_REG_KILL(ctx, reg);
-		InvalidateDependand(reg);
-
-		genReg[reg] = arg;
-		genRegUpdate[reg] = unsigned(ctx.x86Op - ctx.x86Base);
-		genRegRead[reg] = false;
-	}
-
-	void OverwriteRegisterWithUnknown(CodeGenGenericContext &ctx, x86Reg reg)
-	{
-		// Destination is updated
-		EMIT_REG_KILL(ctx, reg);
-		InvalidateDependand(reg);
-
-		genReg[reg].type = x86Argument::argNone;
-		genRegUpdate[reg] = unsigned(ctx.x86Op - ctx.x86Base);
-		genRegRead[reg] = false;
-	}
-
-	void OverwriteRegisterWithValue(CodeGenGenericContext &ctx, x86XmmReg reg, x86Argument arg)
-	{
-		// Destination is updated
-		EMIT_REG_KILL(ctx, reg);
-		InvalidateDependand(reg);
-
-		xmmReg[reg] = arg;
-		xmmRegUpdate[reg] = unsigned(ctx.x86Op - ctx.x86Base);
-		xmmRegRead[reg] = false;
-	}
-
-	void OverwriteRegisterWithUnknown(CodeGenGenericContext &ctx, x86XmmReg reg)
-	{
-		// Destination is updated
-		EMIT_REG_KILL(ctx, reg);
-		InvalidateDependand(reg);
-
-		xmmReg[reg].type = x86Argument::argNone;
-		xmmRegUpdate[reg] = unsigned(ctx.x86Op - ctx.x86Base);
-		xmmRegRead[reg] = false;
-	}
-
-	void ReadAndModifyRegister(CodeGenGenericContext &ctx, x86Reg reg)
-	{
-		NULLC::InvalidateDependand(reg);
-
-		genReg[reg].type = x86Argument::argNone;
-		genRegUpdate[reg] = unsigned(ctx.x86Op - ctx.x86Base);
-		genRegRead[reg] = false;
-	}
-
-	void ReadAndModifyRegister(CodeGenGenericContext &ctx, x86XmmReg reg)
-	{
-		NULLC::InvalidateDependand(reg);
-
-		xmmReg[reg].type = x86Argument::argNone;
-		xmmRegUpdate[reg] = unsigned(ctx.x86Op - ctx.x86Base);
-		xmmRegRead[reg] = false;
-	}
-
-	void RedirectAddressComputation(x86Reg &index, int &multiplier, x86Reg &base, unsigned &shift)
-	{
-		// If selected base register contains the value of another register, use it instead
-		if(genReg[base].type == x86Argument::argReg)
-		{
-			base = NULLC::genReg[base].reg;
-		}
-
-		// If the base register contains a known value, add it to the offset and don't use the base register
-		if(genReg[base].type == x86Argument::argNumber)
-		{
-			shift += NULLC::genReg[base].num;
-			base = rNONE;
-		}
-
-		// If the index register contains a known value, add it to the offset and don't use the index register
-		if(genReg[index].type == x86Argument::argNumber)
-		{
-			shift += NULLC::genReg[index].num * multiplier;
-			multiplier = 1;
-			index = rNONE;
-		}
-	}
-
-	x86Reg RedirectRegister(x86Reg reg)
-	{
-		// If a register holds another 
-		if(genReg[reg].type == x86Argument::argReg)
-			return genReg[reg].reg;
-
-		return reg;
-	}
-
-	x86XmmReg RedirectRegister(x86XmmReg reg)
-	{
-		// If a register holds another 
-		if(NULLC::xmmReg[reg].type == x86Argument::argXmmReg)
-			return NULLC::xmmReg[reg].xmmArg;
-
-		return reg;
+		memCache[newIndex].address = address;
+		memCache[newIndex].value = value;
 	}
 }
-#endif
+
+void CodeGenGenericContext::MemUpdate(unsigned index)
+{
+	if(index != 0)
+	{
+		MemCache tmp = memCache[index - 1];
+		memCache[index - 1] = memCache[index];
+		memCache[index] = tmp;
+	}
+}
+
+void CodeGenGenericContext::InvalidateState()
+{
+	for(unsigned i = 0; i < rRegCount; i++)
+		genReg[i].type = x86Argument::argNone;
+
+	for(unsigned i = 0; i < rXmmRegCount; i++)
+		xmmReg[i].type = x86Argument::argNone;
+
+	for(unsigned i = 0; i < memoryStateSize; i++)
+		memCache[i].address.type = x86Argument::argNone;
+
+	memCacheEntries = 0;
+}
+
+void CodeGenGenericContext::InvalidateDependand(x86Reg dreg)
+{
+	for(unsigned i = 0; i < rRegCount; i++)
+	{
+		if(genReg[i].type == x86Argument::argReg && genReg[i].reg == dreg)
+			genReg[i].type = x86Argument::argPtrLabel;
+
+		if(genReg[i].type == x86Argument::argPtr && (genReg[i].ptrBase == dreg || genReg[i].ptrIndex == dreg))
+			genReg[i].type = x86Argument::argPtrLabel;
+	}
+
+	for(unsigned i = 0; i < memoryStateSize; i++)
+	{
+		MemCache &entry = memCache[i];
+
+		if(entry.address.type == x86Argument::argReg && entry.address.reg == dreg)
+			entry.address.type = x86Argument::argNone;
+
+		if(entry.address.type == x86Argument::argPtr && (entry.address.ptrBase == dreg || entry.address.ptrIndex == dreg))
+			entry.address.type = x86Argument::argNone;
+
+		if(entry.value.type == x86Argument::argReg && entry.value.reg == dreg)
+			entry.value.type = x86Argument::argNone;
+
+		if(entry.value.type == x86Argument::argPtr && (entry.value.ptrBase == dreg || entry.value.ptrIndex == dreg))
+			entry.value.type = x86Argument::argNone;
+	}
+}
+
+void CodeGenGenericContext::InvalidateDependand(x86XmmReg dreg)
+{
+	for(unsigned i = 0; i < rXmmRegCount; i++)
+	{
+		if(xmmReg[i].type == x86Argument::argReg && xmmReg[i].xmmArg == dreg)
+			xmmReg[i].type = x86Argument::argPtrLabel;
+	}
+
+	for(unsigned i = 0; i < memoryStateSize; i++)
+	{
+		MemCache &entry = memCache[i];
+
+		if(entry.value.type == x86Argument::argXmmReg && entry.value.xmmArg == dreg)
+			entry.value.type = x86Argument::argNone;
+	}
+}
+
+void CodeGenGenericContext::InvalidateAddressValue(x86Argument arg)
+{
+	assert(arg.type == x86Argument::argPtr);
+
+	for(unsigned i = 0; i < rRegCount; i++)
+	{
+		x86Argument &data = genReg[i];
+
+		if(data.type == x86Argument::argPtr)
+		{
+			// Can't rewrite constants
+			if(data.ptrIndex == rNONE && data.ptrBase == rR14)
+				continue;
+
+			if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
+			{
+				assert(data.ptrSize != sNONE);
+				assert(arg.ptrSize != sNONE);
+
+				unsigned dataSize = data.ptrSize == sBYTE ? 1 : (data.ptrSize == sWORD ? 2 : (data.ptrSize == sDWORD ? 4 : 8));
+				unsigned argSize = arg.ptrSize == sBYTE ? 1 : (arg.ptrSize == sWORD ? 2 : (arg.ptrSize == sDWORD ? 4 : 8));
+
+				if(unsigned(arg.ptrNum) + argSize <= unsigned(data.ptrNum) || unsigned(arg.ptrNum) >= unsigned(data.ptrNum) + dataSize)
+					continue;
+			}
+
+			data.type = x86Argument::argNone;
+		}
+	}
+
+	for(unsigned i = 0; i < rXmmRegCount; i++)
+	{
+		x86Argument &data = xmmReg[i];
+
+		if(data.type == x86Argument::argPtr)
+		{
+			// Can't rewrite constants
+			if(data.ptrIndex == rNONE && data.ptrBase == rR14)
+				continue;
+
+			if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
+			{
+				assert(data.ptrSize == sDWORD || data.ptrSize == sQWORD);
+				assert(data.ptrSize == sDWORD || data.ptrSize == sQWORD);
+
+				unsigned dataSize = data.ptrSize == sDWORD ? 4 : 8;
+				unsigned argSize = arg.ptrSize == sDWORD ? 4 : 8;
+
+				if(unsigned(arg.ptrNum) + argSize <= unsigned(data.ptrNum) || unsigned(arg.ptrNum) >= unsigned(data.ptrNum) + dataSize)
+					continue;
+			}
+
+			data.type = x86Argument::argNone;
+		}
+	}
+}
+
+void CodeGenGenericContext::KillUnreadRegisters()
+{
+	for(unsigned i = 0; i < rRegCount; i++)
+		EMIT_REG_KILL(*this, x86Reg(i));
+
+	for(unsigned i = 0; i < rXmmRegCount; i++)
+		EMIT_REG_KILL(*this, x86XmmReg(i));
+}
+
+void CodeGenGenericContext::ReadRegister(x86Reg reg)
+{
+	genRegRead[reg] = true;
+}
+
+void CodeGenGenericContext::ReadRegister(x86XmmReg reg)
+{
+	xmmRegRead[reg] = true;
+}
+
+void CodeGenGenericContext::OverwriteRegisterWithValue(x86Reg reg, x86Argument arg)
+{
+	// Destination is updated
+	EMIT_REG_KILL(*this, reg);
+	InvalidateDependand(reg);
+
+	genReg[reg] = arg;
+	genRegUpdate[reg] = unsigned(x86Op - x86Base);
+	genRegRead[reg] = false;
+}
+
+void CodeGenGenericContext::OverwriteRegisterWithUnknown(x86Reg reg)
+{
+	// Destination is updated
+	EMIT_REG_KILL(*this, reg);
+	InvalidateDependand(reg);
+
+	genReg[reg].type = x86Argument::argNone;
+	genRegUpdate[reg] = unsigned(x86Op - x86Base);
+	genRegRead[reg] = false;
+}
+
+void CodeGenGenericContext::OverwriteRegisterWithValue(x86XmmReg reg, x86Argument arg)
+{
+	// Destination is updated
+	EMIT_REG_KILL(*this, reg);
+	InvalidateDependand(reg);
+
+	xmmReg[reg] = arg;
+	xmmRegUpdate[reg] = unsigned(x86Op - x86Base);
+	xmmRegRead[reg] = false;
+}
+
+void CodeGenGenericContext::OverwriteRegisterWithUnknown(x86XmmReg reg)
+{
+	// Destination is updated
+	EMIT_REG_KILL(*this, reg);
+	InvalidateDependand(reg);
+
+	xmmReg[reg].type = x86Argument::argNone;
+	xmmRegUpdate[reg] = unsigned(x86Op - x86Base);
+	xmmRegRead[reg] = false;
+}
+
+void CodeGenGenericContext::ReadAndModifyRegister(x86Reg reg)
+{
+	InvalidateDependand(reg);
+
+	genReg[reg].type = x86Argument::argNone;
+	genRegUpdate[reg] = unsigned(x86Op - x86Base);
+	genRegRead[reg] = false;
+}
+
+void CodeGenGenericContext::ReadAndModifyRegister(x86XmmReg reg)
+{
+	InvalidateDependand(reg);
+
+	xmmReg[reg].type = x86Argument::argNone;
+	xmmRegUpdate[reg] = unsigned(x86Op - x86Base);
+	xmmRegRead[reg] = false;
+}
+
+void CodeGenGenericContext::RedirectAddressComputation(x86Reg &index, int &multiplier, x86Reg &base, unsigned &shift)
+{
+	// If selected base register contains the value of another register, use it instead
+	if(genReg[base].type == x86Argument::argReg)
+	{
+		base = genReg[base].reg;
+	}
+
+	// If the base register contains a known value, add it to the offset and don't use the base register
+	if(genReg[base].type == x86Argument::argNumber)
+	{
+		shift += genReg[base].num;
+		base = rNONE;
+	}
+
+	// If the index register contains a known value, add it to the offset and don't use the index register
+	if(genReg[index].type == x86Argument::argNumber)
+	{
+		shift += genReg[index].num * multiplier;
+		multiplier = 1;
+		index = rNONE;
+	}
+}
+
+x86Reg CodeGenGenericContext::RedirectRegister(x86Reg reg)
+{
+	// If a register holds another 
+	if(genReg[reg].type == x86Argument::argReg)
+		return genReg[reg].reg;
+
+	return reg;
+}
+
+x86XmmReg CodeGenGenericContext::RedirectRegister(x86XmmReg reg)
+{
+	// If a register holds another 
+	if(xmmReg[reg].type == x86Argument::argXmmReg)
+		return xmmReg[reg].xmmArg;
+
+	return reg;
+}
 
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text)
 {
@@ -346,7 +321,7 @@ void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned labelID, int invalidate)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	if(invalidate)
-		NULLC::InvalidateState();
+		ctx.InvalidateState();
 #else
 	(void)invalidate;
 #endif
@@ -365,21 +340,21 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 	switch(op)
 	{
 	case o_ret:
-		NULLC::InvalidateState();
+		ctx.InvalidateState();
 
 		// Mark return registers as implicitly used
-		NULLC::ReadRegister(ctx, rEAX);
-		NULLC::ReadRegister(ctx, rEDX);
+		ctx.ReadRegister(rEAX);
+		ctx.ReadRegister(rEDX);
 		break;
 	case o_rep_movsd:
-		assert(NULLC::genReg[rECX].type == x86Argument::argNumber);
+		assert(ctx.genReg[rECX].type == x86Argument::argNumber);
 
-		NULLC::InvalidateState();
+		ctx.InvalidateState();
 
 		// Implicit register reads
-		NULLC::ReadRegister(ctx, rECX);
-		NULLC::ReadRegister(ctx, rESI);
-		NULLC::ReadRegister(ctx, rEDI);
+		ctx.ReadRegister(rECX);
+		ctx.ReadRegister(rESI);
+		ctx.ReadRegister(rEDI);
 		break;
 	case o_use32:
 		break;
@@ -430,15 +405,15 @@ void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, 
 		if(invalidate)
 		{
 			if(longJump)
-				NULLC::KillUnreadRegisters(ctx);
+				ctx.KillUnreadRegisters();
 
-			NULLC::InvalidateState();
+			ctx.InvalidateState();
 		}
 		break;
 	case o_call:
-		NULLC::KillUnreadRegisters(ctx);
+		ctx.KillUnreadRegisters();
 
-		NULLC::InvalidateState();
+		ctx.InvalidateState();
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -493,11 +468,11 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	switch(op)
 	{
 	case o_call:
-		NULLC::ReadRegister(ctx, reg1);
+		ctx.ReadRegister(reg1);
 
-		NULLC::KillUnreadRegisters(ctx);
+		ctx.KillUnreadRegisters();
 
-		NULLC::InvalidateState();
+		ctx.InvalidateState();
 		break;
 	case o_setl:
 	case o_setg:
@@ -507,7 +482,7 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	case o_setne:
 	case o_setz:
 	case o_setnz:
-		NULLC::ReadAndModifyRegister(ctx, reg1); // Since instruction sets only lower bits, it 'reads' the rest
+		ctx.ReadAndModifyRegister(reg1); // Since instruction sets only lower bits, it 'reads' the rest
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -607,11 +582,11 @@ void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num)
 void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::RedirectAddressComputation(index, multiplier, base, shift);
+	ctx.RedirectAddressComputation(index, multiplier, base, shift);
 
 	// Register reads
-	NULLC::ReadRegister(ctx, base);
-	NULLC::ReadRegister(ctx, index);
+	ctx.ReadRegister(base);
+	ctx.ReadRegister(index);
 
 	switch(op)
 	{
@@ -685,13 +660,13 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 	{
 	case o_mov:
 		// Skip move if the target already contains the same number
-		if(NULLC::genReg[reg1].type == x86Argument::argNumber && NULLC::genReg[reg1].num == int(num))
+		if(ctx.genReg[reg1].type == x86Argument::argNumber && ctx.genReg[reg1].num == int(num))
 		{
 			ctx.optimizationCount++;
 			return;
 		}
 
-		NULLC::OverwriteRegisterWithValue(ctx, reg1, x86Argument(num));
+		ctx.OverwriteRegisterWithValue(reg1, x86Argument(num));
 		break;
 	case o_add:
 	case o_sub:
@@ -701,11 +676,11 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 		if(reg1 == rESP)
 			break;
 
-		NULLC::ReadAndModifyRegister(ctx, reg1);
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_imul:
 	case o_imul64:
-		NULLC::ReadAndModifyRegister(ctx, reg1);
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -774,13 +749,13 @@ void EMIT_OP_REG_NUM64(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, u
 	{
 	case o_mov64:
 		// Skip move if the target already contains the same number
-		if(NULLC::genReg[reg1].type == x86Argument::argImm64 && NULLC::genReg[reg1].imm64Arg == num)
+		if(ctx.genReg[reg1].type == x86Argument::argImm64 && ctx.genReg[reg1].imm64Arg == num)
 		{
 			ctx.optimizationCount++;
 			return;
 		}
 
-		NULLC::OverwriteRegisterWithValue(ctx, reg1, x86Argument(num));
+		ctx.OverwriteRegisterWithValue(reg1, x86Argument(num));
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -805,42 +780,42 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		if(reg1 == reg2)
 		{
 			EMIT_REG_KILL(ctx, reg1);
-			NULLC::InvalidateDependand(reg1);
+			ctx.InvalidateDependand(reg1);
 		}
 		else
 		{
-			NULLC::ReadRegister(ctx, reg2);
-			NULLC::ReadAndModifyRegister(ctx, reg1);
+			ctx.ReadRegister(reg2);
+			ctx.ReadAndModifyRegister(reg1);
 		}
 		break;
 	case o_cmp:
 	case o_test:
-		reg2 = NULLC::RedirectRegister(reg2);
+		reg2 = ctx.RedirectRegister(reg2);
 
-		NULLC::ReadRegister(ctx, reg1);
-		NULLC::ReadRegister(ctx, reg2);
+		ctx.ReadRegister(reg1);
+		ctx.ReadRegister(reg2);
 		break;
 	case o_add:
 	case o_sub:
-		reg2 = NULLC::RedirectRegister(reg2);
+		reg2 = ctx.RedirectRegister(reg2);
 
-		if(NULLC::genReg[reg2].type == x86Argument::argNumber)
+		if(ctx.genReg[reg2].type == x86Argument::argNumber)
 		{
-			EMIT_OP_REG_NUM(ctx, op, reg1, NULLC::genReg[reg2].num);
+			EMIT_OP_REG_NUM(ctx, op, reg1, ctx.genReg[reg2].num);
 			return;
 		}
 
 		// TODO: if there is a known number in destination, we can perform a lea
 
-		NULLC::ReadRegister(ctx, reg2);
-		NULLC::ReadAndModifyRegister(ctx, reg1);
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_add64:
 	case o_sub64:
-		reg2 = NULLC::RedirectRegister(reg2);
+		reg2 = ctx.RedirectRegister(reg2);
 
-		NULLC::ReadRegister(ctx, reg2);
-		NULLC::ReadAndModifyRegister(ctx, reg1);
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_sal:
 	case o_sar:
@@ -848,8 +823,8 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 	case o_sar64:
 		// Can't redirect source register since the instruction has it fixed to ecx
 
-		NULLC::ReadRegister(ctx, reg2);
-		NULLC::ReadAndModifyRegister(ctx, reg1);
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -926,7 +901,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 	switch(op)
 	{
 	case o_movsd:
-		reg2 = NULLC::RedirectRegister(reg2);
+		reg2 = ctx.RedirectRegister(reg2);
 
 		// Skip self-assignment
 		if(reg1 == reg2)
@@ -935,7 +910,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 			return;
 		}
 
-		NULLC::OverwriteRegisterWithValue(ctx, reg1, x86Argument(reg2));
+		ctx.OverwriteRegisterWithValue(reg1, x86Argument(reg2));
 		break;
 	case o_addsd:
 	case o_subsd:
@@ -945,10 +920,10 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 	case o_cmpltsd:
 	case o_cmplesd:
 	case o_cmpneqsd:
-		reg2 = NULLC::RedirectRegister(reg2);
+		reg2 = ctx.RedirectRegister(reg2);
 
-		NULLC::ReadRegister(ctx, reg2);
-		NULLC::ReadAndModifyRegister(ctx, reg1);
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -984,11 +959,11 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::RedirectAddressComputation(index, multiplier, base, shift);
+	ctx.RedirectAddressComputation(index, multiplier, base, shift);
 
 	// Register reads
-	NULLC::ReadRegister(ctx, base);
-	NULLC::ReadRegister(ctx, index);
+	ctx.ReadRegister(base);
+	ctx.ReadRegister(index);
 
 	switch(op)
 	{
@@ -997,12 +972,12 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	case o_mov64:
 		// If write doesn't invalidate the source registers, mark that register contains value from source address
 		if(reg1 != base && reg1 != index)
-			NULLC::OverwriteRegisterWithValue(ctx, reg1, x86Argument(size, index, multiplier, base, shift));
+			ctx.OverwriteRegisterWithValue(reg1, x86Argument(size, index, multiplier, base, shift));
 		else
-			NULLC::OverwriteRegisterWithUnknown(ctx, reg1);
+			ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
 	case o_lea:
-		NULLC::OverwriteRegisterWithUnknown(ctx, reg1);
+		ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1097,28 +1072,28 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 	case o_cvtss2sd:
 	case o_cvtsd2ss:
 		// Register reads
-		NULLC::ReadRegister(ctx, base);
-		NULLC::ReadRegister(ctx, index);
+		ctx.ReadRegister(base);
+		ctx.ReadRegister(index);
 
-		NULLC::OverwriteRegisterWithUnknown(ctx, reg1);
+		ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
 	case o_movss:
 	case o_movsd:
-		if(unsigned memIndex = NULLC::MemFind(newArg))
+		if(unsigned memIndex = ctx.MemFind(newArg))
 		{
 			memIndex--;
 
-			if(NULLC::memCache[memIndex].value.type == x86Argument::argXmmReg)
+			if(ctx.memCache[memIndex].value.type == x86Argument::argXmmReg)
 			{
-				EMIT_OP_REG_REG(ctx, op, reg1, NULLC::memCache[memIndex].value.xmmArg);
-				NULLC::MemUpdate(memIndex);
+				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.xmmArg);
+				ctx.MemUpdate(memIndex);
 				return;
 			}
 		}
 
 		for(unsigned i = 0; i < rXmmRegCount; i++)
 		{
-			if(NULLC::xmmReg[i].type == x86Argument::argPtr && NULLC::xmmReg[i] == newArg)
+			if(ctx.xmmReg[i].type == x86Argument::argPtr && ctx.xmmReg[i] == newArg)
 			{
 				EMIT_OP_REG_REG(ctx, op, reg1, (x86XmmReg)i);
 				return;
@@ -1126,10 +1101,10 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 		}
 
 		// Register reads
-		NULLC::ReadRegister(ctx, base);
-		NULLC::ReadRegister(ctx, index);
+		ctx.ReadRegister(base);
+		ctx.ReadRegister(index);
 
-		NULLC::OverwriteRegisterWithValue(ctx, reg1, newArg);
+		ctx.OverwriteRegisterWithValue(reg1, newArg);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1171,8 +1146,8 @@ void EMIT_OP_REG_ADDR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 void EMIT_OP_REG_LABEL(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, unsigned labelID, unsigned shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::InvalidateDependand(reg1);
-	NULLC::genReg[reg1].type = x86Argument::argNone;
+	ctx.InvalidateDependand(reg1);
+	ctx.genReg[reg1].type = x86Argument::argNone;
 #endif
 
 	ctx.x86Op->name = op;
@@ -1187,20 +1162,20 @@ void EMIT_OP_REG_LABEL(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, u
 void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, x86Reg reg2)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::RedirectAddressComputation(index, multiplier, base, shift);
+	ctx.RedirectAddressComputation(index, multiplier, base, shift);
 
-	reg2 = NULLC::RedirectRegister(reg2);
+	reg2 = ctx.RedirectRegister(reg2);
 
-	if(size == sDWORD && NULLC::genReg[reg2].type == x86Argument::argNumber)
+	if(size == sDWORD && ctx.genReg[reg2].type == x86Argument::argNumber)
 	{
-		EMIT_OP_RPTR_NUM(ctx, op, size, index, multiplier, base, shift, NULLC::genReg[reg2].num);
+		EMIT_OP_RPTR_NUM(ctx, op, size, index, multiplier, base, shift, ctx.genReg[reg2].num);
 		return;
 	}
 
 	// Register reads
-	NULLC::ReadRegister(ctx, base);
-	NULLC::ReadRegister(ctx, index);
-	NULLC::ReadRegister(ctx, reg2);
+	ctx.ReadRegister(base);
+	ctx.ReadRegister(index);
+	ctx.ReadRegister(reg2);
 
 	x86Argument arg = x86Argument(size, index, multiplier, base, shift);
 
@@ -1210,15 +1185,15 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	case o_mov64:
 		assert(base != rESP);
 
-		NULLC::InvalidateAddressValue(ctx, arg);
+		ctx.InvalidateAddressValue(arg);
 
 		// If the source register value was unknown, now we know that it is stored at destination memory location
 		// If the source register value contained a value from an address, now we know that it contains the value from the destination address
-		if(NULLC::genReg[reg2].type == x86Argument::argNone || NULLC::genReg[reg2].type == x86Argument::argPtr)
-			NULLC::genReg[reg2] = arg;
+		if(ctx.genReg[reg2].type == x86Argument::argNone || ctx.genReg[reg2].type == x86Argument::argPtr)
+			ctx.genReg[reg2] = arg;
 
 		// Track target memory value
-		NULLC::MemWrite(arg, x86Argument(reg2));
+		ctx.MemWrite(arg, x86Argument(reg2));
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1274,9 +1249,9 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	x86Argument arg = x86Argument(size, index, multiplier, base, shift);
 
 	// Register reads
-	NULLC::ReadRegister(ctx, base);
-	NULLC::ReadRegister(ctx, index);
-	NULLC::ReadRegister(ctx, reg2);
+	ctx.ReadRegister(base);
+	ctx.ReadRegister(index);
+	ctx.ReadRegister(reg2);
 
 	switch(op)
 	{
@@ -1284,15 +1259,15 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	case o_movsd:
 		assert(base != rESP);
 
-		NULLC::InvalidateAddressValue(ctx, arg);
+		ctx.InvalidateAddressValue(arg);
 
 		// If the source register value was unknown, now we know that it is stored at destination memory location
 		// If the source register value contained a value from an address, now we know that it contains the value from the destination address
-		if(NULLC::genReg[reg2].type == x86Argument::argNone || NULLC::genReg[reg2].type == x86Argument::argPtr)
-			NULLC::genReg[reg2] = arg;
+		if(ctx.genReg[reg2].type == x86Argument::argNone || ctx.genReg[reg2].type == x86Argument::argPtr)
+			ctx.genReg[reg2] = arg;
 
 		// Track target memory value
-		NULLC::MemWrite(arg, x86Argument(reg2));
+		ctx.MemWrite(arg, x86Argument(reg2));
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1334,13 +1309,13 @@ void EMIT_OP_ADDR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, u
 void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, unsigned num)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::RedirectAddressComputation(index, multiplier, base, shift);
+	ctx.RedirectAddressComputation(index, multiplier, base, shift);
 
 	x86Argument arg = x86Argument(size, index, multiplier, base, shift);
 
 	// Register reads
-	NULLC::ReadRegister(ctx, base);
-	NULLC::ReadRegister(ctx, index);
+	ctx.ReadRegister(base);
+	ctx.ReadRegister(index);
 
 	switch(op)
 	{
@@ -1348,13 +1323,13 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	case o_mov64:
 		assert(base != rESP);
 
-		NULLC::InvalidateAddressValue(ctx, arg);
+		ctx.InvalidateAddressValue(arg);
 
 		// Track target memory value
-		NULLC::MemWrite(arg, x86Argument(num));
+		ctx.MemWrite(arg, x86Argument(num));
 		break;
 	case o_add:
-		NULLC::InvalidateAddressValue(ctx, arg);
+		ctx.InvalidateAddressValue(arg);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1400,7 +1375,7 @@ void EMIT_REG_READ(CodeGenGenericContext &ctx, x86Reg reg)
 	(void)reg;
 
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::ReadRegister(ctx, reg);
+	ctx.ReadRegister(reg);
 #endif
 }
 
@@ -1410,7 +1385,7 @@ void EMIT_REG_READ(CodeGenGenericContext &ctx, x86XmmReg reg)
 	(void)reg;
 
 #ifdef NULLC_OPTIMIZE_X86
-	NULLC::ReadRegister(ctx, reg);
+	ctx.ReadRegister(reg);
 #endif
 }
 
@@ -1418,9 +1393,9 @@ void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86Reg reg)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	// Eliminate dead stores to the register
-	if(!NULLC::genRegRead[reg] && NULLC::genReg[reg].type != x86Argument::argNone)
+	if(!ctx.genRegRead[reg] && ctx.genReg[reg].type != x86Argument::argNone)
 	{
-		x86Instruction *curr = NULLC::genRegUpdate[reg] + ctx.x86Base;
+		x86Instruction *curr = ctx.genRegUpdate[reg] + ctx.x86Base;
 
 		if(curr->name != o_none)
 		{
@@ -1430,7 +1405,7 @@ void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86Reg reg)
 	}
 
 	// Invalidate the register value
-	NULLC::genReg[reg].type = x86Argument::argNone;
+	ctx.genReg[reg].type = x86Argument::argNone;
 #else
 	(void)ctx;
 	(void)reg;
@@ -1441,9 +1416,9 @@ void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86XmmReg reg)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	// Eliminate dead stores to the register
-	if(!NULLC::xmmRegRead[reg] && NULLC::xmmReg[reg].type != x86Argument::argNone)
+	if(!ctx.xmmRegRead[reg] && ctx.xmmReg[reg].type != x86Argument::argNone)
 	{
-		x86Instruction *curr = NULLC::xmmRegUpdate[reg] + ctx.x86Base;
+		x86Instruction *curr = ctx.xmmRegUpdate[reg] + ctx.x86Base;
 
 		if(curr->name != o_none)
 		{
@@ -1453,7 +1428,7 @@ void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86XmmReg reg)
 	}
 
 	// Invalidate the register value
-	NULLC::xmmReg[reg].type = x86Argument::argNone;
+	ctx.xmmReg[reg].type = x86Argument::argNone;
 #else
 	(void)ctx;
 	(void)reg;
@@ -1467,12 +1442,12 @@ void SetOptimizationLookBehind(CodeGenGenericContext &ctx, bool allow)
 #ifdef NULLC_OPTIMIZE_X86
 	if(!allow)
 	{
-		NULLC::KillUnreadRegisters(ctx);
+		ctx.KillUnreadRegisters();
 
-		NULLC::lastInvalidate = unsigned(ctx.x86Op - ctx.x86Base);
-		NULLC::InvalidateState();
+		ctx.lastInvalidate = unsigned(ctx.x86Op - ctx.x86Base);
+		ctx.InvalidateState();
 
-		NULLC::genRegUpdate[rESP] = 0;
+		ctx.genRegUpdate[rESP] = 0;
 	}
 #endif
 }

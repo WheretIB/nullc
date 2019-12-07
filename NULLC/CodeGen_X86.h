@@ -12,6 +12,20 @@ struct CodeGenGenericContext
 
 		x86LookBehind = true;
 
+		lastInvalidate = 0;
+
+		memset(genReg, 0, rRegCount * sizeof(x86Argument));
+		memset(genRegUpdate, 0, rRegCount * sizeof(unsigned));
+		memset(genRegRead, 0, rRegCount * sizeof(bool));
+
+		memset(xmmReg, 0, rXmmRegCount * sizeof(x86Argument));
+		memset(xmmRegUpdate, 0, rXmmRegCount * sizeof(unsigned));
+		memset(xmmRegRead, 0, rXmmRegCount * sizeof(bool));
+
+		memset(memCache, 0, memoryStateSize * sizeof(MemCache));
+
+		memCacheEntries = 0;
+
 		optimizationCount = 0;
 	}
 
@@ -26,10 +40,58 @@ struct CodeGenGenericContext
 		return x86Op;
 	}
 
+	unsigned MemFind(const x86Argument &address);
+
+	void MemWrite(const x86Argument &address, const x86Argument &value);
+	void MemUpdate(unsigned index);
+
+	void InvalidateState();
+	void InvalidateDependand(x86Reg dreg);
+	void InvalidateDependand(x86XmmReg dreg);
+	void InvalidateAddressValue(x86Argument arg);
+
+	void KillUnreadRegisters();
+
+	void ReadRegister(x86Reg reg);
+	void ReadRegister(x86XmmReg reg);
+
+	void OverwriteRegisterWithValue(x86Reg reg, x86Argument arg);
+	void OverwriteRegisterWithUnknown(x86Reg reg);
+	void OverwriteRegisterWithValue(x86XmmReg reg, x86Argument arg);
+	void OverwriteRegisterWithUnknown(x86XmmReg reg);
+
+	void ReadAndModifyRegister(x86Reg reg);
+	void ReadAndModifyRegister(x86XmmReg reg);
+
+	void RedirectAddressComputation(x86Reg &index, int &multiplier, x86Reg &base, unsigned &shift);
+
+	x86Reg RedirectRegister(x86Reg reg);
+	x86XmmReg RedirectRegister(x86XmmReg reg);
+
 	x86Instruction *x86Op;
 	x86Instruction *x86Base;
 
 	bool x86LookBehind;
+
+	unsigned lastInvalidate;
+
+	x86Argument genReg[rRegCount];		// Holds current register value
+	unsigned genRegUpdate[rRegCount];	// Marks the last instruction that wrote to the register
+	bool genRegRead[rRegCount];			// Marks if there was a read from the register after last write
+
+	x86Argument xmmReg[rXmmRegCount];		// Holds current register value
+	unsigned xmmRegUpdate[rXmmRegCount];	// Marks the last instruction that wrote to the register
+	bool xmmRegRead[rXmmRegCount];			// Marks if there was a read from the register after last write
+
+	struct MemCache
+	{
+		x86Argument	address;
+		x86Argument value;
+	};
+
+	static const unsigned memoryStateSize = 16;
+	MemCache memCache[memoryStateSize];
+	unsigned memCacheEntries;
 
 	unsigned optimizationCount;
 };
