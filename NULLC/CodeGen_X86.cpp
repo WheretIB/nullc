@@ -1,7 +1,5 @@
 #include "CodeGen_X86.h"
 
-//#undef NULLC_OPTIMIZE_X86
-
 #ifdef NULLC_BUILD_X86_JIT
 
 #include "Executor_Common.h"
@@ -457,6 +455,8 @@ void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, 
 	case o_jp:
 	case o_jge:
 	case o_jle:
+		// TODO: setcc followed by test and jump can be optimized
+
 		if(invalidate)
 		{
 			if(longJump)
@@ -473,36 +473,6 @@ void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, 
 	default:
 		assert(!"unknown instruction");
 	}
-
-	// Optimize conditional jumps
-	/*if((ctx.x86Op - ctx.x86Base - 2) > (int)NULLC::lastInvalidate && ctx.x86Op[-2].name >= o_setl && ctx.x86Op[-2].name <= o_setnz && ctx.x86Op[-1].name == o_test &&
-		ctx.x86Op[-2].argA.reg == ctx.x86Op[-1].argA.reg && ctx.x86Op[-1].argA.reg == ctx.x86Op[-1].argB.reg)
-	{
-		if(op == o_jz)
-		{
-			static const x86Command jump[] = { o_jge, o_jle, o_jg, o_jl, o_jne, o_je, o_jnz, o_jz };
-			x86Command curr = jump[ctx.x86Op[-2].name - o_setl];
-			if(ctx.x86Op[-4].name == o_xor && ctx.x86Op[-4].argA.reg == ctx.x86Op[-4].argB.reg)
-				ctx.x86Op[-4].name = o_none;
-			ctx.x86Op[-2].name = o_none;
-			ctx.x86Op[-1].name = o_none;
-			ctx.optimizationCount += 2;
-			EMIT_OP_LABEL(ctx, curr, labelID, invalidate, longJump);
-			return;
-		}
-		else if(op == o_jnz)
-		{
-			static const x86Command jump[] = { o_jl, o_jg, o_jle, o_jge, o_je, o_jne, o_jz, o_jnz };
-			x86Command curr = jump[ctx.x86Op[-2].name - o_setl];
-			if(ctx.x86Op[-4].name == o_xor && ctx.x86Op[-4].argA.reg == ctx.x86Op[-4].argB.reg)
-				ctx.x86Op[-4].name = o_none;
-			ctx.x86Op[-2].name = o_none;
-			ctx.x86Op[-1].name = o_none;
-			ctx.optimizationCount += 2;
-			EMIT_OP_LABEL(ctx, curr, labelID, invalidate, longJump);
-			return;
-		}
-	}*/
 #else
 	switch(op)
 	{
@@ -582,33 +552,6 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		assert(!"unknown instruction");
 	}
 
-	// Constant propagation
-	/*if(op == o_neg && NULLC::reg[reg1].type == x86Argument::argNumber)
-	{
-		EMIT_OP_REG_NUM(ctx, o_mov, reg1, -NULLC::reg[reg1].num);
-		return;
-	}
-
-	// Constant propagation
-	if(op == o_not && NULLC::reg[reg1].type == x86Argument::argNumber)
-	{
-		EMIT_OP_REG_NUM(ctx, o_mov, reg1, ~NULLC::reg[reg1].num);
-		return;
-	}
-
-	// Constant propagation
-	if(op == o_idiv && NULLC::reg[rEAX].type == x86Argument::argNumber && NULLC::reg[reg1].type == x86Argument::argNumber && NULLC::reg[reg1].num)
-	{
-		EMIT_OP_REG_NUM(ctx, o_mov, rEDX, NULLC::reg[rEAX].num % NULLC::reg[reg1].num);
-		EMIT_OP_REG_NUM(ctx, o_mov, rEAX, NULLC::reg[rEAX].num / NULLC::reg[reg1].num);
-		return;
-	}*/
-
-	/*
-	{
-		NULLC::InvalidateDependand(reg1);
-	}*/
-
 	/*
 	// Check if an operation with memory directly is possible
 	if(op == o_imul || op == o_idiv)
@@ -627,15 +570,6 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	{
 		NULLC::regUpdate[reg1] = unsigned(ctx.x86Op - ctx.x86Base);
 	}*/
-
-	/*if(op == o_neg || op == o_not)
-		NULLC::reg[reg1].type = x86Argument::argNone;
-	NULLC::regRead[reg1] = (op == o_push || op == o_imul || op == o_idiv || op == o_neg || op == o_not || op == o_nop);
-
-#ifdef _DEBUG
-	if(op != o_push && op != o_pop && op != o_call && op != o_imul && op < o_setl && op > o_setnz)
-		assert(!"invalid instruction");
-#endif*/
 
 #else
 	if(op == o_call)
@@ -800,20 +734,6 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 	}
 
 	/*
-	// Constant propagation
-	if(op == o_add && NULLC::reg[reg1].type == x86Argument::argNumber)
-	{
-		EMIT_OP_REG_NUM(ctx, o_mov, reg1, NULLC::reg[reg1].num + (int)num);
-		return;
-	}
-
-	// Constant propagation
-	if(op == o_sub && NULLC::reg[reg1].type == x86Argument::argNumber)
-	{
-		EMIT_OP_REG_NUM(ctx, o_mov, reg1, NULLC::reg[reg1].num - (int)num);
-		return;
-	}
-
 	// Reverse instruction
 	if(op == o_sub && (int)num < 0)
 	{
@@ -969,13 +889,6 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_imul:
-		// Constant propagation
-		if(ctx.genReg[reg1].type == x86Argument::argNumber && ctx.genReg[reg2].type == x86Argument::argNumber)
-		{
-			EMIT_OP_REG_NUM(ctx, o_mov, reg1, ctx.genReg[reg1].num * ctx.genReg[reg2].num);
-			return;
-		}
-
 		// Load source directly from memory
 		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == sDWORD)
 		{
@@ -1014,21 +927,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		assert(!"unknown instruction");
 	}
 	/*
-	if(op == o_mov || op == o_movsx)
-	{
-		if(reg1 == reg2)
-		{
-			ctx.optimizationCount++;
-			return;
-		}
-		EMIT_REG_KILL(ctx, reg1);
-		NULLC::InvalidateDependand(reg1);
-
-		NULLC::reg[reg1] = x86Argument(reg2);
-		NULLC::regUpdate[reg1] = unsigned(ctx.x86Op - ctx.x86Base);
-		NULLC::regRead[reg1] = false;
-	}
-	else if(op == o_cmp)
+	if(op == o_cmp)
 	{
 		if(NULLC::reg[reg2].type == x86Argument::argPtr && NULLC::reg[reg2].ptrSize == sDWORD)
 		{
@@ -1202,72 +1101,6 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	default:
 		assert(!"unknown instruction");
 	}
-
-	/*
-	if(index == rNONE && NULLC::reg[base].type == x86Argument::argPtr && NULLC::reg[base].ptrSize == sNONE)
-	{
-		EMIT_OP_REG_RPTR(ctx, op, reg1, size, NULLC::reg[base].ptrIndex, NULLC::reg[base].ptrMult, NULLC::reg[base].ptrBase, NULLC::reg[base].ptrNum + shift);
-		return;
-	}
-
-	x86Argument newArg = x86Argument(size, index, mult, base, shift);
-
-	if(op != o_movsx)
-	{
-		unsigned cIndex = NULLC::MemFind(newArg);
-		if(cIndex != ~0u)
-		{
-			if(NULLC::mCache[cIndex].value.type == x86Argument::argNumber)
-			{
-				EMIT_OP_REG_NUM(ctx, op, reg1, NULLC::mCache[cIndex].value.num);
-				NULLC::MemUpdate(cIndex);
-				return;
-			}
-			if(NULLC::mCache[cIndex].value.type == x86Argument::argReg && op != o_imul && op != o_cmp)
-			{
-				EMIT_OP_REG_REG(ctx, op, reg1, NULLC::mCache[cIndex].value.reg);
-				NULLC::MemUpdate(cIndex);
-				return;
-			}
-		}
-	}
-	if(op == o_mov && base != rESP)
-	{
-		for(unsigned i = rEAX; i <= rEDX; i++)
-		{
-			if(NULLC::reg[i].type == x86Argument::argPtr && NULLC::reg[i] == newArg)
-			{
-				EMIT_OP_REG_REG(ctx, op, reg1, (x86Reg)i);
-				return;
-			}
-		}
-	}
-#ifdef _DEBUG
-	if(op != o_mov && op != o_lea && op != o_movsx && op != o_or && op != o_imul && op != o_cmp)
-		assert(!"invalid instruction");
-#endif
-
-	NULLC::regRead[base] = true;
-	NULLC::regRead[index] = true;
-
-	if(op == o_mov || op == o_movsx || op == o_lea)
-	{
-		EMIT_REG_KILL(ctx, reg1);
-		NULLC::InvalidateDependand(reg1);
-	}
-	if(op == o_mov || op == o_movsx || op == o_lea)
-	{
-		if(reg1 != base && reg1 != index)
-			NULLC::reg[reg1] = newArg;
-		else
-			NULLC::reg[reg1].type = x86Argument::argNone;
-		NULLC::regUpdate[reg1] = unsigned(ctx.x86Op - ctx.x86Base);
-		NULLC::regRead[reg1] = false;
-	}else if(op == o_imul){
-		NULLC::reg[reg1].type = x86Argument::argNone;
-	}else if(op == o_cmp || op == o_or){
-		NULLC::regRead[reg1] = true;
-	}*/
 #endif
 
 	ctx.x86Op->name = op;
@@ -1441,37 +1274,6 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	default:
 		assert(!"unknown instruction");
 	}
-
-	/*
-	x86Argument arg(size, index, multiplier, base, shift);
-	if(ctx.x86LookBehind &&
-		(ctx.x86Op[-1].name == o_add || ctx.x86Op[-1].name == o_sub) && ctx.x86Op[-1].argA.type == x86Argument::argReg && ctx.x86Op[-1].argA.reg == reg2 && ctx.x86Op[-1].argB.type == x86Argument::argNumber &&
-		ctx.x86Op[-2].name == o_mov && ctx.x86Op[-2].argA.type == x86Argument::argReg && ctx.x86Op[-2].argA.reg == reg2 && ctx.x86Op[-2].argB == arg)
-	{
-		x86Command origCmd = ctx.x86Op[-1].name;
-		int num = ctx.x86Op[-1].argB.num;
-		ctx.x86Op -= 2;
-		EMIT_OP_RPTR_NUM(ctx, origCmd, size, index, multiplier, base, shift, num);
-		EMIT_OP_REG_RPTR(ctx, o_mov, reg2, size, index, multiplier, base, shift);
-		return;
-	}
-	if(size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
-	{
-		unsigned stackIndex = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
-		x86Argument &target = NULLC::stack[stackIndex];
-		if(op == o_mov)
-		{
-			target = x86Argument(reg2);
-			NULLC::stackRead[stackIndex] = false;
-			NULLC::stackUpdate[stackIndex] = unsigned(ctx.x86Op - ctx.x86Base);
-		}else{
-			target.type = x86Argument::argNone;
-		}
-	}
-	NULLC::regRead[reg2] = true;
-	NULLC::regRead[base] = true;
-	NULLC::regRead[index] = true;
-*/
 #endif
 
 	ctx.x86Op->name = op;
@@ -1617,17 +1419,6 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	default:
 		assert(!"unknown instruction");
 	}
-
-	/*
-	if(index == rNONE && NULLC::reg[base].type == x86Argument::argPtr && NULLC::reg[base].ptrSize == sNONE)
-	{
-		EMIT_OP_RPTR_NUM(ctx, op, size, NULLC::reg[base].ptrIndex, NULLC::reg[base].ptrMult, NULLC::reg[base].ptrBase, NULLC::reg[base].ptrNum + shift, num);
-		return;
-	}
-
-	NULLC::regRead[base] = true;
-	NULLC::regRead[index] = true;
-	*/
 #endif
 
 	ctx.x86Op->name = op;
