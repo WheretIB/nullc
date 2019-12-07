@@ -1192,6 +1192,8 @@ void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->powWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRCX, rRBX);
 	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rRCX);
+	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
 #else
 	assert(!"not implemented");
@@ -1519,6 +1521,8 @@ void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->powlWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRCX, rRBX);
 	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rRCX);
+	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
 #else
 	assert(!"not implemented");
@@ -1916,6 +1920,8 @@ void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->powdWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRCX, rRBX);
 	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rRCX);
+	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
 #else
 	assert(!"not implemented");
@@ -1944,6 +1950,8 @@ void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->moddWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRCX, rRBX);
 	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rRCX);
+	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
 #else
 	assert(!"not implemented");
@@ -2209,6 +2217,9 @@ void GenCodeCmdConvertPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->convertPtrWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rR8, sDWORD, rREG, cmd.rB * 8); // Load typeid
+	EMIT_REG_READ(ctx.ctx, rRCX);
+	EMIT_REG_READ(ctx.ctx, rEDX);
+	EMIT_REG_READ(ctx.ctx, rR8);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Get source pointer
