@@ -1850,6 +1850,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else if(cmd.argB.type == x86Argument::argNumber)
 					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
 			}
 			else
 			{
@@ -1867,17 +1869,22 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
 					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
+				else if(cmd.argB.type == x86Argument::argNumber)
 					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
 			}
 			else if(cmd.argB.type == x86Argument::argPtr)
 			{
+				assert(cmd.argA.type == x86Argument::argReg);
+
 				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}
 			else
 			{
 				assert(cmd.argA.type == x86Argument::argReg);
 				assert(cmd.argB.type == x86Argument::argReg);
+
 				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
 			}
 			break;
@@ -1886,13 +1893,16 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			{
 				if(cmd.argB.type == x86Argument::argReg)
 					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
+				else if(cmd.argB.type == x86Argument::argNumber)
 					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
 			}
 			else
 			{
 				assert(cmd.argA.type == x86Argument::argReg);
 				assert(cmd.argB.type == x86Argument::argReg);
+
 				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
 			}
 			break;
