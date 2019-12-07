@@ -753,7 +753,13 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_imul:
+	case o_and:
+	case o_or:
+	case o_xor:
 	case o_imul64:
+	case o_and64:
+	case o_or64:
+	case o_xor64:
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
@@ -863,6 +869,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		}
 		break;
 	case o_cmp:
+	case o_cmp64:
 	case o_test:
 		reg2 = ctx.RedirectRegister(reg2);
 
@@ -933,6 +940,19 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 
 		ctx.ReadRegister(reg2);
 		ctx.ReadAndModifyRegister(reg1);
+		break;
+	case o_mov:
+	case o_mov64:
+		reg2 = ctx.RedirectRegister(reg2);
+
+		// Skip self-assignment
+		if(reg1 == reg2)
+		{
+			ctx.optimizationCount++;
+			return;
+		}
+
+		ctx.OverwriteRegisterWithValue(reg1, x86Argument(reg2));
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1036,6 +1056,12 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 #ifdef NULLC_OPTIMIZE_X86
 	switch(op)
 	{
+	case o_movd:
+		reg2 = ctx.RedirectRegister(reg2);
+
+		ctx.ReadRegister(reg2);
+		ctx.OverwriteRegisterWithValue(reg1, x86Argument(reg2));
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
@@ -1061,7 +1087,6 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	switch(op)
 	{
 	case o_mov:
-	case o_movsx:
 	case o_mov64:
 		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
 
@@ -1071,10 +1096,25 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 		else
 			ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
+	case o_movsx:
+	case o_movsxd:
+		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+
+		ctx.OverwriteRegisterWithUnknown(reg1);
+		break;
 	case o_lea:
 		ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
+	case o_cvttsd2si:
+	case o_cvttsd2si64:
 	case o_imul:
+	case o_and:
+	case o_or:
+	case o_xor:
+	case o_imul64:
+	case o_and64:
+	case o_or64:
+	case o_xor64:
 		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
 
 		ctx.ReadAndModifyRegister(reg1);
@@ -1553,7 +1593,7 @@ void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86Reg reg)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	// Eliminate dead stores to the register
-	if(!ctx.genRegRead[reg] && ctx.genReg[reg].type != x86Argument::argNone)
+	if(!ctx.genRegRead[reg])
 	{
 		x86Instruction *curr = ctx.genRegUpdate[reg] + ctx.x86Base;
 
@@ -1576,7 +1616,7 @@ void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86XmmReg reg)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	// Eliminate dead stores to the register
-	if(!ctx.xmmRegRead[reg] && ctx.xmmReg[reg].type != x86Argument::argNone)
+	if(!ctx.xmmRegRead[reg])
 	{
 		x86Instruction *curr = ctx.xmmRegUpdate[reg] + ctx.x86Base;
 
