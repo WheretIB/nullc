@@ -860,6 +860,8 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("function argument size limit", "class Large{ int x, y, z, w; int[16] pad; } class Huge{ Large[512] b; } auto test8(Huge a, b){ return b.b[110].x; }", "ERROR: function argument size cannot exceed 65536");
 
+	TEST_FOR_FAIL("restore after explicit generic error type", "auto op2<@T>(@T a, b, c, d){ return a - b - c - d; } return op2 with<T>(1000, 2, 3, 4);", "ERROR: 'T' is not a known type name");
+
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");
