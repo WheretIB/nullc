@@ -46,8 +46,10 @@ struct CodeGenRegVmStateContext
 		callWrap = NULL;
 		convertPtrWrap = NULL;
 
+		powWrap = NULL;
 		powdWrap = NULL;
 		moddWrap = NULL;
+		powlWrap = NULL;
 	}
 
 	CodeGenRegVmContext *ctx;
