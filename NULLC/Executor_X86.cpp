@@ -1625,6 +1625,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			}
 			break;
 		case o_movsx:
+			assert(cmd.argA.type == x86Argument::argReg);
 			assert(cmd.argB.type == x86Argument::argPtr);
 			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
@@ -1633,20 +1634,29 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				code += x86PUSH(code, cmd.argA.num);
 			else if(cmd.argA.type == x86Argument::argPtr)
 				code += x86PUSH(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
+			else if(cmd.argA.type == x86Argument::argReg)
 				code += x86PUSH(code, cmd.argA.reg);
+			else
+				assert(!"unknown argument");
 			break;
 		case o_pop:
 			if(cmd.argA.type == x86Argument::argPtr)
 				code += x86POP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
+			else if(cmd.argA.type == x86Argument::argReg)
 				code += x86POP(code, cmd.argA.reg);
+			else
+				assert(!"unknown argument");
 			break;
 		case o_lea:
+			assert(cmd.argA.type == x86Argument::argReg);
+
 			if(cmd.argB.type == x86Argument::argPtrLabel)
 			{
 				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode);
-			}else{
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argPtr);
 				code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}
 			break;
@@ -1719,7 +1729,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				code += x86CALL(code, cmd.argA.labelID);
 			else if(cmd.argA.type == x86Argument::argPtr)
 				code += x86CALL(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
+			else if(cmd.argA.type == x86Argument::argReg)
 				code += x86CALL(code, cmd.argA.reg);
 			break;
 		case o_ret:
@@ -1729,7 +1739,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		case o_neg:
 			if(cmd.argA.type == x86Argument::argPtr)
 				code += x86NEG(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
+			else if(cmd.argA.type == x86Argument::argReg)
 				code += x86NEG(code, cmd.argA.reg);
 			break;
 		case o_add:
@@ -1739,7 +1749,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
 					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
+			}
+			else
+			{
 				if(cmd.argB.type == x86Argument::argPtr)
 					code += x86ADD(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 				else if(cmd.argB.type == x86Argument::argReg)
@@ -1755,7 +1767,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
 					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
+			}
+			else
+			{
 				if(cmd.argB.type == x86Argument::argReg)
 					code += x86ADC(code, cmd.argA.reg, cmd.argB.reg);
 				else
@@ -1769,7 +1783,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
 					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
+			}
+			else
+			{
 				if(cmd.argB.type == x86Argument::argReg)
 					code += x86SUB(code, cmd.argA.reg, cmd.argB.reg);
 				else
@@ -1783,7 +1799,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
 					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
+			}
+			else
+			{
 				code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
 			}
 			break;
@@ -1832,7 +1850,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else if(cmd.argB.type == x86Argument::argNumber)
 					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
+			}
+			else
+			{
 				assert(cmd.argA.type == x86Argument::argReg);
 				assert(cmd.argB.type == x86Argument::argReg || cmd.argB.type == x86Argument::argNumber);
 
@@ -1849,9 +1869,13 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
 					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else if(cmd.argB.type == x86Argument::argPtr){
+			}
+			else if(cmd.argB.type == x86Argument::argPtr)
+			{
 				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-			}else{
+			}
+			else
+			{
 				assert(cmd.argA.type == x86Argument::argReg);
 				assert(cmd.argB.type == x86Argument::argReg);
 				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
@@ -1864,7 +1888,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
 				else
 					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
+			}
+			else
+			{
 				assert(cmd.argA.type == x86Argument::argReg);
 				assert(cmd.argB.type == x86Argument::argReg);
 				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
@@ -1877,7 +1903,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 				else
 					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-			}else{
+			}
+			else
+			{
 				if(cmd.argB.type == x86Argument::argPtr)
 					code += x86CMP(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 				else if(cmd.argB.type == x86Argument::argNumber)

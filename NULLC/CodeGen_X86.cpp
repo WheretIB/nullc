@@ -310,6 +310,24 @@ namespace NULLC
 			index = rNONE;
 		}
 	}
+
+	x86Reg RedirectRegister(x86Reg reg)
+	{
+		// If a register holds another 
+		if(genReg[reg].type == x86Argument::argReg)
+			return genReg[reg].reg;
+
+		return reg;
+	}
+
+	x86XmmReg RedirectRegister(x86XmmReg reg)
+	{
+		// If a register holds another 
+		if(NULLC::xmmReg[reg].type == x86Argument::argXmmReg)
+			return NULLC::xmmReg[reg].xmmArg;
+
+		return reg;
+	}
 }
 #endif
 
@@ -797,34 +815,46 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		break;
 	case o_cmp:
 	case o_test:
+		reg2 = NULLC::RedirectRegister(reg2);
+
 		NULLC::ReadRegister(ctx, reg1);
 		NULLC::ReadRegister(ctx, reg2);
 		break;
 	case o_add:
 	case o_sub:
+		reg2 = NULLC::RedirectRegister(reg2);
+
+		if(NULLC::genReg[reg2].type == x86Argument::argNumber)
+		{
+			EMIT_OP_REG_NUM(ctx, op, reg1, NULLC::genReg[reg2].num);
+			return;
+		}
+
+		// TODO: if there is a known number in destination, we can perform a lea
+
+		NULLC::ReadRegister(ctx, reg2);
+		NULLC::ReadAndModifyRegister(ctx, reg1);
+		break;
 	case o_add64:
 	case o_sub64:
+		reg2 = NULLC::RedirectRegister(reg2);
+
+		NULLC::ReadRegister(ctx, reg2);
+		NULLC::ReadAndModifyRegister(ctx, reg1);
+		break;
+	case o_sal:
+	case o_sar:
+	case o_sal64:
+	case o_sar64:
+		// Can't redirect source register since the instruction has it fixed to ecx
+
+		NULLC::ReadRegister(ctx, reg2);
 		NULLC::ReadAndModifyRegister(ctx, reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
 	}
 	/*
-	if(op == o_xor && reg1 == reg2)
-	{
-		EMIT_REG_KILL(ctx, reg1);
-		NULLC::InvalidateDependand(reg1);
-	}
-	else if(op == o_test && reg1 == reg2 && NULLC::reg[reg1].type == x86Argument::argReg)
-	{
-		reg1 = reg2 = NULLC::reg[reg1].reg;
-	}
-	else if(op != o_sal && op != o_sar)
-	{
-		if(NULLC::reg[reg2].type == x86Argument::argReg)
-			reg2 = NULLC::reg[reg2].reg;
-	}
-
 	if(op == o_mov || op == o_movsx)
 	{
 		if(reg1 == reg2)
@@ -838,16 +868,6 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		NULLC::reg[reg1] = x86Argument(reg2);
 		NULLC::regUpdate[reg1] = unsigned(ctx.x86Op - ctx.x86Base);
 		NULLC::regRead[reg1] = false;
-	}
-	else if((op == o_add || op == o_sub) && NULLC::reg[reg2].type == x86Argument::argNumber)
-	{
-		EMIT_OP_REG_NUM(ctx, op, reg1, NULLC::reg[reg2].num);
-		return;
-	}
-	else if(op == o_add && NULLC::reg[reg1].type == x86Argument::argNumber)
-	{
-		EMIT_OP_REG_RPTR(ctx, o_lea, reg1, sNONE, rNONE, 1, reg2, NULLC::reg[reg1].num);
-		return;
 	}
 	else if(op == o_cmp)
 	{
@@ -906,9 +926,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 	switch(op)
 	{
 	case o_movsd:
-		// Check if source location contains a register
-		if(NULLC::xmmReg[reg2].type == x86Argument::argXmmReg)
-			reg2 = NULLC::xmmReg[reg2].xmmArg;
+		reg2 = NULLC::RedirectRegister(reg2);
 
 		// Skip self-assignment
 		if(reg1 == reg2)
@@ -927,9 +945,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 	case o_cmpltsd:
 	case o_cmplesd:
 	case o_cmpneqsd:
-		// Check if source location contains a register
-		if(NULLC::xmmReg[reg2].type == x86Argument::argXmmReg)
-			reg2 = NULLC::xmmReg[reg2].xmmArg;
+		reg2 = NULLC::RedirectRegister(reg2);
 
 		NULLC::ReadRegister(ctx, reg2);
 		NULLC::ReadAndModifyRegister(ctx, reg1);
@@ -1173,6 +1189,8 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 #ifdef NULLC_OPTIMIZE_X86
 	NULLC::RedirectAddressComputation(index, multiplier, base, shift);
 
+	reg2 = NULLC::RedirectRegister(reg2);
+
 	if(size == sDWORD && NULLC::genReg[reg2].type == x86Argument::argNumber)
 	{
 		EMIT_OP_RPTR_NUM(ctx, op, size, index, multiplier, base, shift, NULLC::genReg[reg2].num);
@@ -1207,22 +1225,6 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	}
 
 	/*
-	if(index == rNONE && NULLC::reg[base].type == x86Argument::argPtr && NULLC::reg[base].ptrSize == sNONE)
-	{
-		EMIT_OP_RPTR_REG(ctx, op, size, NULLC::reg[base].ptrIndex, NULLC::reg[base].ptrMult, NULLC::reg[base].ptrBase, NULLC::reg[base].ptrNum + shift, reg2);
-		return;
-	}
-
-	if(size == sDWORD && NULLC::reg[reg2].type == x86Argument::argNumber)
-	{
-		EMIT_OP_RPTR_NUM(ctx, op, size, index, multiplier, base, shift, NULLC::reg[reg2].num);
-		return;
-	}
-
-	if(NULLC::reg[reg2].type == x86Argument::argReg)
-	{
-		reg2 = NULLC::reg[reg2].reg;
-	}
 	x86Argument arg(size, index, multiplier, base, shift);
 	if(ctx.x86LookBehind &&
 		(ctx.x86Op[-1].name == o_add || ctx.x86Op[-1].name == o_sub) && ctx.x86Op[-1].argA.type == x86Argument::argReg && ctx.x86Op[-1].argA.reg == reg2 && ctx.x86Op[-1].argB.type == x86Argument::argNumber &&
