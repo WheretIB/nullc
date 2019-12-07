@@ -24,21 +24,16 @@ unsigned char encodeRegister(x86Reg reg, char spareField)
 
 unsigned char encodeRegister(x86XmmReg dst, x86XmmReg src)
 {
-	assert(unsigned(dst) <= 0x7);
-	assert(unsigned(src) <= 0x7);
-
 	unsigned char mod = 3 << 6;
-	unsigned char spare = (unsigned char)src << 3;
-	unsigned char RM = (unsigned char)dst;
+	unsigned char spare = (unsigned char)(src & 0x7) << 3;
+	unsigned char RM = (unsigned char)(dst & 0x7);
 	return mod | spare | RM;
 }
 
 unsigned char encodeRegister(x86Reg dst, x86XmmReg src)
 {
-	assert(unsigned(src) <= 0x7);
-
 	unsigned char mod = 3 << 6;
-	unsigned char spare = (unsigned char)src << 3;
+	unsigned char spare = (unsigned char)(src & 0x7) << 3;
 	unsigned char RM = regCode[dst];
 	return mod | spare | RM;
 }
@@ -58,7 +53,8 @@ unsigned char encodeRegister(x86XmmReg dst, char spareField)
 unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, int displacement, unsigned spareField)
 {
 	assert(index != rESP);
-	assert((unsigned char)spareField == spareField);
+	assert(spareField < 16);
+
 	unsigned char* start = stream;
 
 	bool dispImm8 = (char)(displacement) == displacement && base != rNONE;
@@ -75,10 +71,15 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 	// special case: [ebp] should be encoded as [ebp+0]
 	if(displacement == 0 && base == rEBP)
 		mod = 1 << 6;
+
+	// special case: [r13] should be encoded as [r13+0]
+	if(displacement == 0 && base == rR13)
+		mod = 1 << 6;
+
 	if(index == rNONE && base == rNONE)
 		mod = 0;
 
-	unsigned char spare = (unsigned char)spareField << 3;
+	unsigned char spare = (unsigned char)(spareField & 0x7) << 3;
 
 	unsigned char RM = regCode[rEBP]; // by default, it's simply [displacement]
 	if(base != rNONE)
@@ -419,7 +420,7 @@ int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x58;
 	*stream++ = encodeRegister(src, dst);
@@ -432,7 +433,7 @@ int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x5c;
 	*stream++ = encodeRegister(src, dst);
@@ -445,7 +446,7 @@ int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x59;
 	*stream++ = encodeRegister(src, dst);
@@ -458,7 +459,7 @@ int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x5e;
 	*stream++ = encodeRegister(src, dst);
@@ -471,7 +472,7 @@ int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
 	*stream++ = encodeRegister(src, dst);
@@ -485,7 +486,7 @@ int x86CMPLTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
 	*stream++ = encodeRegister(src, dst);
@@ -499,7 +500,7 @@ int x86CMPLESD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
 	*stream++ = encodeRegister(src, dst);
@@ -513,7 +514,7 @@ int x86CMPNEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, src, dst);
+	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
 	*stream++ = encodeRegister(src, dst);
