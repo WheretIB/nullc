@@ -1,5 +1,9 @@
 #include "Translator_X86.h"
 
+#include "CodeGen_X86.h"
+#include "CodeGenRegVm_X86.h"
+#include "Output.h"
+
 // Mapping from x86Reg to register code
 char regCode[] = { -1, 0, 3, 1, 2, 4, 7, 5, 6, 0, 1, 2, 3, 4, 5, 6, 7 };
 
@@ -2121,4 +2125,1637 @@ void x86SatisfyJumps(FastVector<unsigned char*>& instPos)
 		}
 	}
 	pendingJumps.clear();
+}
+
+unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *codeEnd, x86Instruction *start, unsigned instCount, unsigned char **instAddress)
+{
+	x86Instruction *curr = start;
+
+	for(unsigned int i = 0, e = instCount; i != e; i++)
+	{
+		x86Instruction &cmd = *curr;
+
+		if(cmd.instID)
+			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
+
+		switch(cmd.name)
+		{
+		case o_none:
+		case o_nop:
+			break;
+		case o_mov:
+			if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argNumber)
+				{
+					code += x86MOV(code, cmd.argA.reg, cmd.argB.num);
+				}
+				else if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sDWORD);
+					code += x86MOV(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x86MOV(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize != sQWORD);
+
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argReg)
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					assert(!"unknown argument");
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_movsx:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_push:
+			if(cmd.argA.type == x86Argument::argNumber)
+				code += x86PUSH(code, cmd.argA.num);
+			else if(cmd.argA.type == x86Argument::argPtr)
+				code += x86PUSH(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			else if(cmd.argA.type == x86Argument::argReg)
+				code += x86PUSH(code, cmd.argA.reg);
+			else
+				assert(!"unknown argument");
+			break;
+		case o_pop:
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86POP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			else if(cmd.argA.type == x86Argument::argReg)
+				code += x86POP(code, cmd.argA.reg);
+			else
+				assert(!"unknown argument");
+			break;
+		case o_lea:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+
+			code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cdq:
+			code += x86CDQ(code);
+			break;
+		case o_cqo:
+			code += x86CQO(code);
+			break;
+		case o_rep_movsd:
+			code += x86REP_MOVSD(code);
+			break;
+		case o_rep_stosb:
+			code += x86REP_STOSB(code);
+			break;
+		case o_rep_stosw:
+			code += x86REP_STOSW(code);
+			break;
+		case o_rep_stosd:
+			code += x86REP_STOSD(code);
+			break;
+		case o_rep_stosq:
+			code += x86REP_STOSQ(code);
+			break;
+
+		case o_jmp:
+			if(cmd.argA.type == x86Argument::argPtr)
+				code += x86JMP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			else
+				code += x86JMP(code, cmd.argA.labelID, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_ja:
+			code += x86Jcc(code, cmd.argA.labelID, condA, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jae:
+			code += x86Jcc(code, cmd.argA.labelID, condAE, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jb:
+			code += x86Jcc(code, cmd.argA.labelID, condB, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jbe:
+			code += x86Jcc(code, cmd.argA.labelID, condBE, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_je:
+			code += x86Jcc(code, cmd.argA.labelID, condE, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jg:
+			code += x86Jcc(code, cmd.argA.labelID, condG, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jl:
+			code += x86Jcc(code, cmd.argA.labelID, condL, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jne:
+			code += x86Jcc(code, cmd.argA.labelID, condNE, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jnp:
+			code += x86Jcc(code, cmd.argA.labelID, condNP, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jp:
+			code += x86Jcc(code, cmd.argA.labelID, condP, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jge:
+			code += x86Jcc(code, cmd.argA.labelID, condGE, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_jle:
+			code += x86Jcc(code, cmd.argA.labelID, condLE, (cmd.argA.labelID & JUMP_NEAR) != 0);
+			break;
+		case o_call:
+			if(cmd.argA.type == x86Argument::argLabel)
+				code += x86CALL(code, cmd.argA.labelID);
+			else if(cmd.argA.type == x86Argument::argPtr)
+				code += x86CALL(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			else if(cmd.argA.type == x86Argument::argReg)
+				code += x86CALL(code, cmd.argA.reg);
+			break;
+		case o_ret:
+			code += x86RET(code);
+			break;
+
+		case o_neg:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				code += x86NEG(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				code += x86NEG(code, cmd.argA.reg);
+			}
+			break;
+		case o_add:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sDWORD);
+
+					code += x86ADD(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x86ADD(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					code += x86ADD(code, cmd.argA.reg, cmd.argB.num);
+				}
+			}
+			break;
+		case o_adc:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADC(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x86ADC(code, cmd.argA.reg, cmd.argB.num);
+			}
+			break;
+		case o_sub:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SUB(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x86SUB(code, cmd.argA.reg, cmd.argB.num);
+			}
+			break;
+		case o_sbb:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
+			}
+			break;
+		case o_imul:
+			if(cmd.argB.type == x86Argument::argNumber)
+			{
+				code += x86IMUL(code, cmd.argA.reg, cmd.argB.num);
+			}
+			else if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x86IMUL(code, cmd.argA.reg, cmd.argB.reg);
+			}
+			else if(cmd.argB.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.ptrSize == sDWORD);
+
+				code += x86IMUL(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else
+			{
+				code += x86IMUL(code, cmd.argA.reg);
+			}
+			break;
+		case o_idiv:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				code += x86IDIV(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			}
+			else
+			{
+				code += x86IDIV(code, cmd.argA.reg);
+			}
+			break;
+		case o_shl:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				code += x86SHL(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				code += x86SHL(code, cmd.argA.reg, cmd.argB.num);
+			}
+			break;
+		case o_sal:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+			code += x86SAL(code, cmd.argA.reg);
+			break;
+		case o_sar:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+			code += x86SAR(code, cmd.argA.reg);
+			break;
+		case o_not:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				code += x86NOT(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			}
+			else
+			{
+				code += x86NOT(code, cmd.argA.reg);
+			}
+			break;
+		case o_and:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else if(cmd.argB.type == x86Argument::argNumber)
+				{
+					code += x86AND(code, cmd.argA.reg, cmd.argB.num);
+				}
+				else if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sDWORD);
+
+					code += x86AND(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_or:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else if(cmd.argB.type == x86Argument::argNumber)
+				{
+					code += x86OR(code, cmd.argA.reg, cmd.argB.num);
+				}
+				else if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sDWORD);
+
+					code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_xor:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else if(cmd.argB.type == x86Argument::argNumber)
+				{
+					code += x86XOR(code, cmd.argA.reg, cmd.argB.num);
+				}
+				else if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sDWORD);
+
+					code += x86XOR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_cmp:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sDWORD);
+
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argReg)
+					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sDWORD);
+
+					code += x86CMP(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argNumber)
+				{
+					code += x86CMP(code, cmd.argA.reg, cmd.argB.num);
+				}
+				else
+				{
+					code += x86CMP(code, cmd.argA.reg, cmd.argB.reg);
+				}
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_test:
+			if(cmd.argB.type == x86Argument::argNumber)
+				code += x86TESTah(code, (char)cmd.argB.num);
+			else
+				code += x86TEST(code, cmd.argA.reg, cmd.argB.reg);
+			break;
+
+		case o_setl:
+			code += x86SETcc(code, condL, cmd.argA.reg);
+			break;
+		case o_setg:
+			code += x86SETcc(code, condG, cmd.argA.reg);
+			break;
+		case o_setle:
+			code += x86SETcc(code, condLE, cmd.argA.reg);
+			break;
+		case o_setge:
+			code += x86SETcc(code, condGE, cmd.argA.reg);
+			break;
+		case o_sete:
+			code += x86SETcc(code, condE, cmd.argA.reg);
+			break;
+		case o_setne:
+			code += x86SETcc(code, condNE, cmd.argA.reg);
+			break;
+		case o_setz:
+			code += x86SETcc(code, condZ, cmd.argA.reg);
+			break;
+		case o_setnz:
+			code += x86SETcc(code, condNZ, cmd.argA.reg);
+			break;
+
+		case o_movss:
+			assert(cmd.argA.type == x86Argument::argPtr);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			assert(cmd.argA.ptrSize == sDWORD);
+			code += x86MOVSS(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.xmmArg);
+			break;
+		case o_movsd:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.type == x86Argument::argXmmReg);
+				assert(cmd.argA.ptrSize == sQWORD);
+				code += x86MOVSD(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.xmmArg);
+			}
+			else
+			{
+				assert(cmd.argA.type == x86Argument::argXmmReg);
+
+				if(cmd.argB.type == x86Argument::argPtr)
+					code += x86MOVSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else if(cmd.argB.type == x86Argument::argXmmReg)
+					code += x86MOVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+				else
+					assert(!"unknown argument");
+			}
+			break;
+		case o_movd:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86MOVD(code, cmd.argA.reg, cmd.argB.xmmArg);
+			break;
+		case o_cvtss2sd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTSS2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cvtsd2ss:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTSD2SS(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cvttsd2si:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTTSD2SI(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cvtsi2sd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_addsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86ADDSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_subsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86SUBSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_mulsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86MULSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_divsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86DIVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_cmpeqsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPEQSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_cmpltsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPLTSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_cmplesd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPLESD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_cmpneqsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPNEQSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+
+		case o_int:
+			code += x86INT(code, 3);
+			break;
+		case o_label:
+			x86AddLabel(code, cmd.labelID);
+			break;
+		case o_use32:
+			break;
+		case o_other:
+			break;
+		case o_mov64:
+			if(cmd.argA.type != x86Argument::argPtr)
+			{
+				if(cmd.argB.type == x86Argument::argNumber)
+				{
+					code += x64MOV(code, cmd.argA.reg, cmd.argB.num);
+				}
+				else if(cmd.argB.type == x86Argument::argImm64)
+				{
+					code += x64MOV(code, cmd.argA.reg, cmd.argB.imm64Arg);
+				}
+				else if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sQWORD);
+
+					code += x86MOV(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x64MOV(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86MOV(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					code += x86MOV(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+			}
+			break;
+		case o_movsxd:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			assert(cmd.argB.ptrSize == sDWORD);
+			code += x86MOVSXD(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+
+		case o_neg64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				code += x86NEG(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				code += x64NEG(code, cmd.argA.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_add64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADD(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86ADD(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sQWORD);
+
+					code += x86ADD(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x64ADD(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					code += x64ADD(code, cmd.argA.reg, cmd.argB.num);
+				}
+			}
+			break;
+		case o_sub64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SUB(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86SUB(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x64SUB(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x64SUB(code, cmd.argA.reg, cmd.argB.num);
+			}
+			break;
+		case o_imul64:
+			assert(cmd.argA.type == x86Argument::argReg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.ptrSize == sQWORD);
+
+				code += x86IMUL(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x64IMUL(code, cmd.argA.reg, cmd.argB.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_idiv64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				code += x86IDIV(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				code += x64IDIV(code, cmd.argA.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_sal64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+			code += x64SAL(code, cmd.argA.reg);
+			break;
+		case o_sar64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+			code += x64SAR(code, cmd.argA.reg);
+			break;
+		case o_not64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				code += x86NOT(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				code += x64NOT(code, cmd.argA.reg);
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_and64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86AND(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86AND(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sQWORD);
+
+					code += x86AND(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x64AND(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_or64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86OR(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86OR(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sQWORD);
+
+					code += x86OR(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x64OR(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_xor64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86XOR(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else if(cmd.argB.type == x86Argument::argNumber)
+					code += x86XOR(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sQWORD);
+
+					code += x86XOR(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x64XOR(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			else
+			{
+				assert(!"unknown argument");
+			}
+			break;
+		case o_cmp64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argA.ptrSize == sQWORD);
+
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86CMP(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argReg)
+					code += x86CMP(code, sQWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argReg)
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+				{
+					assert(cmd.argB.ptrSize == sQWORD);
+
+					code += x86CMP(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				}
+				else if(cmd.argB.type == x86Argument::argReg)
+				{
+					code += x64CMP(code, cmd.argA.reg, cmd.argB.reg);
+				}
+				else
+				{
+					assert(!"unknown argument");
+				}
+			}
+			break;
+		case o_cvttsd2si64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			assert(cmd.argB.ptrSize == sQWORD);
+			code += x64CVTTSD2SI(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		default:
+			assert(!"unknown instruction");
+		}
+
+		assert(code < codeEnd);
+
+		curr++;
+	}
+
+	return code;
+}
+
+
+static const unsigned testSizeDword = 1;
+static const unsigned testSizeQword = 2;
+static const x86Reg testIndexRegs[] = { rNONE, rEAX, rEDX, rEDI, rEBP, rR8, rR12, rR13, rR15 };
+static const x86Reg testBaseRegs[] = { rNONE, rEAX, rEDX, rEDI, rESP, rEBP, rR8, rR12, rR13, rR15 };
+static const x86Reg testRegs[] = { rEAX, rEDX, rEDI, rESP, rEBP, rR8, rR12, rR13, rR15 };
+static const x86XmmReg testXmmRegs[] = { rXMM0, rXMM7, rXMM8, rXMM12, rXMM13, rXMM15 };
+
+int TestRptrEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift), unsigned testSize = testSizeDword | testSizeQword)
+{
+	unsigned char *start = stream;
+
+	for(unsigned index = 0; index < sizeof(testIndexRegs) / sizeof(testIndexRegs[0]); index++)
+	{
+		for(unsigned base = 0; base < sizeof(testBaseRegs) / sizeof(testBaseRegs[0]); base++)
+		{
+			if(testSize & testSizeDword)
+			{
+				if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+				{
+					EMIT_OP_RPTR(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+					EMIT_OP_RPTR(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+					EMIT_OP_RPTR(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+				}
+
+				if(testIndexRegs[index] != rNONE)
+				{
+					EMIT_OP_RPTR(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+					EMIT_OP_RPTR(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+					EMIT_OP_RPTR(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+				}
+			}
+
+			if(testSize & testSizeQword)
+			{
+				// skip RDI-based addressing
+				if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+				{
+					EMIT_OP_RPTR(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+					EMIT_OP_RPTR(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+					EMIT_OP_RPTR(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+				}
+
+				if(testIndexRegs[index] != rNONE)
+				{
+					EMIT_OP_RPTR(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+					EMIT_OP_RPTR(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+					EMIT_OP_RPTR(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+				}
+			}
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestRegEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg reg))
+{
+	unsigned char *start = stream;
+
+	for(unsigned reg = 0; reg < sizeof(testRegs) / sizeof(testRegs[0]); reg++)
+	{
+		EMIT_OP_REG(ctx, op, testRegs[reg]);
+		stream += fun(stream, testRegs[reg]);
+	}
+
+	return int(stream - start);
+}
+
+int TestNumEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, int num))
+{
+	unsigned char *start = stream;
+
+	EMIT_OP_NUM(ctx, op, 4);
+	stream += fun(stream, 4);
+
+	EMIT_OP_NUM(ctx, op, 1024);
+	stream += fun(stream, 1024);
+
+	return int(stream - start);
+}
+
+int TestRegRegEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg dst, x86Reg src))
+{
+	unsigned char *start = stream;
+
+	for(unsigned reg1 = 0; reg1 < sizeof(testRegs) / sizeof(testRegs[0]); reg1++)
+	{
+		for(unsigned reg2 = 0; reg2 < sizeof(testRegs) / sizeof(testRegs[0]); reg2++)
+		{
+			EMIT_OP_REG_REG(ctx, op, testRegs[reg1], testRegs[reg2]);
+			stream += fun(stream, testRegs[reg1], testRegs[reg2]);
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestRegNumEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg dst, int num), bool onlySmall = false)
+{
+	unsigned char *start = stream;
+
+	for(unsigned reg = 0; reg < sizeof(testRegs) / sizeof(testRegs[0]); reg++)
+	{
+		EMIT_OP_REG_NUM(ctx, op, testRegs[reg], 4);
+		stream += fun(stream, testRegs[reg], 4);
+
+		if(!onlySmall)
+		{
+			EMIT_OP_REG_NUM(ctx, op, testRegs[reg], 1024);
+			stream += fun(stream, testRegs[reg], 1024);
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestRegNum64Encoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg dst, uintptr_t num))
+{
+	unsigned char *start = stream;
+
+	for(unsigned reg = 0; reg < sizeof(testRegs) / sizeof(testRegs[0]); reg++)
+	{
+		EMIT_OP_REG_NUM64(ctx, op, testRegs[reg], 0x1122aabbccddeeffll);
+		stream += fun(stream, testRegs[reg], 0x1122aabbccddeeffll);
+	}
+
+	return int(stream - start);
+}
+
+int TestRegRptrEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift), unsigned testSize = testSizeDword | testSizeQword)
+{
+	unsigned char *start = stream;
+
+	for(unsigned reg = 0; reg < sizeof(testRegs) / sizeof(testRegs[0]); reg++)
+	{
+		for(unsigned index = 0; index < sizeof(testIndexRegs) / sizeof(testIndexRegs[0]); index++)
+		{
+			for(unsigned base = 0; base < sizeof(testBaseRegs) / sizeof(testBaseRegs[0]); base++)
+			{
+				if(testSize & testSizeDword)
+				{
+					if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						stream += fun(stream, testRegs[reg], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						stream += fun(stream, testRegs[reg], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+						stream += fun(stream, testRegs[reg], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						stream += fun(stream, testRegs[reg], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						stream += fun(stream, testRegs[reg], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+						stream += fun(stream, testRegs[reg], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+					}
+				}
+
+				if(testSize & testSizeQword)
+				{
+					// skip RDI-based addressing
+					if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						stream += fun(stream, testRegs[reg], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						stream += fun(stream, testRegs[reg], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+						stream += fun(stream, testRegs[reg], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						stream += fun(stream, testRegs[reg], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						stream += fun(stream, testRegs[reg], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testRegs[reg], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+						stream += fun(stream, testRegs[reg], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+					}
+				}
+			}
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestRptrRegEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg src), unsigned testSize = testSizeDword | testSizeQword)
+{
+	unsigned char *start = stream;
+
+	for(unsigned reg = 0; reg < sizeof(testRegs) / sizeof(testRegs[0]); reg++)
+	{
+		for(unsigned index = 0; index < sizeof(testIndexRegs) / sizeof(testIndexRegs[0]); index++)
+		{
+			for(unsigned base = 0; base < sizeof(testBaseRegs) / sizeof(testBaseRegs[0]); base++)
+			{
+				if(testSize & testSizeDword)
+				{
+					if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testRegs[reg]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testRegs[reg]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testRegs[reg]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testRegs[reg]);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testRegs[reg]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testRegs[reg]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testRegs[reg]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testRegs[reg]);
+					}
+				}
+
+				if(testSize & testSizeQword)
+				{
+					// skip RDI-based addressing
+					if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testRegs[reg]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testRegs[reg]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testRegs[reg]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testRegs[reg]);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testRegs[reg]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testRegs[reg]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testRegs[reg]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testRegs[reg]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testRegs[reg]);
+					}
+				}
+			}
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestRptrNumEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num), unsigned testSize = testSizeDword | testSizeQword)
+{
+	unsigned char *start = stream;
+
+	for(unsigned index = 0; index < sizeof(testIndexRegs) / sizeof(testIndexRegs[0]); index++)
+	{
+		for(unsigned base = 0; base < sizeof(testBaseRegs) / sizeof(testBaseRegs[0]); base++)
+		{
+			if(testSize & testSizeDword)
+			{
+				if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+				{
+					EMIT_OP_RPTR_NUM(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, 8);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, 8);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, 8);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, 8);
+				}
+
+				if(testIndexRegs[index] != rNONE)
+				{
+					EMIT_OP_RPTR_NUM(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, 8);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, 8);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, 8);
+					stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, 8);
+				}
+			}
+
+			if(testSize & testSizeQword)
+			{
+				// skip RDI-based addressing
+				if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+				{
+					EMIT_OP_RPTR_NUM(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, 8);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, 8);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, 8);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, 8);
+				}
+
+				if(testIndexRegs[index] != rNONE)
+				{
+					EMIT_OP_RPTR_NUM(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, 8);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, 8);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, 8);
+					EMIT_OP_RPTR_NUM(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, 8);
+					stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, 8);
+				}
+			}
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestXmmXmmEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86XmmReg dst, x86XmmReg src))
+{
+	unsigned char *start = stream;
+
+	for(unsigned xmm1 = 0; xmm1 < sizeof(testXmmRegs) / sizeof(testXmmRegs[0]); xmm1++)
+	{
+		for(unsigned xmm2 = 0; xmm2 < sizeof(testXmmRegs) / sizeof(testXmmRegs[0]); xmm2++)
+		{
+			EMIT_OP_REG_REG(ctx, op, testXmmRegs[xmm1], testXmmRegs[xmm2]);
+			stream += fun(stream, testXmmRegs[xmm1], testXmmRegs[xmm2]);
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestRegXmmEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg dst, x86XmmReg src))
+{
+	unsigned char *start = stream;
+
+	for(unsigned reg = 0; reg < sizeof(testRegs) / sizeof(testRegs[0]); reg++)
+	{
+		for(unsigned xmm = 0; xmm < sizeof(testXmmRegs) / sizeof(testXmmRegs[0]); xmm++)
+		{
+			EMIT_OP_REG_REG(ctx, op, testRegs[reg], testXmmRegs[xmm]);
+			stream += fun(stream, testRegs[reg], testXmmRegs[xmm]);
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestRptrXmmEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86XmmReg src), unsigned testSize = testSizeDword | testSizeQword)
+{
+	unsigned char *start = stream;
+
+	for(unsigned xmm = 0; xmm < sizeof(testXmmRegs) / sizeof(testXmmRegs[0]); xmm++)
+	{
+		for(unsigned index = 0; index < sizeof(testIndexRegs) / sizeof(testIndexRegs[0]); index++)
+		{
+			for(unsigned base = 0; base < sizeof(testBaseRegs) / sizeof(testBaseRegs[0]); base++)
+			{
+				if(testSize & testSizeDword)
+				{
+					// skip RDI-based addressing
+					if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+						stream += fun(stream, sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+					}
+				}
+
+				if(testSize & testSizeQword)
+				{
+					// skip RDI-based addressing
+					if(testIndexRegs[index] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4, testXmmRegs[xmm]);
+						EMIT_OP_RPTR_REG(ctx, op, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+						stream += fun(stream, sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024, testXmmRegs[xmm]);
+					}
+				}
+			}
+		}
+	}
+
+	return int(stream - start);
+}
+
+int TestXmmRptrEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift), unsigned testSize = testSizeDword | testSizeQword)
+{
+	unsigned char *start = stream;
+
+	for(unsigned xmm = 0; xmm < sizeof(testXmmRegs) / sizeof(testXmmRegs[0]); xmm++)
+	{
+		for(unsigned index = 0; index < sizeof(testIndexRegs) / sizeof(testIndexRegs[0]); index++)
+		{
+			for(unsigned base = 0; base < sizeof(testBaseRegs) / sizeof(testBaseRegs[0]); base++)
+			{
+				if(testSize & testSizeDword)
+				{
+					if(testIndexRegs[base] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						stream += fun(stream, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						stream += fun(stream, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+						stream += fun(stream, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						stream += fun(stream, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						stream += fun(stream, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+						stream += fun(stream, testXmmRegs[xmm], sDWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+					}
+				}
+
+				if(testSize & testSizeQword)
+				{
+					// skip RDI-based addressing
+					if(testIndexRegs[base] != rNONE || testBaseRegs[base] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						stream += fun(stream, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						stream += fun(stream, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+						stream += fun(stream, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 1, testBaseRegs[base], 1024);
+					}
+
+					if(testIndexRegs[index] != rNONE)
+					{
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						stream += fun(stream, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 0);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						stream += fun(stream, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 4);
+						EMIT_OP_REG_RPTR(ctx, op, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+						stream += fun(stream, testXmmRegs[xmm], sQWORD, testIndexRegs[index], 2, testBaseRegs[base], 1024);
+					}
+				}
+			}
+		}
+	}
+
+	return int(stream - start);
+}
+
+void x86TestEncoding(unsigned char *codeLaunchHeader)
+{
+	(void)codeLaunchHeader;
+
+	unsigned bufSize = 2048 * 1024;
+	unsigned char *buf = new unsigned char[bufSize];
+
+	CodeGenGenericContext ctx;
+	unsigned char *stream = buf;
+
+	unsigned instSize = 256 * 1024;
+	x86Instruction *instList = new x86Instruction[instSize];
+	memset(instList, 0, instSize * sizeof(x86Instruction));
+	ctx.SetLastInstruction(instList, instList + instSize);
+
+	stream += TestRptrXmmEncoding(ctx, stream, o_movss, x86MOVSS, testSizeDword);
+
+	stream += TestXmmXmmEncoding(ctx, stream, o_movsd, x86MOVSD);
+	stream += TestRptrXmmEncoding(ctx, stream, o_movsd, x86MOVSD, testSizeQword);
+	stream += TestXmmRptrEncoding(ctx, stream, o_movsd, x86MOVSD, testSizeQword);
+
+	stream += TestRegXmmEncoding(ctx, stream, o_movd, x86MOVD);
+
+	stream += TestRegRptrEncoding(ctx, stream, o_movsxd, x86MOVSXD, testSizeDword);
+
+	stream += TestXmmRptrEncoding(ctx, stream, o_cvtss2sd, x86CVTSS2SD, testSizeDword);
+
+	stream += TestXmmRptrEncoding(ctx, stream, o_cvtsd2ss, x86CVTSD2SS, testSizeQword);
+
+	stream += TestRegRptrEncoding(ctx, stream, o_cvttsd2si, x86CVTTSD2SI, testSizeQword);
+
+	stream += TestRegRptrEncoding(ctx, stream, o_cvttsd2si64, x64CVTTSD2SI, testSizeQword);
+
+	stream += TestXmmRptrEncoding(ctx, stream, o_cvtsi2sd, x86CVTSI2SD, testSizeDword);
+
+	stream += TestXmmXmmEncoding(ctx, stream, o_addsd, x86ADDSD);
+	stream += TestXmmXmmEncoding(ctx, stream, o_subsd, x86SUBSD);
+	stream += TestXmmXmmEncoding(ctx, stream, o_mulsd, x86MULSD);
+	stream += TestXmmXmmEncoding(ctx, stream, o_divsd, x86DIVSD);
+
+	stream += TestXmmXmmEncoding(ctx, stream, o_cmpeqsd, x86CMPEQSD);
+	stream += TestXmmXmmEncoding(ctx, stream, o_cmpltsd, x86CMPLTSD);
+	stream += TestXmmXmmEncoding(ctx, stream, o_cmplesd, x86CMPLESD);
+	stream += TestXmmXmmEncoding(ctx, stream, o_cmpneqsd, x86CMPNEQSD);
+
+#if defined(_M_X64)
+	stream += TestRptrEncoding(ctx, stream, o_push, x86PUSH, testSizeQword);
+	stream += TestRegEncoding(ctx, stream, o_push, x86PUSH);
+	stream += TestNumEncoding(ctx, stream, o_push, x86PUSH);
+
+	stream += TestRptrEncoding(ctx, stream, o_pop, x86POP, testSizeQword);
+	stream += TestRegEncoding(ctx, stream, o_pop, x86POP);
+#else
+	stream += TestRptrEncoding(ctx, stream, o_push, x86PUSH, testSizeDword);
+	stream += TestRegEncoding(ctx, stream, o_push, x86PUSH);
+	stream += TestNumEncoding(ctx, stream, o_push, x86PUSH);
+
+	stream += TestRptrEncoding(ctx, stream, o_pop, x86POP, testSizeDword);
+	stream += TestRegEncoding(ctx, stream, o_pop, x86POP);
+#endif
+
+	stream += TestRegNumEncoding(ctx, stream, o_mov, x86MOV);
+	stream += TestRegRegEncoding(ctx, stream, o_mov, x86MOV);
+	stream += TestRegRptrEncoding(ctx, stream, o_mov, x86MOV, testSizeDword);
+	stream += TestRptrRegEncoding(ctx, stream, o_mov, x86MOV, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_mov, x86MOV, testSizeDword);
+
+	stream += TestRegNum64Encoding(ctx, stream, o_mov64, x64MOV);
+	stream += TestRegRegEncoding(ctx, stream, o_mov64, x64MOV);
+	stream += TestRegRptrEncoding(ctx, stream, o_mov64, x86MOV, testSizeQword);
+	stream += TestRptrRegEncoding(ctx, stream, o_mov64, x86MOV, testSizeQword);
+	stream += TestRptrNumEncoding(ctx, stream, o_mov64, x86MOV, testSizeQword);
+
+	//stream += TestRegRptrEncoding(ctx, stream, o_movsx, x86MOVSX);
+
+	stream += TestRegRptrEncoding(ctx, stream, o_lea, x86LEA);
+
+	stream += TestRptrEncoding(ctx, stream, o_neg, x86NEG, testSizeDword);
+	stream += TestRegEncoding(ctx, stream, o_neg, x86NEG);
+
+	stream += TestRptrEncoding(ctx, stream, o_neg64, x86NEG, testSizeQword);
+	stream += TestRegEncoding(ctx, stream, o_neg64, x64NEG);
+
+	stream += TestRegRegEncoding(ctx, stream, o_add, x86ADD);
+	stream += TestRegNumEncoding(ctx, stream, o_add, x86ADD);
+	stream += TestRegRptrEncoding(ctx, stream, o_add, x86ADD, testSizeDword);
+	stream += TestRptrRegEncoding(ctx, stream, o_add, x86ADD, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_add, x86ADD, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_add64, x64ADD);
+	stream += TestRegNumEncoding(ctx, stream, o_add64, x64ADD);
+	stream += TestRegRptrEncoding(ctx, stream, o_add64, x86ADD, testSizeQword);
+	stream += TestRptrRegEncoding(ctx, stream, o_add64, x86ADD, testSizeQword);
+	stream += TestRptrNumEncoding(ctx, stream, o_add64, x86ADD, testSizeQword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_adc, x86ADC);
+	stream += TestRegNumEncoding(ctx, stream, o_adc, x86ADC);
+	stream += TestRptrRegEncoding(ctx, stream, o_adc, x86ADC, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_adc, x86ADC, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_sub, x86SUB);
+	stream += TestRegNumEncoding(ctx, stream, o_sub, x86SUB);
+	stream += TestRptrRegEncoding(ctx, stream, o_sub, x86SUB, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_sub, x86SUB, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_sub64, x64SUB);
+	stream += TestRegNumEncoding(ctx, stream, o_sub64, x64SUB);
+	stream += TestRptrRegEncoding(ctx, stream, o_sub64, x86SUB, testSizeQword);
+	stream += TestRptrNumEncoding(ctx, stream, o_sub64, x86SUB, testSizeQword);
+
+	stream += TestRegNumEncoding(ctx, stream, o_sbb, x86SBB);
+	stream += TestRptrRegEncoding(ctx, stream, o_sbb, x86SBB, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_sbb, x86SBB, testSizeDword);
+
+	stream += TestRegEncoding(ctx, stream, o_imul, x86IMUL);
+	stream += TestRegRegEncoding(ctx, stream, o_imul, x86IMUL);
+	stream += TestRegNumEncoding(ctx, stream, o_imul, x86IMUL);
+	stream += TestRegRptrEncoding(ctx, stream, o_imul, x86IMUL, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_imul64, x64IMUL);
+	stream += TestRegRptrEncoding(ctx, stream, o_imul64, x86IMUL, testSizeQword);
+
+	stream += TestRptrEncoding(ctx, stream, o_idiv, x86IDIV, testSizeDword);
+	stream += TestRegEncoding(ctx, stream, o_idiv, x86IDIV);
+
+	stream += TestRptrEncoding(ctx, stream, o_idiv64, x86IDIV, testSizeQword);
+	stream += TestRegEncoding(ctx, stream, o_idiv64, x64IDIV);
+
+	stream += TestRegNumEncoding(ctx, stream, o_shl, x86SHL, true);
+	stream += TestRptrNumEncoding(ctx, stream, o_shl, x86SHL, testSizeDword);
+
+	stream += TestRegEncoding(ctx, stream, o_sal, x86SAL);
+
+	stream += TestRegEncoding(ctx, stream, o_sal64, x64SAL);
+
+	stream += TestRegEncoding(ctx, stream, o_sar, x86SAR);
+
+	stream += TestRegEncoding(ctx, stream, o_sar64, x64SAR);
+
+	stream += TestRptrEncoding(ctx, stream, o_not, x86NOT, testSizeDword);
+	stream += TestRegEncoding(ctx, stream, o_not, x86NOT);
+
+	stream += TestRptrEncoding(ctx, stream, o_not64, x86NOT, testSizeQword);
+	stream += TestRegEncoding(ctx, stream, o_not64, x64NOT);
+
+	stream += TestRegRegEncoding(ctx, stream, o_and, x86AND);
+	stream += TestRegNumEncoding(ctx, stream, o_and, x86AND);
+	stream += TestRegRptrEncoding(ctx, stream, o_and, x86AND, testSizeDword);
+	stream += TestRptrRegEncoding(ctx, stream, o_and, x86AND, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_and, x86AND, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_and64, x64AND);
+	stream += TestRegRptrEncoding(ctx, stream, o_and64, x86AND, testSizeQword);
+	stream += TestRptrRegEncoding(ctx, stream, o_and64, x86AND, testSizeQword);
+	stream += TestRptrNumEncoding(ctx, stream, o_and64, x86AND, testSizeQword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_or, x86OR);
+	stream += TestRegNumEncoding(ctx, stream, o_or, x86OR);
+	stream += TestRegRptrEncoding(ctx, stream, o_or, x86OR, testSizeDword);
+	stream += TestRptrRegEncoding(ctx, stream, o_or, x86OR, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_or, x86OR, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_or64, x64OR);
+	stream += TestRegRptrEncoding(ctx, stream, o_or64, x86OR, testSizeQword);
+	stream += TestRptrRegEncoding(ctx, stream, o_or64, x86OR, testSizeQword);
+	stream += TestRptrNumEncoding(ctx, stream, o_or64, x86OR, testSizeQword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_xor, x86XOR);
+	stream += TestRegNumEncoding(ctx, stream, o_xor, x86XOR);
+	stream += TestRegRptrEncoding(ctx, stream, o_xor, x86XOR, testSizeDword);
+	stream += TestRptrRegEncoding(ctx, stream, o_xor, x86XOR, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_xor, x86XOR, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_xor64, x64XOR);
+	stream += TestRegRptrEncoding(ctx, stream, o_xor64, x86XOR, testSizeQword);
+	stream += TestRptrRegEncoding(ctx, stream, o_xor64, x86XOR, testSizeQword);
+	stream += TestRptrNumEncoding(ctx, stream, o_xor64, x86XOR, testSizeQword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_cmp, x86CMP);
+	stream += TestRegNumEncoding(ctx, stream, o_cmp, x86CMP);
+	stream += TestRegRptrEncoding(ctx, stream, o_cmp, x86CMP, testSizeDword);
+	stream += TestRptrRegEncoding(ctx, stream, o_cmp, x86CMP, testSizeDword);
+	stream += TestRptrNumEncoding(ctx, stream, o_cmp, x86CMP, testSizeDword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_cmp64, x64CMP);
+	stream += TestRegRptrEncoding(ctx, stream, o_cmp64, x86CMP, testSizeQword);
+	stream += TestRptrRegEncoding(ctx, stream, o_cmp64, x86CMP, testSizeQword);
+	stream += TestRptrNumEncoding(ctx, stream, o_cmp64, x86CMP, testSizeQword);
+
+	stream += TestRegRegEncoding(ctx, stream, o_test, x86TEST);
+
+	stream += TestRegEncoding(ctx, stream, o_call, x86CALL);
+
+	assert(stream < buf + bufSize);
+
+	char instBuf[128];
+
+	unsigned instCount = unsigned(ctx.GetLastInstruction() - instList);
+
+	CodeGenRegVmStateContext vmState;
+
+	vmState.vsAsmStyle = true;
+
+	OutputContext output;
+	output.stream = output.openStream("asmX86_test.txt");
+
+	for(unsigned i = 0; i < instCount; i++)
+	{
+		instList[i].Decode(vmState, instBuf);
+
+		output.Print(instBuf);
+		output.Print('\n');
+	}
+
+	output.Flush();
+	output.closeStream(output.stream);
+	output.stream = NULL;
+
+	unsigned char *buf2 = new unsigned char[bufSize];
+
+	unsigned char *stream2 = x86TranslateInstructionList(buf2, buf2 + bufSize, instList, instCount, NULL);
+
+	assert(unsigned(stream2 - buf2) == unsigned(stream - buf));
+	assert(memcmp(buf, buf2, unsigned(stream - buf)) == 0);
+
+	/*DWORD oldProtect;
+	VirtualProtect((void*)buf, unsigned(stream - buf), PAGE_EXECUTE_READWRITE, (DWORD*)&oldProtect);
+
+	RegVmRegister regFilePtr[8];
+
+	typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+	nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
+	gate(buf, regFilePtr);*/
 }

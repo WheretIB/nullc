@@ -315,4 +315,6 @@ int x86JMP(unsigned char *stream, unsigned int labelID, bool isNear);
 void x86AddLabel(unsigned char *stream, unsigned int labelID);
 void x86SatisfyJumps(FastVector<unsigned char*>& instPos);
 
-//int x86(unsigned char *stream);
+unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *codeEnd, x86Instruction *start, unsigned instCount, unsigned char **instAddress);
+
+void x86TestEncoding(unsigned char *codeLaunchHeader);

@@ -1202,22 +1202,6 @@ void EMIT_OP_REG_ADDR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 	EMIT_OP_REG_RPTR(ctx, op, reg1, size, rNONE, 1, rNONE, addr);
 }
 
-void EMIT_OP_REG_LABEL(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, unsigned labelID, unsigned shift)
-{
-#ifdef NULLC_OPTIMIZE_X86
-	ctx.InvalidateDependand(reg1);
-	ctx.genReg[reg1].type = x86Argument::argNone;
-#endif
-
-	ctx.x86Op->name = op;
-	ctx.x86Op->argA.type = x86Argument::argReg;
-	ctx.x86Op->argA.reg = reg1;
-	ctx.x86Op->argB.type = x86Argument::argPtrLabel;
-	ctx.x86Op->argB.labelID = labelID;
-	ctx.x86Op->argB.ptrNum = shift;
-	ctx.x86Op++;
-}
-
 void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, x86Reg reg2)
 {
 #ifdef NULLC_OPTIMIZE_X86
