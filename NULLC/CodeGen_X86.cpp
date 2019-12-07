@@ -404,6 +404,19 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 		ctx.ReadRegister(rESI);
 		ctx.ReadRegister(rEDI);
 		break;
+	case o_rep_stosb:
+	case o_rep_stosw:
+	case o_rep_stosd:
+	case o_rep_stosq:
+		assert(ctx.genReg[rECX].type == x86Argument::argNumber);
+
+		ctx.InvalidateState();
+
+		// Implicit register reads
+		ctx.ReadRegister(rECX);
+		ctx.ReadRegister(rEAX);
+		ctx.ReadRegister(rEDI);
+		break;
 	case o_cdq:
 	case o_cqo:
 		ctx.ReadRegister(rEAX);
@@ -415,22 +428,6 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 	default:
 		assert(!"unknown instruction");
 	}
-
-	/*if(op == o_cdq)
-	{
-		if(NULLC::reg[rEAX].type == x86Argument::argNumber)
-		{
-			EMIT_OP_REG_NUM(ctx, o_mov, rEDX, NULLC::reg[rEAX].num >= 0 ? 0 : ~0u);
-			return;
-		}
-		NULLC::regRead[rEAX] = true;
-		EMIT_REG_KILL(ctx, rEDX);
-		NULLC::InvalidateDependand(rEDX);
-		NULLC::reg[rEDX].type = x86Argument::argNone;
-		NULLC::regRead[rEDX] = false;
-		NULLC::regUpdate[rEDX] = unsigned(ctx.x86Op - ctx.x86Base);
-	}*/
-
 #else
 	if(op == o_ret)
 		ctx.InvalidateState();
@@ -574,6 +571,12 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		// Implicitly read the result so when one of the registers is killed, it will not remove the instruction (there's room for improvement)
 		ctx.ReadRegister(rEAX);
 		ctx.ReadRegister(rEDX);
+		break;
+	case o_neg:
+	case o_not:
+	case o_neg64:
+	case o_not64:
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -781,10 +784,15 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 	case o_and:
 	case o_or:
 	case o_xor:
+	case o_shl:
+	case o_sal:
+	case o_sar:
 	case o_imul64:
 	case o_and64:
 	case o_or64:
 	case o_xor64:
+	case o_sal64:
+	case o_sar64:
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
@@ -934,12 +942,24 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		break;
 	case o_and:
 	case o_or:
+		reg2 = ctx.RedirectRegister(reg2);
+
+		// Load source directly from memory
+		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == sDWORD)
+		{
+			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
+			return;
+		}
+
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
+		break;
 	case o_and64:
 	case o_or64:
 		reg2 = ctx.RedirectRegister(reg2);
 
 		// Load source directly from memory
-		if(ctx.genReg[reg2].type == x86Argument::argPtr)
+		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == sQWORD)
 		{
 			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
 			return;
@@ -957,7 +977,18 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		}
 
 		// Load source directly from memory
-		if(ctx.genReg[reg2].type == x86Argument::argPtr)
+		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == sDWORD)
+		{
+			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
+			return;
+		}
+
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
+		break;
+	case o_imul64:
+		// Load source directly from memory
+		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == sQWORD)
 		{
 			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
 			return;
@@ -1580,6 +1611,8 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 		break;
 	case o_add:
 		ctx.InvalidateAddressValue(arg);
+
+		ctx.MemWrite(arg, x86Argument());
 		break;
 	default:
 		assert(!"unknown instruction");

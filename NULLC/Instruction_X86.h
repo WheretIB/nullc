@@ -229,6 +229,7 @@ struct x86Argument
 	// no argument
 	x86Argument()
 	{
+		Empty();
 	}
 
 	// immediate number
