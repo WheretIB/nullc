@@ -27,6 +27,8 @@ struct CodeGenGenericContext
 		memCacheEntries = 0;
 
 		optimizationCount = 0;
+
+		currFreeXmmReg = rXMM0;
 	}
 
 	void SetLastInstruction(x86Instruction *pos, x86Instruction *base)
@@ -68,6 +70,8 @@ struct CodeGenGenericContext
 	x86Reg RedirectRegister(x86Reg reg);
 	x86XmmReg RedirectRegister(x86XmmReg reg);
 
+	x86XmmReg GetXmmReg();
+
 	x86Instruction *x86Op;
 	x86Instruction *x86Base;
 
@@ -94,6 +98,8 @@ struct CodeGenGenericContext
 	unsigned memCacheEntries;
 
 	unsigned optimizationCount;
+
+	x86XmmReg currFreeXmmReg;
 };
 
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text);

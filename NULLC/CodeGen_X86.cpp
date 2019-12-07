@@ -68,6 +68,7 @@ void CodeGenGenericContext::MemUpdate(unsigned index)
 
 void CodeGenGenericContext::InvalidateState()
 {
+#if defined(NULLC_OPTIMIZE_X86)
 	for(unsigned i = 0; i < rRegCount; i++)
 		genReg[i].type = x86Argument::argNone;
 
@@ -78,6 +79,9 @@ void CodeGenGenericContext::InvalidateState()
 		memCache[i].address.type = x86Argument::argNone;
 
 	memCacheEntries = 0;
+#endif
+
+	currFreeXmmReg = rXMM0;
 }
 
 void CodeGenGenericContext::InvalidateDependand(x86Reg dreg)
@@ -306,6 +310,26 @@ x86XmmReg CodeGenGenericContext::RedirectRegister(x86XmmReg reg)
 	return reg;
 }
 
+x86XmmReg CodeGenGenericContext::GetXmmReg()
+{
+	// Simple rotation
+	x86XmmReg res = currFreeXmmReg;
+
+#if defined(_M_X64)
+	if(currFreeXmmReg == rXMM15)
+		currFreeXmmReg = rXMM0;
+	else
+		currFreeXmmReg = x86XmmReg(currFreeXmmReg + 1);
+#else
+	if(currFreeXmmReg == rXMM7)
+		currFreeXmmReg = rXMM0;
+	else
+		currFreeXmmReg = x86XmmReg(currFreeXmmReg + 1);
+#endif
+
+	return res;
+}
+
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text)
 {
 #if !defined(NDEBUG)
@@ -319,12 +343,8 @@ void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text)
 
 void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned labelID, int invalidate)
 {
-#ifdef NULLC_OPTIMIZE_X86
 	if(invalidate)
 		ctx.InvalidateState();
-#else
-	(void)invalidate;
-#endif
 
 	ctx.x86Op->name = o_label;
 	ctx.x86Op->labelID = labelID;
@@ -376,6 +396,10 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 		NULLC::regRead[rEDX] = false;
 		NULLC::regUpdate[rEDX] = unsigned(ctx.x86Op - ctx.x86Base);
 	}*/
+
+#else
+	if(op == o_ret)
+		ctx.InvalidateState();
 #endif
 
 	ctx.x86Op->name = op;
@@ -449,7 +473,29 @@ void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, 
 		}
 	}*/
 #else
-	(void)invalidate;
+	switch(op)
+	{
+	case o_jmp:
+	case o_ja:
+	case o_jae:
+	case o_jb:
+	case o_jbe:
+	case o_je:
+	case o_jg:
+	case o_jl:
+	case o_jne:
+	case o_jnp:
+	case o_jp:
+	case o_jge:
+	case o_jle:
+		if(invalidate)
+			ctx.InvalidateState();
+		break;
+	case o_call:
+		ctx.InvalidateState();
+		break;
+	}
+
 	(void)longJump;
 #endif
 
@@ -543,6 +589,9 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		assert(!"invalid instruction");
 #endif*/
 
+#else
+	if(op == o_call)
+		ctx.InvalidateState();
 #endif
 
 	ctx.x86Op->name = op;
@@ -627,6 +676,9 @@ void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Re
 		assert(!"invalid instruction");
 #endif*/
 
+#else
+	if(op == o_call)
+		ctx.InvalidateState();
 #endif
 
 	ctx.x86Op->name = op;
