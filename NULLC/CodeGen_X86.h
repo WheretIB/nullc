@@ -44,6 +44,7 @@ struct CodeGenGenericContext
 
 	unsigned MemFind(const x86Argument &address);
 
+	void MemRead(const x86Argument &address);
 	void MemWrite(const x86Argument &address, const x86Argument &value);
 	void MemUpdate(unsigned index);
 
@@ -91,6 +92,8 @@ struct CodeGenGenericContext
 	{
 		x86Argument	address;
 		x86Argument value;
+		unsigned location; // Location of the memory update
+		bool read; // Mark if this location was read after last write
 	};
 
 	static const unsigned memoryStateSize = 16;
