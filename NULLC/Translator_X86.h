@@ -176,7 +176,7 @@ int x86IDIV(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg
 // shl reg, val
 int x86SHL(unsigned char *stream, x86Reg reg, int val);
 // shl dword [index*mult+base+shift], val
-int x86SHL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int val);
+int x86SHL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 
 // sal reg, cl
 int x86SAL(unsigned char *stream, x86Reg reg);
@@ -227,7 +227,7 @@ int x86OR(unsigned char *stream, x86Reg op1, int num);
 // or dword [index*mult+base+shift], op2
 int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // or dword [index*mult+base+shift], num
-int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int op2);
+int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // or op1, *word [index*mult+base+shift]
 int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
@@ -263,16 +263,11 @@ int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 int x86CMP(unsigned char *stream, x86Reg op1, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 // cmp dword [index*mult+base+shift], num
-int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int op2);
+int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 
 int x86TEST(unsigned char *stream, x86Reg op1, x86Reg op2);
 // test ah, num
 int x86TESTah(unsigned char* stream, char num);
-
-// xchg dword [reg], op2
-int x86XCHG(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
-// xchg regA, regB
-int x86XCHG(unsigned char *stream, x86Reg regA, x86Reg regB);
 
 // cdq
 int x86CDQ(unsigned char *stream);
