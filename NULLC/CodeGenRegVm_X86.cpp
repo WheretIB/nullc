@@ -851,8 +851,7 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 			tempStackPtrOffset += sizeof(long long);
 			break;
 		case rvmiPushImm:
-			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, *microcode++);
-			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
+			EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, *microcode++);
 			tempStackPtrOffset += sizeof(int);
 			break;
 		case rvmiPushImmq:
@@ -1043,8 +1042,7 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 				tempStackPtrOffset += sizeof(long long);
 				break;
 			case rvmiPushImm:
-				EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, *microcode++);
-				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
+				EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, *microcode++);
 				tempStackPtrOffset += sizeof(int);
 				break;
 			case rvmiPushImmq:
