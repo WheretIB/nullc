@@ -1061,6 +1061,8 @@ void GenCodeCmdSetRange(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rEDI, 4, rEDX);
 
 		EMIT_OP_REG_NUM(ctx.ctx, o_add, rEDI, 8);
+		EMIT_REG_READ(ctx.ctx, rEDI); // Mark that register is used (by next iteration)
+
 		EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount);
 		EMIT_LABEL(ctx.ctx, ctx.labelCount + 1);
 
@@ -1115,6 +1117,7 @@ void GenCodeCmdMemCopy(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument >> 2);
 	EMIT_OP(ctx.ctx, o_rep_movsd);
 	EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX);
+	EMIT_REG_READ(ctx.ctx, rESI);
 #endif
 }
 
@@ -1347,6 +1350,7 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 			EMIT_OP(ctx.ctx, o_rep_movsd);
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
+			EMIT_REG_READ(ctx.ctx, rESI);
 
 			tempStackPtrOffset += size;
 		}
@@ -1465,6 +1469,7 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 			EMIT_OP(ctx.ctx, o_rep_movsd);
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
+			EMIT_REG_READ(ctx.ctx, rESI);
 
 			tempStackPtrOffset += size;
 		}
@@ -1727,6 +1732,7 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 				EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 				EMIT_OP(ctx.ctx, o_rep_movsd);
 				EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
+				EMIT_REG_READ(ctx.ctx, rESI);
 
 				tempStackPtrOffset += size;
 			}
