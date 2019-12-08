@@ -73,7 +73,7 @@ int x86MOV(unsigned char *stream, x86Reg dst, int num);
 int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src);
 
 // REX.W mov dst, num
-int x64MOV(unsigned char *stream, x86Reg dst, uintptr_t num);
+int x64MOV(unsigned char *stream, x86Reg dst, unsigned long long num);
 // REX.W mov dst, src
 int x64MOV(unsigned char *stream, x86Reg dst, x86Reg src);
 

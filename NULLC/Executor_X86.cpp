@@ -413,11 +413,15 @@ ExecutorX86::~ExecutorX86()
 	codeGenCtx = NULL;
 
 #ifndef __linux
+
+#if defined(_M_X64)
 	if(codeLaunchWin64UnwindTable)
 	{
 		RtlDeleteFunctionTable(codeLaunchWin64UnwindTable);
 		NULLC::dealloc(codeLaunchWin64UnwindTable);
 	}
+#endif
+
 #endif
 
 	x86ResetLabels();
@@ -562,47 +566,33 @@ bool ExecutorX86::Initialize()
 
 	pos += x86RET(pos);
 #else
-	// Stack will move around after we save all the registers later, copy the position into 'eax'
-	pos += x86MOV(pos, rEAX, rESP);
+	// Setup stack frame
+	pos += x86PUSH(pos, rEBP);
+	pos += x86MOV(pos, rEBP, rESP);
 
-	pos += x86MOV(pos, rEDX, sDWORD, rNONE, 0, rEAX, 0x10); // Generic stack top location
-	pos += x86MOV(pos, sDWORD, rNONE, 0, rEDX, 0, rEAX);
-
-	// Save all registers
-	pos += x86PUSHAD(pos);
-
-	pos += x86MOV(pos, rEDI, sDWORD, rNONE, 0, rEAX, 0x4); // Current variable stack size
-	pos += x86MOV(pos, rEBP, 0); // Variable stack start
-	pos += x86MOV(pos, rEAX, sDWORD, rNONE, 0, rEAX, 0xc); // nullc code position
-
-	// Compute stack alignment
-	pos += x86LEA(pos, rEBX, rNONE, 0, rESP, 4);
-	pos += x86AND(pos, rEBX, 0xf);
-	pos += x86MOV(pos, rECX, 0x10);
-	pos += x86SUB(pos, rECX, rEBX);
-
-	// Adjust the stack
-	pos += x86SUB(pos, rESP, rECX);
+	// Save registers
+	pos += x86PUSH(pos, rEBX);
 	pos += x86PUSH(pos, rECX);
+	pos += x86PUSH(pos, rESI);
+	pos += x86PUSH(pos, rEDI);
+
+	pos += x86MOV(pos, rEAX, sDWORD, rNONE, 0, rEBP, 8); // Get nullc code address
+	pos += x86MOV(pos, rEBX, sDWORD, rNONE, 0, rEBP, 12); // Get register file
+
+	pos += x86MOV(pos, rESI, sDWORD, rNONE, 0, rEBX, rvrrFrame * 8); // Get frame pointer
 
 	// Go into nullc code
 	pos += x86CALL(pos, rEAX);
 
-	// Restore the stack
-	pos += x86POP(pos, rECX);
-	pos += x86ADD(pos, rESP, rECX);
-
-	// Take address of the return struct (from arguments)
-	pos += x86MOV(pos, rECX, sDWORD, rNONE, 0, rESP, 0x28);
-
-	// Copy return value and type into the return struct
-	pos += x86MOV(pos, sDWORD, rNONE, 0, rECX, 0, rEAX);
-	pos += x86MOV(pos, sDWORD, rNONE, 0, rECX, 4, rEDX);
-	pos += x86MOV(pos, sDWORD, rNONE, 0, rECX, 8, rEBX);
-
 	// Restore registers
-	pos += x86POPAD(pos);
+	pos += x86POP(pos, rEDI);
+	pos += x86POP(pos, rESI);
+	pos += x86POP(pos, rECX);
+	pos += x86POP(pos, rEBX);
 
+	// Destroy stack frame
+	pos += x86MOV(pos, rESP, rEBP);
+	pos += x86POP(pos, rEBP);
 	pos += x86RET(pos);
 #endif
 
@@ -687,6 +677,13 @@ bool ExecutorX86::Initialize()
 	NULLC::MemProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PROT_READ | PROT_EXEC);
 #endif
 
+	if(!vmState.tempStackArrayBase)
+	{
+		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
+		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
+		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 32;
+	}
+
 	//x86TestEncoding(codeLaunchHeader);
 
 	return true;
@@ -727,13 +724,6 @@ bool ExecutorX86::InitExecution()
 	execError[0] = 0;
 
 	callContinue = true;
-
-	if(!vmState.tempStackArrayBase)
-	{
-		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
-		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
-		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 32;
-	}
 
 	if(!vmState.regFileArrayBase)
 	{
@@ -1302,8 +1292,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 #if defined(_M_X64)
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
-#else
-			assert(!"not implemented");
 #endif
 		}
 
@@ -1319,8 +1307,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 			if(pos)
 				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
-#else
-			assert(!"not implemented");
 #endif
 		}
 
@@ -1341,13 +1327,15 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	{
 #if defined(_M_X64)
 		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
-#else
-		assert(!"not implemented");
 #endif
 	}
 
 	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
+
+#if defined(_M_X64)
 	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+#endif
+
 	EMIT_OP(codeGenCtx->ctx, o_ret);
 
 	// Remove rviNop, because we don't want to generate code for it
@@ -1570,7 +1558,12 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Translate to x86
 	unsigned char *bytecode = binCode + 16 + binCodeSize;
-	unsigned char *code = bytecode +(!binCodeSize ? 0 : -7 /* we must destroy the xor eax, eax; ret; sequence */);
+
+#if defined(_M_X64)
+	unsigned char *code = bytecode +(!binCodeSize ? 0 : -7 /* we must destroy the xor eax, eax; add rsp, 32; ret; sequence */);
+#else
+	unsigned char *code = bytecode +(!binCodeSize ? 0 : -4 /* we must destroy the xor eax, eax; ret; sequence */);
+#endif
 
 	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
 	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));

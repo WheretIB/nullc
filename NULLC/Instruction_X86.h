@@ -326,7 +326,7 @@ struct x86Argument
 		x86XmmReg xmmArg;		// Used only when type == argXmmReg
 		unsigned labelID;		// Used only when type == argLabel or argPtrLabel
 		x86Size	ptrSize;		// Used only when type == argPtr
-		uintptr_t imm64Arg;		// Used only when type == argImm64
+		unsigned long long imm64Arg;		// Used only when type == argImm64
 	};
 
 	x86Reg	ptrBase, ptrIndex;

@@ -91,6 +91,8 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 
 		if(ptrIndex == rNONE && ptrBase == rNONE && ctx.vsAsmStyle)
 			curr += sprintf(curr, "%x%s", ptrNum, ptrNum > 9 ? "h" : "");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && ptrNum >= uintptr_t(ctx.tempStackArrayBase) && ptrNum < uintptr_t(ctx.tempStackArrayEnd))
+			curr += sprintf(curr, "vmState.tempStackArrayBase+%d", unsigned(ptrNum - uintptr_t(ctx.tempStackArrayBase)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE)
 			curr += sprintf(curr, "%d", ptrNum);
 		else if(ptrNum != 0 && ctx.vsAsmStyle)
@@ -108,9 +110,9 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 		else if(imm64Arg == uintptr_t(&ctx.tempStackArrayBase))
 			curr += sprintf(curr, "&vmState.tempStackArrayBase");
 		else if(ctx.vsAsmStyle)
-			curr += sprintf(curr, "%llXh", imm64Arg);
+			curr += sprintf(curr, "%llXh", (unsigned long long)imm64Arg);
 		else
-			curr += sprintf(curr, "%lld", imm64Arg);
+			curr += sprintf(curr, "%lld", (long long)imm64Arg);
 	}
 
 	return (int)(curr - buf);
@@ -153,7 +155,7 @@ int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 		{
 			*curr++ = ' ';
 
-			bool usex64 = name >= o_mov64 || argA.type == x86Argument::argPtr || name == o_movsxd || ((name == o_call || name == o_push || name == o_pop) && sizeof(void*) == 8) || (argB.type == x86Argument::argPtr && argB.ptrSize == sQWORD && name != o_cvttsd2si);
+			bool usex64 = name >= o_mov64 || name == o_movsxd || ((argA.type == x86Argument::argPtr || name == o_call || name == o_push || name == o_pop) && sizeof(void*) == 8) || (argB.type == x86Argument::argPtr && argB.ptrSize == sQWORD && name != o_cvttsd2si);
 			bool useMmWord = ctx.vsAsmStyle && argB.type == x86Argument::argXmmReg;
 
 			curr += argA.Decode(ctx, curr, usex64, useMmWord, name == o_lea);
@@ -165,7 +167,7 @@ int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 			if(!ctx.vsAsmStyle)
 				*curr++ = ' ';
 
-			bool usex64 = name >= o_mov64 || argB.type == x86Argument::argPtr || name == o_movsxd || (argA.type == x86Argument::argPtr && argA.ptrSize == sQWORD);
+			bool usex64 = name >= o_mov64 || (argB.type == x86Argument::argPtr && sizeof(void*) == 8) || name == o_movsxd || (argA.type == x86Argument::argPtr && argA.ptrSize == sQWORD);
 			bool useMmWord = ctx.vsAsmStyle && (argA.type == x86Argument::argXmmReg || name == o_cvttsd2si || name == o_cvttsd2si64);
 
 			curr += argB.Decode(ctx, curr, usex64, useMmWord, name == o_lea);

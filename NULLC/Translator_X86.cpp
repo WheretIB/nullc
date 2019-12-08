@@ -222,7 +222,7 @@ unsigned encodeImmDword(unsigned char* stream, int num)
 	return sizeof(num);
 }
 
-unsigned encodeImmQword(unsigned char* stream, uintptr_t num)
+unsigned encodeImmQword(unsigned char* stream, unsigned long long num)
 {
 	memcpy(stream, &num, sizeof(num));
 	return sizeof(num);
@@ -661,7 +661,7 @@ int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src)
 }
 
 // REX.W mov dst, num
-int x64MOV(unsigned char *stream, x86Reg dst, uintptr_t num)
+int x64MOV(unsigned char *stream, x86Reg dst, unsigned long long num)
 {
 	unsigned char *start = stream;
 
@@ -849,12 +849,11 @@ int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift)
 // lea dst, [index*multiplier+base+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
+	(void)size;
+
 	unsigned char *start = stream;
 
-	assert(size == sDWORD || size == sQWORD);
-
-	stream += encodeRex(stream, size == sQWORD, dst, index, base);
-
+	stream += encodeRex(stream, false, dst, index, base);
 	*stream++ = 0x8d;
 	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[dst]);
 
@@ -2148,6 +2147,10 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 		if(cmd.instID)
 			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
 
+#if !defined(_M_X64)
+		assert(cmd.name < o_mov64);
+#endif
+
 		switch(cmd.name)
 		{
 		case o_none:
@@ -3177,7 +3180,7 @@ int TestRegNumEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Com
 	return int(stream - start);
 }
 
-int TestRegNum64Encoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg dst, uintptr_t num))
+int TestRegNum64Encoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Reg dst, unsigned long long num))
 {
 	unsigned char *start = stream;
 

@@ -48,10 +48,15 @@ struct CodeGenRegVmStateContext
 		checkedReturnWrap = NULL;
 		convertPtrWrap = NULL;
 
-		powWrap = NULL;
-		powdWrap = NULL;
-		moddWrap = NULL;
-		powlWrap = NULL;
+		x64PowWrap = NULL;
+		x64PowdWrap = NULL;
+		x64ModdWrap = NULL;
+		x64PowlWrap = NULL;
+
+		x86PowWrap = NULL;
+		x86PowdWrap = NULL;
+		x86ModdWrap = NULL;
+		x86PowlWrap = NULL;
 
 		vsAsmStyle = false;
 	}
@@ -80,14 +85,19 @@ struct CodeGenRegVmStateContext
 
 	unsigned char *codeLaunchHeader;
 
-	void (*callWrap)(CodeGenRegVmStateContext *ctx, unsigned functionId);
+	void (*callWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
 	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, unsigned microcodePos);
 	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
 
-	void (*powWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
-	void (*powdWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
-	void (*moddWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
-	void (*powlWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);
+	void (*x64PowWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
+	void (*x64PowdWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
+	void (*x64ModdWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
+	void (*x64PowlWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
+
+	void (*x86PowWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86PowdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86ModdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86PowlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 
 	bool vsAsmStyle;
 };
