@@ -6,6 +6,7 @@
 #include "Executor_X86.h"
 #include "Executor_LLVM.h"
 #include "Executor_RegVm.h"
+#include "Linker.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc
@@ -13,6 +14,8 @@
 
 #include "../external/dyncall/dyncall.h"
 #endif
+
+typedef uintptr_t markerType;
 
 namespace NULLC
 {

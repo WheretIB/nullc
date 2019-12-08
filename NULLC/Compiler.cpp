@@ -3,6 +3,7 @@
 #include "nullc.h"
 #include "nullbind.h"
 #include "BinaryCache.h"
+#include "Bytecode.h"
 #include "Executor_Common.h"
 #include "StdLib.h"
 

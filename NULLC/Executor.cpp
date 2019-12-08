@@ -3,6 +3,7 @@
 
 #include "nullc.h"
 #include "nullc_debug.h"
+#include "Linker.h"
 #include "StdLib.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)

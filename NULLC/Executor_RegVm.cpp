@@ -4,6 +4,7 @@
 
 #include "nullc.h"
 #include "nullc_debug.h"
+#include "Linker.h"
 #include "StdLib.h"
 
 #if defined(_MSC_VER)
