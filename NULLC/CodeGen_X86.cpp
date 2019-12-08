@@ -37,6 +37,22 @@ void CodeGenGenericContext::MemRead(const x86Argument &address)
 
 void CodeGenGenericContext::MemWrite(const x86Argument &address, const x86Argument &value)
 {
+	for(unsigned i = 0; i < memoryStateSize; i++)
+	{
+		MemCache &entry = memCache[i];
+
+		if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone && entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex && entry.address.ptrSize != address.ptrSize)
+		{
+			unsigned dataSize = entry.address.ptrSize == sBYTE ? 1 : (entry.address.ptrSize == sWORD ? 2 : (entry.address.ptrSize == sDWORD ? 4 : 8));
+			unsigned argSize = address.ptrSize == sBYTE ? 1 : (address.ptrSize == sWORD ? 2 : (address.ptrSize == sDWORD ? 4 : 8));
+
+			if(unsigned(address.ptrNum) + argSize <= unsigned(entry.address.ptrNum) || unsigned(address.ptrNum) >= unsigned(entry.address.ptrNum) + dataSize)
+				continue;
+
+			entry.address.type = x86Argument::argNone;
+		}
+	}
+
 	if(unsigned index = MemFind(address))
 	{
 		index--;
