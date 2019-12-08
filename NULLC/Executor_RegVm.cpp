@@ -1753,7 +1753,19 @@ void ExecutorRegVm::BeginCallStack()
 
 unsigned ExecutorRegVm::GetNextAddress()
 {
-	return currentFrame == callStack.size() ? 0 : (unsigned)(callStack[currentFrame++] - codeBase);
+	if(currentFrame == callStack.size())
+		return 0;
+
+	RegVmCmd *instruction = callStack[currentFrame++];
+
+	if(instruction >= breakCode.data && instruction < breakCode.data + breakCode.count)
+	{
+		assert(instruction->code == rviNop);
+
+		return instruction->argument;
+	}
+
+	return unsigned(instruction - codeBase);
 }
 
 void* ExecutorRegVm::GetStackStart()
