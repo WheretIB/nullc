@@ -1048,3 +1048,57 @@ total += arr8[0] - 'a';\r\n\
 total += arr8[0] - 'a';\r\n\
 return total;";
 TEST_RESULT("Dead instruction in load store propagation", testDeadInstructionInLoadStorePropagation, "2");
+
+const char	*testNumericOperations =
+"auto op1<@T>(@T a, b, c, d){ return a + b + c + d; }\r\n\
+auto op2<@T>(@T a, b, c, d){ return a - b - c - d; }\r\n\
+auto op3<@T>(@T a, b, c, d){ return a * b * c * d; }\r\n\
+auto op4<@T>(@T a, b, c, d){ return a / b / c / d; }\r\n\
+auto op5<@T>(@T a, b, c, d){ return a % b % c % d; }\r\n\
+\r\n\
+auto op6<@T>(@T a, b, c, d){ return a << b << c << d; }\r\n\
+auto op7<@T>(@T a, b, c, d){ return a >> b >> c >> d; }\r\n\
+auto op8<@T>(@T a, b, c, d){ return a & b & c & d; }\r\n\
+auto op9<@T>(@T a, b, c, d){ return a | b | c | d; }\r\n\
+auto opA<@T>(@T a, b, c, d){ return a ^ b ^ c ^ d; }\r\n\
+\r\n\
+auto test_integer<@T>()\r\n\
+{\r\n\
+	T res;\r\n\
+\r\n\
+	res += op1 with<T>(1000, 2, 3, 4);\r\n\
+	res += op2 with<T>(1000, 2, 3, 4);\r\n\
+	res += op3 with<T>(1000, 2, 3, 4);\r\n\
+	res += op4 with<T>(1000, 2, 3, 4);\r\n\
+	res += op5 with<T>(1000, 2, 3, 4);\r\n\
+	res += op6 with<T>(1000, 2, 3, 4);\r\n\
+	res += op7 with<T>(1000, 2, 3, 4);\r\n\
+	res += op8 with<T>(1000, 2, 3, 4);\r\n\
+	res += op9 with<T>(1000, 2, 3, 4);\r\n\
+	res += opA with<T>(1000, 2, 3, 4);\r\n\
+\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+auto test_rational<@T>()\r\n\
+{\r\n\
+	T res;\r\n\
+\r\n\
+	res += op1 with<T>(1000, 2, 3, 4);\r\n\
+	res += op2 with<T>(1000, 2, 3, 4);\r\n\
+	res += op3 with<T>(1000, 2, 3, 4);\r\n\
+	res += op4 with<T>(1000, 2, 3, 4);\r\n\
+	res += op5 with<T>(1000, 2, 3, 4);\r\n\
+\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+auto t1 = test_integer with<char>();\r\n\
+auto t2 = test_integer with<short>();\r\n\
+auto t3 = test_integer with<int>();\r\n\
+auto t4 = test_integer with<long>();\r\n\
+auto t5 = test_rational with<float>();\r\n\
+auto t6 = test_rational with<double>();\r\n\
+\r\n\
+return int(t1 + t2 + t3 + t4 + t5 + t6);";
+TEST_RESULT("Numeric operations on different types", testNumericOperations, "1148063");

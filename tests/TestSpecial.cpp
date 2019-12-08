@@ -97,6 +97,33 @@ for(int i in masked)\r\n\
 return sum;";
 TEST_RESULT("Euler 122 (small depth) vector test", testEuler122, "79");
 
+const char	*testEuler45 =
+"long EulerTest45()\r\n\
+{\r\n\
+	long T = 1;\r\n\
+	long P = 1;\r\n\
+	long H = 143;\r\n\
+	long best = 40755;\r\n\
+	for(long num = 1; num < 30000; num++)\r\n\
+	{\r\n\
+		H++;\r\n\
+		long i = H * (2 * H - 1);\r\n\
+		while((T * (T + 1)) >> 1 < i)\r\n\
+			T++;\r\n\
+		while((P * (3 * P - 1)) >> 1 < i)\r\n\
+			P++;\r\n\
+\r\n\
+		if((T * (T + 1)) >> 1 == i && (P * (3 * P - 1)) >> 1 == i)\r\n\
+		{\r\n\
+			best = i;\r\n\
+			break;\r\n\
+		}\r\n\
+	}\r\n\
+	return best;\r\n\
+}\r\n\
+return EulerTest45();";
+TEST_RESULT("Euler 45 (jit optimizer fail)", testEuler45, "1533776805L");
+
 const char	*testPatternMatching =
 "import std.vector;\r\n\
 \r\n\

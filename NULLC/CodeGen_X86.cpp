@@ -986,6 +986,8 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 			return;
 		}
 
+		ctx.ReadRegister(reg2);
+
 		ctx.OverwriteRegisterWithValue(reg1, x86Argument(reg2));
 		break;
 	default:
