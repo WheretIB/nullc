@@ -5556,7 +5556,7 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			// Consider only variables of simple types
 			VmType vmType = GetVmType(ctx, variable->type);
 
-			if(vmType.type != VM_TYPE_INT && vmType.type != VM_TYPE_DOUBLE && vmType.type != VM_TYPE_LONG && vmType.type != VM_TYPE_POINTER)
+			if(variable->type != ctx.typeInt && variable->type != ctx.typeDouble && variable->type != ctx.typeLong && vmType.type != VM_TYPE_POINTER)
 				continue;
 
 			// Initilize the worklist with a set of blocks that contain assignments to the variable

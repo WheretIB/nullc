@@ -826,9 +826,13 @@ int b3 = a3;\r\n\
 return b + b2 + b3;";
 TEST_RESULT("Short loads are sign-extended 1", testShortSignExtension1, "-3");
 
-const char	*testInvalidOptimization =
+const char	*testInvalidOptimization1 =
 "int foo(int c){ return 1 - 1 / c; } return foo(2);";
-TEST_RESULT("Invald optimization (sub to dec transform)", testInvalidOptimization, "1");
+TEST_RESULT("Invald optimization (sub to dec transform)", testInvalidOptimization1, "1");
+
+const char	*testInvalidOptimization2 =
+"auto op6(){ return 0x112233; } auto foo(){ short res = op6(); return res; } return foo() - 0x2233;";
+TEST_RESULT("Invald optimization (promotion of short type memory to register)", testInvalidOptimization2, "0");
 
 const char	*testEvaluationTypeError =
 "class Test{ double a, b, c; }\r\n\
