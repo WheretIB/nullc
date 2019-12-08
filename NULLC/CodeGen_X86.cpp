@@ -1,5 +1,7 @@
 #include "CodeGen_X86.h"
 
+//#undef NULLC_OPTIMIZE_X86
+
 #ifdef NULLC_BUILD_X86_JIT
 
 #include "Executor_Common.h"
@@ -531,6 +533,13 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	case o_setnz:
 		ctx.ReadAndModifyRegister(reg1); // Since instruction sets only lower bits, it 'reads' the rest
 		break;
+	case o_imul:
+	case o_imul64:
+		ctx.ReadRegister(reg1);
+
+		ctx.ReadAndModifyRegister(rEAX);
+		ctx.OverwriteRegisterWithUnknown(rEDX); // Don't care about top bits here
+		break;
 	case o_idiv:
 	case o_idiv64:
 		ctx.ReadRegister(reg1);
@@ -546,6 +555,20 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	case o_not:
 	case o_neg64:
 	case o_not64:
+		ctx.ReadAndModifyRegister(reg1);
+		break;
+	case o_push:
+		ctx.ReadRegister(reg1);
+		break;
+	case o_pop:
+		ctx.OverwriteRegisterWithUnknown(reg1);
+		break;
+	case o_sal:
+	case o_sar:
+	case o_sal64:
+	case o_sar64:
+		ctx.ReadRegister(rECX);
+
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
@@ -588,6 +611,8 @@ void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num)
 #ifdef NULLC_OPTIMIZE_X86
 	switch(op)
 	{
+	case o_push:
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
@@ -619,10 +644,37 @@ void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Re
 	ctx.ReadRegister(base);
 	ctx.ReadRegister(index);
 
-	ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+	x86Argument arg = x86Argument(size, index, multiplier, base, shift);
+
+	ctx.MemRead(arg);
 
 	switch(op)
 	{
+	case o_push:
+	case o_pop:
+		break;
+	case o_neg:
+	case o_not:
+	case o_neg64:
+	case o_not64:
+		ctx.InvalidateAddressValue(arg);
+
+		ctx.MemWrite(arg, x86Argument());
+		break;
+	case o_idiv:
+	case o_idiv64:
+		ctx.ReadAndModifyRegister(rEAX);
+		ctx.ReadAndModifyRegister(rEDX);
+
+		// Implicitly read the result so when one of the registers is killed, it will not remove the instruction (there's room for improvement)
+		ctx.ReadRegister(rEAX);
+		ctx.ReadRegister(rEDX);
+		break;
+	case o_call:
+		ctx.KillUnreadRegisters();
+
+		ctx.InvalidateState();
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
@@ -714,6 +766,8 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 
 		ctx.ReadAndModifyRegister(reg1);
 		break;
+	case o_adc:
+	case o_sbb:
 	case o_imul:
 	case o_and:
 	case o_or:
@@ -728,6 +782,10 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 	case o_sal64:
 	case o_sar64:
 		ctx.ReadAndModifyRegister(reg1);
+		break;
+	case o_cmp:
+	case o_cmp64:
+		ctx.ReadRegister(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -840,6 +898,13 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		}
 
 		// TODO: if there is a known number in destination, we can perform a lea
+
+		ctx.ReadRegister(reg2);
+		ctx.ReadAndModifyRegister(reg1);
+		break;
+	case o_adc:
+	case o_sbb:
+		reg2 = ctx.RedirectRegister(reg2);
 
 		ctx.ReadRegister(reg2);
 		ctx.ReadAndModifyRegister(reg1);
@@ -1086,10 +1151,14 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 		break;
 	case o_cvttsd2si:
 	case o_cvttsd2si64:
+	case o_add:
+	case o_sub:
 	case o_imul:
 	case o_and:
 	case o_or:
 	case o_xor:
+	case o_add64:
+	case o_sub64:
 	case o_imul64:
 	case o_and64:
 	case o_or64:
@@ -1097,6 +1166,12 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 		ctx.MemRead(address);
 
 		ctx.ReadAndModifyRegister(reg1);
+		break;
+	case o_cmp:
+	case o_cmp64:
+		ctx.MemRead(address);
+
+		ctx.ReadRegister(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -1255,6 +1330,28 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 		// Track target memory value
 		ctx.MemWrite(arg, x86Argument(reg2));
 		break;
+	case o_add:
+	case o_sub:
+	case o_adc:
+	case o_sbb:
+	case o_and:
+	case o_or:
+	case o_xor:
+	case o_add64:
+	case o_sub64:
+	case o_and64:
+	case o_or64:
+	case o_xor64:
+		ctx.MemRead(arg);
+
+		ctx.InvalidateAddressValue(arg);
+		
+		ctx.MemWrite(arg, x86Argument());
+		break;
+	case o_cmp:
+	case o_cmp64:
+		ctx.MemRead(arg);
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
@@ -1290,7 +1387,9 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	{
 	case o_movss:
 	case o_movsd:
-		assert(base != rESP);
+		// No tracking for stack
+		if(base == rESP)
+			break;
 
 		ctx.InvalidateAddressValue(arg);
 
@@ -1396,9 +1495,31 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 		ctx.MemWrite(arg, x86Argument(num));
 		break;
 	case o_add:
+	case o_sub:
+	case o_adc:
+	case o_sbb:
+	case o_shl:
+	case o_sal:
+	case o_sar:
+	case o_and:
+	case o_or:
+	case o_xor:
+	case o_add64:
+	case o_sub64:
+	case o_sal64:
+	case o_sar64:
+	case o_and64:
+	case o_or64:
+	case o_xor64:
+		ctx.MemRead(arg);
+
 		ctx.InvalidateAddressValue(arg);
 
 		ctx.MemWrite(arg, x86Argument());
+		break;
+	case o_cmp:
+	case o_cmp64:
+		ctx.MemRead(arg);
 		break;
 	default:
 		assert(!"unknown instruction");
