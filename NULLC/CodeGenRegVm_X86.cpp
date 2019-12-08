@@ -2231,11 +2231,13 @@ void GenCodeCmdAddImml(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	if(int(cmd.argument) < 0)
 	{
 		EMIT_OP_REG_NUM(ctx.ctx, o_sub, rEAX, -int(cmd.argument));
+		EMIT_REG_READ(ctx.ctx, rEAX); // sbb implicitly reads the result of the last value-producing instruction
 		EMIT_OP_REG_NUM(ctx.ctx, o_sbb, rEDX, 0);
 	}
 	else
 	{
 		EMIT_OP_REG_NUM(ctx.ctx, o_add, rEAX, cmd.argument);
+		EMIT_REG_READ(ctx.ctx, rEAX); // adc implicitly reads the result of the last value-producing instruction
 		EMIT_OP_REG_NUM(ctx.ctx, o_adc, rEDX, 0);
 	}
 
@@ -2265,6 +2267,7 @@ void GenCodeCmdAddl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rB * 8 + 4);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_add, rEAX, rECX);
+	EMIT_REG_READ(ctx.ctx, rEAX); // adc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG_REG(ctx.ctx, o_adc, rEDX, rEDI);
 
 	// Send long in EAX:EDX
@@ -2294,6 +2297,7 @@ void GenCodeCmdSubl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rB * 8 + 4);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_sub, rECX, rEAX);
+	EMIT_REG_READ(ctx.ctx, rECX); // sbb implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rEDI, rEDX);
 
 	// Send long in EAX:EDX
@@ -2487,6 +2491,7 @@ void GenCodeCmdLessl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rECX, rEDI);
+	EMIT_REG_READ(ctx.ctx, rECX); // setcc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG(ctx.ctx, o_setl, rEAX);
 
 	EMIT_OP_REG_NUM(ctx.ctx, o_and, rEAX, 1);
@@ -2518,6 +2523,7 @@ void GenCodeCmdGreaterl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rECX, rEDI);
+	EMIT_REG_READ(ctx.ctx, rECX); // setcc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG(ctx.ctx, o_setl, rEAX);
 
 	EMIT_OP_REG_NUM(ctx.ctx, o_and, rEAX, 1);
@@ -2549,6 +2555,7 @@ void GenCodeCmdLequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rECX, rEDI);
+	EMIT_REG_READ(ctx.ctx, rECX); // setcc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG(ctx.ctx, o_setge, rEAX);
 
 	EMIT_OP_REG_NUM(ctx.ctx, o_and, rEAX, 1);
@@ -2580,6 +2587,7 @@ void GenCodeCmdGequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rECX, rEDI);
+	EMIT_REG_READ(ctx.ctx, rECX); // setcc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG(ctx.ctx, o_setge, rEAX);
 
 	EMIT_OP_REG_NUM(ctx.ctx, o_and, rEAX, 1);
@@ -2609,6 +2617,7 @@ void GenCodeCmdEquall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_xor, rECX, sDWORD, rREG, cmd.rB * 8);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_xor, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
 	EMIT_OP_REG_REG(ctx.ctx, o_or, rECX, rEDX);
+	EMIT_REG_READ(ctx.ctx, rECX); // setcc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG(ctx.ctx, o_sete, rEAX);
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
@@ -2637,6 +2646,7 @@ void GenCodeCmdNequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_xor, rECX, sDWORD, rREG, cmd.rB * 8);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_xor, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
 	EMIT_OP_REG_REG(ctx.ctx, o_or, rECX, rEDX);
+	EMIT_REG_READ(ctx.ctx, rECX); // setcc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG(ctx.ctx, o_setne, rEAX);
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
@@ -3329,6 +3339,7 @@ void GenCodeCmdNegl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rEDI, rEDI);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_sub, rECX, rEAX);
+	EMIT_REG_READ(ctx.ctx, rECX); // sbb implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rEDI, rEDX);
 
 	// Store long in ECX:EDI to target
@@ -3416,6 +3427,7 @@ void GenCodeCmdLogNotl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_REG_REG(ctx.ctx, o_xor, rRCX, rRCX);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_or, rEAX, sDWORD, rREG, cmd.rC * 8 + 4); // Or with high part
+	EMIT_REG_READ(ctx.ctx, rEAX); // setcc implicitly reads the result of the last value-producing instruction
 	EMIT_OP_REG(ctx.ctx, o_sete, rECX);
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
