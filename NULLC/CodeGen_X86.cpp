@@ -424,6 +424,7 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 		ctx.OverwriteRegisterWithUnknown(rEDX);
 		break;
 	case o_use32:
+	case o_other:
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -931,6 +932,8 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 			ctx.optimizationCount++;
 			return;
 		}
+
+		ctx.ReadRegister(reg2);
 
 		ctx.OverwriteRegisterWithValue(reg1, x86Argument(reg2));
 		break;
