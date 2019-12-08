@@ -3358,10 +3358,14 @@ void GenCodeCmdNegd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_xor64, rRAX, rRDX); // Switch top bit
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long bit pattern to target double
 #else
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8 + 4); // Load high bits of double as an integer
-	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, 0x80000000u);
-	EMIT_OP_REG_REG(ctx.ctx, o_xor, rEAX, rEDX); // Switch top bit
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEAX); // Store long bit pattern to target double
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load double as a long bit patter
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8 + 4);
+
+	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, 0x80000000u);
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, rEDX, rECX); // Switch top bit
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store long bit pattern to target double
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
 #endif
 }
 

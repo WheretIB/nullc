@@ -124,6 +124,32 @@ const char	*testEuler45 =
 return EulerTest45();";
 TEST_RESULT("Euler 45 (jit optimizer fail)", testEuler45, "1533776805L");
 
+const char	*testEuler100 =
+"import std.math;\r\n\
+\r\n\
+long EulerTest100()\r\n\
+{\r\n\
+	double r = 1;\r\n\
+	double oldR;\r\n\
+	double blue;\r\n\
+\r\n\
+	do\r\n\
+	{\r\n\
+		oldR = r;\r\n\
+		double qb = -(1+2*r), qc = -r*r + r;\r\n\
+		double d = qb*qb - 4 * qc;\r\n\
+\r\n\
+		double sqrtD = sqrt(d);\r\n\
+		blue = (-qb + sqrtD) / 2;\r\n\
+		r = blue * (blue - 1) / r;\r\n\
+	}\r\n\
+	while(r+blue < 1000000000000l);\r\n\
+\r\n\
+	return long(blue);\r\n\
+}\r\n\
+return EulerTest100();";
+TEST_RESULT("Euler 100 (missed code gen error)", testEuler100, "756872327473L");
+
 const char	*testPatternMatching =
 "import std.vector;\r\n\
 \r\n\
