@@ -56,7 +56,10 @@ struct CodeGenRegVmStateContext
 		x86PowWrap = NULL;
 		x86PowdWrap = NULL;
 		x86ModdWrap = NULL;
+		x86MullWrap = NULL;
+		x86DivlWrap = NULL;
 		x86PowlWrap = NULL;
+		x86ModlWrap = NULL;
 
 		vsAsmStyle = false;
 	}
@@ -97,7 +100,10 @@ struct CodeGenRegVmStateContext
 	void (*x86PowWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86PowdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ModdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86MullWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86DivlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86PowlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86ModlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 
 	bool vsAsmStyle;
 };
