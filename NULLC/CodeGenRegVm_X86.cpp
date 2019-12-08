@@ -717,7 +717,10 @@ void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
 #else
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store to target
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8 + 4); // Load source
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEAX); // Store to target
 #endif
 }
 
@@ -743,7 +746,26 @@ void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, ((cmd.argument >> 8) & 0xff) * 8, rRAX); // Store to target
 	}
 #else
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store to target
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8 + 4); // Load source
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEAX); // Store to target
+
+	if(((cmd.argument >> 16) & 0xff) != (cmd.argument >> 24))
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8); // Load source
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, (cmd.argument >> 24) * 8, rEAX); // Store to target
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8 + 4); // Load source
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, (cmd.argument >> 24) * 8 + 4, rEAX); // Store to target
+	}
+
+	if((cmd.argument & 0xff) != ((cmd.argument >> 8) & 0xff))
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, (cmd.argument & 0xff) * 8); // Load source
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, ((cmd.argument >> 8) & 0xff) * 8, rEAX); // Store to target
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, (cmd.argument & 0xff) * 8 + 4); // Load source
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, ((cmd.argument >> 8) & 0xff) * 8 + 4, rEAX); // Store to target
+	}
 #endif
 }
 
@@ -805,7 +827,11 @@ void GenCodeCmdItol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsxd, rRAX, sDWORD, rREG, cmd.rC * 8); // Load int as long with sign extension
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store value
 #else
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load int
+	EMIT_OP(ctx.ctx, o_cdq);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store value
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX); // Store value
 #endif
 }
 
@@ -813,12 +839,8 @@ void GenCodeCmdLtoi(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-#if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load lower int part of a long number
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store value
-#else
-	assert(!"not implemented");
-#endif
 }
 
 void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -963,7 +985,57 @@ void GenCodeCmdSetRange(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		assert(!"unknown type");
 	}
 #else
-	assert(!"not implemented");
+	switch(RegVmSetRangeType(cmd.rB))
+	{
+	case rvsrDouble:
+	case rvsrLong:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rA * 8);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8 + 4);
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rC * 8); // Load target pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rECX, sDWORD, rEDI, cmd.argument * 8);
+
+		EMIT_LABEL(ctx.ctx, ctx.labelCount);
+		EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEDI, rECX);
+		EMIT_OP_LABEL(ctx.ctx, o_je, ctx.labelCount + 1);
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rEDI, 0, rEAX);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rEDI, 4, rEDX);
+
+		EMIT_OP_REG_NUM(ctx.ctx, o_add, rEDI, 8);
+		EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount);
+		EMIT_LABEL(ctx.ctx, ctx.labelCount + 1);
+
+		ctx.labelCount += 2;
+		break;
+	case rvsrFloat:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_cvtsd2ss, rXMM0, sQWORD, rREG, cmd.rA * 8); // Load double as float
+		EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, rXMM0); // Move to integer register
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rC * 8); // Load target pointer
+		EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument);
+		EMIT_OP(ctx.ctx, o_rep_stosd);
+		break;
+	case rvsrInt:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rA * 8); // Load integer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rC * 8); // Load target pointer
+		EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument);
+		EMIT_OP(ctx.ctx, o_rep_stosd);
+		break;
+	case rvsrShort:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rA * 8); // Load integer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rC * 8); // Load target pointer
+		EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument);
+		EMIT_OP(ctx.ctx, o_rep_stosw);
+		break;
+	case rvsrChar:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rA * 8); // Load integer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rC * 8); // Load target pointer
+		EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument);
+		EMIT_OP(ctx.ctx, o_rep_stosb);
+		break;
+	default:
+		assert(!"unknown type");
+	}
 #endif
 }
 
@@ -979,7 +1051,12 @@ void GenCodeCmdMemCopy(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument >> 2);
 	EMIT_OP(ctx.ctx, o_rep_movsd);
 #else
-	assert(!"not implemented");
+	EMIT_OP_REG_REG(ctx.ctx, o_mov, rEDX, rESI);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rESI, sDWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rA * 8); // Load target pointer
+	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument >> 2);
+	EMIT_OP(ctx.ctx, o_rep_movsd);
+	EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX);
 #endif
 }
 
@@ -1206,9 +1283,9 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 			unsigned size = *microcode++;
 
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rEDX, rESI); // Save frame register
-			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rESI, sQWORD, rREG, reg * 8);
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rESI, sDWORD, rREG, reg * 8);
 			EMIT_OP_REG_NUM(ctx.ctx, o_add, rESI, offset);
-			EMIT_OP_REG_ADDR(ctx.ctx, o_lea, rEDI, sQWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset);
+			EMIT_OP_REG_ADDR(ctx.ctx, o_lea, rEDI, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset);
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 			EMIT_OP(ctx.ctx, o_rep_movsd);
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
@@ -1324,9 +1401,9 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 			unsigned size = *microcode++;
 
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rEDX, rESI); // Save frame register
-			EMIT_OP_REG_ADDR(ctx.ctx, o_lea, rRSI, sQWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset);
-			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rRDI, sQWORD, rREG, reg * 8);
-			EMIT_OP_REG_NUM(ctx.ctx, o_add, rRDI, offset);
+			EMIT_OP_REG_ADDR(ctx.ctx, o_lea, rESI, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset);
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, reg * 8);
+			EMIT_OP_REG_NUM(ctx.ctx, o_add, rEDI, offset);
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 			EMIT_OP(ctx.ctx, o_rep_movsd);
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
@@ -1584,9 +1661,9 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 				unsigned size = *microcode++;
 
 				EMIT_OP_REG_REG(ctx.ctx, o_mov, rEDX, rESI); // Save frame register
-				EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rESI, sQWORD, rREG, reg * 8);
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rESI, sDWORD, rREG, reg * 8);
 				EMIT_OP_REG_NUM(ctx.ctx, o_add, rESI, offset);
-				EMIT_OP_REG_ADDR(ctx.ctx, o_lea, rEDI, sQWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset);
+				EMIT_OP_REG_ADDR(ctx.ctx, o_lea, rEDI, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset);
 				EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 				EMIT_OP(ctx.ctx, o_rep_movsd);
 				EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
