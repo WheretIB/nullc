@@ -1378,7 +1378,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
 		// Skip trash
-		if(instList[i].name == o_other || instList[i].name == o_none)
+		if(instList[i].name == o_none)
 		{
 			if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 			{
@@ -1399,6 +1399,13 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			EMIT_LABEL(codeGenCtx->ctx, inst.labelID, inst.argA.num);
 			SetOptimizationLookBehind(codeGenCtx->ctx, true);
 			continue;
+		}
+
+		if(inst.name == o_call)
+		{
+			EMIT_REG_READ(codeGenCtx->ctx, rECX);
+			EMIT_REG_READ(codeGenCtx->ctx, rEDX);
+			EMIT_REG_READ(codeGenCtx->ctx, rR8);
 		}
 
 		switch(inst.argA.type)
@@ -1427,6 +1434,12 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			case x86Argument::argPtr:
 				EMIT_OP_REG_RPTR(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
 				break;
+			case x86Argument::argImm64:
+				EMIT_OP_REG_NUM64(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.imm64Arg);
+				break;
+			case x86Argument::argXmmReg:
+				EMIT_OP_REG_REG(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.xmmArg);
+				break;
 			default:
 				assert(!"unknown type");
 				break;
@@ -1443,6 +1456,23 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				break;
 			case x86Argument::argReg:
 				EMIT_OP_RPTR_REG(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
+				break;
+			case x86Argument::argXmmReg:
+				EMIT_OP_RPTR_REG(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.xmmArg);
+				break;
+			default:
+				assert(!"unknown type");
+				break;
+			}
+			break;
+		case x86Argument::argXmmReg:
+			switch(inst.argB.type)
+			{
+			case x86Argument::argXmmReg:
+				EMIT_OP_REG_REG(codeGenCtx->ctx, inst.name, inst.argA.xmmArg, inst.argB.xmmArg);
+				break;
+			case x86Argument::argPtr:
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, inst.name, inst.argA.xmmArg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
 				break;
 			default:
 				assert(!"unknown type");
