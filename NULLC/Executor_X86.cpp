@@ -1217,6 +1217,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	codeGenCtx->exTypes = exTypes.data;
 	codeGenCtx->exLocals = exLinker->exLocals.data;
 	codeGenCtx->exRegVmConstants = exRegVmConstants.data;
+	codeGenCtx->exRegVmConstantsEnd = exRegVmConstants.data + exRegVmConstants.count;
 	codeGenCtx->exSymbols = exLinker->exSymbols.data;
 
 	codeGenCtx->vmState = &vmState;

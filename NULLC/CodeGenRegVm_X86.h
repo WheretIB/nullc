@@ -130,6 +130,7 @@ struct CodeGenRegVmContext
 		exTypes = NULL;
 		exLocals = NULL;
 		exRegVmConstants = NULL;
+		exRegVmConstantsEnd = NULL;
 		exSymbols = NULL;
 
 		vmState = NULL;
@@ -153,6 +154,7 @@ struct CodeGenRegVmContext
 	ExternTypeInfo *exTypes;
 	ExternLocalInfo *exLocals;
 	unsigned *exRegVmConstants;
+	unsigned *exRegVmConstantsEnd;
 	char *exSymbols;
 
 	CodeGenRegVmStateContext *vmState;
