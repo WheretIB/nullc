@@ -2285,12 +2285,12 @@ void GenCodeCmdSubl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rREG, cmd.rB * 8);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDI, sDWORD, rREG, cmd.rB * 8 + 4);
 
-	EMIT_OP_REG_REG(ctx.ctx, o_sub, rEAX, rECX);
-	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rEDX, rEDI);
+	EMIT_OP_REG_REG(ctx.ctx, o_sub, rECX, rEAX);
+	EMIT_OP_REG_REG(ctx.ctx, o_sbb, rEDI, rEDX);
 
 	// Send long in EAX:EDX
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store long to target
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store long to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDI);
 #endif
 }
 
@@ -3447,8 +3447,8 @@ void GenCodeCmdConvertPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Get source pointer
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Move to target
 #else
-	EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument); // Target typeid
 	EMIT_OP_RPTR(ctx.ctx, o_push, sDWORD, rREG, cmd.rB * 8); // Source typeid
+	EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument); // Target typeid
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->convertPtrWrap));
 	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
