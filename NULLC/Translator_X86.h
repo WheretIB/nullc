@@ -144,6 +144,8 @@ int x86SUB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // sbb dst, num
 int x86SBB(unsigned char *stream, x86Reg dst, int num);
+// sbb dst, src
+int x86SBB(unsigned char *stream, x86Reg dst, x86Reg src);
 // sbb dword [index*mult+base+shift], num
 int x86SBB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // sbb dword [index*mult+base+shift], op2

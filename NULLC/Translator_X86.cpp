@@ -1248,6 +1248,18 @@ int x86SBB(unsigned char *stream, x86Reg dst, int num)
 	return int(stream - start);
 }
 
+// sbb dst, src
+int x86SBB(unsigned char *stream, x86Reg dst, x86Reg src)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, false, src, rNONE, dst);
+	*stream++ = 0x19;
+	*stream++ = encodeRegister(dst, regCode[src]);
+
+	return int(stream - start);
+}
+
 // sbb dword [index*mult+base+shift], num
 int x86SBB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {
@@ -2398,7 +2410,10 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			}
 			else
 			{
-				code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SBB(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
 			}
 			break;
 		case o_imul:
@@ -3661,6 +3676,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	stream += TestRptrNumEncoding(ctx, stream, o_sub64, x86SUB, testSizeQword);
 
 	stream += TestRegNumEncoding(ctx, stream, o_sbb, x86SBB);
+	stream += TestRegRegEncoding(ctx, stream, o_sbb, x86SBB);
 	stream += TestRptrRegEncoding(ctx, stream, o_sbb, x86SBB, testSizeDword);
 	stream += TestRptrNumEncoding(ctx, stream, o_sbb, x86SBB, testSizeDword);
 
