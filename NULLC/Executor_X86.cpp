@@ -93,15 +93,15 @@ namespace NULLC
 	//char	*stackEndAddress;
 
 	// Four global variables
-	struct DataStackHeader
+	/*struct DataStackHeader
 	{
 		uintptr_t	unused1;
 		uintptr_t	lastEDI;
 		uintptr_t	instructionPtr;
 		uintptr_t	nextElement;
-	};
+	};*/
 
-	DataStackHeader	*dataHead;
+	//DataStackHeader	*dataHead;
 	//char* parameterHead;
 
 	// Hidden pointer to the beginning of NULLC parameter stack, skipping DataStackHeader
@@ -117,8 +117,8 @@ namespace NULLC
 	//RegVmReturnType runResultType = rvrVoid;
 
 	// Call stack is made up by a linked list, starting from last frame, this array will hold call stack in correct order
-	const unsigned STACK_TRACE_DEPTH = 1024;
-	unsigned stackTrace[STACK_TRACE_DEPTH];
+	//const unsigned STACK_TRACE_DEPTH = 1024;
+	//unsigned stackTrace[STACK_TRACE_DEPTH];
 
 	// Signal that call stack contains stack of execution that ended in SEH handler with a fatal exception
 	volatile bool abnormalTermination;
@@ -177,29 +177,13 @@ namespace NULLC
 				return EXCEPTION_CONTINUE_SEARCH;
 			//printf("Returning execution (%d)\n", currExecutor->breakInstructions[index].instIndex);
 
-			uintptr_t array[2] = { expInfo->ContextRecord->RegisterIp, 0 };
-			NULLC::dataHead->instructionPtr = (uintptr_t)&array[1];
+			//??uintptr_t array[2] = { expInfo->ContextRecord->RegisterIp, 0 };
+			//??NULLC::dataHead->instructionPtr = (uintptr_t)&array[1];
 
 			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakFunctionContext, currExecutor->breakInstructions[index].instIndex);
 			//printf("Returned command %d\n", command);
 			*currExecutor->instAddress[currExecutor->breakInstructions[index].instIndex] = currExecutor->breakInstructions[index].oldOpcode;
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
-		}
-
-		// Call stack should be unwind only once on top level error, since every function in external function call chain will signal an exception if there was an exception before.
-		if(!NULLC::abnormalTermination)
-		{
-			// Create call stack
-			dataHead->instructionPtr = expInfo->ContextRecord->RegisterIp;
-			uintptr_t *paramData = &dataHead->nextElement;
-			int count = 0;
-			while(count < (STACK_TRACE_DEPTH - 1) && paramData)
-			{
-				stackTrace[count++] = unsigned(paramData[-1]);
-				paramData = (uintptr_t*)(*paramData);
-			}
-			stackTrace[count] = 0;
-			dataHead->nextElement = NULL;
 		}
 
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
@@ -344,7 +328,7 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	oldCodeBodyProtect = 0;
 
 	// Parameter stack must be aligned
-	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
+	//assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
 
 	//NULLC::stackBaseAddress = NULL;
 	//NULLC::stackEndAddress = NULL;
@@ -677,11 +661,32 @@ bool ExecutorX86::Initialize()
 	NULLC::MemProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PROT_READ | PROT_EXEC);
 #endif
 
+	if(!vmState.callStackBase)
+	{
+		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
+		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
+		vmState.callStackEnd = vmState.callStackBase + 1024 * 8;
+	}
+
 	if(!vmState.tempStackArrayBase)
 	{
 		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
 		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
 		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 32;
+	}
+
+	if(!vmState.dataStackBase)
+	{
+		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+		memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
+		vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
+	}
+
+	if(!vmState.regFileArrayBase)
+	{
+		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
+		memset(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
+		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
 	}
 
 	//x86TestEncoding(codeLaunchHeader);
@@ -697,25 +702,11 @@ bool ExecutorX86::InitExecution()
 		return false;
 	}
 
-	if(!vmState.callStackBase)
-	{
-		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
-		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
-		vmState.callStackEnd = vmState.callStackBase + 1024 * 8;
-	}
-
 	vmState.callStackTop = vmState.callStackBase;
 
 	lastFinalReturn = 0;
 
 	CommonSetLinker(exLinker);
-
-	if(!vmState.dataStackBase)
-	{
-		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
-		memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
-		vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
-	}
 
 	vmState.dataStackTop = vmState.dataStackBase + ((exLinker->globalVarSize + 0xf) & ~0xf);
 
@@ -724,13 +715,6 @@ bool ExecutorX86::InitExecution()
 	execError[0] = 0;
 
 	callContinue = true;
-
-	if(!vmState.regFileArrayBase)
-	{
-		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
-		memset(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
-		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
-	}
 
 	vmState.regFileLastPtr = vmState.regFileArrayBase;
 	vmState.regFileLastTop = vmState.regFileArrayBase;
@@ -1149,10 +1133,16 @@ void ExecutorX86::Stop(const char* error)
 
 bool ExecutorX86::SetStackSize(unsigned bytes)
 {
-	if(codeRunning)
+	if(codeRunning || !instList.empty())
 		return false;
 
 	minStackSize = bytes;
+
+	NULLC::dealloc(vmState.dataStackBase);
+
+	vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+	memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
+	vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
 
 	return true;
 }
@@ -1529,8 +1519,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		if(codeRunning)
 		{
 			codeRelocated = true;
+
 			// This must be an external function call
-			assert(NULLC::dataHead->instructionPtr);
+			/*assert(NULLC::dataHead->instructionPtr);
 			
 			uintptr_t *retvalpos = (uintptr_t*)NULLC::dataHead->instructionPtr - 1;
 			if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
@@ -1543,7 +1534,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
 					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
 				paramData = (uintptr_t*)(*paramData);
-			}
+			}*/
 		}
 		for(unsigned i = 0; i < instAddress.size(); i++)
 			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
