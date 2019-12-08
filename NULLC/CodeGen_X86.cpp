@@ -535,6 +535,8 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		break;
 	case o_imul:
 	case o_imul64:
+		// TODO: check if direct operation with memory is possible
+
 		ctx.ReadRegister(reg1);
 
 		ctx.ReadAndModifyRegister(rEAX);
@@ -542,6 +544,8 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		break;
 	case o_idiv:
 	case o_idiv64:
+		// TODO: check if direct operation with memory is possible
+
 		ctx.ReadRegister(reg1);
 
 		ctx.ReadAndModifyRegister(rEAX);
@@ -574,26 +578,6 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	default:
 		assert(!"unknown instruction");
 	}
-
-	/*
-	// Check if an operation with memory directly is possible
-	if(op == o_imul || op == o_idiv)
-	{
-		NULLC::InvalidateDependand(rEAX);
-		NULLC::reg[rEAX].type = x86Argument::argNone;
-		NULLC::InvalidateDependand(rEDX);
-		NULLC::reg[rEDX].type = x86Argument::argNone;
-		if(op == o_idiv && NULLC::reg[reg1].type == x86Argument::argPtr)
-		{
-			EMIT_OP_RPTR(ctx, o_idiv, NULLC::reg[reg1].ptrSize, NULLC::reg[reg1].ptrBase, NULLC::reg[reg1].ptrNum);
-			return;
-		}
-	}
-	else
-	{
-		NULLC::regUpdate[reg1] = unsigned(ctx.x86Op - ctx.x86Base);
-	}*/
-
 #else
 	if(op == o_call)
 		ctx.InvalidateState();
@@ -616,16 +600,6 @@ void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num)
 	default:
 		assert(!"unknown instruction");
 	}
-
-	/*
-	if(op == o_int)
-		NULLC::regRead[rECX] = true;
-
-#ifdef _DEBUG
-	if(op != o_push && op != o_int)
-		assert(!"invalid instruction");
-#endif*/
-
 #endif
 
 	ctx.x86Op->name = op;
@@ -678,40 +652,6 @@ void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Re
 	default:
 		assert(!"unknown instruction");
 	}
-/*
-	if(op != o_push && index == rNONE && NULLC::reg[base].type == x86Argument::argPtr && NULLC::reg[base].ptrSize == sNONE)
-	{
-		EMIT_OP_RPTR(ctx, op, size, NULLC::reg[base].ptrIndex, NULLC::reg[base].ptrMult, NULLC::reg[base].ptrBase, NULLC::reg[base].ptrNum + shift);
-		return;
-	}
-
-	if(op == o_idiv || op == o_imul)
-	{
-		// still invalidate eax and edx
-		NULLC::InvalidateDependand(rEAX);
-		NULLC::reg[rEAX].type = x86Argument::argNone;
-		NULLC::InvalidateDependand(rEDX);
-		NULLC::reg[rEDX].type = x86Argument::argNone;
-	}
-	
-	NULLC::regRead[index] = true;
-	NULLC::regRead[base] = true;
-
-	if(op == o_call)
-	{
-		EMIT_REG_KILL(ctx, rEAX);
-		EMIT_REG_KILL(ctx, rEBX);
-		EMIT_REG_KILL(ctx, rECX);
-		EMIT_REG_KILL(ctx, rEDX);
-		EMIT_REG_KILL(ctx, rESI);
-		NULLC::InvalidateState();
-	}
-
-#ifdef _DEBUG
-	if(op != o_push && op != o_pop && op != o_neg && op != o_not && op != o_idiv && op != o_call && op != o_jmp)
-		assert(!"invalid instruction");
-#endif*/
-
 #else
 	if(op == o_call)
 		ctx.InvalidateState();
@@ -790,39 +730,6 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 	default:
 		assert(!"unknown instruction");
 	}
-
-	/*
-	// Reverse instruction
-	if(op == o_sub && (int)num < 0)
-	{
-		op = o_add;
-		num = -(int)num;
-	}
-
-	// Reverse instruction
-	if(op == o_add && (int)num < 0)
-	{
-		op = o_sub;
-		num = -(int)num;
-	}
-
-	if(op == o_cmp)
-	{
-		if(NULLC::reg[reg1].type == x86Argument::argReg)
-			reg1 = NULLC::reg[reg1].reg;
-		NULLC::regRead[reg1] = true;
-	}
-	else
-	{
-		NULLC::InvalidateDependand(reg1);
-		NULLC::reg[reg1].type = x86Argument::argNone;
-	}
-
-#ifdef _DEBUG
-	if(op != o_add && op != o_sub && op != o_mov && op != o_test && op != o_imul && op != o_shl && op != o_cmp)
-		assert(!"invalid instruction");
-#endif*/
-
 #endif
 
 	ctx.x86Op->name = op;
@@ -881,6 +788,13 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		break;
 	case o_cmp:
 	case o_cmp64:
+		// TODO: compare directly with memory, compare with immediate (x86)
+
+		reg2 = ctx.RedirectRegister(reg2);
+
+		ctx.ReadRegister(reg1);
+		ctx.ReadRegister(reg2);
+		break;
 	case o_test:
 		reg2 = ctx.RedirectRegister(reg2);
 
@@ -993,33 +907,6 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 	default:
 		assert(!"unknown instruction");
 	}
-	/*
-	if(op == o_cmp)
-	{
-		if(NULLC::reg[reg2].type == x86Argument::argPtr && NULLC::reg[reg2].ptrSize == sDWORD)
-		{
-			EMIT_OP_REG_RPTR(ctx, o_cmp, reg1, sDWORD, NULLC::reg[reg2].ptrIndex, NULLC::reg[reg2].ptrMult, NULLC::reg[reg2].ptrBase, NULLC::reg[reg2].ptrNum);
-			return;
-		}
-		if(NULLC::reg[reg1].type == x86Argument::argPtr && NULLC::reg[reg1].ptrSize == sDWORD)
-		{
-			EMIT_OP_RPTR_REG(ctx, o_cmp, sDWORD, NULLC::reg[reg1].ptrIndex, NULLC::reg[reg1].ptrMult, NULLC::reg[reg1].ptrBase, NULLC::reg[reg1].ptrNum, reg2);
-			return;
-		}
-		if(NULLC::reg[reg2].type == x86Argument::argNumber)
-		{
-			EMIT_OP_REG_NUM(ctx, o_cmp, reg1, NULLC::reg[reg2].num);
-			return;
-		}
-
-		NULLC::regRead[reg1] = true;
-	}
-	else
-	{
-		NULLC::reg[reg1].type = x86Argument::argNone;
-	}
-
-	NULLC::regRead[reg2] = true;*/
 #endif
 
 	ctx.x86Op->name = op;
