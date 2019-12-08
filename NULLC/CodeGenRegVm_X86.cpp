@@ -1492,6 +1492,7 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
 #else
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
 	EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument);
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callWrap));
@@ -1517,6 +1518,7 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_REG_READ(ctx.ctx, rEDX);
 	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
 #else
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Get function id
 	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
@@ -3447,6 +3449,7 @@ void GenCodeCmdConvertPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Get source pointer
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Move to target
 #else
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
 	EMIT_OP_RPTR(ctx.ctx, o_push, sDWORD, rREG, cmd.rB * 8); // Source typeid
 	EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument); // Target typeid
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
