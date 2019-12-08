@@ -1270,6 +1270,10 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 			if(response == NULLC_BREAK_STEP_OUT && callStack.size() != lastFinalReturn)
 				nextCommand = callStack.back();
 
+			// If the next instruction is the breakpoint pseudo-command to return to regular code, place a one time breakpoint on its target
+			if(nextCommand->code == rviNop && nextCommand->rB == EXEC_BREAK_RETURN)
+				nextCommand = &exLinker->exRegVmCode[nextCommand->argument];
+
 			if(nextCommand->code != rviNop)
 			{
 				unsigned pos = breakCode.size();
