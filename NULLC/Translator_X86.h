@@ -281,7 +281,7 @@ int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg);
 // call reg
 int x86CALL(unsigned char *stream, x86Reg address);
 // call [index*mult+base+shift]
-int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, unsigned int shift);
+int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 // call label
 int x86CALL(unsigned char *stream, unsigned int labelID);
 // ret

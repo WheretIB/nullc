@@ -1961,17 +1961,27 @@ int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg)
 // call reg
 int x86CALL(unsigned char *stream, x86Reg address)
 {
-	stream[0] = 0xff;
-	stream[1] = encodeRegister(address, 2);
-	return 2;
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, false, rNONE, rNONE, address);
+	*stream++ = 0xff;
+	*stream++ = encodeRegister(address, 2);
+
+	return int(stream - start);
 }
+
 // call [index*mult+base+shift]
-int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, unsigned int shift)
+int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
-	stream[0] = 0xff;
-	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 2);
-	return 1+asize;
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, false, rNONE, index, base);
+	*stream++ = 0xff;
+	stream += encodeAddress(stream, index, multiplier, base, shift, 2);
+
+	return int(stream - start);
 }
+
 int x86CALL(unsigned char *stream, unsigned int labelID)
 {
 	labelID &= 0x7FFFFFFF;
@@ -3538,7 +3548,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	unsigned instSize = 256 * 1024;
 	x86Instruction *instList = new x86Instruction[instSize];
 	memset(instList, 0, instSize * sizeof(x86Instruction));
-	ctx.SetLastInstruction(instList, instList + instSize);
+	ctx.SetLastInstruction(instList, instList);
 
 	stream += TestRptrXmmEncoding(ctx, stream, o_movss, x86MOVSS, testSizeDword);
 
@@ -3717,6 +3727,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	stream += TestRegRegEncoding(ctx, stream, o_test, x86TEST);
 
 	stream += TestRegEncoding(ctx, stream, o_call, x86CALL);
+	stream += TestRptrEncoding(ctx, stream, o_call, x86CALL, testSizeQword);
 
 	assert(stream < buf + bufSize);
 
@@ -3753,9 +3764,9 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	/*DWORD oldProtect;
 	VirtualProtect((void*)buf, unsigned(stream - buf), PAGE_EXECUTE_READWRITE, (DWORD*)&oldProtect);
 
-	RegVmRegister regFilePtr[8];
+	uintptr_t regFilePtr[8];
 
-	typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+	typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, uintptr_t *regFilePtr);
 	nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
 	gate(buf, regFilePtr);*/
 }
