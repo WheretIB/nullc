@@ -132,6 +132,8 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86Reg reg, x86Reg 
 
 	if(code)
 	{
+		assert(sizeof(void*) == 8);
+
 		*stream = 0x40 | code;
 		return 1;
 	}
@@ -145,6 +147,8 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg reg, x86R
 
 	if(code)
 	{
+		assert(sizeof(void*) == 8);
+
 		*stream = 0x40 | code;
 		return 1;
 	}
@@ -158,6 +162,8 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86Reg dst, x86Reg 
 
 	if(code)
 	{
+		assert(sizeof(void*) == 8);
+
 		*stream = 0x40 | code;
 		return 1;
 	}
@@ -171,6 +177,8 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg dst, x86X
 
 	if(code)
 	{
+		assert(sizeof(void*) == 8);
+
 		*stream = 0x40 | code;
 		return 1;
 	}
@@ -184,6 +192,8 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86Reg dst, x86XmmR
 
 	if(code)
 	{
+		assert(sizeof(void*) == 8);
+
 		*stream = 0x40 | code;
 		return 1;
 	}
@@ -197,6 +207,8 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg dst, x86R
 
 	if(code)
 	{
+		assert(sizeof(void*) == 8);
+
 		*stream = 0x40 | code;
 		return 1;
 	}
