@@ -31,6 +31,7 @@ struct CodeGenRegVmStateContext
 		callStackEnd = NULL;
 
 		regFileArrayBase = NULL;
+		regFileLastPtr = NULL;
 		regFileLastTop = NULL;
 		regFileArrayEnd = NULL;
 
@@ -44,6 +45,7 @@ struct CodeGenRegVmStateContext
 		codeLaunchHeader = NULL;
 
 		callWrap = NULL;
+		checkedReturnWrap = NULL;
 		convertPtrWrap = NULL;
 
 		powWrap = NULL;
@@ -65,6 +67,7 @@ struct CodeGenRegVmStateContext
 	CodeGenRegVmCallStackEntry *callStackEnd;
 
 	RegVmRegister	*regFileArrayBase;
+	RegVmRegister	*regFileLastPtr;
 	RegVmRegister	*regFileLastTop;
 	RegVmRegister	*regFileArrayEnd;
 
@@ -78,6 +81,7 @@ struct CodeGenRegVmStateContext
 	unsigned char *codeLaunchHeader;
 
 	void (*callWrap)(CodeGenRegVmStateContext *ctx, unsigned functionId);
+	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, unsigned microcodePos);
 	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
 
 	void (*powWrap)(RegVmRegister *regFilePtr, uintptr_t cmdValue);

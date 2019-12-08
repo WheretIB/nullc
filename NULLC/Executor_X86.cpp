@@ -742,6 +742,7 @@ bool ExecutorX86::InitExecution()
 		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
 	}
 
+	vmState.regFileLastPtr = vmState.regFileArrayBase;
 	vmState.regFileLastTop = vmState.regFileArrayBase;
 
 	vmState.instAddress = instAddress.data;
@@ -800,7 +801,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	assert(prevDataSize % 16 == 0);
 
 	RegVmRegister *regFilePtr = vmState.regFileLastTop;
-	RegVmRegister *regFileTop = regFilePtr + 256;
+	RegVmRegister *regFileTop = vmState.regFileLastTop + 256;
 
 	unsigned *tempStackPtr = vmState.tempStackArrayBase;
 
@@ -883,7 +884,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
 				regFilePtr = vmState.regFileLastTop;
-				regFileTop = regFilePtr + target.regVmRegisters;
+				regFileTop = vmState.regFileLastTop + target.regVmRegisters;
 
 				if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + stackSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
 				{
@@ -930,8 +931,10 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 	}
 
-	RegVmRegister *prevRegFileLastTop = vmState.regFileLastTop;
+	RegVmRegister *prevRegFilePtr = vmState.regFileLastPtr;
+	RegVmRegister *prevRegFileTop = vmState.regFileLastTop;
 
+	vmState.regFileLastPtr = regFilePtr;
 	vmState.regFileLastTop = regFileTop;
 
 	RegVmReturnType resultType = retType;
@@ -1083,7 +1086,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 #endif
 	}
 
-	vmState.regFileLastTop = prevRegFileLastTop;
+	vmState.regFileLastPtr = prevRegFilePtr;
+	vmState.regFileLastTop = prevRegFileTop;
 
 	vmState.dataStackTop = vmState.dataStackBase + prevDataSize;
 

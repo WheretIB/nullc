@@ -5,6 +5,7 @@
 #include "Executor_Common.h"
 #include "Executor_X86.h"
 #include "InstructionTreeRegVm.h"
+#include "StdLib.h"
 
 #if defined(_M_X64)
 const x86Reg rREG = rRBX;
@@ -778,9 +779,13 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-		RegVmRegister *regFileTop = vmState->regFileLastTop;
+		RegVmRegister *prevRegFilePtr = vmState->regFileLastPtr;
+		RegVmRegister *prevRegFileTop = vmState->regFileLastTop;
 
-		vmState->regFileLastTop = regFileTop + target.regVmRegisters;
+		RegVmRegister *newRegFilePtr = prevRegFileTop;
+
+		vmState->regFileLastPtr = newRegFilePtr;
+		vmState->regFileLastTop = newRegFilePtr + target.regVmRegisters;
 
 		if(vmState->regFileLastTop >= vmState->regFileArrayEnd)
 		{
@@ -801,23 +806,25 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		if(stackSize - argumentsSize)
 			memset(vmState->dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
-		regFileTop[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
-		regFileTop[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackBase + prevDataSize);
-		regFileTop[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
-		regFileTop[rvrrRegisters].ptrValue = uintptr_t(regFileTop);
+		newRegFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
+		newRegFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackBase + prevDataSize);
+		newRegFilePtr[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
+		newRegFilePtr[rvrrRegisters].ptrValue = uintptr_t(newRegFilePtr);
 
-		memset(regFileTop + rvrrCount, 0, (vmState->regFileLastTop - regFileTop - rvrrCount) * sizeof(RegVmRegister));
+		memset(newRegFilePtr + rvrrCount, 0, (vmState->regFileLastTop - newRegFilePtr - rvrrCount) * sizeof(RegVmRegister));
 
 		unsigned char *codeStart = vmState->instAddress[target.regVmAddress];
 
 		typedef	void (*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
 		nullcFunc gate = (nullcFunc)(uintptr_t)vmState->codeLaunchHeader;
-		gate(codeStart, regFileTop);
+		gate(codeStart, newRegFilePtr);
 
 		if(!ctx.x86rvm->callContinue)
 			return;
 
-		vmState->regFileLastTop = regFileTop;
+		vmState->regFileLastPtr = prevRegFilePtr;
+		vmState->regFileLastTop = prevRegFileTop;
+
 		vmState->dataStackTop = vmState->dataStackBase + prevDataSize;
 
 		vmState->callStackTop--;
@@ -993,6 +1000,48 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #endif
 }
 
+void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, unsigned microcodePos)
+{
+	CodeGenRegVmContext &ctx = *vmState->ctx;
+
+	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
+
+	unsigned dataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
+
+	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
+	uintptr_t frameEnd = regFilePtr[rvrrGlobals].ptrValue + dataSize;
+
+	char *returnValuePtr = (char*)vmState->tempStackArrayBase;
+
+	void *ptr;
+	memcpy(&ptr, returnValuePtr, sizeof(ptr));
+
+	if(uintptr_t(ptr) >= frameBase && uintptr_t(ptr) <= frameEnd)
+	{
+		unsigned *microcode = ctx.exRegVmConstants + microcodePos;
+		unsigned typeId = *microcode;
+
+		ExternTypeInfo &type = ctx.exTypes[typeId];
+
+		if(type.arrSize == ~0u)
+		{
+			unsigned length = *(int*)(returnValuePtr + sizeof(void*));
+
+			char *copy = (char*)NULLC::AllocObject(ctx.exTypes[type.subType].size * length);
+			memcpy(copy, ptr, unsigned(ctx.exTypes[type.subType].size * length));
+			memcpy(returnValuePtr, &copy, sizeof(copy));
+		}
+		else
+		{
+			unsigned objSize = type.size;
+
+			char *copy = (char*)NULLC::AllocObject(objSize);
+			memcpy(copy, ptr, objSize);
+			memcpy(returnValuePtr, &copy, sizeof(copy));
+		}
+	}
+}
+
 void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
@@ -1071,9 +1120,18 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 			}
 		}
 
-		// TODO:
-		//if(cmd.rC)
-		//	ExecCheckedReturn(typeId, regFilePtr);
+		// Checked return value
+		if(cmd.rC)
+		{
+			ctx.vmState->checkedReturnWrap = CheckedReturnWrap;
+
+			EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->checkedReturnWrap) - uintptr_t(ctx.vmState)));
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
+			EMIT_REG_READ(ctx.ctx, rRCX);
+			EMIT_REG_READ(ctx.ctx, rEDX);
+			EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+		}
 	}
 
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
