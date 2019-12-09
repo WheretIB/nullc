@@ -550,10 +550,17 @@ bool ExecutorX86::Initialize()
 	pos += x86PUSH(pos, rR14);
 	pos += x86PUSH(pos, rR15);
 
+#ifndef __linux
 	pos += x64MOV(pos, rRBX, rRDX);
 	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
 	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
 	pos += x86CALL(pos, rECX);
+#else
+	pos += x64MOV(pos, rRBX, rRSI);
+	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+	pos += x86CALL(pos, rRDI);
+#endif
 
 	// Restore registers
 	pos += x86POP(pos, rR15);
@@ -675,7 +682,7 @@ bool ExecutorX86::Initialize()
 	codeLaunchDataLength = unsigned(pos - codeLaunchHeader);
 
 #else
-	NULLC::MemProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PROT_READ | PROT_EXEC);
+	NULLC::MemProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PROT_READ | PROT_WRITE | PROT_EXEC);
 #endif
 
 	if(!vmState.callStackBase)

@@ -13,6 +13,16 @@ const x86Reg rREG = rRBX;
 const x86Reg rREG = rEBX;
 #endif
 
+#if defined(__linux)
+const x86Reg rArg1 = rRDI;
+const x86Reg rArg2 = rRSI;
+const x86Reg rArg3 = rRDX;
+#else
+const x86Reg rArg1 = rECX;
+const x86Reg rArg2 = rEDX;
+const x86Reg rArg3 = rR8;
+#endif
+
 // TODO: special handling for rvrrGlobals
 
 #if defined(_M_X64)
@@ -1497,11 +1507,11 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	unsigned char resultType = *microcode++ & 0xff;
 
 #if defined(_M_X64)
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
-	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
-	EMIT_REG_READ(ctx.ctx, rEDX);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rArg2, cmd.argument);
+	EMIT_REG_READ(ctx.ctx, rArg2);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
 #else
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
 	EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument);
@@ -1523,11 +1533,11 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	unsigned char resultType = *microcode++ & 0xff;
 
 #if defined(_M_X64)
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Get function id
-	EMIT_REG_READ(ctx.ctx, rEDX);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rArg2, sDWORD, rREG, cmd.rC * 8); // Get function id
+	EMIT_REG_READ(ctx.ctx, rArg2);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
 #else
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Get function id
@@ -1665,10 +1675,10 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		// Checked return value
 		if(cmd.rC)
 		{
-			EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
-			EMIT_REG_READ(ctx.ctx, rEDX);
-			EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->checkedReturnWrap) - uintptr_t(ctx.vmState)));
+			EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rArg2, cmd.argument);
+			EMIT_REG_READ(ctx.ctx, rArg2);
+			EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->checkedReturnWrap) - uintptr_t(ctx.vmState)));
 		}
 	}
 
@@ -1903,10 +1913,10 @@ void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	uintptr_t cmdValue;
 	memcpy(&cmdValue, &cmd, sizeof(cmdValue));
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
-	EMIT_REG_READ(ctx.ctx, rEDX);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->x64PowWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg2, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rArg2);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->x64PowWrap) - uintptr_t(ctx.vmState)));
 #else
 	unsigned cmdValue[2];
 	memcpy(cmdValue, &cmd, sizeof(cmdValue));
@@ -2419,10 +2429,10 @@ void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	uintptr_t cmdValue;
 	memcpy(&cmdValue, &cmd, sizeof(cmdValue));
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
-	EMIT_REG_READ(ctx.ctx, rEDX);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->x64PowlWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg2, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rArg2);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->x64PowlWrap) - uintptr_t(ctx.vmState)));
 #else
 	unsigned cmdValue[2];
 	memcpy(cmdValue, &cmd, sizeof(cmdValue));
@@ -3056,10 +3066,10 @@ void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	uintptr_t cmdValue;
 	memcpy(&cmdValue, &cmd, sizeof(cmdValue));
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
-	EMIT_REG_READ(ctx.ctx, rEDX);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->x64PowdWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg2, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rArg2);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->x64PowdWrap) - uintptr_t(ctx.vmState)));
 #else
 	unsigned cmdValue[2];
 	memcpy(cmdValue, &cmd, sizeof(cmdValue));
@@ -3104,10 +3114,10 @@ void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	uintptr_t cmdValue;
 	memcpy(&cmdValue, &cmd, sizeof(cmdValue));
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRDX, cmdValue);
-	EMIT_REG_READ(ctx.ctx, rEDX);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->x64ModdWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg2, cmdValue);
+	EMIT_REG_READ(ctx.ctx, rArg2);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->x64ModdWrap) - uintptr_t(ctx.vmState)));
 #else
 	unsigned cmdValue[2];
 	memcpy(cmdValue, &cmd, sizeof(cmdValue));
@@ -3466,13 +3476,13 @@ void GenCodeCmdConvertPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	ctx.vmState->convertPtrWrap = ConvertPtrWrap;
 
 #if defined(_M_X64)
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
-	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rR8, sDWORD, rREG, cmd.rB * 8); // Load typeid
-	EMIT_REG_READ(ctx.ctx, rEDX);
-	EMIT_REG_READ(ctx.ctx, rR8);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->convertPtrWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rArg2, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rArg3, sDWORD, rREG, cmd.rB * 8); // Load typeid
+	EMIT_REG_READ(ctx.ctx, rArg2);
+	EMIT_REG_READ(ctx.ctx, rArg3);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->convertPtrWrap) - uintptr_t(ctx.vmState)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Get source pointer
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Move to target
