@@ -1173,7 +1173,7 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		else
 		{
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-			RunRawExternalFunction(ctx.x86rvm->dcCallVM, ctx.exFunctions[functionId], ctx.exLocals, ctx.exTypes, vmState->tempStackArrayBase);
+			RunRawExternalFunction(ctx.x86rvm->dcCallVM, ctx.exFunctions[functionId], ctx.exLocals, ctx.exTypes, ctx.exTypeExtra, vmState->tempStackArrayBase);
 #else
 			ctx.x86rvm->Stop("ERROR: external raw function calls are disabled");
 #endif

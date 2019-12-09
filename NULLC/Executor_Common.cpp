@@ -47,14 +47,14 @@ unsigned ConvertFromAutoRef(unsigned int target, unsigned int source)
 	return 0;
 }
 
-bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
+bool AreMembersAligned(ExternTypeInfo *lType, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
 {
 	bool aligned = 1;
 	//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
 	for(unsigned m = 0; m < lType->memberCount; m++)
 	{
-		ExternMemberInfo &member = exLinker->exTypeExtra[lType->memberOffset + m];
-		ExternTypeInfo &memberType = exLinker->exTypes[member.type];
+		ExternMemberInfo &member = exTypeExtra[lType->memberOffset + m];
+		ExternTypeInfo &memberType = exTypes[member.type];
 		unsigned pos = member.offset;
 
 		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
@@ -89,13 +89,13 @@ bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
 	return aligned;
 }
 
-bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker)
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
 {
 	for(unsigned m = 0; m < type.memberCount; m++)
 	{
-		ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
+		ExternMemberInfo &member = exTypeExtra[type.memberOffset + m];
 
-		ExternTypeInfo &memberType = linker->exTypes[member.type];
+		ExternTypeInfo &memberType = exTypes[member.type];
 
 		if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
 		{
@@ -109,7 +109,7 @@ bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigne
 			}
 			else
 			{
-				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
+				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, exTypes, exTypeExtra))
 					return true;
 			}
 		}
@@ -1209,8 +1209,10 @@ namespace
 }
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, unsigned *callStorage)
+void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *callStorage)
 {
+	(void)exTypeExtra;
+
 	assert(func.funcPtrRaw);
 
 	void* fPtr = (void*)func.funcPtrRaw;
@@ -1227,8 +1229,8 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 #elif defined(__aarch64__)
 	ExternTypeInfo &funcType = exTypes[func.funcType];
 
-	ExternMemberInfo &member = exLinker->exTypeExtra[funcType.memberOffset];
-	ExternTypeInfo &returnType = exLinker->exTypes[member.type];
+	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exTypes[member.type];
 
 	bool returnByPointer = false;
 
@@ -1239,8 +1241,8 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 #else
 	ExternTypeInfo &funcType = exTypes[func.funcType];
 
-	ExternMemberInfo &member = exLinker->exTypeExtra[funcType.memberOffset];
-	ExternTypeInfo &returnType = exLinker->exTypes[member.type];
+	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exTypes[member.type];
 
 	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker));
 

@@ -1203,7 +1203,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned *callStorage)
 {
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-	RunRawExternalFunction(dcCallVM, exFunctions[funcID], exLinker->exLocals.data, exTypes.data, callStorage);
+	RunRawExternalFunction(dcCallVM, exFunctions[funcID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, callStorage);
 
 	return callContinue;
 #else

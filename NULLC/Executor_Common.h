@@ -3,6 +3,7 @@
 class Linker;
 
 struct ExternTypeInfo;
+struct ExternMemberInfo;
 struct ExternFuncInfo;
 struct ExternLocalInfo;
 
@@ -12,9 +13,9 @@ void CommonSetLinker(Linker* linker);
 
 unsigned ConvertFromAutoRef(unsigned int source, unsigned int target);
 
-bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker);
+bool AreMembersAligned(ExternTypeInfo *lType, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra);
 
-bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker);
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra);
 
 ExternTypeInfo*	GetTypeList();
 
@@ -31,7 +32,7 @@ void	ResetGC();
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
 
-void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, unsigned *callStorage);
+void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *callStorage);
 #endif
 
 int VmIntPow(int power, int number);

@@ -818,7 +818,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			else
 			{
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-				RunRawExternalFunction(dcCallVM, exFunctions[functionID], exLinker->exLocals.data, exTypes.data, tempStackPtr);
+				RunRawExternalFunction(dcCallVM, exFunctions[functionID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, tempStackPtr);
 
 				if(!callContinue)
 					errorState = true;
@@ -1215,6 +1215,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	codeGenCtx->exFunctions = exFunctions.data;
 	codeGenCtx->exTypes = exTypes.data;
+	codeGenCtx->exTypeExtra = exLinker->exTypeExtra.data;
 	codeGenCtx->exLocals = exLinker->exLocals.data;
 	codeGenCtx->exRegVmConstants = exRegVmConstants.data;
 	codeGenCtx->exRegVmConstantsEnd = exRegVmConstants.data + exRegVmConstants.count;

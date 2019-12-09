@@ -7,6 +7,7 @@ struct RegVmRegister;
 
 struct ExternFuncInfo;
 struct ExternTypeInfo;
+struct ExternMemberInfo;
 struct ExternLocalInfo;
 
 struct CodeGenRegVmCallStackEntry
@@ -128,6 +129,7 @@ struct CodeGenRegVmContext
 
 		exFunctions = NULL;
 		exTypes = NULL;
+		exTypeExtra = NULL;
 		exLocals = NULL;
 		exRegVmConstants = NULL;
 		exRegVmConstantsEnd = NULL;
@@ -152,6 +154,7 @@ struct CodeGenRegVmContext
 
 	ExternFuncInfo *exFunctions;
 	ExternTypeInfo *exTypes;
+	ExternMemberInfo *exTypeExtra;
 	ExternLocalInfo *exLocals;
 	unsigned *exRegVmConstants;
 	unsigned *exRegVmConstantsEnd;
