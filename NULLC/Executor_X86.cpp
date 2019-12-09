@@ -1333,8 +1333,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
 
-	if(activeGlobalCodeStart != 0)
-		globalCodeRanges.push_back(pos);
+	globalCodeRanges.push_back(pos);
 
 	// Add extra global return if there is none
 	codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
@@ -1500,7 +1499,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		instList[i].name = o_other;
 		instList[i].instID = 0;
 	}
-#endif
 
 	if(enableLogFiles)
 	{
@@ -1515,6 +1513,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			output.stream = NULL;
 		}
 	}
+#endif
 
 	codeJumpTargets.pop_back();
 
@@ -1539,7 +1538,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #endif
 
 		if(binCodeSize)
-			memcpy(binCodeNew + 16, binCode + 16, binCodeSize);
+			memcpy(binCodeNew, binCode, binCodeSize);
 		NULLC::dealloc(binCode);
 		// If code is currently running, fix call stack (return addresses)
 		if(codeRunning)
@@ -1548,24 +1547,24 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 			// This must be an external function call
 			/*assert(NULLC::dataHead->instructionPtr);
-			
+
 			uintptr_t *retvalpos = (uintptr_t*)NULLC::dataHead->instructionPtr - 1;
 			if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-				*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
+				*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew);
 
 			uintptr_t *paramData = &NULLC::dataHead->nextElement;
 			while(paramData)
 			{
 				uintptr_t *retvalpos = paramData - 1;
 				if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
+					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew);
 				paramData = (uintptr_t*)(*paramData);
 			}*/
 		}
 		for(unsigned i = 0; i < instAddress.size(); i++)
-			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
+			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (uintptr_t)(binCodeNew);
 		binCode = binCodeNew;
-		binCodeStart = (uintptr_t)(binCode + 16);
+		binCodeStart = uintptr_t(binCode);
 	}
 
 	//SetBinaryCodeBase(binCode);
@@ -1574,13 +1573,17 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
 
 	// Translate to x86
-	unsigned char *bytecode = binCode + 16 + binCodeSize;
+	unsigned char *code = binCode + binCodeSize;
 
+	// Linking in new code, destroy final global return code sequence
+	if(binCodeSize != 0)
+	{
 #if defined(_M_X64)
-	unsigned char *code = bytecode +(!binCodeSize ? 0 : -7 /* we must destroy the xor eax, eax; add rsp, 32; ret; sequence */);
+		code -= 7; // xor eax, eax; add rsp, 32; ret;
 #else
-	unsigned char *code = bytecode +(!binCodeSize ? 0 : -4 /* we must destroy the xor eax, eax; ret; sequence */);
+		code -= 3; // xor eax, eax; ret;
 #endif
+	}
 
 	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
 	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
@@ -1591,6 +1594,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	code = x86TranslateInstructionList(code, binCode + binCodeReserved, instList.data, instList.size(), instAddress.data);
 
 	assert(binCodeSize < binCodeReserved);
+
+	binCodeSize = unsigned(code - binCode);
 
 #ifndef __linux
 
@@ -1669,7 +1674,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 #endif
 
-	binCodeSize = (unsigned int)(code - (binCode + 16));
+	assert(unsigned(code - binCode) < binCodeReserved);
 
 	x86SatisfyJumps(instAddress);
 
@@ -1677,7 +1682,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	{
 		if(exFunctions[i].regVmAddress != -1)
 		{
-			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].regVmAddress] - (binCode + 16));
+			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].regVmAddress] - binCode);
 
 			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].regVmAddress];
 			functionAddress[i * 2 + 1] = 0;
@@ -1704,7 +1709,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		for(unsigned i = 0; i < oldFunctionLists.size(); i++)
 			memcpy(oldFunctionLists[i].list, functionAddress.data, oldFunctionLists[i].count * sizeof(unsigned));
 	}
-	//globalStartInBytecode = (int)(instAddress[exLinker->regVmOffsetToGlobalCode] - (binCode + 16));
+	//globalStartInBytecode = (int)(instAddress[exLinker->regVmOffsetToGlobalCode] - binCode);
 
 	lastInstructionCount = exRegVmCode.size();
 

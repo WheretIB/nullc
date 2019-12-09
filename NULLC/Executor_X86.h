@@ -102,7 +102,8 @@ private:
 
 	unsigned char	*binCode;
 	uintptr_t		binCodeStart;
-	unsigned int	binCodeSize, binCodeReserved;
+	unsigned		binCodeSize;
+	unsigned		binCodeReserved;
 
 	unsigned int	lastInstructionCount;
 
