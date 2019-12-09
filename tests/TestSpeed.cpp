@@ -184,9 +184,9 @@ return GC.UsedMemory() - memStart;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection, t, sizeof(void*) == 8 ? "400" : "296"))
+		if(Tests::RunCode(testGarbageCollection, testTarget[t], sizeof(void*) == 8 ? "400" : "296"))
 			testsPassed[t]++;
-		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 
 const char	*testGarbageCollection2 =
@@ -258,9 +258,9 @@ return GC.UsedMemory() - memStart;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection2, t, sizeof(void*) == 8 ? "400" : "296"))
+		if(Tests::RunCode(testGarbageCollection2, testTarget[t], sizeof(void*) == 8 ? "400" : "296"))
 			testsPassed[t]++;
-		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 
 const char	*testGarbageCollection3 =
@@ -300,9 +300,9 @@ return GC.UsedMemory() - memStart;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection3, t, sizeof(void*) == 8 ? "400" : "296"))
+		if(Tests::RunCode(testGarbageCollection3, testTarget[t], sizeof(void*) == 8 ? "400" : "296"))
 			testsPassed[t]++;
-		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
 #endif
 #if defined(_MSC_VER)
@@ -518,9 +518,9 @@ return 0;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testCompileSpeed2, t, "0"))
+		if(Tests::RunCode(testCompileSpeed2, testTarget[t], "0"))
 			testsPassed[t]++;
-		printf("%s finished in %f (single run is %f)\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
+		printf("%s finished in %f (single run is %f)\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
 	}
 
 #if defined(_MSC_VER)
