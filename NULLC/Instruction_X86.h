@@ -344,7 +344,7 @@ struct x86Instruction
 	{
 	}
 
-	explicit x86Instruction(unsigned labelID) : labelID(labelID), name(o_label)
+	explicit x86Instruction(unsigned labelID) : name(o_label), labelID(labelID)
 	{
 	}
 
