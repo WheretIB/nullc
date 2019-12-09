@@ -92,37 +92,12 @@ typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
 
 namespace NULLC
 {
-	// Parameter stack range
-	//char	*stackBaseAddress;
-	//char	*stackEndAddress;
-
-	// Four global variables
-	/*struct DataStackHeader
-	{
-		uintptr_t	unused1;
-		uintptr_t	lastEDI;
-		uintptr_t	instructionPtr;
-		uintptr_t	nextElement;
-	};*/
-
-	//DataStackHeader	*dataHead;
-	//char* parameterHead;
-
 	// Hidden pointer to the beginning of NULLC parameter stack, skipping DataStackHeader
 	uintptr_t paramDataBase;
 
 	// Binary code range in hidden pointers
 	uintptr_t binCodeStart;
 	uintptr_t binCodeEnd;
-
-	// Code run result - two DWORDs for parts of result and a type flag
-	//int runResult = 0;
-	//int runResult2 = 0;
-	//RegVmReturnType runResultType = rvrVoid;
-
-	// Call stack is made up by a linked list, starting from last frame, this array will hold call stack in correct order
-	//const unsigned STACK_TRACE_DEPTH = 1024;
-	//unsigned stackTrace[STACK_TRACE_DEPTH];
 
 	// Signal that call stack contains stack of execution that ended in SEH handler with a fatal exception
 	volatile bool abnormalTermination;
@@ -215,9 +190,6 @@ namespace NULLC
 
 		return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 	}
-
-	//typedef BOOL (WINAPI *PSTSG)(PULONG);
-	//PSTSG pSetThreadStackGuarantee = NULL;
 #else
 
 #if defined(_M_X64)
@@ -282,19 +254,6 @@ namespace NULLC
 
 	typedef void (*codegenCallback)(CodeGenRegVmContext &ctx, RegVmCmd);
 	codegenCallback cgFuncs[rviConvertPtr + 1];
-
-	void UpdateFunctionPointer(unsigned dest, unsigned source)
-	{
-		currExecutor->functionAddress[dest * 2 + 0] = currExecutor->functionAddress[source * 2 + 0];	// function address
-		currExecutor->functionAddress[dest * 2 + 1] = currExecutor->functionAddress[source * 2 + 1];	// function class
-		for(unsigned i = 0; i < currExecutor->oldFunctionLists.size(); i++)
-		{
-			if(currExecutor->oldFunctionLists[i].count < dest * 2)
-				continue;
-			currExecutor->oldFunctionLists[i].list[dest * 2 + 0] = currExecutor->functionAddress[source * 2 + 0];	// function address
-			currExecutor->oldFunctionLists[i].list[dest * 2 + 1] = currExecutor->functionAddress[source * 2 + 1];	// function class
-		}
-	}
 }
 
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants)
@@ -338,21 +297,11 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 
 	lastInstructionCount = 0;
 
-	//callstackTop = NULL;
-
 	oldJumpTargetCount = 0;
 	oldFunctionSize = 0;
 	oldCodeBodyProtect = 0;
 
-	// Parameter stack must be aligned
-	//assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
-
-	//NULLC::stackBaseAddress = NULL;
-	//NULLC::stackEndAddress = NULL;
-
 	NULLC::currExecutor = this;
-
-	linker->SetFunctionPointerUpdater(NULLC::UpdateFunctionPointer);
 
 #ifdef __linux
 	//SetLongJmpTarget(NULLC::errorHandler);
@@ -374,19 +323,7 @@ ExecutorX86::~ExecutorX86()
 		dcFree(dcCallVM);
 #endif
 
-	/*if(NULLC::stackBaseAddress)
-	{
-#ifndef __linux
-		// Remove page guard, restoring old protection value
-		DWORD unusedProtect;
-		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, PAGE_READWRITE, &unusedProtect);
-#else
-		// Remove page guard, restoring old protection value
-		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, PROT_READ | PROT_WRITE);
-#endif
-
-		NULLC::alignedDealloc(NULLC::stackBaseAddress);
-	}*/
+	ClearNative();
 
 	// Disable execution of code head and code body
 #ifndef __linux
@@ -404,26 +341,6 @@ ExecutorX86::~ExecutorX86()
 	binCode = NULL;
 
 	NULLC::currExecutor = NULL;
-
-	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-		NULLC::dealloc(oldFunctionLists[i].list);
-	oldFunctionLists.clear();
-
-	if(codeGenCtx)
-		NULLC::destruct(codeGenCtx);
-	codeGenCtx = NULL;
-
-#ifndef __linux
-
-#if defined(_M_X64)
-	if(codeLaunchWin64UnwindTable)
-	{
-		RtlDeleteFunctionTable(codeLaunchWin64UnwindTable);
-		NULLC::dealloc(codeLaunchWin64UnwindTable);
-	}
-#endif
-
-#endif
 
 	x86ResetLabels();
 }
@@ -529,12 +446,6 @@ bool ExecutorX86::Initialize()
 	cgFuncs[rviLogNot] = GenCodeCmdLogNot;
 	cgFuncs[rviLogNotl] = GenCodeCmdLogNotl;
 	cgFuncs[rviConvertPtr] = GenCodeCmdConvertPtr;
-
-	/*
-#ifndef __linux
-	if(HMODULE hDLL = LoadLibrary("kernel32"))
-		pSetThreadStackGuarantee = (PSTSG)GetProcAddress(hDLL, "SetThreadStackGuarantee");
-#endif*/
 
 	// Create code launch header
 	unsigned char *pos = codeLaunchHeader;
@@ -753,21 +664,6 @@ bool ExecutorX86::InitExecution()
 		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
 	}
 #endif
-
-	/*NULLC::dataHead->lastEDI = 0;
-	NULLC::dataHead->instructionPtr = 0;
-	NULLC::dataHead->nextElement = 0;*/
-
-	/*
-#ifndef __linux
-	if(NULLC::pSetThreadStackGuarantee)
-	{
-		unsigned long extraStack = 4096;
-		NULLC::pSetThreadStackGuarantee(&extraStack);
-	}
-#endif*/
-
-	//memset(NULLC::stackBaseAddress, 0, sizeof(NULLC::DataStackHeader));
 
 	return true;
 }
@@ -1174,24 +1070,39 @@ void ExecutorX86::ClearNative()
 
 	binCodeSize = 0;
 	lastInstructionCount = 0;
-	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-		NULLC::dealloc(oldFunctionLists[i].list);
-	oldFunctionLists.clear();
-
-	functionAddress.clear();
 
 	globalCodeRanges.clear();
 
-#ifndef __linux
+	for(unsigned i = 0; i < expiredCodeBlocks.size(); i++)
+	{
+		ExpiredCodeBlock &block = expiredCodeBlocks[i];
 
-#if defined(_M_X64)
-	// Create function table for unwind information
+#ifndef __linux
+		DWORD unusedProtect;
+		VirtualProtect((void*)block.code, block.codeSize, oldCodeBodyProtect, &unusedProtect);
+#else
+		NULLC::MemProtect((void*)block.code, block.codeSize, PROT_READ | PROT_WRITE);
+#endif
+
+		NULLC::dealloc(block.code);
+
+#if defined(_M_X64) && !defined(__linux)
+		if(block.unwindTable)
+		{
+			RtlDeleteFunctionTable(block.unwindTable);
+			NULLC::dealloc(block.unwindTable);
+		}
+#endif
+	}
+
+	expiredCodeBlocks.clear();
+
+#if defined(_M_X64) && !defined(__linux)
+	// Remove function table for unwind information
 	if(!functionWin64UnwindTable.empty())
 		RtlDeleteFunctionTable(functionWin64UnwindTable.data);
 
 	functionWin64UnwindTable.clear();
-#endif
-
 #endif
 
 	oldJumpTargetCount = 0;
@@ -1207,26 +1118,6 @@ void ExecutorX86::ClearNative()
 
 bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
-	//globalStartInBytecode = 0xffffffff;
-
-	if(functionAddress.max <= exFunctions.size() * 2)
-	{
-		unsigned *newStorage = (unsigned*)NULLC::alloc(exFunctions.size() * 3 * sizeof(unsigned));
-		if(functionAddress.count != 0)
-			oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
-
-		if(functionAddress.count)
-			memcpy(newStorage, functionAddress.data, functionAddress.count * sizeof(unsigned));
-
-		functionAddress.data = newStorage;
-		functionAddress.count = exFunctions.size() * 2;
-		functionAddress.max = exFunctions.size() * 3;
-	}
-	else
-	{
-		functionAddress.resize(exFunctions.size() * 2);
-	}
-
 	if(instList.size())
 		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
@@ -1248,10 +1139,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	codeGenCtx->vmState = &vmState;
 
 	vmState.ctx = codeGenCtx;
-
-	//SetParamBase((unsigned int)(long long)paramBase);
-	//SetFunctionList(exFunctions.data, functionAddress.data);
-	//SetContinuePtr(&callContinue);
 
 	codeGenCtx->ctx.SetLastInstruction(instList.data, instList.data);
 
@@ -1528,46 +1415,45 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		// Disable execution of old code body and enable execution of new code body
 #ifndef __linux
 		DWORD unusedProtect;
-		if(binCode)
+		if(binCode && !codeRunning)
 			VirtualProtect((void*)binCode, oldBinCodeReserved, oldCodeBodyProtect, (DWORD*)&unusedProtect);
 		VirtualProtect((void*)binCodeNew, binCodeReserved, PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeBodyProtect);
 #else
-		if(binCode)
+		if(binCode && !codeRunning)
 			NULLC::MemProtect((void*)binCode, oldBinCodeReserved, PROT_READ | PROT_WRITE);
 		NULLC::MemProtect((void*)binCodeNew, binCodeReserved, PROT_READ | PROT_WRITE | PROT_EXEC);
 #endif
 
 		if(binCodeSize)
 			memcpy(binCodeNew, binCode, binCodeSize);
-		NULLC::dealloc(binCode);
-		// If code is currently running, fix call stack (return addresses)
+
+		// If code is currently running, update all instruction pointers
 		if(codeRunning)
 		{
 			codeRelocated = true;
 
-			// This must be an external function call
-			/*assert(NULLC::dataHead->instructionPtr);
+			ExpiredCodeBlock block;
 
-			uintptr_t *retvalpos = (uintptr_t*)NULLC::dataHead->instructionPtr - 1;
-			if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-				*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew);
+			block.code = binCode;
+			block.codeSize = oldBinCodeReserved;
+			block.unwindTable = functionWin64UnwindTable.data;
 
-			uintptr_t *paramData = &NULLC::dataHead->nextElement;
-			while(paramData)
-			{
-				uintptr_t *retvalpos = paramData - 1;
-				if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew);
-				paramData = (uintptr_t*)(*paramData);
-			}*/
+			expiredCodeBlocks.push_back(block);
+
+			functionWin64UnwindTable.data = NULL;
+			functionWin64UnwindTable.count = 0;
+			functionWin64UnwindTable.max = 0;
 		}
+		else
+		{
+			NULLC::dealloc(binCode);
+		}
+
 		for(unsigned i = 0; i < instAddress.size(); i++)
-			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (uintptr_t)(binCodeNew);
+			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + uintptr_t(binCodeNew);
 		binCode = binCodeNew;
 		binCodeStart = uintptr_t(binCode);
 	}
-
-	//SetBinaryCodeBase(binCode);
 
 	NULLC::binCodeStart = binCodeStart;
 	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
@@ -1587,6 +1473,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
 	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
+
+	vmState.instAddress = instAddress.data;
 
 	x86ClearLabels();
 	x86ReserveLabels(codeGenCtx->labelCount);
@@ -1681,35 +1569,12 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
 		if(exFunctions[i].regVmAddress != -1)
-		{
 			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].regVmAddress] - binCode);
-
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].regVmAddress];
-			functionAddress[i * 2 + 1] = 0;
-		}
 		else if(exFunctions[i].funcPtrWrap)
-		{
 			exFunctions[i].startInByteCode = 0xffffffff;
-
-			assert((uintptr_t)exFunctions[i].funcPtrWrapTarget > 1);
-
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrWrap;
-			functionAddress[i * 2 + 1] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrWrapTarget;
-		}
 		else
-		{
 			exFunctions[i].startInByteCode = 0xffffffff;
-
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrRaw;
-			functionAddress[i * 2 + 1] = 1;
-		}
 	}
-	if(codeRelocated && oldFunctionLists.size())
-	{
-		for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-			memcpy(oldFunctionLists[i].list, functionAddress.data, oldFunctionLists[i].count * sizeof(unsigned));
-	}
-	//globalStartInBytecode = (int)(instAddress[exLinker->regVmOffsetToGlobalCode] - binCode);
 
 	lastInstructionCount = exRegVmCode.size();
 

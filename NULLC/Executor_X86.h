@@ -105,6 +105,15 @@ private:
 	unsigned		binCodeSize;
 	unsigned		binCodeReserved;
 
+	struct ExpiredCodeBlock
+	{
+		unsigned char *code;
+		unsigned codeSize;
+		RUNTIME_FUNCTION *unwindTable;
+	};
+
+	FastVector<ExpiredCodeBlock>	expiredCodeBlocks;
+
 	unsigned int	lastInstructionCount;
 
 	unsigned int	oldJumpTargetCount;
@@ -135,16 +144,6 @@ public:
 		bool			oneHit;
 	};
 	FastVector<Breakpoint>		breakInstructions;
-
-	FastVector<unsigned int>	functionAddress;
-	struct FunctionListInfo
-	{
-		FunctionListInfo(): list(NULL), count(0){}
-		FunctionListInfo(unsigned *list, unsigned count): list(list), count(count){}
-		unsigned	*list;
-		unsigned	count;
-	};
-	FastVector<FunctionListInfo>	oldFunctionLists;
 
 private:
 	ExecutorX86(const ExecutorX86&);

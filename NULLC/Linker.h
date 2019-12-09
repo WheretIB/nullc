@@ -26,9 +26,6 @@ public:
 
 	const char*	GetLinkError();
 
-	void	SetFunctionPointerUpdater(void (*)(unsigned, unsigned));
-	void	UpdateFunctionPointer(unsigned dest, unsigned source);
-
 	void	FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize);
 public:
 	char		linkError[LINK_ERROR_BUFFER_SIZE];
@@ -61,8 +58,6 @@ public:
 	FastVector<unsigned int>		regVmJumpTargets;
 
 	unsigned int					globalVarSize;
-
-	void (*fptrUpdater)(unsigned, unsigned);
 
 #ifdef NULLC_LLVM_SUPPORT
 	FastVector<unsigned int>	llvmModuleSizes;

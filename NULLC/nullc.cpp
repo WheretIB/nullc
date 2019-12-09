@@ -1205,8 +1205,6 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 
 	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 	{
-		linker->UpdateFunctionPointer(index, func.id);
-
 		if((destFunc.funcPtrRaw && !srcFunc.funcPtrRaw) || (destFunc.funcPtrWrap && !srcFunc.funcPtrWrap))
 		{
 			nullcLastError = "Internal function cannot be overridden with external function on x86";
