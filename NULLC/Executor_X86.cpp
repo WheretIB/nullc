@@ -84,6 +84,10 @@ struct UNWIND_INFO_FUNCTION
 #endif
 #include <signal.h>
 
+typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
+{
+} RUNTIME_FUNCTION;
+
 #endif
 
 namespace NULLC
@@ -215,15 +219,28 @@ namespace NULLC
 	//typedef BOOL (WINAPI *PSTSG)(PULONG);
 	//PSTSG pSetThreadStackGuarantee = NULL;
 #else
+
+#if defined(_M_X64)
+#define RegisterIp rip
+#else
+#define RegisterIp eip
+#endif
+
+#define EXCEPTION_INT_DIVIDE_BY_ZERO 1
+#define EXCEPTION_ARRAY_OUT_OF_BOUNDS 2
+#define EXCEPTION_ALLOCATED_STACK_OVERFLOW 3
+#define EXCEPTION_INVALID_POINTER 4
+
 	sigjmp_buf errorHandler;
 	
 	struct JmpBufData
 	{
 		char data[sizeof(sigjmp_buf)];
 	};
+
 	void HandleError(int signum, struct sigcontext ctx)
 	{
-		bool externalCode = ctx.eip < binCodeStart || ctx.eip > binCodeEnd;
+		bool externalCode = ctx.RegisterIp < binCodeStart || ctx.RegisterIp > binCodeEnd;
 		if(signum == SIGFPE)
 		{
 			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
@@ -236,12 +253,12 @@ namespace NULLC
 		}
 		if(signum == SIGSEGV)
 		{
-			if((void*)ctx.cr2 >= NULLC::stackBaseAddress && (void*)ctx.cr2 <= NULLC::stackEndAddress)
+			/*if((void*)ctx.cr2 >= NULLC::stackBaseAddress && (void*)ctx.cr2 <= NULLC::stackEndAddress)
 			{
 				expCodePublic = EXCEPTION_ALLOCATED_STACK_OVERFLOW;
 
 				siglongjmp(errorHandler, expCodePublic);
-			}
+			}*/
 			if(!externalCode && ctx.cr2 < 0x00010000)
 			{
 				expCodePublic = EXCEPTION_INVALID_POINTER;
@@ -280,7 +297,7 @@ namespace NULLC
 	}
 }
 
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants), exTypes(linker->exTypes)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exTypes(linker->exTypes), exRegVmConstants(linker->exRegVmConstants)
 {
 	codeGenCtx = NULL;
 
@@ -338,7 +355,7 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	linker->SetFunctionPointerUpdater(NULLC::UpdateFunctionPointer);
 
 #ifdef __linux
-	SetLongJmpTarget(NULLC::errorHandler);
+	//SetLongJmpTarget(NULLC::errorHandler);
 #endif
 }
 
@@ -938,39 +955,34 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
 		if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
 		{
-			unsigned savedSize = NULLC::dataHead->lastEDI;
-			void *dummy = NULL;
-			typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
+			unsigned char *codeStart = instAddress[instructionPos];
+
+			typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
 			nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
-			int returnStruct[3] = { 1, 2, 3 };
-			gate(varSize, returnStruct, funcBinCodeStart, firstRun ? &genStackTop : &dummy);
-			res1 = returnStruct[0];
-			res2 = returnStruct[1];
-			resT = returnStruct[2];
-			NULLC::dataHead->lastEDI = savedSize;
+			resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
 		}
 		else
 		{
 			if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
 				strcpy(execError, "ERROR: integer division by zero");
-			else if(errorCode == EXCEPTION_FUNCTION_NO_RETURN)
-				strcpy(execError, "ERROR: function didn't return a value");
+			//else if(errorCode == EXCEPTION_FUNCTION_NO_RETURN)
+			//	strcpy(execError, "ERROR: function didn't return a value");
 			else if(errorCode == EXCEPTION_ARRAY_OUT_OF_BOUNDS)
 				strcpy(execError, "ERROR: array index out of bounds");
-			else if(errorCode == EXCEPTION_INVALID_FUNCTION)
-				strcpy(execError, "ERROR: invalid function pointer");
-			else if((errorCode & 0xff) == EXCEPTION_CONVERSION_ERROR)
+			//else if(errorCode == EXCEPTION_INVALID_FUNCTION)
+			//	strcpy(execError, "ERROR: invalid function pointer");
+			/*else if((errorCode & 0xff) == EXCEPTION_CONVERSION_ERROR)
 				NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
 					&exLinker->exSymbols[exLinker->exTypes[NULLC::dataHead->unused1].offsetToName],
-					&exLinker->exSymbols[exLinker->exTypes[errorCode >> 8].offsetToName]);
+					&exLinker->exSymbols[exLinker->exTypes[errorCode >> 8].offsetToName]);*/
 			else if(errorCode == EXCEPTION_ALLOCATED_STACK_OVERFLOW)
 				strcpy(execError, "ERROR: allocated stack overflow");
 			else if(errorCode == EXCEPTION_INVALID_POINTER)
 				strcpy(execError, "ERROR: null pointer access");
-			else if(errorCode == EXCEPTION_FAILED_TO_RESERVE)
-				strcpy(execError, "ERROR: failed to reserve new stack memory");
+			//else if(errorCode == EXCEPTION_FAILED_TO_RESERVE)
+			//	strcpy(execError, "ERROR: failed to reserve new stack memory");
 
-			if(!NULLC::abnormalTermination && NULLC::dataHead->instructionPtr)
+			/*if(!NULLC::abnormalTermination && NULLC::dataHead->instructionPtr)
 			{
 				// Create call stack
 				unsigned int *paramData = &NULLC::dataHead->nextElement;
@@ -983,11 +995,11 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				NULLC::stackTrace[count] = 0;
 				NULLC::dataHead->nextElement = 0;
 			}
-			NULLC::dataHead->instructionPtr = 0;
+			NULLC::dataHead->instructionPtr = 0;*/
 			NULLC::abnormalTermination = true;
 		}
 		// Disable signal handlers only from top-level Run
-		if(!wasCodeRunning)
+		if(lastFinalReturn == 0)
 		{
 			sigaction(SIGFPE, &sigFPE, NULL);
 			sigaction(SIGTRAP, &sigTRAP, NULL);
