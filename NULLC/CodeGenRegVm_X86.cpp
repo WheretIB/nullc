@@ -15,6 +15,8 @@ const x86Reg rREG = rEBX;
 
 // TODO: special handling for rvrrGlobals
 
+#if defined(_M_X64)
+
 void GenCodeLoadInt8FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -27,6 +29,181 @@ void GenCodeLoadInt8FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg
 		EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, targetReg, sBYTE, tempReg, offset); // Load byte value with sign extension
 	}
 }
+
+void GenCodeStoreInt8ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, rR15, offset, sourceReg); // Store byte value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, tempReg, offset, sourceReg); // Store value to target with an offset
+	}
+}
+
+void GenCodeLoadInt16FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, targetReg, sWORD, rR15, offset); // Load short value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, targetReg, sWORD, tempReg, offset); // Load short value with sign extension
+	}
+}
+
+void GenCodeStoreInt16ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, rR15, offset, sourceReg); // Store short value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, tempReg, offset, sourceReg); // Store value to target with an offset
+	}
+}
+
+void GenCodeLoadInt32FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrRegisters)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, rREG, offset); // Load int value
+	}
+	else if(reg == rvrrFrame)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, rR15, offset); // Load int value
+	}
+	else if(reg == rvrrConstants)
+	{
+		// Load int immediate
+		int value = ctx.exRegVmConstants[offset >> 2];
+
+		if(value == 0)
+			EMIT_OP_REG_REG(ctx.ctx, o_xor, targetReg, targetReg);
+		else
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov, targetReg, value);
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, tempReg, offset); // Load int value
+	}
+}
+
+void GenCodeStoreInt32ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rR15, offset, sourceReg); // Store int value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, tempReg, offset, sourceReg); // Store value to target with an offset
+	}
+}
+
+void GenCodeLoadInt64FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrRegisters)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, rREG, offset); // Load long value
+	}
+	else if(reg == rvrrFrame)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, rR15, offset); // Load long value
+	}
+	else if(reg == rvrrConstants)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, rR14, offset); // Load long value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, tempReg, offset); // Load long value
+	}
+}
+
+void GenCodeStoreInt64ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rR15, offset, sourceReg); // Store long value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, tempReg, offset, sourceReg); // Store value to target with an offset
+	}
+}
+
+void GenCodeLoadFloatFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg targetReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, targetReg, sDWORD, rR15, offset); // Load float value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, targetReg, sDWORD, tempReg, offset); // Load float value
+	}
+}
+
+void GenCodeStoreFloatToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, rR15, offset, sourceReg); // Store float value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, tempReg, offset, sourceReg); // Store value to target with an offset
+	}
+}
+
+void GenCodeLoadDoubleFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg targetReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrRegisters)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rREG, offset); // Load double value
+	}
+	else if(reg == rvrrFrame)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rR15, offset); // Load double value
+	}
+	else if(reg == rvrrConstants)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rR14, offset); // Load double value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, tempReg, offset); // Load double value
+	}
+}
+
+void GenCodeStoreDoubleToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rR15, offset, sourceReg); // Store double value
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, tempReg, offset, sourceReg); // Store value to target with an offset
+	}
+}
+
+#else
 
 void x86GenCodeLoadInt8FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
 {
@@ -49,19 +226,6 @@ void x86GenCodeLoadInt8FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86
 	}
 }
 
-void GenCodeStoreInt8ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, rR15, offset, sourceReg); // Store byte value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void x86GenCodeStoreInt8ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -72,19 +236,6 @@ void x86GenCodeStoreInt8ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86R
 	{
 		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, tempReg, sDWORD, rREG, reg * 8); // Load target pointer
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
-void GenCodeLoadInt16FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, targetReg, sWORD, rR15, offset); // Load short value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
-		EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, targetReg, sWORD, tempReg, offset); // Load short value with sign extension
 	}
 }
 
@@ -109,19 +260,6 @@ void x86GenCodeLoadInt16FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x8
 	}
 }
 
-void GenCodeStoreInt16ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, rR15, offset, sourceReg); // Store short value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void x86GenCodeStoreInt16ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -132,33 +270,6 @@ void x86GenCodeStoreInt16ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86
 	{
 		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, tempReg, sDWORD, rREG, reg * 8); // Load target pointer
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
-void GenCodeLoadInt32FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrRegisters)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, rREG, offset); // Load int value
-	}
-	else if(reg == rvrrFrame)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, rR15, offset); // Load int value
-	}
-	else if(reg == rvrrConstants)
-	{
-		// Load int immediate
-		int value = ctx.exRegVmConstants[offset >> 2];
-
-		if (value == 0)
-			EMIT_OP_REG_REG(ctx.ctx, o_xor, targetReg, targetReg);
-		else
-			EMIT_OP_REG_NUM(ctx.ctx, o_mov, targetReg, value);
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, targetReg, sDWORD, tempReg, offset); // Load int value
 	}
 }
 
@@ -195,19 +306,6 @@ void x86GenCodeLoadInt32FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x8
 	}
 }
 
-void GenCodeStoreInt32ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rR15, offset, sourceReg); // Store int value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void x86GenCodeStoreInt32ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -218,27 +316,6 @@ void x86GenCodeStoreInt32ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86
 	{
 		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, tempReg, sDWORD, rREG, reg * 8); // Load target pointer
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
-void GenCodeLoadInt64FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrRegisters)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, rREG, offset); // Load long value
-	}
-	else if(reg == rvrrFrame)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, rR15, offset); // Load long value
-	}
-	else if(reg == rvrrConstants)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, rR14, offset); // Load long value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, tempReg, offset); // Load long value
 	}
 }
 
@@ -289,19 +366,6 @@ void x86GenCodeLoadInt64FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x8
 	}
 }
 
-void GenCodeStoreInt64ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rR15, offset, sourceReg); // Store long value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void x86GenCodeStoreInt64ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceRegA, x86Reg sourceRegB, unsigned char reg, unsigned offset)
 {
 	assert(tempReg != sourceRegA);
@@ -318,19 +382,6 @@ void x86GenCodeStoreInt64ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86
 
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, tempReg, offset, sourceRegA); // Store value to target with an offset
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, tempReg, offset + 4, sourceRegB); // Store value to target with an offset
-	}
-}
-
-void GenCodeLoadFloatFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg targetReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, targetReg, sDWORD, rR15, offset); // Load float value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
-		EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, targetReg, sDWORD, tempReg, offset); // Load float value
 	}
 }
 
@@ -355,19 +406,6 @@ void x86GenCodeLoadFloatFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x8
 	}
 }
 
-void GenCodeStoreFloatToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, rR15, offset, sourceReg); // Store float value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void x86GenCodeStoreFloatToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -378,27 +416,6 @@ void x86GenCodeStoreFloatToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86
 	{
 		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, tempReg, sDWORD, rREG, reg * 8); // Load target pointer
 		EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
-void GenCodeLoadDoubleFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg targetReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrRegisters)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rREG, offset); // Load double value
-	}
-	else if(reg == rvrrFrame)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rR15, offset); // Load double value
-	}
-	else if(reg == rvrrConstants)
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rR14, offset); // Load double value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
-		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, tempReg, offset); // Load double value
 	}
 }
 
@@ -430,19 +447,6 @@ void x86GenCodeLoadDoubleFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x
 	}
 }
 
-void GenCodeStoreDoubleToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rR15, offset, sourceReg); // Store double value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void x86GenCodeStoreDoubleToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -455,6 +459,8 @@ void x86GenCodeStoreDoubleToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x8
 		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, tempReg, offset, sourceReg); // Store value to target with an offset
 	}
 }
+
+#endif
 
 void GenCodeCmdNop(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
