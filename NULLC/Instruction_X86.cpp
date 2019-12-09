@@ -97,7 +97,7 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 			curr += sprintf(curr, "globals+%d", unsigned(ptrNum - uintptr_t(ctx.dataStackBase)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.ctx->exRegVmConstants) && uintptr_t(ptrNum) < uintptr_t(ctx.ctx->exRegVmConstantsEnd))
 			curr += sprintf(curr, "constants+%d", unsigned(ptrNum - uintptr_t(ctx.ctx->exRegVmConstants)));
-		else if(ptrIndex == rNONE && ptrBase == rNONE && ptrNum == uintptr_t(&ctx.callInstructionPos))
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callInstructionPos))
 			curr += sprintf(curr, "inst_pos");
 		else if(ptrIndex == rNONE && ptrBase == rNONE)
 			curr += sprintf(curr, "%d", ptrNum);
