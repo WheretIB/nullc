@@ -1028,6 +1028,12 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 				ctx.MemUpdate(memIndex);
 				return;
 			}
+			else if(ctx.memCache[memIndex].value.type == x86Argument::argNumber)
+			{
+				EMIT_OP_REG_NUM(ctx, op, reg1, ctx.memCache[memIndex].value.num);
+				ctx.MemUpdate(memIndex);
+				return;
+			}
 		}
 
 		// If another register contains data from memory
