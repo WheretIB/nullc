@@ -119,9 +119,11 @@ unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, 
 		*stream = (char)displacement;
 		if(mod)
 			stream++;
-	}else{
-		*(int*)stream = displacement;
-		stream += 4;
+	}
+	else
+	{
+		memcpy(stream, &displacement, sizeof(displacement));
+		stream += sizeof(displacement);
 	}
 	return (int)(stream - start);
 }
@@ -2134,24 +2136,48 @@ void x86SatisfyJumps(FastVector<unsigned char*>& instPos)
 		UnsatisfiedJump& uJmp = pendingJumps[i];
 		if(uJmp.isNear)
 		{
-			if(*uJmp.jmpPos == 0xe8)	// This one is for call label
+			if(*uJmp.jmpPos == 0xe8)
 			{
-				*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-5);
-			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
-				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(instPos[uJmp.labelID & 0x00ffffff]);
-			}else{
-				if(*uJmp.jmpPos == 0x0f)
-					*(int*)(uJmp.jmpPos+2) = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-6);
-				else
-					*(int*)(uJmp.jmpPos+1) = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-5);
+				// This one is for call label
+				int value = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-5);
+				memcpy(uJmp.jmpPos + 1, &value, sizeof(value));
 			}
-		}else{
-			if(*uJmp.jmpPos == 0xe8)	// This one is for call label
+			else if(*uJmp.jmpPos == 0x8d)
 			{
-				*(int*)(uJmp.jmpPos+1) = (int)(labels[uJmp.labelID] - uJmp.jmpPos-5);
-			}else if(*uJmp.jmpPos == 0x8d){	// This one is for lea reg, [label+offset]
-				*(int*)(uJmp.jmpPos+2) = (int)(intptr_t)(labels[uJmp.labelID]);
-			}else{
+				// This one is for lea reg, [label+offset]
+				int value = (int)(intptr_t)(instPos[uJmp.labelID & 0x00ffffff]);
+				memcpy(uJmp.jmpPos + 2, &value, sizeof(value));
+			}
+			else
+			{
+				if(*uJmp.jmpPos == 0x0f)
+				{
+					int value = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-6);
+					memcpy(uJmp.jmpPos + 2, &value, sizeof(value));
+				}
+				else
+				{
+					int value = (int)(instPos[uJmp.labelID & 0x00ffffff] - uJmp.jmpPos-5);
+					memcpy(uJmp.jmpPos + 1, &value, sizeof(value));
+				}
+			}
+		}
+		else
+		{
+			if(*uJmp.jmpPos == 0xe8)
+			{
+				// This one is for call label
+				int value = (int)(labels[uJmp.labelID] - uJmp.jmpPos-5);
+				memcpy(uJmp.jmpPos + 1, &value, sizeof(value));
+			}
+			else if(*uJmp.jmpPos == 0x8d)
+			{
+				// This one is for lea reg, [label+offset]
+				int value = (int)(intptr_t)(labels[uJmp.labelID]);
+				memcpy(uJmp.jmpPos + 2, &value, sizeof(value));
+			}
+			else
+			{
 				assert(uJmp.jmpPos - labels[uJmp.labelID] + 128 < 256);
 				*(char*)(uJmp.jmpPos+1) = (char)(labels[uJmp.labelID] - uJmp.jmpPos-2);
 			}

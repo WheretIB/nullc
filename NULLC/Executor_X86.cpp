@@ -297,7 +297,7 @@ namespace NULLC
 	}
 }
 
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exTypes(linker->exTypes), exRegVmConstants(linker->exRegVmConstants)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants)
 {
 	codeGenCtx = NULL;
 
@@ -1161,7 +1161,8 @@ bool ExecutorX86::SetStackSize(unsigned bytes)
 
 void ExecutorX86::ClearNative()
 {
-	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+	if (instList.size())
+		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
 	binCodeSize = 0;
@@ -1206,7 +1207,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		unsigned *newStorage = (unsigned*)NULLC::alloc(exFunctions.size() * 3 * sizeof(unsigned));
 		if(functionAddress.count != 0)
 			oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
-		memcpy(newStorage, functionAddress.data, functionAddress.count * sizeof(unsigned));
+
+		if(functionAddress.count)
+			memcpy(newStorage, functionAddress.data, functionAddress.count * sizeof(unsigned));
+
 		functionAddress.data = newStorage;
 		functionAddress.count = exFunctions.size() * 2;
 		functionAddress.max = exFunctions.size() * 3;
@@ -1216,7 +1220,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		functionAddress.resize(exFunctions.size() * 2);
 	}
 
-	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+	if(instList.size())
+		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 	instList.reserve(64);
 
