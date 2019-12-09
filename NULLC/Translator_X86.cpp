@@ -865,7 +865,7 @@ int x86LEA(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int mu
 
 	unsigned char *start = stream;
 
-	stream += encodeRex(stream, false, dst, index, base);
+	stream += encodeRex(stream, size == sQWORD, dst, index, base);
 	*stream++ = 0x8d;
 	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[dst]);
 
