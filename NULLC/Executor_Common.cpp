@@ -1,6 +1,7 @@
 #include "Executor_Common.h"
 
 #include "StdLib.h"
+#include "nullc.h"
 #include "nullc_debug.h"
 #include "Executor.h"
 #include "Executor_X86.h"
@@ -50,14 +51,12 @@ unsigned ConvertFromAutoRef(unsigned int target, unsigned int source)
 bool AreMembersAligned(ExternTypeInfo *lType, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
 {
 	bool aligned = 1;
-	//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
 	for(unsigned m = 0; m < lType->memberCount; m++)
 	{
 		ExternMemberInfo &member = exTypeExtra[lType->memberOffset + m];
 		ExternTypeInfo &memberType = exTypes[member.type];
 		unsigned pos = member.offset;
 
-		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
 		switch(memberType.type)
 		{
 		case ExternTypeInfo::TYPE_COMPLEX:
@@ -1236,20 +1235,20 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 
 	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
 
-	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exLinker);
-	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exLinker);
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exTypes, exTypeExtra);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exTypes, exTypeExtra);
 #else
 	ExternTypeInfo &funcType = exTypes[func.funcType];
 
 	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
 	ExternTypeInfo &returnType = exTypes[member.type];
 
-	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker));
+	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exTypes, exTypeExtra));
 
 	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
 
-	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exLinker);
-	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exLinker);
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exTypes, exTypeExtra);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exTypes, exTypeExtra);
 #endif
 
 	unsigned ret[128];
@@ -1314,7 +1313,7 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 				stackStart += tInfo.size / 4;
 			}
 #elif defined(_M_X64)
-			if(tInfo.size > 16 || lInfo.type == NULLC_TYPE_AUTO_REF || (tInfo.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&tInfo, exLinker)))
+			if(tInfo.size > 16 || lInfo.type == NULLC_TYPE_AUTO_REF || (tInfo.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&tInfo, exTypes, exTypeExtra)))
 			{
 				dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
 				stackStart += tInfo.size / 4;
@@ -1323,8 +1322,8 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 			{
 				bool opaqueType = tInfo.subCat != ExternTypeInfo::CAT_CLASS || tInfo.memberCount == 0;
 
-				bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 0, 8, exLinker);
-				bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 8, 16, exLinker);
+				bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 0, 8, exTypes, exTypeExtra);
+				bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 8, 16, exTypes, exTypeExtra);
 
 				if(tInfo.size <= 4)
 				{
