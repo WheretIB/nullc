@@ -3,12 +3,13 @@
 #define NULLC_LINKER_H
 
 #include "stdafx.h"
-
 #include "Bytecode.h"
 #include "HashMap.h"
-#include "InstructionSet.h"
-#include "Output.h"
-#include "InstructionTreeRegVm.h"
+
+struct VMCmd;
+struct RegVmCmd;
+
+struct OutputContext;
 
 const int LINK_ERROR_BUFFER_SIZE = 512;
 
@@ -24,9 +25,6 @@ public:
 	bool	SaveRegVmListing(OutputContext &output, bool withProfileInfo);
 
 	const char*	GetLinkError();
-
-	void	SetFunctionPointerUpdater(void (*)(unsigned, unsigned));
-	void	UpdateFunctionPointer(unsigned dest, unsigned source);
 
 	void	FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize);
 public:
@@ -57,13 +55,9 @@ public:
 	FixedArray<unsigned int, 256>	exRegVmInstructionExecCount;
 	FastVector<unsigned int>		exRegVmConstants;
 
-	unsigned int					regVmOffsetToGlobalCode;
-
 	FastVector<unsigned int>		regVmJumpTargets;
 
 	unsigned int					globalVarSize;
-
-	void (*fptrUpdater)(unsigned, unsigned);
 
 #ifdef NULLC_LLVM_SUPPORT
 	FastVector<unsigned int>	llvmModuleSizes;

@@ -1,211 +1,152 @@
 #pragma once
 
 #include "stdafx.h"
-
-#include "InstructionSet.h"
 #include "Instruction_X86.h"
-#include "Bytecode.h"
 
-const unsigned int JUMP_NEAR = (unsigned int)(1u << 31u);
-// jump ID markers for assembly printout
-const unsigned int LABEL_GLOBAL = 1 << 30;
-const unsigned int LABEL_ALU = 0;
+struct CodeGenGenericContext
+{
+	CodeGenGenericContext()
+	{
+		x86Op = NULL;
+		x86Base = NULL;
 
-void EMIT_COMMENT(const char* text);
-void EMIT_LABEL(unsigned int labelID, int invalidate);
+		x86LookBehind = true;
 
-void EMIT_OP(x86Command op);
-void EMIT_OP_LABEL(x86Command op, unsigned int labelID, int invalidate, int longJump);
-void EMIT_OP_REG(x86Command op, x86Reg reg1);
-void EMIT_OP_FPUREG(x86Command op, x87Reg reg1);
-void EMIT_OP_NUM(x86Command op, unsigned int num);
+		lastInvalidate = 0;
 
-void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift);
-void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg reg2, unsigned int shift);
-void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr);
+		memset(genReg, 0, rRegCount * sizeof(x86Argument));
+		memset(genRegUpdate, 0, rRegCount * sizeof(unsigned));
+		memset(genRegRead, 0, rRegCount * sizeof(bool));
 
-void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num);
-void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2);
+		memset(xmmReg, 0, rXmmRegCount * sizeof(x86Argument));
+		memset(xmmRegUpdate, 0, rXmmRegCount * sizeof(unsigned));
+		memset(xmmRegRead, 0, rXmmRegCount * sizeof(bool));
 
-void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift);
-void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift);
-void EMIT_OP_REG_ADDR(x86Command op, x86Reg reg1, x86Size size, unsigned int addr);
+		memset(memCache, 0, memoryStateSize * sizeof(MemCache));
 
-void EMIT_OP_REG_LABEL(x86Command op, x86Reg reg1, unsigned int labelID, unsigned int shift);
+		memCacheEntries = 0;
 
-void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned int shift, x86Reg reg2);
-void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86Reg reg2);
-void EMIT_OP_ADDR_REG(x86Command op, x86Size size, unsigned int addr, x86Reg reg2);
+		optimizationCount = 0;
 
-void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned int shift, unsigned int num);
-void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg reg1, unsigned int shift, unsigned int num);
+		currFreeXmmReg = rXMM0;
+	}
 
-void SetParamBase(unsigned int base);
-void SetFunctionList(ExternFuncInfo* list, unsigned int* funcAddresses);
-void SetContinuePtr(int* continueVar);
+	void SetLastInstruction(x86Instruction *pos, x86Instruction *base)
+	{
+		x86Op = pos;
+		x86Base = base;
+	}
 
-#ifdef __linux
-const int EXCEPTION_INT_DIVIDE_BY_ZERO = 1;
-const int EXCEPTION_STOP_EXECUTION = 2;
-const int EXCEPTION_FUNCTION_NO_RETURN = 3;
-const int EXCEPTION_ARRAY_OUT_OF_BOUNDS = 4;
-const int EXCEPTION_INVALID_FUNCTION = 5;
-const int EXCEPTION_CONVERSION_ERROR = 6;
-const int EXCEPTION_ALLOCATED_STACK_OVERFLOW = 7;
-const int EXCEPTION_INVALID_POINTER = 8;
-const int EXCEPTION_FAILED_TO_RESERVE = 9;
-void SetLongJmpTarget(sigjmp_buf target);
-#endif
+	x86Instruction* GetLastInstruction()
+	{
+		return x86Op;
+	}
 
-void SetLastInstruction(x86Instruction *pos, x86Instruction *base);
-x86Instruction* GetLastInstruction();
-void SetBinaryCodeBase(const unsigned char* base);
+	unsigned MemFind(const x86Argument &address);
 
-unsigned int	GetLastALULabel();
+	void MemRead(const x86Argument &address);
+	void MemWrite(const x86Argument &address, const x86Argument &value);
+	void MemUpdate(unsigned index);
 
-void OptimizationLookBehind(bool allow);
-unsigned int GetOptimizationCount();
+	void InvalidateState();
+	void InvalidateDependand(x86Reg dreg);
+	void InvalidateDependand(x86XmmReg dreg);
+	void InvalidateAddressValue(x86Argument arg);
 
-void GenCodeCmdNop(VMCmd cmd);
+	void KillUnreadRegisters();
 
-void GenCodeCmdPushChar(VMCmd cmd);
-void GenCodeCmdPushShort(VMCmd cmd);
-void GenCodeCmdPushInt(VMCmd cmd);
-void GenCodeCmdPushFloat(VMCmd cmd);
-void GenCodeCmdPushDorL(VMCmd cmd);
-void GenCodeCmdPushCmplx(VMCmd cmd);
+	void ReadRegister(x86Reg reg);
+	void ReadRegister(x86XmmReg reg);
 
-void GenCodeCmdPushCharStk(VMCmd cmd);
-void GenCodeCmdPushShortStk(VMCmd cmd);
-void GenCodeCmdPushIntStk(VMCmd cmd);
-void GenCodeCmdPushFloatStk(VMCmd cmd);
-void GenCodeCmdPushDorLStk(VMCmd cmd);
-void GenCodeCmdPushCmplxStk(VMCmd cmd);
+	void OverwriteRegisterWithValue(x86Reg reg, x86Argument arg);
+	void OverwriteRegisterWithUnknown(x86Reg reg);
+	void OverwriteRegisterWithValue(x86XmmReg reg, x86Argument arg);
+	void OverwriteRegisterWithUnknown(x86XmmReg reg);
 
-void GenCodeCmdPushImmt(VMCmd cmd);
+	void ReadAndModifyRegister(x86Reg reg);
+	void ReadAndModifyRegister(x86XmmReg reg);
 
-void GenCodeCmdMovChar(VMCmd cmd);
-void GenCodeCmdMovShort(VMCmd cmd);
-void GenCodeCmdMovInt(VMCmd cmd);
-void GenCodeCmdMovFloat(VMCmd cmd);
-void GenCodeCmdMovDorL(VMCmd cmd);
-void GenCodeCmdMovCmplx(VMCmd cmd);
+	void RedirectAddressComputation(x86Reg &index, int &multiplier, x86Reg &base, unsigned &shift);
 
-void GenCodeCmdMovCharStk(VMCmd cmd);
-void GenCodeCmdMovShortStk(VMCmd cmd);
-void GenCodeCmdMovIntStk(VMCmd cmd);
-void GenCodeCmdMovFloatStk(VMCmd cmd);
-void GenCodeCmdMovDorLStk(VMCmd cmd);
-void GenCodeCmdMovCmplxStk(VMCmd cmd);
+	x86Reg RedirectRegister(x86Reg reg);
+	x86XmmReg RedirectRegister(x86XmmReg reg);
 
-void GenCodeCmdPop(VMCmd cmd);
+	x86XmmReg GetXmmReg();
 
-void GenCodeCmdDtoI(VMCmd cmd);
-void GenCodeCmdDtoL(VMCmd cmd);
-void GenCodeCmdDtoF(VMCmd cmd);
-void GenCodeCmdItoD(VMCmd cmd);
-void GenCodeCmdLtoD(VMCmd cmd);
-void GenCodeCmdItoL(VMCmd cmd);
-void GenCodeCmdLtoI(VMCmd cmd);
+	x86Instruction *x86Op;
+	x86Instruction *x86Base;
 
-void GenCodeCmdIndex(VMCmd cmd);
+	bool x86LookBehind;
 
-void GenCodeCmdCopyDorL(VMCmd cmd);
-void GenCodeCmdCopyI(VMCmd cmd);
+	unsigned lastInvalidate;
 
-void GenCodeCmdGetAddr(VMCmd cmd);
-void GenCodeCmdFuncAddr(VMCmd cmd);
+	x86Argument genReg[rRegCount];		// Holds current register value
+	unsigned genRegUpdate[rRegCount];	// Marks the last instruction that wrote to the register
+	bool genRegRead[rRegCount];			// Marks if there was a read from the register after last write
 
-void GenCodeCmdSetRangeStk(VMCmd cmd);
+	x86Argument xmmReg[rXmmRegCount];		// Holds current register value
+	unsigned xmmRegUpdate[rXmmRegCount];	// Marks the last instruction that wrote to the register
+	bool xmmRegRead[rXmmRegCount];			// Marks if there was a read from the register after last write
 
-void GenCodeCmdJmp(VMCmd cmd);
-void GenCodeCmdJmpZ(VMCmd cmd);
-void GenCodeCmdJmpNZ(VMCmd cmd);
+	struct MemCache
+	{
+		x86Argument	address;
+		x86Argument value;
+		unsigned location; // Location of the memory update
+		bool read; // Mark if this location was read after last write
+	};
 
-void GenCodeCmdCall(VMCmd cmd);
-void GenCodeCmdCallPtr(VMCmd cmd);
-void GenCodeCmdReturn(VMCmd cmd);
+	static const unsigned memoryStateSize = 16;
+	MemCache memCache[memoryStateSize];
+	unsigned memCacheEntries;
 
-void GenCodeCmdPushVTop(VMCmd cmd);
-void GenCodeCmdPopVTop(VMCmd cmd);
+	unsigned optimizationCount;
 
-void GenCodeCmdPushV(VMCmd cmd);
+	x86XmmReg currFreeXmmReg;
+};
 
-void GenCodeCmdAdd(VMCmd cmd);
-void GenCodeCmdSub(VMCmd cmd);
-void GenCodeCmdMul(VMCmd cmd);
-void GenCodeCmdDiv(VMCmd cmd);
-void GenCodeCmdPow(VMCmd cmd);
-void GenCodeCmdMod(VMCmd cmd);
-void GenCodeCmdLess(VMCmd cmd);
-void GenCodeCmdGreater(VMCmd cmd);
-void GenCodeCmdLEqual(VMCmd cmd);
-void GenCodeCmdGEqual(VMCmd cmd);
-void GenCodeCmdEqual(VMCmd cmd);
-void GenCodeCmdNEqual(VMCmd cmd);
-void GenCodeCmdShl(VMCmd cmd);
-void GenCodeCmdShr(VMCmd cmd);
-void GenCodeCmdBitAnd(VMCmd cmd);
-void GenCodeCmdBitOr(VMCmd cmd);
-void GenCodeCmdBitXor(VMCmd cmd);
-void GenCodeCmdLogAnd(VMCmd cmd);
-void GenCodeCmdLogOr(VMCmd cmd);
-void GenCodeCmdLogXor(VMCmd cmd);
+void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text);
+void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned labelID, int invalidate = true);
 
-void GenCodeCmdAddL(VMCmd cmd);
-void GenCodeCmdSubL(VMCmd cmd);
-void GenCodeCmdMulL(VMCmd cmd);
-void GenCodeCmdDivL(VMCmd cmd);
-void GenCodeCmdPowL(VMCmd cmd);
-void GenCodeCmdModL(VMCmd cmd);
-void GenCodeCmdLessL(VMCmd cmd);
-void GenCodeCmdGreaterL(VMCmd cmd);
-void GenCodeCmdLEqualL(VMCmd cmd);
-void GenCodeCmdGEqualL(VMCmd cmd);
-void GenCodeCmdEqualL(VMCmd cmd);
-void GenCodeCmdNEqualL(VMCmd cmd);
-void GenCodeCmdShlL(VMCmd cmd);
-void GenCodeCmdShrL(VMCmd cmd);
-void GenCodeCmdBitAndL(VMCmd cmd);
-void GenCodeCmdBitOrL(VMCmd cmd);
-void GenCodeCmdBitXorL(VMCmd cmd);
-void GenCodeCmdLogAndL(VMCmd cmd);
-void GenCodeCmdLogOrL(VMCmd cmd);
-void GenCodeCmdLogXorL(VMCmd cmd);
+void EMIT_OP(CodeGenGenericContext &ctx, x86Command op);
+void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, int invalidate = true, int longJump = false);
+void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1);
+void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num);
 
-void GenCodeCmdAddD(VMCmd cmd);
-void GenCodeCmdSubD(VMCmd cmd);
-void GenCodeCmdMulD(VMCmd cmd);
-void GenCodeCmdDivD(VMCmd cmd);
-void GenCodeCmdPowD(VMCmd cmd);
-void GenCodeCmdModD(VMCmd cmd);
-void GenCodeCmdLessD(VMCmd cmd);
-void GenCodeCmdGreaterD(VMCmd cmd);
-void GenCodeCmdLEqualD(VMCmd cmd);
-void GenCodeCmdGEqualD(VMCmd cmd);
-void GenCodeCmdEqualD(VMCmd cmd);
-void GenCodeCmdNEqualD(VMCmd cmd);
+void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift);
+void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg reg2, unsigned shift);
+void EMIT_OP_ADDR(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned addr);
 
-void GenCodeCmdNeg(VMCmd cmd);
-void GenCodeCmdBitNot(VMCmd cmd);
-void GenCodeCmdLogNot(VMCmd cmd);
+void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, unsigned num);
+void EMIT_OP_REG_NUM64(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, unsigned long long num);
+void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Reg reg2);
+void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86XmmReg reg2);
+void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86XmmReg reg2);
 
-void GenCodeCmdNegL(VMCmd cmd);
-void GenCodeCmdBitNotL(VMCmd cmd);
-void GenCodeCmdLogNotL(VMCmd cmd);
+void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift);
+void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift);
+void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned shift);
+void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, x86Reg reg2, unsigned shift);
+void EMIT_OP_REG_ADDR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, unsigned addr);
+void EMIT_OP_REG_ADDR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, unsigned addr);
 
-void GenCodeCmdNegD(VMCmd cmd);
+void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, x86Reg reg2);
+void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, x86XmmReg reg2);
+void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg reg1, unsigned shift, x86Reg reg2);
+void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg reg1, unsigned shift, x86XmmReg reg2);
+void EMIT_OP_ADDR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned addr, x86Reg reg2);
+void EMIT_OP_ADDR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned addr, x86XmmReg reg2);
 
-void GenCodeCmdIncI(VMCmd cmd);
-void GenCodeCmdIncD(VMCmd cmd);
-void GenCodeCmdIncL(VMCmd cmd);
+void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, unsigned num);
+void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg reg1, unsigned shift, unsigned num);
+void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned addr, unsigned number);
 
-void GenCodeCmdDecI(VMCmd cmd);
-void GenCodeCmdDecD(VMCmd cmd);
-void GenCodeCmdDecL(VMCmd cmd);
+// Call to mark that register was implicitly used
+void EMIT_REG_READ(CodeGenGenericContext &ctx, x86Reg reg);
+void EMIT_REG_READ(CodeGenGenericContext &ctx, x86XmmReg reg);
 
-void GenCodeCmdConvertPtr(VMCmd cmd);
+// Call to signal that the register value will no longer be used
+void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86Reg reg);
+void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86XmmReg reg);
 
-void GenCodeCmdCheckedRet(VMCmd cmd);
-
-void GenCodeCmdYield(VMCmd cmd);
+void SetOptimizationLookBehind(CodeGenGenericContext &ctx, bool allow);

@@ -10,7 +10,11 @@
 #include "Tree.h"
 
 #include "Executor_Common.h"
+#include "Linker.h"
+
 #include "includes/typeinfo.h"
+
+typedef uintptr_t markerType;
 
 // memory structure				   |base->
 // small object storage:			marker, data...

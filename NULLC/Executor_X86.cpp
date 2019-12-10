@@ -1,9 +1,14 @@
 #include "stdafx.h"
+
 #ifdef NULLC_BUILD_X86_JIT
 
 #include "Executor_X86.h"
 #include "CodeGen_X86.h"
+#include "CodeGenRegVm_X86.h"
 #include "Translator_X86.h"
+#include "Linker.h"
+#include "Executor_Common.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc
@@ -13,86 +18,132 @@
 #endif
 
 #ifndef __linux
-	#define WIN32_LEAN_AND_MEAN
-	#include <Windows.h>
+
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+#define UNW_FLAG_NHANDLER 0x0
+#define UNW_FLAG_EHANDLER 0x1
+#define UNW_FLAG_UHANDLER 0x2
+#define UNW_FLAG_CHAININFO 0x4
+
+#define UWOP_PUSH_NONVOL 0
+#define UWOP_ALLOC_LARGE 1
+#define UWOP_ALLOC_SMALL 2
+#define UWOP_SET_FPREG 3
+#define UWOP_SAVE_NONVOL 4
+#define UWOP_SAVE_NONVOL_FAR 5
+#define UWOP_SAVE_XMM128 6
+#define UWOP_SAVE_XMM128_FAR 7
+#define UWOP_PUSH_MACHFRAME 8
+
+#define UWOP_REGISTER_RAX 0
+#define UWOP_REGISTER_RCX 1
+#define UWOP_REGISTER_RDX 2
+#define UWOP_REGISTER_RBX 3
+#define UWOP_REGISTER_RSP 4
+#define UWOP_REGISTER_RBP 5
+#define UWOP_REGISTER_RSI 6
+#define UWOP_REGISTER_RDI 7
+
+struct UNWIND_CODE
+{
+	unsigned char offsetInPrologue;
+	unsigned char operationCode : 4;
+	unsigned char operationInfo : 4;
+};
+
+struct UNWIND_INFO_ENTRY
+{
+	unsigned char version : 3;
+	unsigned char flags : 5;
+	unsigned char sizeOfProlog;
+	unsigned char countOfCodes;
+	unsigned char frameRegister : 4;
+	unsigned char frameOffset : 4;
+	UNWIND_CODE unwindCode[8];
+};
+
+struct UNWIND_INFO_FUNCTION
+{
+	unsigned char version : 3;
+	unsigned char flags : 5;
+	unsigned char sizeOfProlog;
+	unsigned char countOfCodes;
+	unsigned char frameRegister : 4;
+	unsigned char frameOffset : 4;
+	UNWIND_CODE unwindCode[2];
+};
+
 #else
-	typedef unsigned int DWORD;
-	#include <sys/mman.h>
-	#ifndef PAGESIZE
-		// $ sysconf()
-		#define PAGESIZE 4096
-	#endif
-	#include <signal.h>
+
+#include <sys/mman.h>
+#ifndef PAGESIZE
+	// $ sysconf()
+	#define PAGESIZE 4096
+#endif
+#include <signal.h>
+
+typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
+{
+} RUNTIME_FUNCTION;
+
 #endif
 
 namespace NULLC
 {
-	// Parameter stack range
-	char	*stackBaseAddress;
-	char	*stackEndAddress;
-
-	// Four global variables
-	struct DataStackHeader
-	{
-		unsigned int	unused1;
-		unsigned int	lastEDI;
-		unsigned int	instructionPtr;
-		unsigned int	nextElement;
-	};
-
-	DataStackHeader	*dataHead;
-	char* parameterHead;
-
-	// Hidden pointer to the beginning of NULLC parameter stack, skipping DataStackHeader
-	unsigned int paramDataBase;
-
-	// Binary code range in hidden pointers
-	unsigned int binCodeStart;
-	unsigned int binCodeEnd;
-
-	// Code run result - two DWORDs for parts of result and a type flag
-	int runResult = 0;
-	int runResult2 = 0;
-	asmOperType runResultType = OTYPE_DOUBLE;
-
-	// Call stack is made up by a linked list, starting from last frame, this array will hold call stack in correct order
-	const unsigned int STACK_TRACE_DEPTH = 1024;
-	unsigned int stackTrace[STACK_TRACE_DEPTH];
-	// Signal that call stack contains stack of execution that ended in SEH handler with a fatal exception
-	volatile bool abnormalTermination;
-
 	// Part of state that SEH handler saves for future use
 	unsigned int expCodePublic;
-	unsigned int expAllocCode;
-	unsigned int expEAXstate;
-	unsigned int expECXstate;
-	unsigned int expESPstate;
 
 	ExecutorX86	*currExecutor = NULL;
 
 #ifndef __linux
+
+#if defined(_M_X64)
+#define RegisterIp Rip
+#define RegisterAx Rax
+#define RegisterCx Rcx
+#define RegisterSp Rsp
+#define RegisterDi Rdi
+#else
+#define RegisterIp Eip
+#define RegisterAx Eax
+#define RegisterCx Ecx
+#define RegisterSp Esp
+#define RegisterDi Edi
+#endif
+
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
-		// Check that exception happened in NULLC code (division by zero and int overflow still catched)
-		bool externalCode = expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd;
-		bool managedMemoryEnd = expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase && expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi + paramDataBase + 64 * 1024;
+		uintptr_t address = uintptr_t(expInfo->ContextRecord->RegisterIp);
 
-		if(externalCode && (expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && !managedMemoryEnd)))
+		// Check that exception happened in NULLC code
+		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
+
+		for(unsigned i = 0; i < currExecutor->expiredCodeBlocks.size(); i++)
+		{
+			if(address >= uintptr_t(currExecutor->expiredCodeBlocks[i].code) && address <= uintptr_t(currExecutor->expiredCodeBlocks[i].code + currExecutor->expiredCodeBlocks[i].codeSize))
+			{
+				isInternal = true;
+				break;
+			}
+		}
+
+		if(currExecutor->vmState.instWrapperActive)
+			isInternal = true;
+
+		if(!isInternal)
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 
 		// Save part of state for later use
-		expEAXstate = expInfo->ContextRecord->Eax;
-		expECXstate = expInfo->ContextRecord->Ecx;
-		expESPstate = expInfo->ContextRecord->Esp;
 		expCodePublic = expCode;
-		expAllocCode = ~0u;
 
-		if(!externalCode && *(unsigned char*)(intptr_t)expInfo->ContextRecord->Eip == 0xcc)
+		if(*(unsigned char*)(intptr_t)expInfo->ContextRecord->RegisterIp == 0xcc)
 		{
 			unsigned index = ~0u;
 			for(unsigned i = 0; i < currExecutor->breakInstructions.size() && index == ~0u; i++)
 			{
-				if((intptr_t)currExecutor->instAddress[currExecutor->breakInstructions[i].instIndex] == expInfo->ContextRecord->Eip)
+				if((uintptr_t)currExecutor->instAddress[currExecutor->breakInstructions[i].instIndex] == expInfo->ContextRecord->RegisterIp)
 					index = i;
 			}
 			//printf("Found at index %d\n", index);
@@ -100,93 +151,76 @@ namespace NULLC
 				return EXCEPTION_CONTINUE_SEARCH;
 			//printf("Returning execution (%d)\n", currExecutor->breakInstructions[index].instIndex);
 
-			unsigned array[2] = { expInfo->ContextRecord->Eip, 0 };
-			NULLC::dataHead->instructionPtr = (unsigned)(uintptr_t)&array[1];
+			currExecutor->vmState.callStackTop->instruction = currExecutor->breakInstructions[index].instIndex;
+			currExecutor->vmState.callStackTop++;
 
 			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakFunctionContext, currExecutor->breakInstructions[index].instIndex);
 			//printf("Returned command %d\n", command);
 			*currExecutor->instAddress[currExecutor->breakInstructions[index].instIndex] = currExecutor->breakInstructions[index].oldOpcode;
+
+			currExecutor->vmState.callStackTop--;
+
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
 		}
 
-		// Call stack should be unwind only once on top level error, since every function in external function call chain will signal an exception if there was an exception before.
-		if(!NULLC::abnormalTermination)
-		{
-			// Create call stack
-			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
-			unsigned int *paramData = &dataHead->nextElement;
-			int count = 0;
-			while(count < (STACK_TRACE_DEPTH - 1) && paramData)
-			{
-				stackTrace[count++] = paramData[-1];
-				paramData = (unsigned int*)(long long)(*paramData);
-			}
-			stackTrace[count] = 0;
-			dataHead->nextElement = NULL;
-		}
-
-		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
-		{
-			// Save address of access violation
-			if(expCode == EXCEPTION_ACCESS_VIOLATION)
-				expECXstate = (unsigned int)expInfo->ExceptionRecord->ExceptionInformation[1];
-
-			// Mark that execution terminated abnormally
-			NULLC::abnormalTermination = true;
-
-			return EXCEPTION_EXECUTE_HANDLER;
-		}
-
-		if(expCode == EXCEPTION_ACCESS_VIOLATION)
-		{
-			// If access violation is in some considerable boundaries out of parameter stack, extend it
-			if(managedMemoryEnd)
-			{
-				expAllocCode = 5;
-
-				return EXCEPTION_EXECUTE_HANDLER;
-			}
-		}
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
 
 		return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 	}
-
-	typedef BOOL (WINAPI *PSTSG)(PULONG);
-	PSTSG pSetThreadStackGuarantee = NULL;
 #else
+
+#define EXCEPTION_INT_DIVIDE_BY_ZERO 1
+#define EXCEPTION_INVALID_POINTER 4
+
 	sigjmp_buf errorHandler;
 	
 	struct JmpBufData
 	{
 		char data[sizeof(sigjmp_buf)];
 	};
-	void HandleError(int signum, struct sigcontext ctx)
+
+	void HandleError(int signum, siginfo_t *info, void *ucontext)
 	{
-		bool externalCode = ctx.eip < binCodeStart || ctx.eip > binCodeEnd;
+#if defined(_M_X64)
+		uintptr_t address = uintptr_t(((ucontext_t*)ucontext)->uc_mcontext.gregs[REG_RIP]);
+#else
+		uintptr_t address = uintptr_t(((ucontext_t*)ucontext->uc_mcontext.gregs[REG_EIP]);
+#endif
+
+		// Check that exception happened in NULLC code
+		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
+
+		for(unsigned i = 0; i < currExecutor->expiredCodeBlocks.size(); i++)
+		{
+			if(address >= uintptr_t(currExecutor->expiredCodeBlocks[i].code) && address <= uintptr_t(currExecutor->expiredCodeBlocks[i].code + currExecutor->expiredCodeBlocks[i].codeSize))
+			{
+				isInternal = true;
+				break;
+			}
+		}
+
+		if(currExecutor->vmState.instWrapperActive)
+			isInternal = true;
+
+		if(!isInternal)
+		{
+			signal(signum, SIG_DFL);
+			raise(signum);
+			return;
+		}
+
 		if(signum == SIGFPE)
 		{
 			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
 			siglongjmp(errorHandler, expCodePublic);
 		}
-		if(signum == SIGTRAP)
+		else if(signum == SIGSEGV && uintptr_t(info->si_addr) < 0x00010000)
 		{
-			expCodePublic = EXCEPTION_ARRAY_OUT_OF_BOUNDS;
+			expCodePublic = EXCEPTION_INVALID_POINTER;
 			siglongjmp(errorHandler, expCodePublic);
 		}
-		if(signum == SIGSEGV)
-		{
-			if((void*)ctx.cr2 >= NULLC::stackBaseAddress && (void*)ctx.cr2 <= NULLC::stackEndAddress)
-			{
-				expCodePublic = EXCEPTION_ALLOCATED_STACK_OVERFLOW;
 
-				siglongjmp(errorHandler, expCodePublic);
-			}
-			if(!externalCode && ctx.cr2 < 0x00010000)
-			{
-				expCodePublic = EXCEPTION_INVALID_POINTER;
-				siglongjmp(errorHandler, expCodePublic);
-			}
-		}
 		signal(signum, SIG_DFL);
 		raise(signum);
 	}
@@ -202,113 +236,82 @@ namespace NULLC
 	}
 #endif
 
-	typedef void (*codegenCallback)(VMCmd);
-	codegenCallback cgFuncs[cmdEnumCount];
-
-	void UpdateFunctionPointer(unsigned dest, unsigned source)
-	{
-		currExecutor->functionAddress[dest * 2 + 0] = currExecutor->functionAddress[source * 2 + 0];	// function address
-		currExecutor->functionAddress[dest * 2 + 1] = currExecutor->functionAddress[source * 2 + 1];	// function class
-		for(unsigned i = 0; i < currExecutor->oldFunctionLists.size(); i++)
-		{
-			if(currExecutor->oldFunctionLists[i].count < dest * 2)
-				continue;
-			currExecutor->oldFunctionLists[i].list[dest * 2 + 0] = currExecutor->functionAddress[source * 2 + 0];	// function address
-			currExecutor->oldFunctionLists[i].list[dest * 2 + 1] = currExecutor->functionAddress[source * 2 + 1];	// function class
-		}
-	}
+	typedef void (*codegenCallback)(CodeGenRegVmContext &ctx, RegVmCmd);
+	codegenCallback cgFuncs[rviConvertPtr + 1];
 }
 
-// code header
-static const unsigned char codeHead[] = {
-	0x8B, 0xC4,						// mov         eax,esp
-
-	0x8B, 0x50, 0x10,				// mov         edx,dword ptr [eax+10h] 
-	0x89, 0x02,						// mov         dword ptr [edx],eax 
-
-	0x60,							// pushad
-	0x8B, 0x78, 0x04,				// mov         edi,dword ptr [eax+4]
-	0xBD, 0x00, 0x00, 0x00, 0x00,	// mov         ebp,0
-	0x8B, 0x40, 0x0C,				// mov         eax,dword ptr [eax+0Ch]
-
-	0x8D, 0x5C, 0x24, 0x04,			// lea         ebx,[esp+4]
-	0x83, 0xE3, 0x0F,				// and         ebx,0Fh
-	0xB9, 0x10, 0x00, 0x00, 0x00,	// mov         ecx,10h
-	0x2B, 0xCB,						// sub         ecx,ebx
-	0x2B, 0xE1,						// sub         esp,ecx
-	0x51,							// push        ecx 
-	0xFF, 0xD0,						// call eax
-
-	0x59,							// pop         ecx
-	0x03, 0xE1,						// add         esp,ecx
-
-	0x8B, 0x4C, 0x24, 0x28,			// mov         ecx,dword ptr [esp+28h]
-	0x89, 0x01,						// mov         dword ptr [ecx],eax
-	0x89, 0x51, 0x04,				// mov         dword ptr [ecx+4],edx
-	0x89, 0x59, 0x08,				// mov         dword ptr [ecx+8],ebx
-	0x61,							// popad
-	0xC3,							// ret
-};
-
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exCode(linker->exVmCode), exTypes(linker->exTypes)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants)
 {
-	binCode = NULL;
-	binCodeStart = 0;
-	binCodeSize = 0;
-	binCodeReserved = 0;
+	codeGenCtx = NULL;
+
+	memset(execError, 0, REGVM_X86_ERROR_BUFFER_SIZE);
+	memset(execResult, 0, 64);
+
+	codeRunning = false;
+
+	lastResultType = rvrError;
 
 	minStackSize = 1 * 1024 * 1024;
 
-	paramBase = NULL;
-	globalStartInBytecode = 0;
-	callContinue = 1;
+	currentFrame = 0;
 
-	breakFunctionContext = NULL;
-	breakFunction = NULL;
+	lastFinalReturn = 0;
+
+	callContinue = true;
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	dcCallVM = NULL;
 #endif
 
-	// Parameter stack must be aligned
-	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
+	breakFunctionContext = NULL;
+	breakFunction = NULL;
 
-	NULLC::stackBaseAddress = NULL;
-	NULLC::stackEndAddress = NULL;
+	memset(codeLaunchHeader, 0, codeLaunchHeaderSize);
+	oldCodeLaunchHeaderProtect = 0;
+
+	codeLaunchHeaderLength = 0;
+	codeLaunchUnwindOffset = 0;
+	codeLaunchDataLength = 0;
+	codeLaunchWin64UnwindTable = NULL;
+
+	binCode = NULL;
+	binCodeSize = 0;
+	binCodeReserved = 0;
+
+	lastInstructionCount = 0;
+
+	oldJumpTargetCount = 0;
+	oldFunctionSize = 0;
+	oldCodeBodyProtect = 0;
 
 	NULLC::currExecutor = this;
-
-	linker->SetFunctionPointerUpdater(NULLC::UpdateFunctionPointer);
-
-#ifdef __linux
-	SetLongJmpTarget(NULLC::errorHandler);
-#endif
 }
 
 ExecutorX86::~ExecutorX86()
 {
-	if(NULLC::stackBaseAddress)
-	{
-#ifndef __linux
-		// Remove page guard, restoring old protection value
-		DWORD unusedProtect;
-		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, PAGE_READWRITE, &unusedProtect);
-#else
-		// Remove page guard, restoring old protection value
-		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, PROT_READ | PROT_WRITE);
+	NULLC::dealloc(vmState.dataStackBase);
+
+	NULLC::dealloc(vmState.callStackBase);
+
+	NULLC::dealloc(vmState.tempStackArrayBase);
+
+	NULLC::dealloc(vmState.regFileArrayBase);
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+	if(dcCallVM)
+		dcFree(dcCallVM);
 #endif
 
-		NULLC::alignedDealloc(NULLC::stackBaseAddress);
-	}
+	ClearNative();
 
 	// Disable execution of code head and code body
 #ifndef __linux
 	DWORD unusedProtect;
-	VirtualProtect((void*)codeHead, sizeof(codeHead), oldCodeHeadProtect, &unusedProtect);
+	VirtualProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, oldCodeLaunchHeaderProtect, &unusedProtect);
 	if(binCode)
 		VirtualProtect((void*)binCode, binCodeSize, oldCodeBodyProtect, &unusedProtect);
 #else
-	NULLC::MemProtect((void*)codeHead, sizeof(codeHead), PROT_READ | PROT_WRITE);
+	NULLC::MemProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PROT_READ | PROT_WRITE);
 	if(binCode)
 		NULLC::MemProtect((void*)binCode, binCodeSize, PROT_READ | PROT_WRITE);
 #endif
@@ -318,17 +321,6 @@ ExecutorX86::~ExecutorX86()
 
 	NULLC::currExecutor = NULL;
 
-	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-		NULLC::dealloc(oldFunctionLists[i].list);
-	oldFunctionLists.clear();
-	functionAddress.clear();
-
-#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-	if(dcCallVM)
-		dcFree(dcCallVM);
-	dcCallVM = NULL;
-#endif
-
 	x86ResetLabels();
 }
 
@@ -336,148 +328,319 @@ bool ExecutorX86::Initialize()
 {
 	using namespace NULLC;
 
-	cgFuncs[cmdNop] = GenCodeCmdNop;
+	cgFuncs[rviNop] = GenCodeCmdNop;
+	cgFuncs[rviLoadByte] = GenCodeCmdLoadByte;
+	cgFuncs[rviLoadWord] = GenCodeCmdLoadWord;
+	cgFuncs[rviLoadDword] = GenCodeCmdLoadDword;
+	cgFuncs[rviLoadLong] = GenCodeCmdLoadLong;
+	cgFuncs[rviLoadFloat] = GenCodeCmdLoadFloat;
+	cgFuncs[rviLoadDouble] = GenCodeCmdLoadDouble;
+	cgFuncs[rviLoadImm] = GenCodeCmdLoadImm;
+	cgFuncs[rviLoadImmLong] = GenCodeCmdLoadImmLong;
+	cgFuncs[rviLoadImmDouble] = GenCodeCmdLoadImmDouble;
+	cgFuncs[rviStoreByte] = GenCodeCmdStoreByte;
+	cgFuncs[rviStoreWord] = GenCodeCmdStoreWord;
+	cgFuncs[rviStoreDword] = GenCodeCmdStoreDword;
+	cgFuncs[rviStoreLong] = GenCodeCmdStoreLong;
+	cgFuncs[rviStoreFloat] = GenCodeCmdStoreFloat;
+	cgFuncs[rviStoreDouble] = GenCodeCmdStoreDouble;
+	cgFuncs[rviCombinedd] = GenCodeCmdCombinedd;
+	cgFuncs[rviBreakupdd] = GenCodeCmdBreakupdd;
+	cgFuncs[rviMov] = GenCodeCmdMov;
+	cgFuncs[rviMovMult] = GenCodeCmdMovMult;
+	cgFuncs[rviDtoi] = GenCodeCmdDtoi;
+	cgFuncs[rviDtol] = GenCodeCmdDtol;
+	cgFuncs[rviDtof] = GenCodeCmdDtof;
+	cgFuncs[rviItod] = GenCodeCmdItod;
+	cgFuncs[rviLtod] = GenCodeCmdLtod;
+	cgFuncs[rviItol] = GenCodeCmdItol;
+	cgFuncs[rviLtoi] = GenCodeCmdLtoi;
+	cgFuncs[rviIndex] = GenCodeCmdIndex;
+	cgFuncs[rviGetAddr] = GenCodeCmdGetAddr;
+	cgFuncs[rviSetRange] = GenCodeCmdSetRange;
+	cgFuncs[rviMemCopy] = GenCodeCmdMemCopy;
+	cgFuncs[rviJmp] = GenCodeCmdJmp;
+	cgFuncs[rviJmpz] = GenCodeCmdJmpz;
+	cgFuncs[rviJmpnz] = GenCodeCmdJmpnz;
+	cgFuncs[rviCall] = GenCodeCmdCall;
+	cgFuncs[rviCallPtr] = GenCodeCmdCallPtr;
+	cgFuncs[rviReturn] = GenCodeCmdReturn;
+	cgFuncs[rviAddImm] = GenCodeCmdAddImm;
+	cgFuncs[rviAdd] = GenCodeCmdAdd;
+	cgFuncs[rviSub] = GenCodeCmdSub;
+	cgFuncs[rviMul] = GenCodeCmdMul;
+	cgFuncs[rviDiv] = GenCodeCmdDiv;
+	cgFuncs[rviPow] = GenCodeCmdPow;
+	cgFuncs[rviMod] = GenCodeCmdMod;
+	cgFuncs[rviLess] = GenCodeCmdLess;
+	cgFuncs[rviGreater] = GenCodeCmdGreater;
+	cgFuncs[rviLequal] = GenCodeCmdLequal;
+	cgFuncs[rviGequal] = GenCodeCmdGequal;
+	cgFuncs[rviEqual] = GenCodeCmdEqual;
+	cgFuncs[rviNequal] = GenCodeCmdNequal;
+	cgFuncs[rviShl] = GenCodeCmdShl;
+	cgFuncs[rviShr] = GenCodeCmdShr;
+	cgFuncs[rviBitAnd] = GenCodeCmdBitAnd;
+	cgFuncs[rviBitOr] = GenCodeCmdBitOr;
+	cgFuncs[rviBitXor] = GenCodeCmdBitXor;
+	cgFuncs[rviAddImml] = GenCodeCmdAddImml;
+	cgFuncs[rviAddl] = GenCodeCmdAddl;
+	cgFuncs[rviSubl] = GenCodeCmdSubl;
+	cgFuncs[rviMull] = GenCodeCmdMull;
+	cgFuncs[rviDivl] = GenCodeCmdDivl;
+	cgFuncs[rviPowl] = GenCodeCmdPowl;
+	cgFuncs[rviModl] = GenCodeCmdModl;
+	cgFuncs[rviLessl] = GenCodeCmdLessl;
+	cgFuncs[rviGreaterl] = GenCodeCmdGreaterl;
+	cgFuncs[rviLequall] = GenCodeCmdLequall;
+	cgFuncs[rviGequall] = GenCodeCmdGequall;
+	cgFuncs[rviEquall] = GenCodeCmdEquall;
+	cgFuncs[rviNequall] = GenCodeCmdNequall;
+	cgFuncs[rviShll] = GenCodeCmdShll;
+	cgFuncs[rviShrl] = GenCodeCmdShrl;
+	cgFuncs[rviBitAndl] = GenCodeCmdBitAndl;
+	cgFuncs[rviBitOrl] = GenCodeCmdBitOrl;
+	cgFuncs[rviBitXorl] = GenCodeCmdBitXorl;
+	cgFuncs[rviAddd] = GenCodeCmdAddd;
+	cgFuncs[rviSubd] = GenCodeCmdSubd;
+	cgFuncs[rviMuld] = GenCodeCmdMuld;
+	cgFuncs[rviDivd] = GenCodeCmdDivd;
+	cgFuncs[rviAddf] = GenCodeCmdAddf;
+	cgFuncs[rviSubf] = GenCodeCmdSubf;
+	cgFuncs[rviMulf] = GenCodeCmdMulf;
+	cgFuncs[rviDivf] = GenCodeCmdDivf;
+	cgFuncs[rviPowd] = GenCodeCmdPowd;
+	cgFuncs[rviModd] = GenCodeCmdModd;
+	cgFuncs[rviLessd] = GenCodeCmdLessd;
+	cgFuncs[rviGreaterd] = GenCodeCmdGreaterd;
+	cgFuncs[rviLequald] = GenCodeCmdLequald;
+	cgFuncs[rviGequald] = GenCodeCmdGequald;
+	cgFuncs[rviEquald] = GenCodeCmdEquald;
+	cgFuncs[rviNequald] = GenCodeCmdNequald;
+	cgFuncs[rviNeg] = GenCodeCmdNeg;
+	cgFuncs[rviNegl] = GenCodeCmdNegl;
+	cgFuncs[rviNegd] = GenCodeCmdNegd;
+	cgFuncs[rviBitNot] = GenCodeCmdBitNot;
+	cgFuncs[rviBitNotl] = GenCodeCmdBitNotl;
+	cgFuncs[rviLogNot] = GenCodeCmdLogNot;
+	cgFuncs[rviLogNotl] = GenCodeCmdLogNotl;
+	cgFuncs[rviConvertPtr] = GenCodeCmdConvertPtr;
 
-	cgFuncs[cmdPushChar] = GenCodeCmdPushChar;
-	cgFuncs[cmdPushShort] = GenCodeCmdPushShort;
-	cgFuncs[cmdPushInt] = GenCodeCmdPushInt;
-	cgFuncs[cmdPushFloat] = GenCodeCmdPushFloat;
-	cgFuncs[cmdPushDorL] = GenCodeCmdPushDorL;
-	cgFuncs[cmdPushCmplx] = GenCodeCmdPushCmplx;
+	// Create code launch header
+	unsigned char *pos = codeLaunchHeader;
 
-	cgFuncs[cmdPushCharStk] = GenCodeCmdPushCharStk;
-	cgFuncs[cmdPushShortStk] = GenCodeCmdPushShortStk;
-	cgFuncs[cmdPushIntStk] = GenCodeCmdPushIntStk;
-	cgFuncs[cmdPushFloatStk] = GenCodeCmdPushFloatStk;
-	cgFuncs[cmdPushDorLStk] = GenCodeCmdPushDorLStk;
-	cgFuncs[cmdPushCmplxStk] = GenCodeCmdPushCmplxStk;
+#if defined(_M_X64)
+	// Save non-volatile registers
+	pos += x86PUSH(pos, rRBP);
+	pos += x86PUSH(pos, rRBX);
+	pos += x86PUSH(pos, rRDI);
+	pos += x86PUSH(pos, rRSI);
+	pos += x86PUSH(pos, rR12);
+	pos += x86PUSH(pos, rR13);
+	pos += x86PUSH(pos, rR14);
+	pos += x86PUSH(pos, rR15);
 
-	cgFuncs[cmdPushImmt] = GenCodeCmdPushImmt;
+#ifndef __linux
+	pos += x64MOV(pos, rRBX, rRDX);
+	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+	pos += x86CALL(pos, rECX);
+#else
+	pos += x64MOV(pos, rRBX, rRSI);
+	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+	pos += x86CALL(pos, rRDI);
+#endif
 
-	cgFuncs[cmdMovChar] = GenCodeCmdMovChar;
-	cgFuncs[cmdMovShort] = GenCodeCmdMovShort;
-	cgFuncs[cmdMovInt] = GenCodeCmdMovInt;
-	cgFuncs[cmdMovFloat] = GenCodeCmdMovFloat;
-	cgFuncs[cmdMovDorL] = GenCodeCmdMovDorL;
-	cgFuncs[cmdMovCmplx] = GenCodeCmdMovCmplx;
+	// Restore registers
+	pos += x86POP(pos, rR15);
+	pos += x86POP(pos, rR14);
+	pos += x86POP(pos, rR13);
+	pos += x86POP(pos, rR12);
+	pos += x86POP(pos, rRSI);
+	pos += x86POP(pos, rRDI);
+	pos += x86POP(pos, rRBX);
+	pos += x86POP(pos, rRBP);
 
-	cgFuncs[cmdMovCharStk] = GenCodeCmdMovCharStk;
-	cgFuncs[cmdMovShortStk] = GenCodeCmdMovShortStk;
-	cgFuncs[cmdMovIntStk] = GenCodeCmdMovIntStk;
-	cgFuncs[cmdMovFloatStk] = GenCodeCmdMovFloatStk;
-	cgFuncs[cmdMovDorLStk] = GenCodeCmdMovDorLStk;
-	cgFuncs[cmdMovCmplxStk] = GenCodeCmdMovCmplxStk;
+	pos += x86RET(pos);
+#else
+	// Setup stack frame
+	pos += x86PUSH(pos, rEBP);
+	pos += x86MOV(pos, rEBP, rESP);
 
-	cgFuncs[cmdPop] = GenCodeCmdPop;
+	// Save registers
+	pos += x86PUSH(pos, rEBX);
+	pos += x86PUSH(pos, rECX);
+	pos += x86PUSH(pos, rESI);
+	pos += x86PUSH(pos, rEDI);
 
-	cgFuncs[cmdDtoI] = GenCodeCmdDtoI;
-	cgFuncs[cmdDtoL] = GenCodeCmdDtoL;
-	cgFuncs[cmdDtoF] = GenCodeCmdDtoF;
-	cgFuncs[cmdItoD] = GenCodeCmdItoD;
-	cgFuncs[cmdLtoD] = GenCodeCmdLtoD;
-	cgFuncs[cmdItoL] = GenCodeCmdItoL;
-	cgFuncs[cmdLtoI] = GenCodeCmdLtoI;
+	pos += x86MOV(pos, rEAX, sDWORD, rNONE, 0, rEBP, 8); // Get nullc code address
+	pos += x86MOV(pos, rEBX, sDWORD, rNONE, 0, rEBP, 12); // Get register file
 
-	cgFuncs[cmdIndex] = GenCodeCmdIndex;
-	cgFuncs[cmdIndexStk] = GenCodeCmdIndex;
+	pos += x86MOV(pos, rESI, sDWORD, rNONE, 0, rEBX, rvrrFrame * 8); // Get frame pointer
 
-	cgFuncs[cmdCopyDorL] = GenCodeCmdCopyDorL;
-	cgFuncs[cmdCopyI] = GenCodeCmdCopyI;
+	// Go into nullc code
+	pos += x86CALL(pos, rEAX);
 
-	cgFuncs[cmdGetAddr] = GenCodeCmdGetAddr;
-	cgFuncs[cmdFuncAddr] = GenCodeCmdFuncAddr;
+	// Restore registers
+	pos += x86POP(pos, rEDI);
+	pos += x86POP(pos, rESI);
+	pos += x86POP(pos, rECX);
+	pos += x86POP(pos, rEBX);
 
-	cgFuncs[cmdSetRangeStk] = GenCodeCmdSetRangeStk;
+	// Destroy stack frame
+	pos += x86MOV(pos, rESP, rEBP);
+	pos += x86POP(pos, rEBP);
+	pos += x86RET(pos);
+#endif
 
-	cgFuncs[cmdJmp] = GenCodeCmdJmp;
+	assert(pos <= codeLaunchHeader + codeLaunchHeaderSize);
+	codeLaunchHeaderLength = unsigned(pos - codeLaunchHeader);
 
-	cgFuncs[cmdJmpZ] = GenCodeCmdJmpZ;
-	cgFuncs[cmdJmpNZ] = GenCodeCmdJmpNZ;
+	// Enable execution of code head
+#ifndef __linux
+	VirtualProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeLaunchHeaderProtect);
 
-	cgFuncs[cmdCall] = GenCodeCmdCall;
-	cgFuncs[cmdCallPtr] = GenCodeCmdCallPtr;
+#if defined(_M_X64)
+	pos += 16 - unsigned(uintptr_t(pos) % 16);
 
-	cgFuncs[cmdReturn] = GenCodeCmdReturn;
-	cgFuncs[cmdYield] = GenCodeCmdYield;
+	codeLaunchUnwindOffset = unsigned(pos - codeLaunchHeader);
 
-	cgFuncs[cmdPushVTop] = GenCodeCmdPushVTop;
+	assert(sizeof(UNWIND_CODE) == 2);
+	assert(sizeof(UNWIND_INFO_ENTRY) == 4 + 8 * 2);
 
-	cgFuncs[cmdAdd] = GenCodeCmdAdd;
-	cgFuncs[cmdSub] = GenCodeCmdSub;
-	cgFuncs[cmdMul] = GenCodeCmdMul;
-	cgFuncs[cmdDiv] = GenCodeCmdDiv;
-	cgFuncs[cmdPow] = GenCodeCmdPow;
-	cgFuncs[cmdMod] = GenCodeCmdMod;
-	cgFuncs[cmdLess] = GenCodeCmdLess;
-	cgFuncs[cmdGreater] = GenCodeCmdGreater;
-	cgFuncs[cmdLEqual] = GenCodeCmdLEqual;
-	cgFuncs[cmdGEqual] = GenCodeCmdGEqual;
-	cgFuncs[cmdEqual] = GenCodeCmdEqual;
-	cgFuncs[cmdNEqual] = GenCodeCmdNEqual;
-	cgFuncs[cmdShl] = GenCodeCmdShl;
-	cgFuncs[cmdShr] = GenCodeCmdShr;
-	cgFuncs[cmdBitAnd] = GenCodeCmdBitAnd;
-	cgFuncs[cmdBitOr] = GenCodeCmdBitOr;
-	cgFuncs[cmdBitXor] = GenCodeCmdBitXor;
-	cgFuncs[cmdLogAnd] = GenCodeCmdLogAnd;
-	cgFuncs[cmdLogOr] = GenCodeCmdLogOr;
-	cgFuncs[cmdLogXor] = GenCodeCmdLogXor;
+	UNWIND_INFO_ENTRY unwindInfo = { 0 };
 
-	cgFuncs[cmdAddL] = GenCodeCmdAddL;
-	cgFuncs[cmdSubL] = GenCodeCmdSubL;
-	cgFuncs[cmdMulL] = GenCodeCmdMulL;
-	cgFuncs[cmdDivL] = GenCodeCmdDivL;
-	cgFuncs[cmdPowL] = GenCodeCmdPowL;
-	cgFuncs[cmdModL] = GenCodeCmdModL;
-	cgFuncs[cmdLessL] = GenCodeCmdLessL;
-	cgFuncs[cmdGreaterL] = GenCodeCmdGreaterL;
-	cgFuncs[cmdLEqualL] = GenCodeCmdLEqualL;
-	cgFuncs[cmdGEqualL] = GenCodeCmdGEqualL;
-	cgFuncs[cmdEqualL] = GenCodeCmdEqualL;
-	cgFuncs[cmdNEqualL] = GenCodeCmdNEqualL;
-	cgFuncs[cmdShlL] = GenCodeCmdShlL;
-	cgFuncs[cmdShrL] = GenCodeCmdShrL;
-	cgFuncs[cmdBitAndL] = GenCodeCmdBitAndL;
-	cgFuncs[cmdBitOrL] = GenCodeCmdBitOrL;
-	cgFuncs[cmdBitXorL] = GenCodeCmdBitXorL;
-	cgFuncs[cmdLogAndL] = GenCodeCmdLogAndL;
-	cgFuncs[cmdLogOrL] = GenCodeCmdLogOrL;
-	cgFuncs[cmdLogXorL] = GenCodeCmdLogXorL;
+	unwindInfo.version = 1;
+	unwindInfo.flags = 0; // No EH
+	unwindInfo.sizeOfProlog = 12;
+	unwindInfo.countOfCodes = 8;
+	unwindInfo.frameRegister = 0;
+	unwindInfo.frameOffset = 0;
 
-	cgFuncs[cmdAddD] = GenCodeCmdAddD;
-	cgFuncs[cmdSubD] = GenCodeCmdSubD;
-	cgFuncs[cmdMulD] = GenCodeCmdMulD;
-	cgFuncs[cmdDivD] = GenCodeCmdDivD;
-	cgFuncs[cmdPowD] = GenCodeCmdPowD;
-	cgFuncs[cmdModD] = GenCodeCmdModD;
-	cgFuncs[cmdLessD] = GenCodeCmdLessD;
-	cgFuncs[cmdGreaterD] = GenCodeCmdGreaterD;
-	cgFuncs[cmdLEqualD] = GenCodeCmdLEqualD;
-	cgFuncs[cmdGEqualD] = GenCodeCmdGEqualD;
-	cgFuncs[cmdEqualD] = GenCodeCmdEqualD;
-	cgFuncs[cmdNEqualD] = GenCodeCmdNEqualD;
+	unwindInfo.unwindCode[0].offsetInPrologue = 12;
+	unwindInfo.unwindCode[0].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[0].operationInfo = 15; // r15
 
-	cgFuncs[cmdNeg] = GenCodeCmdNeg;
-	cgFuncs[cmdNegL] = GenCodeCmdNegL;
-	cgFuncs[cmdNegD] = GenCodeCmdNegD;
+	unwindInfo.unwindCode[1].offsetInPrologue = 10;
+	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[1].operationInfo = 14; // r14
 
-	cgFuncs[cmdBitNot] = GenCodeCmdBitNot;
-	cgFuncs[cmdBitNotL] = GenCodeCmdBitNotL;
+	unwindInfo.unwindCode[2].offsetInPrologue = 8;
+	unwindInfo.unwindCode[2].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[2].operationInfo = 13; // r13
 
-	cgFuncs[cmdLogNot] = GenCodeCmdLogNot;
-	cgFuncs[cmdLogNotL] = GenCodeCmdLogNotL;
+	unwindInfo.unwindCode[3].offsetInPrologue = 6;
+	unwindInfo.unwindCode[3].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[3].operationInfo = 12; // r12
 
-	cgFuncs[cmdIncI] = GenCodeCmdIncI;
-	cgFuncs[cmdIncD] = GenCodeCmdIncD;
-	cgFuncs[cmdIncL] = GenCodeCmdIncL;
+	unwindInfo.unwindCode[4].offsetInPrologue = 4;
+	unwindInfo.unwindCode[4].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[4].operationInfo = UWOP_REGISTER_RSI;
 
-	cgFuncs[cmdDecI] = GenCodeCmdDecI;
-	cgFuncs[cmdDecD] = GenCodeCmdDecD;
-	cgFuncs[cmdDecL] = GenCodeCmdDecL;
+	unwindInfo.unwindCode[5].offsetInPrologue = 3;
+	unwindInfo.unwindCode[5].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RDI;
 
-	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
+	unwindInfo.unwindCode[6].offsetInPrologue = 2;
+	unwindInfo.unwindCode[6].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[6].operationInfo = UWOP_REGISTER_RBX;
 
-	cgFuncs[cmdCheckedRet] = GenCodeCmdCheckedRet;
+	unwindInfo.unwindCode[7].offsetInPrologue = 1;
+	unwindInfo.unwindCode[7].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[7].operationInfo = UWOP_REGISTER_RBP;
+
+	memcpy(pos, &unwindInfo, sizeof(unwindInfo));
+	pos += sizeof(unwindInfo);
+
+	assert(pos <= codeLaunchHeader + codeLaunchHeaderSize);
+
+	uintptr_t baseAddress = (uintptr_t)codeLaunchHeader;
+
+	codeLaunchWin64UnwindTable = (RUNTIME_FUNCTION*)NULLC::alloc(sizeof(RUNTIME_FUNCTION) * 1);
+
+	codeLaunchWin64UnwindTable[0].BeginAddress = 0;
+	codeLaunchWin64UnwindTable[0].EndAddress = codeLaunchHeaderLength;
+	codeLaunchWin64UnwindTable[0].UnwindData = codeLaunchUnwindOffset;
+
+	// Can't get RtlInstallFunctionTableCallback to work (it's not getting called)
+
+	if(!RtlAddFunctionTable(codeLaunchWin64UnwindTable, 1, baseAddress))
+		printf("Failed to install function table");
+#endif
+
+	codeLaunchDataLength = unsigned(pos - codeLaunchHeader);
+
+#else
+	NULLC::MemProtect((void*)codeLaunchHeader, codeLaunchHeaderSize, PROT_READ | PROT_WRITE | PROT_EXEC);
+#endif
+
+	if(!vmState.callStackBase)
+	{
+		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
+		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
+		vmState.callStackEnd = vmState.callStackBase + 1024 * 2;
+	}
+
+	if(!vmState.tempStackArrayBase)
+	{
+		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 16);
+		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
+		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 16;
+	}
+
+	if(!vmState.dataStackBase)
+	{
+		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+		memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
+		vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
+	}
+
+	if(!vmState.regFileArrayBase)
+	{
+		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
+		memset(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
+		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
+	}
+
+	//x86TestEncoding(codeLaunchHeader);
+
+	return true;
+}
+
+bool ExecutorX86::InitExecution()
+{
+	if(!exRegVmCode.size())
+	{
+		strcpy(execError, "ERROR: no code to run");
+		return false;
+	}
+
+	vmState.callStackTop = vmState.callStackBase;
+
+	lastFinalReturn = 0;
+
+	CommonSetLinker(exLinker);
+
+	vmState.dataStackTop = vmState.dataStackBase + ((exLinker->globalVarSize + 0xf) & ~0xf);
+
+	if(vmState.dataStackTop >= vmState.dataStackEnd)
+	{
+		strcpy(execError, "ERROR: allocated stack overflow");
+		return false;
+	}
+
+	SetUnmanagableRange(vmState.dataStackBase, unsigned(vmState.dataStackEnd - vmState.dataStackBase));
+
+	execError[0] = 0;
+
+	callContinue = true;
+
+	vmState.regFileLastPtr = vmState.regFileArrayBase;
+	vmState.regFileLastTop = vmState.regFileArrayBase;
+
+	vmState.instAddress = instAddress.data;
+	vmState.codeLaunchHeader = codeLaunchHeader;
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(!dcCallVM)
@@ -487,118 +650,57 @@ bool ExecutorX86::Initialize()
 	}
 #endif
 
-#ifndef __linux
-	if(HMODULE hDLL = LoadLibrary("kernel32"))
-		pSetThreadStackGuarantee = (PSTSG)GetProcAddress(hDLL, "SetThreadStackGuarantee");
-#endif
-
-	codeRunning = false;
-
-	// Enable execution of code head
-#ifndef __linux
-	VirtualProtect((void*)codeHead, sizeof(codeHead), PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeHeadProtect);
-#else
-	NULLC::MemProtect((void*)codeHead, sizeof(codeHead), PROT_READ | PROT_EXEC);
-#endif
-
-	return true;
-}
-
-bool ExecutorX86::InitStack()
-{
-	if(!NULLC::stackBaseAddress)
-	{
-		if(minStackSize < 8192)
-		{
-			strcpy(execError, "ERROR: stack memory range is too small");
-			return false;
-		}
-
-		NULLC::stackBaseAddress = (char*)NULLC::alignedAlloc(minStackSize);
-		NULLC::stackEndAddress = NULLC::stackBaseAddress + minStackSize;
-
-#ifndef __linux
-		DWORD unusedProtect;
-		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, PAGE_NOACCESS, &unusedProtect);
-#else
-		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, 0);
-#endif
-
-		NULLC::parameterHead = paramBase = (char*)NULLC::stackBaseAddress + sizeof(NULLC::DataStackHeader);
-		NULLC::paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(NULLC::stackBaseAddress));
-		NULLC::dataHead = (NULLC::DataStackHeader*)NULLC::stackBaseAddress;
-	}
-
-	return true;
-}
-
-bool ExecutorX86::InitExecution()
-{
-	if(!exCode.size())
-	{
-		strcpy(execError, "ERROR: no code to run");
-		return false;
-	}
-
-	if(!InitStack())
-		return false;
-
-	SetUnmanagableRange(NULLC::parameterHead, unsigned(NULLC::stackEndAddress - NULLC::parameterHead));
-
-	execError[0] = 0;
-	callContinue = 1;
-
-	NULLC::dataHead->lastEDI = 0;
-	NULLC::dataHead->instructionPtr = 0;
-	NULLC::dataHead->nextElement = 0;
-
-#ifndef __linux
-	if(NULLC::pSetThreadStackGuarantee)
-	{
-		unsigned long extraStack = 4096;
-		NULLC::pSetThreadStackGuarantee(&extraStack);
-	}
-#endif
-
-	memset(NULLC::stackBaseAddress, 0, sizeof(NULLC::DataStackHeader));
-
 	return true;
 }
 
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
-	int	callStackExtra[2] = { 0 };
-	bool firstRun = false;
+	bool firstRun = !codeRunning || functionID == ~0u;
 
-	if(!codeRunning || functionID == ~0u)
+	if(firstRun)
 	{
-		codeRunning = false;
-		firstRun = true;
-		
 		if(!InitExecution())
 			return;
 	}
-	else if(functionID != ~0u && exFunctions[functionID].startInByteCode != ~0u)
-	{
-		// Instruction pointer is expected one DWORD above pointer to next element
-		callStackExtra[0] = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
-		// Set next element
-		callStackExtra[1] = NULLC::dataHead->nextElement;
-		// Now this structure is current element
-		NULLC::dataHead->nextElement = (int)(intptr_t)&callStackExtra[1];
-	}
 
-	bool wasCodeRunning = codeRunning;
 	codeRunning = true;
 
-	unsigned int funcBinCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
-	unsigned int varSize = (exLinker->globalVarSize + 0xf) & ~0xf;
+	RegVmReturnType retType = rvrVoid;
+
+	unsigned instructionPos = 0;
+
+	bool errorState = false;
+
+	// We will know that return is global if call stack size is equal to current
+	unsigned prevLastFinalReturn = lastFinalReturn;
+	lastFinalReturn = unsigned(vmState.callStackTop - vmState.callStackBase);
+
+	unsigned prevDataSize = unsigned(vmState.dataStackTop - vmState.dataStackBase);
+
+	assert(prevDataSize % 16 == 0);
+
+	RegVmRegister *regFilePtr = vmState.regFileLastTop;
+	RegVmRegister *regFileTop = vmState.regFileLastTop + 256;
+
+	unsigned *tempStackPtr = vmState.tempStackArrayBase;
 
 	if(functionID != ~0u)
 	{
 		ExternFuncInfo &target = exFunctions[functionID];
 
-		if(target.startInByteCode == ~0u)
+		unsigned funcPos = ~0u;
+		funcPos = target.regVmAddress;
+
+		if(target.retType == ExternFuncInfo::RETURN_VOID)
+			retType = rvrVoid;
+		else if(target.retType == ExternFuncInfo::RETURN_INT)
+			retType = rvrInt;
+		else if(target.retType == ExternFuncInfo::RETURN_DOUBLE)
+			retType = rvrDouble;
+		else if(target.retType == ExternFuncInfo::RETURN_LONG)
+			retType = rvrLong;
+
+		if(funcPos == ~0u)
 		{
 			// Can't return complex types here
 			if(target.retType == ExternFuncInfo::RETURN_UNKNOWN)
@@ -607,428 +709,480 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				return;
 			}
 
+			// Copy all arguments
+			memcpy(tempStackPtr, arguments, target.bytesToPop);
+
+			// Call function
 			if(target.funcPtrWrap)
 			{
-				assert(target.returnSize <= 8);
-
-				char returnBuf[8];
-
-				target.funcPtrWrap(target.funcPtrWrapTarget, returnBuf, (char*)arguments);
+				target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
 
 				if(!callContinue)
-					return;
-
-				switch(target.retType)
-				{
-				case ExternFuncInfo::RETURN_VOID:
-					NULLC::runResultType = OTYPE_COMPLEX;
-					break;
-				case ExternFuncInfo::RETURN_INT:
-					NULLC::runResultType = OTYPE_INT;
-					memcpy(&NULLC::runResult, returnBuf, sizeof(NULLC::runResult));
-					break;
-				case ExternFuncInfo::RETURN_DOUBLE:
-					NULLC::runResultType = OTYPE_DOUBLE;
-
-					memcpy(&NULLC::runResult2, returnBuf, sizeof(NULLC::runResult2));
-					memcpy(&NULLC::runResult, returnBuf + 4, sizeof(NULLC::runResult));
-					break;
-				case ExternFuncInfo::RETURN_LONG:
-					NULLC::runResultType = OTYPE_LONG;
-
-					memcpy(&NULLC::runResult2, returnBuf, sizeof(NULLC::runResult2));
-					memcpy(&NULLC::runResult, returnBuf + 4, sizeof(NULLC::runResult));
-				break;
-				}
+					errorState = true;
 			}
 			else
 			{
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-				unsigned int dwordsToPop = (target.bytesToPop >> 2);
-				void* fPtr = (void*)target.funcPtrRaw;
+				RunRawExternalFunction(dcCallVM, exFunctions[functionID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, tempStackPtr);
 
-				dcReset(dcCallVM);
-
-				unsigned int *stackStart = ((unsigned int*)arguments);
-
-				for(unsigned i = 0; i < dwordsToPop; i++)
-				{
-					dcArgInt(dcCallVM, *(int*)stackStart);
-					stackStart += 1;
-				}
-
-				switch(target.retType)
-				{
-				case ExternFuncInfo::RETURN_VOID:
-					NULLC::runResultType = OTYPE_COMPLEX;
-					dcCallVoid(dcCallVM, fPtr);
-					break;
-				case ExternFuncInfo::RETURN_INT:
-					NULLC::runResultType = OTYPE_INT;
-					NULLC::runResult = dcCallInt(dcCallVM, fPtr);
-					break;
-				case ExternFuncInfo::RETURN_DOUBLE:
-				{
-					double tmp = dcCallDouble(dcCallVM, fPtr);
-					NULLC::runResultType = OTYPE_DOUBLE;
-					NULLC::runResult2 = ((int*)&tmp)[0];
-					NULLC::runResult = ((int*)&tmp)[1];
-				}
-				break;
-				case ExternFuncInfo::RETURN_LONG:
-				{
-					long long tmp = dcCallLongLong(dcCallVM, fPtr);
-					NULLC::runResultType = OTYPE_LONG;
-					NULLC::runResult2 = ((int*)&tmp)[0];
-					NULLC::runResult = ((int*)&tmp)[1];
-				}
-				break;
-				}
+				if(!callContinue)
+					errorState = true;
 #else
-				strcpy(execError, "ERROR: external raw function calls are disabled");
+				Stop("ERROR: external raw function calls are disabled");
+
+				errorState = true;
 #endif
 			}
 
-			return;
+			// This will disable NULLC code execution while leaving error check and result retrieval
+			instructionPos = ~0u;
 		}
 		else
 		{
-			if(NULLC::dataHead->lastEDI)
-				varSize = NULLC::dataHead->lastEDI;
-			memcpy(paramBase + varSize, arguments, target.bytesToPop);
-			funcBinCodeStart = functionAddress[functionID * 2];
+			instructionPos = funcPos;
+
+			unsigned argumentsSize = target.bytesToPop;
+
+			if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + argumentsSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
+			{
+				CodeGenRegVmCallStackEntry *entry = vmState.callStackTop;
+
+				entry->instruction = instructionPos + 1;
+
+				vmState.callStackTop++;
+
+				instructionPos = ~0u;
+				strcpy(execError, "ERROR: stack overflow");
+				retType = rvrError;
+			}
+			else
+			{
+				// Copy arguments to new stack frame
+				memcpy(vmState.dataStackTop, arguments, argumentsSize);
+
+				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+
+				regFilePtr = vmState.regFileLastTop;
+				regFileTop = vmState.regFileLastTop + target.regVmRegisters;
+
+				if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + stackSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
+				{
+					CodeGenRegVmCallStackEntry *entry = vmState.callStackTop;
+
+					entry->instruction = instructionPos + 1;
+
+					vmState.callStackTop++;
+
+					instructionPos = ~0u;
+					strcpy(execError, "ERROR: stack overflow");
+					retType = rvrError;
+				}
+				else
+				{
+					vmState.dataStackTop += stackSize;
+
+					assert(argumentsSize <= stackSize);
+
+					if(stackSize - argumentsSize)
+						memset(vmState.dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
+
+					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState.dataStackBase);
+					regFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState.dataStackBase + prevDataSize);
+					regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
+					regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
+				}
+
+				memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
+			}
 		}
 	}
 	else
 	{
-		funcBinCodeStart += globalStartInBytecode;
+		// If global code is executed, reset all global variables
+		assert(unsigned(vmState.dataStackTop - vmState.dataStackBase) >= exLinker->globalVarSize);
+		memset(vmState.dataStackBase, 0, exLinker->globalVarSize);
 
-		unsigned commitedStack = unsigned(NULLC::stackEndAddress - NULLC::parameterHead) - 8192;
+		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState.dataStackBase);
+		regFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState.dataStackBase);
+		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
+		regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 
-#ifndef __linux
-		if(commitedStack < exLinker->globalVarSize)
-		{
-			strcpy(execError, "ERROR: allocated stack overflow");
-			return;
-		}
-#else
-		if(commitedStack < exLinker->globalVarSize)
-		{
-			strcpy(execError, "ERROR: allocated stack overflow");
-			return;
-		}
-#endif
-		memset(NULLC::parameterHead, 0, exLinker->globalVarSize);
+		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 	}
 
-	unsigned int res1 = 0;
-	unsigned int res2 = 0;
-	unsigned int resT = 0;
+	RegVmRegister *prevRegFilePtr = vmState.regFileLastPtr;
+	RegVmRegister *prevRegFileTop = vmState.regFileLastTop;
 
-	NULLC::abnormalTermination = false;
+	vmState.regFileLastPtr = regFilePtr;
+	vmState.regFileLastTop = regFileTop;
 
+	RegVmReturnType resultType = retType;
+
+	if(instructionPos != ~0u)
+	{
 #ifdef __linux
-	struct sigaction sa;
-	struct sigaction sigFPE;
-	struct sigaction sigTRAP;
-	struct sigaction sigSEGV;
-	if(firstRun)
-	{
-		sa.sa_handler = (void (*)(int))NULLC::HandleError;
-		sigemptyset(&sa.sa_mask);
-		sa.sa_flags = SA_RESTART;
+		struct sigaction sa;
+		struct sigaction sigFPE;
+		struct sigaction sigTRAP;
+		struct sigaction sigSEGV;
 
-		sigaction(SIGFPE, &sa, &sigFPE);
-		sigaction(SIGTRAP, &sa, &sigTRAP);
-		sigaction(SIGSEGV, &sa, &sigSEGV);
-	}
-	int errorCode = 0;
-
-	NULLC::JmpBufData data;
-	memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
-	if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
-	{
-		unsigned savedSize = NULLC::dataHead->lastEDI;
-		void *dummy = NULL;
-		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
-		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
-		int returnStruct[3] = { 1, 2, 3 };
-		gate(varSize, returnStruct, funcBinCodeStart, firstRun ? &genStackTop : &dummy);
-		res1 = returnStruct[0];
-		res2 = returnStruct[1];
-		resT = returnStruct[2];
-		NULLC::dataHead->lastEDI = savedSize;
-	}else{
-		if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
-			strcpy(execError, "ERROR: integer division by zero");
-		else if(errorCode == EXCEPTION_FUNCTION_NO_RETURN)
-			strcpy(execError, "ERROR: function didn't return a value");
-		else if(errorCode == EXCEPTION_ARRAY_OUT_OF_BOUNDS)
-			strcpy(execError, "ERROR: array index out of bounds");
-		else if(errorCode == EXCEPTION_INVALID_FUNCTION)
-			strcpy(execError, "ERROR: invalid function pointer");
-		else if((errorCode & 0xff) == EXCEPTION_CONVERSION_ERROR)
-			NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
-			&exLinker->exSymbols[exLinker->exTypes[NULLC::dataHead->unused1].offsetToName],
-			&exLinker->exSymbols[exLinker->exTypes[errorCode >> 8].offsetToName]);
-		else if(errorCode == EXCEPTION_ALLOCATED_STACK_OVERFLOW)
-			strcpy(execError, "ERROR: allocated stack overflow");
-		else if(errorCode == EXCEPTION_INVALID_POINTER)
-			strcpy(execError, "ERROR: null pointer access");
-		else if(errorCode == EXCEPTION_FAILED_TO_RESERVE)
-			strcpy(execError, "ERROR: failed to reserve new stack memory");
-
-		if(!NULLC::abnormalTermination && NULLC::dataHead->instructionPtr)
+		if(firstRun)
 		{
-			// Create call stack
-			unsigned int *paramData = &NULLC::dataHead->nextElement;
-			int count = 0;
-			while((unsigned)count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
-			{
-				NULLC::stackTrace[count++] = paramData[-1];
-				paramData = (unsigned int*)(long long)(*paramData);
-			}
-			NULLC::stackTrace[count] = 0;
-			NULLC::dataHead->nextElement = 0;
+			sa.sa_sigaction = NULLC::HandleError;
+			sigemptyset(&sa.sa_mask);
+			sa.sa_flags = SA_RESTART | SA_SIGINFO;
+
+			sigaction(SIGFPE, &sa, &sigFPE);
+			sigaction(SIGTRAP, &sa, &sigTRAP);
+			sigaction(SIGSEGV, &sa, &sigSEGV);
 		}
-		NULLC::dataHead->instructionPtr = 0;
-		NULLC::abnormalTermination = true;
-	}
-	// Disable signal handlers only from top-level Run
-	if(!wasCodeRunning)
-	{
-		sigaction(SIGFPE, &sigFPE, NULL);
-		sigaction(SIGTRAP, &sigTRAP, NULL);
-		sigaction(SIGSEGV, &sigSEGV, NULL);
-	}
 
-	memcpy(NULLC::errorHandler, data.data, sizeof(sigjmp_buf));
-#else
-	__try
-	{
-		unsigned savedSize = NULLC::dataHead->lastEDI;
-		void *dummy = NULL;
-		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
-		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
-		int returnStruct[3] = { 1, 2, 3 };
-		gate(varSize, returnStruct, funcBinCodeStart, firstRun ? &genStackTop : &dummy);
-		res1 = returnStruct[0];
-		res2 = returnStruct[1];
-		resT = returnStruct[2];
-		NULLC::dataHead->lastEDI = savedSize;
-	}__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
-		if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
+		int errorCode = 0;
+
+		NULLC::JmpBufData data;
+		memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
+
+		if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
 		{
-			strcpy(execError, "ERROR: integer division by zero");
-		}else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW){
-			strcpy(execError, "ERROR: integer overflow");
-		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0){
-			strcpy(execError, "ERROR: array index out of bounds");
-		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xFFFFFFFF){
-			strcpy(execError, "ERROR: function didn't return a value");
-		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xDEADBEEF){
-			strcpy(execError, "ERROR: invalid function pointer");
-		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate){
-			NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
-			NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expEAXstate].offsetToName],
-			NULLC::expECXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expECXstate].offsetToName]);
-		}else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW){
-#ifndef __DMC__
-			// Restore stack guard
-			_resetstkoflw();
-#endif
+			unsigned char *codeStart = instAddress[instructionPos];
 
-			strcpy(execError, "ERROR: stack overflow");
-		}else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION){
-			if(NULLC::expAllocCode == 1)
-				strcpy(execError, "ERROR: failed to commit old stack memory");
-			else if(NULLC::expAllocCode == 2)
-				strcpy(execError, "ERROR: failed to reserve new stack memory");
-			else if(NULLC::expAllocCode == 3)
-				strcpy(execError, "ERROR: failed to commit new stack memory");
-			else if(NULLC::expAllocCode == 4)
-				strcpy(execError, "ERROR: no more memory (512Mb maximum exceeded)");
-			else if(NULLC::expAllocCode == 5)
-				strcpy(execError, "ERROR: allocated stack overflow");
+			jmp_buf prevErrorHandler;
+			memcpy(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
+
+			if(!setjmp(vmState.errorHandler))
+			{
+				typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+				nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
+				resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
+			}
 			else
+			{
+				resultType = rvrError;
+			}
+
+			memcpy(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		}
+		else
+		{
+			if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
+				strcpy(execError, "ERROR: integer division by zero");
+			else if(errorCode == EXCEPTION_INVALID_POINTER)
 				strcpy(execError, "ERROR: null pointer access");
 		}
-	}
-#endif
 
-	NULLC::runResult = res1;
-	NULLC::runResult2 = res2;
-	if(functionID == ~0u)
-	{
-		NULLC::runResultType = (asmOperType)resT;
-	}else{
-		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
+		// Disable signal handlers only from top-level Run
+		if(lastFinalReturn == 0)
 		{
-			NULLC::runResultType = OTYPE_COMPLEX;
-		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT){
-			NULLC::runResultType = OTYPE_INT;
-		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE){
-			NULLC::runResultType = OTYPE_DOUBLE;
-		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG){
-			NULLC::runResultType = OTYPE_LONG;
+			sigaction(SIGFPE, &sigFPE, NULL);
+			sigaction(SIGTRAP, &sigTRAP, NULL);
+			sigaction(SIGSEGV, &sigSEGV, NULL);
 		}
+
+		memcpy(NULLC::errorHandler, data.data, sizeof(sigjmp_buf));
+#else
+		__try
+		{
+			unsigned char *codeStart = instAddress[instructionPos];
+
+			jmp_buf prevErrorHandler;
+			memcpy(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
+
+			if(!setjmp(vmState.errorHandler))
+			{
+				typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+				nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
+				resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
+			}
+			else
+			{
+				resultType = rvrError;
+			}
+
+			memcpy(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		}
+		__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation()))
+		{
+			if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
+				strcpy(execError, "ERROR: integer division by zero");
+			else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW)
+				strcpy(execError, "ERROR: integer overflow");
+			else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION)
+				strcpy(execError, "ERROR: null pointer access");
+
+			resultType = rvrError;
+		}
+#endif
 	}
 
-	if(!wasCodeRunning)
+	vmState.regFileLastPtr = prevRegFilePtr;
+	vmState.regFileLastTop = prevRegFileTop;
+
+	vmState.dataStackTop = vmState.dataStackBase + prevDataSize;
+
+	if(resultType == rvrError)
 	{
-		if(execError[0] != '\0')
+		errorState = true;
+	}
+	else
+	{
+		if(retType == rvrVoid)
+			retType = resultType;
+		else
+			assert(retType == resultType && "expected different result");
+	}
+
+	// If there was an execution error
+	if(errorState)
+	{
+		// Print call stack on error, when we get to the first function
+		if(lastFinalReturn == 0)
 		{
 			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, 512 - int(currPos - execError), "\r\nCall stack:\r\n");
+			currPos += NULLC::SafeSprintf(currPos, REGVM_X86_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
 			BeginCallStack();
-			while(unsigned int address = GetNextAddress())
-				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError), false);
+			while(unsigned address = GetNextAddress())
+				currPos += PrintStackFrame(address, currPos, REGVM_X86_ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
+
+		lastFinalReturn = prevLastFinalReturn;
+
+		// Ascertain that execution stops when there is a chain of nullcRunFunction
+		callContinue = false;
 		codeRunning = false;
-		NULLC::dataHead->instructionPtr = 0;
+
+		return;
 	}
 
-	// Call stack management
-	if(codeRunning && functionID != ~0u && exFunctions[functionID].startInByteCode != ~0u)
+	if(lastFinalReturn == 0)
+		codeRunning = false;
+
+	lastFinalReturn = prevLastFinalReturn;
+
+	lastResultType = retType;
+
+	switch(lastResultType)
 	{
-		// Restore previous state
-		NULLC::dataHead->nextElement = callStackExtra[1];
+	case rvrInt:
+		lastResult.intValue = tempStackPtr[0];
+		break;
+	case rvrDouble:
+		memcpy(&lastResult.doubleValue, tempStackPtr, sizeof(double));
+		break;
+	case rvrLong:
+		memcpy(&lastResult.longValue, tempStackPtr, sizeof(long long));
+		break;
+	default:
+		break;
 	}
 }
 
 void ExecutorX86::Stop(const char* error)
 {
+	codeRunning = false;
+
 	callContinue = false;
-	NULLC::SafeSprintf(execError, 512, "%s", error);
+	NULLC::SafeSprintf(execError, REGVM_X86_ERROR_BUFFER_SIZE, "%s", error);
 }
 
 bool ExecutorX86::SetStackSize(unsigned bytes)
 {
-	if(codeRunning)
+	if(codeRunning || !instList.empty())
 		return false;
 
 	minStackSize = bytes;
 
-	if(NULLC::stackBaseAddress)
-	{
-#ifndef __linux
-		// Remove page guard, restoring old protection value
-		DWORD unusedProtect;
-		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, PAGE_READWRITE, &unusedProtect);
-#else
-		// Remove page guard, restoring old protection value
-		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, PROT_READ | PROT_WRITE);
-#endif
+	NULLC::dealloc(vmState.dataStackBase);
 
-		NULLC::alignedDealloc(NULLC::stackBaseAddress);
-	}
-
-	NULLC::stackBaseAddress = NULL;
-	NULLC::stackEndAddress = NULL;
-
-	NULLC::parameterHead = paramBase = NULL;
-	NULLC::paramDataBase = 0;
-	NULLC::dataHead = NULL;
+	vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+	memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
+	vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
 
 	return true;
 }
 
 void ExecutorX86::ClearNative()
 {
-	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+	if (instList.size())
+		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
 	binCodeSize = 0;
 	lastInstructionCount = 0;
-	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-		NULLC::dealloc(oldFunctionLists[i].list);
-	oldFunctionLists.clear();
 
-	functionAddress.clear();
+	globalCodeRanges.clear();
+
+	for(unsigned i = 0; i < expiredCodeBlocks.size(); i++)
+	{
+		ExpiredCodeBlock &block = expiredCodeBlocks[i];
+
+#ifndef __linux
+		DWORD unusedProtect;
+		VirtualProtect((void*)block.code, block.codeSize, oldCodeBodyProtect, &unusedProtect);
+#else
+		NULLC::MemProtect((void*)block.code, block.codeSize, PROT_READ | PROT_WRITE);
+#endif
+
+		NULLC::dealloc(block.code);
+
+#if defined(_M_X64) && !defined(__linux)
+		if(block.unwindTable)
+		{
+			RtlDeleteFunctionTable(block.unwindTable);
+			NULLC::dealloc(block.unwindTable);
+		}
+#endif
+	}
+
+	expiredCodeBlocks.clear();
+
+#if defined(_M_X64) && !defined(__linux)
+	// Remove function table for unwind information
+	if(!functionWin64UnwindTable.empty())
+		RtlDeleteFunctionTable(functionWin64UnwindTable.data);
+
+	functionWin64UnwindTable.clear();
+#endif
 
 	oldJumpTargetCount = 0;
 	oldFunctionSize = 0;
+
+	// Create new code generation context
+	if(codeGenCtx)
+		NULLC::destruct(codeGenCtx);
+	codeGenCtx = NULL;
+
+	codeRunning = false;
 }
 
 bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
-	execError[0] = 0;
-
-	if(!InitStack())
-		return false;
-
-	globalStartInBytecode = 0xffffffff;
-
-	if(functionAddress.max <= exFunctions.size() * 2)
-	{
-		unsigned *newStorage = (unsigned*)NULLC::alloc(exFunctions.size() * 3 * sizeof(unsigned));
-		if(functionAddress.count != 0)
-			oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
-		memcpy(newStorage, functionAddress.data, functionAddress.count * sizeof(unsigned));
-		functionAddress.data = newStorage;
-		functionAddress.count = exFunctions.size() * 2;
-		functionAddress.max = exFunctions.size() * 3;
-	}
-	else
-	{
-		functionAddress.resize(exFunctions.size() * 2);
-	}
-
-	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+	if(instList.size())
+		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 	instList.reserve(64);
 
-	assert(paramBase);
+	if(!codeGenCtx)
+		codeGenCtx = NULLC::construct<CodeGenRegVmContext>();
 
-	SetParamBase((unsigned int)(long long)paramBase);
-	SetFunctionList(exFunctions.data, functionAddress.data);
-	SetContinuePtr(&callContinue);
-	SetLastInstruction(instList.data, instList.data);
+	codeGenCtx->x86rvm = this;
+
+	codeGenCtx->exFunctions = exFunctions.data;
+	codeGenCtx->exTypes = exTypes.data;
+	codeGenCtx->exTypeExtra = exLinker->exTypeExtra.data;
+	codeGenCtx->exLocals = exLinker->exLocals.data;
+	codeGenCtx->exRegVmConstants = exRegVmConstants.data;
+	codeGenCtx->exRegVmConstantsEnd = exRegVmConstants.data + exRegVmConstants.count;
+	codeGenCtx->exSymbols = exLinker->exSymbols.data;
+
+	codeGenCtx->vmState = &vmState;
+
+	vmState.ctx = codeGenCtx;
+
+	codeGenCtx->ctx.SetLastInstruction(instList.data, instList.data);
 
 	CommonSetLinker(exLinker);
 
-	EMIT_OP(o_use32);
+	EMIT_OP(codeGenCtx->ctx, o_use32);
 
-	codeJumpTargets.resize(exCode.size());
+	codeJumpTargets.resize(exRegVmCode.size());
 	if(codeJumpTargets.size())
 		memset(&codeJumpTargets[lastInstructionCount], 0, codeJumpTargets.size() - lastInstructionCount);
 
-	// Mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
-	codeJumpTargets.push_back(false);
-	for(unsigned int i = oldJumpTargetCount, e = exLinker->vmJumpTargets.size(); i != e; i++)
-		codeJumpTargets[exLinker->vmJumpTargets[i]] = true;
-	// Remove cmdNop, because we don't want to generate code for it
-	codeJumpTargets.pop_back();
+	// Mirror extra global return so that jump to global return can be marked (rviNop, because we will have some custom code)
+	codeJumpTargets.push_back(0);
+	for(unsigned i = oldJumpTargetCount, e = exLinker->regVmJumpTargets.size(); i != e; i++)
+		codeJumpTargets[exLinker->regVmJumpTargets[i]] = 1;
 
-	OptimizationLookBehind(false);
-	unsigned int pos = lastInstructionCount;
-	while(pos < exCode.size())
+	// Mark function locations
+	for(unsigned i = 0, e = exLinker->exFunctions.size(); i != e; i++)
 	{
-		VMCmd &cmd = exCode[pos];
+		unsigned address = exLinker->exFunctions[i].regVmAddress;
 
-		unsigned int currSize = (int)(GetLastInstruction() - instList.data);
+		if(address != ~0u)
+			codeJumpTargets[address] |= 2;
+	}
+
+	SetOptimizationLookBehind(codeGenCtx->ctx, false);
+
+	unsigned activeGlobalCodeStart = 0;
+
+	unsigned int pos = lastInstructionCount;
+	while(pos < exRegVmCode.size())
+	{
+		RegVmCmd &cmd = exRegVmCode[pos];
+
+		unsigned int currSize = (int)(codeGenCtx->ctx.GetLastInstruction() - instList.data);
 		instList.count = currSize;
 		if(currSize + 64 >= instList.max)
 			instList.grow(currSize + 64);
-		SetLastInstruction(instList.data + currSize, instList.data);
 
-		GetLastInstruction()->instID = pos + 1;
+		codeGenCtx->ctx.SetLastInstruction(instList.data + currSize, instList.data);
+
+		codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
 
 		if(codeJumpTargets[pos])
-			OptimizationLookBehind(false);
+			SetOptimizationLookBehind(codeGenCtx->ctx, false);
+
+		codeGenCtx->currInstructionPos = pos;
+
+		// Frame setup
+		if((codeJumpTargets[pos] & 6) != 0)
+		{
+			if(codeJumpTargets[pos] & 4)
+				activeGlobalCodeStart = pos;
+
+#if defined(_M_X64)
+			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+#endif
+		}
+
+		if(cmd.code == rviJmp && cmd.rA)
+		{
+			codeJumpTargets[cmd.argument] |= 4;
+
+			if(activeGlobalCodeStart != 0)
+				globalCodeRanges.push_back(pos);
+
+			globalCodeRanges.push_back(cmd.argument);
+
+#if defined(_M_X64)
+			if(pos)
+				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+#endif
+		}
 
 		pos++;
-		NULLC::cgFuncs[cmd.cmd](cmd);
 
-		OptimizationLookBehind(true);
+		NULLC::cgFuncs[cmd.code](*codeGenCtx, cmd);
+
+		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
+
+	globalCodeRanges.push_back(pos);
+
 	// Add extra global return if there is none
-	GetLastInstruction()->instID = pos + 1;
-	EMIT_OP_REG(o_pop, rEBP);
-	EMIT_OP_REG_NUM(o_mov, rEBX, ~0u);
-	EMIT_OP(o_ret);
-	instList.resize((int)(GetLastInstruction() - &instList[0]));
+	codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
+
+	if((codeJumpTargets[exRegVmCode.size()] & 6) != 0)
+	{
+#if defined(_M_X64)
+		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+#endif
+	}
+
+	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
+
+#if defined(_M_X64)
+	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+#endif
+
+	EMIT_OP(codeGenCtx->ctx, o_ret);
+
+	// Remove rviNop, because we don't want to generate code for it
+	codeJumpTargets.pop_back();
+
+	instList.resize((int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]));
 
 	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
 	codeJumpTargets.push_back(false);
@@ -1047,71 +1201,80 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		}
 	}
 
-#ifdef NULLC_OPTIMIZE_X86
+#if defined(NULLC_OPTIMIZE_X86) && 0
 	// Second optimization pass, just feed generated instructions again
 
 	// Set iterator at beginning
-	SetLastInstruction(instList.data, instList.data);
-	OptimizationLookBehind(false);
+	codeGenCtx->ctx.SetLastInstruction(instList.data, instList.data);
+	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 	// Now regenerate instructions
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
 		// Skip trash
-		if(instList[i].name == o_other || instList[i].name == o_none)
+		if(instList[i].name == o_none)
 		{
 			if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 			{
-				GetLastInstruction()->instID = instList[i].instID;
-				EMIT_OP(o_none);
-				OptimizationLookBehind(false);
+				codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
+				EMIT_OP(codeGenCtx->ctx, o_none);
+				SetOptimizationLookBehind(codeGenCtx->ctx, false);
 			}
 			continue;
 		}
 		// If invalidation flag is set
 		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
-			OptimizationLookBehind(false);
-		GetLastInstruction()->instID = instList[i].instID;
+			SetOptimizationLookBehind(codeGenCtx->ctx, false);
+		codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
 
 		x86Instruction &inst = instList[i];
 		if(inst.name == o_label)
 		{
-			EMIT_LABEL(inst.labelID, inst.argA.num);
-			OptimizationLookBehind(true);
+			EMIT_LABEL(codeGenCtx->ctx, inst.labelID, inst.argA.num);
+			SetOptimizationLookBehind(codeGenCtx->ctx, true);
 			continue;
 		}
+
+		if(inst.name == o_call)
+		{
+			EMIT_REG_READ(codeGenCtx->ctx, rECX);
+			EMIT_REG_READ(codeGenCtx->ctx, rEDX);
+			EMIT_REG_READ(codeGenCtx->ctx, rR8);
+		}
+
 		switch(inst.argA.type)
 		{
 		case x86Argument::argNone:
-			EMIT_OP(inst.name);
+			EMIT_OP(codeGenCtx->ctx, inst.name);
 			break;
 		case x86Argument::argNumber:
-			EMIT_OP_NUM(inst.name, inst.argA.num);
-			break;
-		case x86Argument::argFPReg:
-			EMIT_OP_FPUREG(inst.name, inst.argA.fpArg);
+			EMIT_OP_NUM(codeGenCtx->ctx, inst.name, inst.argA.num);
 			break;
 		case x86Argument::argLabel:
-			EMIT_OP_LABEL(inst.name, inst.argA.labelID, inst.argB.num, inst.argB.ptrNum);
+			EMIT_OP_LABEL(codeGenCtx->ctx, inst.name, inst.argA.labelID, inst.argB.num, inst.argB.ptrNum);
 			break;
 		case x86Argument::argReg:
 			switch(inst.argB.type)
 			{
 			case x86Argument::argNone:
-				EMIT_OP_REG(inst.name, inst.argA.reg);
+				EMIT_OP_REG(codeGenCtx->ctx, inst.name, inst.argA.reg);
 				break;
 			case x86Argument::argNumber:
-				EMIT_OP_REG_NUM(inst.name, inst.argA.reg, inst.argB.num);
+				EMIT_OP_REG_NUM(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.num);
 				break;
 			case x86Argument::argReg:
-				EMIT_OP_REG_REG(inst.name, inst.argA.reg, inst.argB.reg);
+				EMIT_OP_REG_REG(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.reg);
 				break;
 			case x86Argument::argPtr:
-				EMIT_OP_REG_RPTR(inst.name, inst.argA.reg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
 				break;
-			case x86Argument::argPtrLabel:
-				EMIT_OP_REG_LABEL(inst.name, inst.argA.reg, inst.argB.labelID, inst.argB.ptrNum);
+			case x86Argument::argImm64:
+				EMIT_OP_REG_NUM64(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.imm64Arg);
+				break;
+			case x86Argument::argXmmReg:
+				EMIT_OP_REG_REG(codeGenCtx->ctx, inst.name, inst.argA.reg, inst.argB.xmmArg);
 				break;
 			default:
+				assert(!"unknown type");
 				break;
 			}
 			break;
@@ -1119,28 +1282,49 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			switch(inst.argB.type)
 			{
 			case x86Argument::argNone:
-				EMIT_OP_RPTR(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum);
+				EMIT_OP_RPTR(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum);
 				break;
 			case x86Argument::argNumber:
-				EMIT_OP_RPTR_NUM(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.num);
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.num);
 				break;
 			case x86Argument::argReg:
-				EMIT_OP_RPTR_REG(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
+				EMIT_OP_RPTR_REG(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
+				break;
+			case x86Argument::argXmmReg:
+				EMIT_OP_RPTR_REG(codeGenCtx->ctx, inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.xmmArg);
 				break;
 			default:
+				assert(!"unknown type");
 				break;
 			}
 			break;
+		case x86Argument::argXmmReg:
+			switch(inst.argB.type)
+			{
+			case x86Argument::argXmmReg:
+				EMIT_OP_REG_REG(codeGenCtx->ctx, inst.name, inst.argA.xmmArg, inst.argB.xmmArg);
+				break;
+			case x86Argument::argPtr:
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, inst.name, inst.argA.xmmArg, inst.argB.ptrSize, inst.argB.ptrIndex, inst.argB.ptrMult, inst.argB.ptrBase, inst.argB.ptrNum);
+				break;
+			default:
+				assert(!"unknown type");
+				break;
+			}
+			break;
+		default:
+			assert(!"unknown type");
+			break;
 		}
-		OptimizationLookBehind(true);
+
+		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
-	unsigned int currSize = (int)(GetLastInstruction() - &instList[0]);
+	unsigned int currSize = (int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]);
 	for(unsigned int i = currSize; i < instList.size(); i++)
 	{
 		instList[i].name = o_other;
 		instList[i].instID = 0;
 	}
-#endif
 
 	if(enableLogFiles)
 	{
@@ -1155,518 +1339,181 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			output.stream = NULL;
 		}
 	}
+#endif
 
 	codeJumpTargets.pop_back();
 
 	bool codeRelocated = false;
-	if((binCodeSize + instList.size() * 6) > binCodeReserved)
+
+	if((binCodeSize + instList.size() * 8) > binCodeReserved)
 	{
 		unsigned int oldBinCodeReserved = binCodeReserved;
-		binCodeReserved = binCodeSize + (instList.size()) * 6 + 4096;	// Average instruction size is 6 bytes.
+		binCodeReserved = binCodeSize + (instList.size()) * 8 + 4096;	// Average instruction size is 8 bytes.
 		unsigned char *binCodeNew = (unsigned char*)NULLC::alloc(binCodeReserved);
 
 		// Disable execution of old code body and enable execution of new code body
 #ifndef __linux
 		DWORD unusedProtect;
-		if(binCode)
+		if(binCode && !codeRunning)
 			VirtualProtect((void*)binCode, oldBinCodeReserved, oldCodeBodyProtect, (DWORD*)&unusedProtect);
 		VirtualProtect((void*)binCodeNew, binCodeReserved, PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeBodyProtect);
 #else
-		if(binCode)
+		if(binCode && !codeRunning)
 			NULLC::MemProtect((void*)binCode, oldBinCodeReserved, PROT_READ | PROT_WRITE);
 		NULLC::MemProtect((void*)binCodeNew, binCodeReserved, PROT_READ | PROT_WRITE | PROT_EXEC);
 #endif
 
 		if(binCodeSize)
-			memcpy(binCodeNew + 16, binCode + 16, binCodeSize);
-		NULLC::dealloc(binCode);
-		// If code is currently running, fix call stack (return addresses)
+			memcpy(binCodeNew, binCode, binCodeSize);
+
+		// If code is currently running, update all instruction pointers
 		if(codeRunning)
 		{
 			codeRelocated = true;
-			// This must be an external function call
-			assert(NULLC::dataHead->instructionPtr);
-			
-			unsigned *retvalpos = (unsigned*)(uintptr_t)NULLC::dataHead->instructionPtr - 1;
-			if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-				*retvalpos = (*retvalpos - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
 
-			unsigned *paramData = &NULLC::dataHead->nextElement;
-			while(paramData)
-			{
-				unsigned *retvalpos = paramData - 1;
-				if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
-				paramData = (unsigned int*)(long long)(*paramData);
-			}
+			ExpiredCodeBlock block;
+
+			block.code = binCode;
+			block.codeSize = oldBinCodeReserved;
+			block.unwindTable = functionWin64UnwindTable.data;
+
+			expiredCodeBlocks.push_back(block);
+
+			functionWin64UnwindTable.data = NULL;
+			functionWin64UnwindTable.count = 0;
+			functionWin64UnwindTable.max = 0;
 		}
+		else
+		{
+			NULLC::dealloc(binCode);
+		}
+
 		for(unsigned i = 0; i < instAddress.size(); i++)
-			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
+			instAddress[i] = (instAddress[i] - binCode) + binCodeNew;
 		binCode = binCodeNew;
-		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
 	}
-	SetBinaryCodeBase(binCode);
-	NULLC::binCodeStart = binCodeStart;
-	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
 
 	// Translate to x86
-	unsigned char *bytecode = binCode + 16 + binCodeSize;
-	unsigned char *code = bytecode + (!binCodeSize ? 0 : -7 /* we must destroy the pop ebp; mov ebx, code; ret; sequence */);
+	unsigned char *code = binCode + binCodeSize;
 
-	instAddress.resize(exCode.size() + 1); // Extra instruction for global return
-	memset(instAddress.data + lastInstructionCount, 0, (exCode.size() - lastInstructionCount + 1) * sizeof(unsigned int));
+	// Linking in new code, destroy final global return code sequence
+	if(binCodeSize != 0)
+	{
+#if defined(_M_X64)
+		code -= 7; // xor eax, eax; add rsp, 32; ret;
+#else
+		code -= 3; // xor eax, eax; ret;
+#endif
+	}
+
+	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
+	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
+
+	vmState.instAddress = instAddress.data;
 
 	x86ClearLabels();
-	x86ReserveLabels(GetLastALULabel());
+	x86ReserveLabels(codeGenCtx->labelCount);
 
-	x86Instruction *curr = &instList[0];
+	code = x86TranslateInstructionList(code, binCode + binCodeReserved, instList.data, instList.size(), instAddress.data);
 
-	for(unsigned int i = 0, e = instList.size(); i != e; i++)
-	{
-		x86Instruction &cmd = *curr;	// Syntax sugar + too lazy to rewrite switch contents
-		if(cmd.instID)
-		{
-			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
-
-			if(int(cmd.instID - 1) == (int)exLinker->vmOffsetToGlobalCode)
-				code += x86PUSH(code, rEBP);
-		}
-		switch(cmd.name)
-		{
-		case o_none:
-		case o_nop:
-			break;
-		case o_mov:
-			if(cmd.argA.type != x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argNumber)
-					code += x86MOV(code, cmd.argA.reg, cmd.argB.num);
-				else if(cmd.argB.type == x86Argument::argPtr)
-					code += x86MOV(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-				else
-					code += x86MOV(code, cmd.argA.reg, cmd.argB.reg);
-			}else{
-				if(cmd.argB.type == x86Argument::argNumber)
-					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-				else
-					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-			}
-			break;
-		case o_movsx:
-			assert(cmd.argB.type == x86Argument::argPtr);
-			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-			break;
-		case o_push:
-			if(cmd.argA.type == x86Argument::argNumber)
-				code += x86PUSH(code, cmd.argA.num);
-			else if(cmd.argA.type == x86Argument::argPtr)
-				code += x86PUSH(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86PUSH(code, cmd.argA.reg);
-			break;
-		case o_pop:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86POP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86POP(code, cmd.argA.reg);
-			break;
-		case o_lea:
-			if(cmd.argB.type == x86Argument::argPtrLabel)
-			{
-				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode);
-			}else{
-				code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-			}
-			break;
-		case o_cdq:
-			code += x86CDQ(code);
-			break;
-		case o_rep_movsd:
-			code += x86REP_MOVSD(code);
-			break;
-
-		case o_jmp:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86JMP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86JMP(code, cmd.argA.labelID, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_ja:
-			code += x86Jcc(code, cmd.argA.labelID, condA, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jae:
-			code += x86Jcc(code, cmd.argA.labelID, condAE, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jb:
-			code += x86Jcc(code, cmd.argA.labelID, condB, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jbe:
-			code += x86Jcc(code, cmd.argA.labelID, condBE, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_je:
-			code += x86Jcc(code, cmd.argA.labelID, condE, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jg:
-			code += x86Jcc(code, cmd.argA.labelID, condG, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jl:
-			code += x86Jcc(code, cmd.argA.labelID, condL, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jne:
-			code += x86Jcc(code, cmd.argA.labelID, condNE, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jnp:
-			code += x86Jcc(code, cmd.argA.labelID, condNP, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jp:
-			code += x86Jcc(code, cmd.argA.labelID, condP, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jge:
-			code += x86Jcc(code, cmd.argA.labelID, condGE, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_jle:
-			code += x86Jcc(code, cmd.argA.labelID, condLE, (cmd.argA.labelID & JUMP_NEAR) != 0);
-			break;
-		case o_call:
-			if(cmd.argA.type == x86Argument::argLabel)
-				code += x86CALL(code, cmd.argA.labelID);
-			else if(cmd.argA.type == x86Argument::argPtr)
-				code += x86CALL(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86CALL(code, cmd.argA.reg);
-			break;
-		case o_ret:
-			code += x86RET(code);
-			break;
-
-		case o_fld:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86FLD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86FLD(code, (x87Reg)cmd.argA.fpArg);
-			break;
-		case o_fild:
-			code += x86FILD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fistp:
-			code += x86FISTP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fst:
-			code += x86FST(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fstp:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				code += x86FSTP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			}else{
-				code += x86FSTP(code, (x87Reg)cmd.argA.fpArg);
-			}
-			break;
-		case o_fnstsw:
-			code += x86FNSTSW(code);
-			break;
-		case o_fstcw:
-			code += x86FSTCW(code);
-			break;
-		case o_fldcw:
-			code += x86FLDCW(code, cmd.argA.ptrNum);
-			break;
-
-		case o_neg:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86NEG(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86NEG(code, cmd.argA.reg);
-			break;
-		case o_add:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
-					code += x86ADD(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
-				if(cmd.argB.type == x86Argument::argPtr)
-					code += x86ADD(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-				else if(cmd.argB.type == x86Argument::argReg)
-					code += x86ADD(code, cmd.argA.reg, cmd.argB.reg);
-				else
-					code += x86ADD(code, cmd.argA.reg, cmd.argB.num);
-			}
-			break;
-		case o_adc:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
-					code += x86ADC(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86ADC(code, cmd.argA.reg, cmd.argB.reg);
-				else
-					code += x86ADC(code, cmd.argA.reg, cmd.argB.num);
-			}
-			break;
-		case o_sub:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
-					code += x86SUB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86SUB(code, cmd.argA.reg, cmd.argB.reg);
-				else
-					code += x86SUB(code, cmd.argA.reg, cmd.argB.num);
-			}
-			break;
-		case o_sbb:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
-					code += x86SBB(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
-				code += x86SBB(code, cmd.argA.reg, cmd.argB.num);
-			}
-			break;
-		case o_imul:
-			if(cmd.argB.type == x86Argument::argNumber)
-				code += x86IMUL(code, cmd.argA.reg, cmd.argB.num);
-			else if(cmd.argB.type == x86Argument::argReg)
-				code += x86IMUL(code, cmd.argA.reg, cmd.argB.reg);
-			else if(cmd.argB.type == x86Argument::argPtr)
-				code += x86IMUL(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-			else
-				code += x86IMUL(code, cmd.argA.reg);
-			break;
-		case o_idiv:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86IDIV(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86IDIV(code, cmd.argA.reg);
-			break;
-		case o_shl:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86SHL(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			else
-				code += x86SHL(code, cmd.argA.reg, cmd.argB.num);
-			break;
-		case o_sal:
-			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
-			code += x86SAL(code);
-			break;
-		case o_sar:
-			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
-			code += x86SAR(code);
-			break;
-		case o_not:
-			if(cmd.argA.type == x86Argument::argPtr)
-				code += x86NOT(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			else
-				code += x86NOT(code, cmd.argA.reg);
-			break;
-		case o_and:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else if(cmd.argB.type == x86Argument::argNumber)
-					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
-				code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
-			}
-			break;
-		case o_or:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
-					code += x86OR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else if(cmd.argB.type == x86Argument::argPtr){
-				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-			}else{
-				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
-			}
-			break;
-		case o_xor:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argReg)
-					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-				else
-					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-			}else{
-				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
-			}
-			break;
-		case o_cmp:
-			if(cmd.argA.type == x86Argument::argPtr)
-			{
-				if(cmd.argB.type == x86Argument::argNumber)
-					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-				else
-					code += x86CMP(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
-			}else{
-				if(cmd.argB.type == x86Argument::argPtr)
-					code += x86CMP(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-				else if(cmd.argB.type == x86Argument::argNumber)
-					code += x86CMP(code, cmd.argA.reg, cmd.argB.num);
-				else
-					code += x86CMP(code, cmd.argA.reg, cmd.argB.reg);
-			}
-			break;
-		case o_test:
-			if(cmd.argB.type == x86Argument::argNumber)
-				code += x86TESTah(code, (char)cmd.argB.num);
-			else
-				code += x86TEST(code, cmd.argA.reg, cmd.argB.reg);
-			break;
-
-		case o_setl:
-			code += x86SETcc(code, condL, cmd.argA.reg);
-			break;
-		case o_setg:
-			code += x86SETcc(code, condG, cmd.argA.reg);
-			break;
-		case o_setle:
-			code += x86SETcc(code, condLE, cmd.argA.reg);
-			break;
-		case o_setge:
-			code += x86SETcc(code, condGE, cmd.argA.reg);
-			break;
-		case o_sete:
-			code += x86SETcc(code, condE, cmd.argA.reg);
-			break;
-		case o_setne:
-			code += x86SETcc(code, condNE, cmd.argA.reg);
-			break;
-		case o_setz:
-			code += x86SETcc(code, condZ, cmd.argA.reg);
-			break;
-		case o_setnz:
-			code += x86SETcc(code, condNZ, cmd.argA.reg);
-			break;
-
-		case o_fadd:
-			code += x86FADD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_faddp:
-			code += x86FADDP(code);
-			break;
-		case o_fmul:
-			code += x86FMUL(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fmulp:
-			code += x86FMULP(code);
-			break;
-		case o_fsub:
-			code += x86FSUB(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fsubr:
-			code += x86FSUBR(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fsubp:
-			code += x86FSUBP(code);
-			break;
-		case o_fsubrp:
-			code += x86FSUBRP(code);
-			break;
-		case o_fdiv:
-			code += x86FDIV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fdivr:
-			code += x86FDIVR(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fdivrp:
-			code += x86FDIVRP(code);
-			break;
-		case o_fchs:
-			code += x86FCHS(code);
-			break;
-		case o_fprem:
-			code += x86FPREM(code);
-			break;
-		case o_fcomp:
-			code += x86FCOMP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
-			break;
-		case o_fldz:
-			code += x86FLDZ(code);
-			break;
-		case o_fld1:
-			code += x86FLD1(code);
-			break;
-		case o_fsincos:
-			code += x86FSINCOS(code);
-			break;
-		case o_fptan:
-			code += x86FPTAN(code);
-			break;
-		case o_fsqrt:
-			code += x86FSQRT(code);
-			break;
-		case o_frndint:
-			code += x86FRNDINT(code);
-			break;
-
-		case o_int:
-			code += x86INT(code, 3);
-			break;
-		case o_label:
-			x86AddLabel(code, cmd.labelID);
-			break;
-		case o_use32:
-			break;
-		case o_other:
-			break;
-		}
-		curr++;
-	}
 	assert(binCodeSize < binCodeReserved);
-	binCodeSize = (unsigned int)(code - (binCode + 16));
+
+	binCodeSize = unsigned(code - binCode);
+
+#ifndef __linux
+
+#if defined(_M_X64)
+	// Create function table for unwind information
+	if(!functionWin64UnwindTable.empty())
+		RtlDeleteFunctionTable(functionWin64UnwindTable.data);
+
+	functionWin64UnwindTable.clear();
+
+	// Align data block
+	code += 16 - unsigned(uintptr_t(code) % 16);
+
+	// Write the unwind data
+	assert(sizeof(UNWIND_CODE) == 2);
+	assert(sizeof(UNWIND_INFO_FUNCTION) == 4 + 2 * 2);
+
+	UNWIND_INFO_FUNCTION unwindInfo = { 0 };
+
+	unwindInfo.version = 1;
+	unwindInfo.flags = 0; // No EH
+	unwindInfo.sizeOfProlog = 4;
+	unwindInfo.countOfCodes = 1;
+	unwindInfo.frameRegister = 0;
+	unwindInfo.frameOffset = 0;
+
+	unwindInfo.unwindCode[0].offsetInPrologue = 4;
+	unwindInfo.unwindCode[0].operationCode = UWOP_ALLOC_SMALL;
+	unwindInfo.unwindCode[0].operationInfo = (32 - 8) / 8;
+
+	unsigned char *unwindPos = code;
+
+	memcpy(code, &unwindInfo, sizeof(unwindInfo));
+	code += sizeof(unwindInfo);
+
+	assert(code < binCode + binCodeReserved);
+
+	for(unsigned i = 0, e = exLinker->exFunctions.size(); i != e; i++)
+	{
+		ExternFuncInfo &funcInfo = exLinker->exFunctions[i];
+
+		if(funcInfo.regVmAddress != ~0u)
+		{
+			unsigned char *codeStart = instAddress[funcInfo.regVmAddress];
+			unsigned char *codeEnd = instAddress[funcInfo.regVmAddress + funcInfo.regVmCodeSize];
+
+			// Store function info
+			RUNTIME_FUNCTION rtFunc;
+
+			rtFunc.BeginAddress = unsigned(codeStart - binCode);
+			rtFunc.EndAddress = unsigned(codeEnd - binCode);
+			rtFunc.UnwindData = unsigned(unwindPos - binCode);
+
+			functionWin64UnwindTable.push_back(rtFunc);
+		}
+	}
+
+	for(unsigned i = 0, e = globalCodeRanges.size(); i != e; i += 2)
+	{
+		unsigned char *codeStart = instAddress[globalCodeRanges[i]];
+		unsigned char *codeEnd = instAddress[globalCodeRanges[i + 1]] + 4; // add 'sub rsp, 32'
+
+		// Store function info
+		RUNTIME_FUNCTION rtFunc;
+
+		rtFunc.BeginAddress = unsigned(codeStart - binCode);
+		rtFunc.EndAddress = unsigned(codeEnd - binCode);
+		rtFunc.UnwindData = unsigned(unwindPos - binCode);
+
+		functionWin64UnwindTable.push_back(rtFunc);
+	}
+
+	if(!RtlAddFunctionTable(functionWin64UnwindTable.data, functionWin64UnwindTable.size(), uintptr_t(binCode)))
+		assert(!"failed to install function table");
+#endif
+
+#endif
+
+	assert(unsigned(code - binCode) < binCodeReserved);
 
 	x86SatisfyJumps(instAddress);
 
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
-		if(exFunctions[i].vmAddress != -1)
-		{
-			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].vmAddress] - (binCode + 16));
-
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].vmAddress];
-			functionAddress[i * 2 + 1] = 0;
-		}
+		if(exFunctions[i].regVmAddress != -1)
+			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].regVmAddress] - binCode);
 		else if(exFunctions[i].funcPtrWrap)
-		{
 			exFunctions[i].startInByteCode = 0xffffffff;
-
-			assert((uintptr_t)exFunctions[i].funcPtrWrapTarget > 1);
-
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrWrap;
-			functionAddress[i * 2 + 1] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrWrapTarget;
-		}
 		else
-		{
 			exFunctions[i].startInByteCode = 0xffffffff;
-
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrRaw;
-			functionAddress[i * 2 + 1] = 1;
-		}
 	}
-	if(codeRelocated && oldFunctionLists.size())
-	{
-		for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-			memcpy(oldFunctionLists[i].list, functionAddress.data, oldFunctionLists[i].count * sizeof(unsigned));
-	}
-	globalStartInBytecode = (int)(instAddress[exLinker->vmOffsetToGlobalCode] - (binCode + 16));
 
-	lastInstructionCount = exCode.size();
+	lastInstructionCount = exRegVmCode.size();
 
-	oldJumpTargetCount = exLinker->vmJumpTargets.size();
+	oldJumpTargetCount = exLinker->regVmJumpTargets.size();
 	oldFunctionSize = exFunctions.size();
 
 	return true;
@@ -1676,28 +1523,29 @@ void ExecutorX86::SaveListing(OutputContext &output)
 {
 	char instBuf[128];
 
-	for(unsigned int i = 0; i < instList.size(); i++)
+	for(unsigned i = 0; i < instList.size(); i++)
 	{
-		if(instList[i].name == o_other)
-			continue;
-
 		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 		{
 			output.Print("; ------------------- Invalidation ----------------\n");
 			output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
 		}
 
-		if(instList[i].instID && instList[i].instID - 1 < exCode.size())
+		if(instList[i].instID && instList[i].instID - 1 < exRegVmCode.size())
 		{
-			VMCmd &cmd = exCode[instList[i].instID - 1];
+			RegVmCmd &cmd = exRegVmCode[instList[i].instID - 1];
 
-			char buf[256];
-			cmd.Decode(buf);
+			output.Printf("; %4d: ", instList[i].instID - 1);
 
-			output.Printf("; %4d: %s\n", instList[i].instID - 1, buf);
+			PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+
+			output.Print('\n');
 		}
 
-		instList[i].Decode(instBuf);
+		if(instList[i].name == o_other)
+			continue;
+
+		instList[i].Decode(vmState, instBuf);
 
 		output.Print(instBuf);
 		output.Print('\n');
@@ -1708,41 +1556,49 @@ void ExecutorX86::SaveListing(OutputContext &output)
 
 const char* ExecutorX86::GetResult()
 {
-	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
-	
-	switch(NULLC::runResultType)
+	switch(lastResultType)
 	{
-	case OTYPE_DOUBLE:
-		NULLC::SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
+	case rvrDouble:
+		NULLC::SafeSprintf(execResult, 64, "%f", lastResult.doubleValue);
 		break;
-	case OTYPE_LONG:
-		NULLC::SafeSprintf(execResult, 64, "%lldL", combined);
+	case rvrLong:
+		NULLC::SafeSprintf(execResult, 64, "%lldL", (long long)lastResult.longValue);
 		break;
-	case OTYPE_INT:
-		NULLC::SafeSprintf(execResult, 64, "%d", NULLC::runResult);
+	case rvrInt:
+		NULLC::SafeSprintf(execResult, 64, "%d", lastResult.intValue);
 		break;
-	default:
+	case rvrVoid:
 		NULLC::SafeSprintf(execResult, 64, "no return value");
 		break;
+	case rvrStruct:
+		NULLC::SafeSprintf(execResult, 64, "complex return value");
+		break;
+	default:
+		break;
 	}
+
 	return execResult;
 }
+
 int ExecutorX86::GetResultInt()
 {
-	assert(NULLC::runResultType == OTYPE_INT);
-	return NULLC::runResult;
+	assert(lastResultType == rvrInt);
+
+	return lastResult.intValue;
 }
+
 double ExecutorX86::GetResultDouble()
 {
-	assert(NULLC::runResultType == OTYPE_DOUBLE);
-	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
-	return *(double*)(&combined);
+	assert(lastResultType == rvrDouble);
+
+	return lastResult.doubleValue;
 }
+
 long long ExecutorX86::GetResultLong()
 {
-	assert(NULLC::runResultType == OTYPE_LONG);
-	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
-	return combined;
+	assert(lastResultType == rvrLong);
+
+	return lastResult.longValue;
 }
 
 const char*	ExecutorX86::GetExecError()
@@ -1753,57 +1609,29 @@ const char*	ExecutorX86::GetExecError()
 char* ExecutorX86::GetVariableData(unsigned int *count)
 {
 	if(count)
-		*count = NULLC::dataHead->lastEDI;
-	return paramBase;
+		*count = unsigned(vmState.dataStackTop - vmState.dataStackBase);
+
+	return vmState.dataStackBase;
 }
 
 void ExecutorX86::BeginCallStack()
 {
-	int count = 0;
-	if(!NULLC::abnormalTermination)
-	{
-		if(NULLC::dataHead->instructionPtr)
-		{
-			genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
-			NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
-			unsigned int *paramData = &NULLC::dataHead->nextElement;
-			while((unsigned)count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
-			{
-				NULLC::stackTrace[count++] = paramData[-1];
-				paramData = (unsigned int*)(long long)(*paramData);
-			}
-		}
-		NULLC::stackTrace[count] = 0;
-		NULLC::dataHead->instructionPtr = (unsigned int)(intptr_t)genStackPtr;
-	}else{
-		while((unsigned)count < NULLC::STACK_TRACE_DEPTH && NULLC::stackTrace[count++]);
-		count--;
-	}
-
-	callstackTop = NULLC::stackTrace + count - 1;
+	currentFrame = 0;
 }
 
 unsigned int ExecutorX86::GetNextAddress()
 {
-	if(int(callstackTop - NULLC::stackTrace) < 0)
-		return 0;
-	unsigned int address = 0;
-	for(; address < instAddress.size(); address++)
-	{
-		if(*callstackTop < (unsigned int)(long long)instAddress[address])
-			break;
-	}
-	callstackTop--;
-	return address - 1;
+	return currentFrame == unsigned(vmState.callStackTop - vmState.callStackBase) ? 0 : vmState.callStackBase[currentFrame++].instruction;
 }
 
 void* ExecutorX86::GetStackStart()
 {
-	return genStackPtr;
+	return vmState.regFileArrayBase;
 }
+
 void* ExecutorX86::GetStackEnd()
 {
-	return genStackTop;
+	return vmState.regFileLastTop;
 }
 
 void ExecutorX86::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))
@@ -1829,13 +1657,16 @@ bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
 		return false;
 	}
+
 	while(instruction < instAddress.size() && !instAddress[instruction])
 		instruction++;
+
 	if(instruction >= instAddress.size())
 	{
 		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
 		return false;
 	}
+
 	breakInstructions.push_back(Breakpoint(instruction, *instAddress[instruction], oneHit));
 	*instAddress[instruction] = 0xcc;
 	return true;
@@ -1848,15 +1679,20 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
 		return false;
 	}
+
 	unsigned index = ~0u;
 	for(unsigned i = 0; i < breakInstructions.size() && index == ~0u; i++)
+	{
 		if(breakInstructions[i].instIndex == instruction)
 			index = i;
+	}
+
 	if(index == ~0u || *instAddress[breakInstructions[index].instIndex] != 0xcc)
 	{
 		NULLC::SafeSprintf(execError, 512, "ERROR: there is no breakpoint at instruction %d", instruction);
 		return false;
 	}
+
 	*instAddress[breakInstructions[index].instIndex] = breakInstructions[index].oldOpcode;
 	return true;
 }

@@ -1458,7 +1458,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	while(int address = stateRemote ? RemoteData::callStack[csPos++] : nullcDebugGetStackFrame())
 	{
 		// Find corresponding function
-		ExternFuncInfo *func = nullcDebugConvertAddressToFunction(address, codeFunctions, functionCount);
+		ExternFuncInfo *func = nullcDebugConvertAddressToFunction(address - 1, codeFunctions, functionCount);
 
 		if(address != -1)
 		{

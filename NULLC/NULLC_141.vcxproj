@@ -210,6 +210,7 @@
     <ClCompile Include="..\external\dyncall\dyncall_vector.c" />
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
+    <ClCompile Include="CodeGenRegVm_X86.cpp" />
     <ClCompile Include="Executor_RegVm.cpp" />
     <ClCompile Include="ExpressionGraph.cpp" />
     <ClCompile Include="ExpressionTranslate.cpp" />
@@ -225,6 +226,7 @@
     <ClCompile Include="InstructionTreeVmGraph.cpp" />
     <ClCompile Include="InstructionTreeVmLower.cpp" />
     <ClCompile Include="InstructionTreeVmLowerGraph.cpp" />
+    <ClCompile Include="Instruction_X86.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseGraph.cpp" />
     <ClCompile Include="ParseTree.cpp" />
@@ -266,6 +268,7 @@
     <ClInclude Include="Array.h" />
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
+    <ClInclude Include="CodeGenRegVm_X86.h" />
     <ClInclude Include="DenseMap.h" />
     <ClInclude Include="Executor_RegVm.h" />
     <ClInclude Include="ExpressionGraph.h" />
@@ -305,7 +308,6 @@
     <ClInclude Include="CodeGen_X86.h" />
     <ClInclude Include="Executor_X86.h" />
     <ClInclude Include="Instruction_X86.h" />
-    <ClInclude Include="StdLib_X86.h" />
     <ClInclude Include="Trace.h" />
     <ClInclude Include="Translator_X86.h" />
     <ClInclude Include="Linker.h" />

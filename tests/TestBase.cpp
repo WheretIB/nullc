@@ -31,7 +31,7 @@ TestQueue* TestQueue::tail = NULL;
 
 int testsPassed[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
 int testsCount[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
-unsigned int testTarget[TEST_TARGET_COUNT] = { NULLC_VM, NULLC_X86, NULLC_LLVM, NULLC_REG_VM };
+unsigned int testTarget[TEST_TARGET_COUNT] = { NULLC_VM, NULLC_REG_VM, NULLC_X86, NULLC_LLVM };
 
 namespace Tests
 {
@@ -71,6 +71,7 @@ namespace Tests
 
 	bool	testExecutor[TEST_TARGET_COUNT] = {
 		true,
+		true,
 #ifdef NULLC_BUILD_X86_JIT
 		true,
 #else
@@ -81,25 +82,35 @@ namespace Tests
 #else
 		false,
 #endif
-		true,
 	};
 
 	bool	testVmExecutor[TEST_TARGET_COUNT] = {
 		true,
-		false,
-		false,
 		true,
+		false,
+		false,
 	};
 
 	bool	testFailureExecutor[TEST_TARGET_COUNT] = {
+		true,
+		true,
+#if defined(NULLC_BUILD_X86_JIT)
+		true,
+#else
+		false,
+#endif
+		false
+	};
+
+	bool	testHardFailureExecutor[TEST_TARGET_COUNT] = {
+		true,
 		true,
 #if defined(NULLC_BUILD_X86_JIT) && defined(NDEBUG)
 		true,
 #else
 		false,
 #endif
-		false,
-		true,
+		false
 	};
 
 	const char* (*fileLoadFunc)(const char*, unsigned*) = 0;

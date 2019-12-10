@@ -1,8 +1,13 @@
 #pragma once
-#include "nullcdef.h"
-#include "Linker.h"
 
-typedef uintptr_t markerType;
+#include "nullcdef.h"
+
+class Linker;
+
+struct NULLCArray;
+struct NULLCRef;
+struct NULLCFuncPtr;
+struct NULLCAutoArray;
 
 namespace NULLC
 {

@@ -4,6 +4,7 @@
 
 #include "nullc.h"
 #include "nullc_debug.h"
+#include "Linker.h"
 #include "StdLib.h"
 
 #if defined(_MSC_VER)
@@ -19,44 +20,6 @@
 
 namespace
 {
-	int vmIntPow(int power, int number)
-	{
-		if(power < 0)
-			return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
-
-		int result = 1;
-		while(power)
-		{
-			if(power & 1)
-			{
-				result *= number;
-				power--;
-			}
-			number *= number;
-			power >>= 1;
-		}
-		return result;
-	}
-
-	long long vmLongPow(long long power, long long number)
-	{
-		if(power < 0)
-			return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
-
-		long long result = 1;
-		while(power)
-		{
-			if(power & 1)
-			{
-				result *= number;
-				power--;
-			}
-			number *= number;
-			power >>= 1;
-		}
-		return result;
-	}
-
 	long long vmLoadLong(void* target)
 	{
 		long long value;
@@ -67,18 +30,6 @@ namespace
 	void vmStoreLong(void* target, long long value)
 	{
 		memcpy(target, &value, sizeof(long long));
-	}
-
-	double vmLoadDouble(void* target)
-	{
-		double value;
-		memcpy(&value, target, sizeof(double));
-		return value;
-	}
-
-	void vmStoreDouble(void* target, double value)
-	{
-		memcpy(target, &value, sizeof(double));
 	}
 
 	char* vmLoadPointer(void* target)
@@ -112,7 +63,6 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 	currentFrame = 0;
 
 	tempStackArrayBase = NULL;
-	tempStackLastTop = NULL;
 	tempStackArrayEnd = NULL;
 
 	regFileArrayBase = NULL;
@@ -171,12 +121,10 @@ void ExecutorRegVm::InitExecution()
 
 	if(!tempStackArrayBase)
 	{
-		tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
-		memset(tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
-		tempStackArrayEnd = tempStackArrayBase + 1024 * 32;
+		tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 16);
+		memset(tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
+		tempStackArrayEnd = tempStackArrayBase + 1024 * 16;
 	}
-
-	tempStackLastTop = tempStackArrayBase;
 
 	if(!regFileArrayBase)
 	{
@@ -206,7 +154,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	RegVmReturnType retType = rvrVoid;
 
 	codeBase = &exLinker->exRegVmCode[0];
-	RegVmCmd *instruction = &exLinker->exRegVmCode[exLinker->regVmOffsetToGlobalCode];
+	RegVmCmd *instruction = &exLinker->exRegVmCode[0];
 
 	bool errorState = false;
 
@@ -219,7 +167,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	RegVmRegister *regFilePtr = regFileLastTop;
 	RegVmRegister *regFileTop = regFilePtr + 256;
 
-	unsigned *tempStackPtr = tempStackLastTop;
+	unsigned *tempStackPtr = tempStackArrayBase;
 
 	if(functionID != ~0u)
 	{
@@ -320,7 +268,6 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		assert(dataStack.size() >= exLinker->globalVarSize);
 		memset(dataStack.data, 0, exLinker->globalVarSize);
 
-
 		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
 		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
@@ -333,13 +280,12 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 	regFileLastTop = regFileTop;
 
-	tempStackLastTop = tempStackPtr;
+	RegVmReturnType resultType = retType;
 
-	RegVmReturnType resultType = instruction ? RunCode(instruction, regFilePtr, tempStackPtr, this, codeBase) : retType;
+	if(instruction)
+		resultType = RunCode(instruction, regFilePtr, this, codeBase);
 
 	regFileLastTop = prevRegFileLastTop;
-
-	assert(tempStackLastTop == tempStackPtr);
 
 	dataStack.shrink(prevDataSize);
 
@@ -423,7 +369,7 @@ bool ExecutorRegVm::SetStackSize(unsigned bytes)
 #define USE_COMPUTED_GOTO
 #endif
 
-RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr, ExecutorRegVm *rvm, RegVmCmd *codeBase)
+RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, ExecutorRegVm *rvm, RegVmCmd *codeBase)
 {
 	(void)codeBase;
 
@@ -799,9 +745,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			instruction++;
 			BREAK;
 		CASE(rviCall)
-			tempStackPtr = rvm->ExecCall((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC, cmd.argument, instruction, regFilePtr, tempStackPtr);
-
-			if(!tempStackPtr)
+			if(!rvm->ExecCall((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC, cmd.argument, instruction, regFilePtr))
 				return rvrError;
 
 			instruction++;
@@ -811,15 +755,13 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if(regFilePtr[cmd.rC].intValue == 0)
 				return rvm->ExecError(instruction, "ERROR: invalid function pointer");
 
-			tempStackPtr = rvm->ExecCall(cmd.argument, regFilePtr[cmd.rC].intValue, instruction, regFilePtr, tempStackPtr);
-
-			if(!tempStackPtr)
+			if(!rvm->ExecCall(cmd.argument, regFilePtr[cmd.rC].intValue, instruction, regFilePtr))
 				return rvrError;
 
 			instruction++;
 			BREAK;
 		CASE(rviReturn)
-			return rvm->ExecReturn(cmd, instruction, regFilePtr, tempStackPtr);
+			return rvm->ExecReturn(cmd, instruction, regFilePtr);
 		CASE(rviAddImm)
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + (int)cmd.argument;
 			instruction++;
@@ -859,7 +801,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
-			regFilePtr[cmd.rA].intValue = vmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
+			regFilePtr[cmd.rA].intValue = VmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
 			instruction++;
 			BREAK;
 		CASE(rviMod)
@@ -988,7 +930,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
-			regFilePtr[cmd.rA].longValue = vmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
+			regFilePtr[cmd.rA].longValue = VmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
 			instruction++;
 			BREAK;
 		CASE(rviModl)
@@ -1249,323 +1191,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned *callStorage)
 {
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-	ExternFuncInfo &func = exFunctions[funcID];
-
-	assert(func.funcPtrRaw);
-
-	void* fPtr = (void*)func.funcPtrRaw;
-	unsigned retType = func.retType;
-
-	unsigned *stackStart = callStorage;
-
-	dcReset(dcCallVM);
-
-#if defined(_WIN64)
-	bool returnByPointer = func.returnShift > 1;
-#elif !defined(_M_X64)
-	bool returnByPointer = true;
-#elif defined(__aarch64__)
-	ExternTypeInfo &funcType = exTypes[func.funcType];
-
-	ExternMemberInfo &member = exLinker->exTypeExtra[funcType.memberOffset];
-	ExternTypeInfo &returnType = exLinker->exTypes[member.type];
-
-	bool returnByPointer = false;
-
-	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
-
-	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exLinker);
-	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exLinker);
-#else
-	ExternTypeInfo &funcType = exTypes[func.funcType];
-
-	ExternMemberInfo &member = exLinker->exTypeExtra[funcType.memberOffset];
-	ExternTypeInfo &returnType = exLinker->exTypes[member.type];
-
-	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker));
-
-	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
-
-	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exLinker);
-	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exLinker);
-#endif
-
-	unsigned ret[128];
-
-	if(retType == ExternFuncInfo::RETURN_UNKNOWN && returnByPointer)
-		dcArgPointer(dcCallVM, ret);
-
-	for(unsigned i = 0; i < func.paramCount; i++)
-	{
-		// Get information about local
-		ExternLocalInfo &lInfo = exLinker->exLocals[func.offsetToFirstLocal + i];
-
-		ExternTypeInfo &tInfo = exTypes[lInfo.type];
-
-		switch(tInfo.type)
-		{
-		case ExternTypeInfo::TYPE_COMPLEX:
-#if defined(_WIN64)
-			if(tInfo.size <= 4)
-			{
-				// This branch also handles 0 byte structs
-				dcArgInt(dcCallVM, *(int*)stackStart);
-				stackStart += 1;
-			}
-			else if(tInfo.size <= 8)
-			{
-				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
-				stackStart += 2;
-			}
-			else
-			{
-				dcArgPointer(dcCallVM, stackStart);
-				stackStart += tInfo.size / 4;
-			}
-#elif defined(__aarch64__)
-			if(tInfo.size <= 4)
-			{
-				// This branch also handles 0 byte structs
-				dcArgInt(dcCallVM, *(int*)stackStart);
-				stackStart += 1;
-			}
-			else if(tInfo.size <= 8)
-			{
-				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
-				stackStart += 2;
-			}
-			else if(tInfo.size <= 12)
-			{
-				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
-				dcArgInt(dcCallVM, *(int*)(stackStart + 2));
-				stackStart += 3;
-			}
-			else if(tInfo.size <= 16)
-			{
-				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
-				dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
-				stackStart += 4;
-			}
-			else
-			{
-				dcArgPointer(dcCallVM, stackStart);
-				stackStart += tInfo.size / 4;
-			}
-#elif defined(_M_X64)
-			if(tInfo.size > 16 || lInfo.type == NULLC_TYPE_AUTO_REF || (tInfo.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&tInfo, exLinker)))
-			{
-				dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
-				stackStart += tInfo.size / 4;
-			}
-			else
-			{
-				bool opaqueType = tInfo.subCat != ExternTypeInfo::CAT_CLASS || tInfo.memberCount == 0;
-
-				bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 0, 8, exLinker);
-				bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 8, 16, exLinker);
-
-				if(tInfo.size <= 4)
-				{
-					if(tInfo.size != 0)
-					{
-						if(firstQwordInteger)
-							dcArgInt(dcCallVM, *(int*)stackStart);
-						else
-							dcArgFloat(dcCallVM, *(float*)stackStart);
-					}
-					else
-					{
-						stackStart += 1;
-					}
-				}
-				else if(tInfo.size <= 8)
-				{
-					if(firstQwordInteger)
-						dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
-					else
-						dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
-				}
-				else
-				{
-					int requredIRegs = (firstQwordInteger ? 1 : 0) + (secondQwordInteger ? 1 : 0);
-
-					if(dcFreeIRegs(dcCallVM) < requredIRegs || dcFreeFRegs(dcCallVM) < (2 - requredIRegs))
-					{
-						dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
-					}
-					else
-					{
-						if(firstQwordInteger)
-							dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
-						else
-							dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
-
-						if(secondQwordInteger)
-							dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
-						else
-							dcArgDouble(dcCallVM, vmLoadDouble(stackStart + 2));
-					}
-				}
-
-				stackStart += tInfo.size / 4;
-			}
-#else
-			if(tInfo.size <= 4)
-			{
-				// This branch also handles 0 byte structs
-				dcArgInt(dcCallVM, *(int*)stackStart);
-				stackStart += 1;
-			}
-			else
-			{
-				for(unsigned k = 0; k < tInfo.size / 4; k++)
-				{
-					dcArgInt(dcCallVM, *(int*)stackStart);
-					stackStart += 1;
-				}
-			}
-#endif
-			break;
-		case ExternTypeInfo::TYPE_VOID:
-			return false;
-		case ExternTypeInfo::TYPE_INT:
-			dcArgInt(dcCallVM, *(int*)stackStart);
-			stackStart += 1;
-			break;
-		case ExternTypeInfo::TYPE_FLOAT:
-			dcArgFloat(dcCallVM, *(float*)stackStart);
-			stackStart += 1;
-			break;
-		case ExternTypeInfo::TYPE_LONG:
-			dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
-			stackStart += 2;
-			break;
-		case ExternTypeInfo::TYPE_DOUBLE:
-			dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
-			stackStart += 2;
-			break;
-		case ExternTypeInfo::TYPE_SHORT:
-			dcArgShort(dcCallVM, *(short*)stackStart);
-			stackStart += 1;
-			break;
-		case ExternTypeInfo::TYPE_CHAR:
-			dcArgChar(dcCallVM, *(char*)stackStart);
-			stackStart += 1;
-			break;
-		}
-	}
-
-	dcArgPointer(dcCallVM, (DCpointer)vmLoadPointer(stackStart));
-
-	unsigned *newStackPtr = callStorage;
-
-	switch(retType)
-	{
-	case ExternFuncInfo::RETURN_VOID:
-		dcCallVoid(dcCallVM, fPtr);
-		break;
-	case ExternFuncInfo::RETURN_INT:
-		*newStackPtr = dcCallInt(dcCallVM, fPtr);
-		break;
-	case ExternFuncInfo::RETURN_DOUBLE:
-		if(func.returnShift == 1)
-			vmStoreDouble(newStackPtr, dcCallFloat(dcCallVM, fPtr));
-		else
-			vmStoreDouble(newStackPtr, dcCallDouble(dcCallVM, fPtr));
-		break;
-	case ExternFuncInfo::RETURN_LONG:
-		vmStoreLong(newStackPtr, dcCallLongLong(dcCallVM, fPtr));
-		break;
-	case ExternFuncInfo::RETURN_UNKNOWN:
-#if defined(_WIN64)
-		if(func.returnShift == 1)
-		{
-			*newStackPtr = dcCallInt(dcCallVM, fPtr);
-		}
-		else
-		{
-			dcCallVoid(dcCallVM, fPtr);
-
-			// copy return value on top of the stack
-			memcpy(newStackPtr, ret, func.returnShift * 4);
-		}
-#elif !defined(_M_X64)
-		dcCallPointer(dcCallVM, fPtr);
-
-		// copy return value on top of the stack
-		memcpy(newStackPtr, ret, func.returnShift * 4);
-#elif defined(__aarch64__)
-		if(func.returnShift > 4)
-		{
-			DCcomplexbig res = dcCallComplexBig(dcCallVM, fPtr);
-
-			memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-		}
-		else
-		{
-			if(!firstQwordInteger && !secondQwordInteger)
-			{
-				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-			else if(firstQwordInteger && !secondQwordInteger)
-			{
-				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-			else if(!firstQwordInteger && secondQwordInteger)
-			{
-				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-			else
-			{
-				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-		}
-#else
-		if(returnByPointer)
-		{
-			dcCallPointer(dcCallVM, fPtr);
-
-			// copy return value on top of the stack
-			memcpy(newStackPtr, ret, func.returnShift * 4);
-		}
-		else
-		{
-			if(!firstQwordInteger && !secondQwordInteger)
-			{
-				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-			else if(firstQwordInteger && !secondQwordInteger)
-			{
-				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-			else if(!firstQwordInteger && secondQwordInteger)
-			{
-				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-			else
-			{
-				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
-
-				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}
-		}
-#endif
-		break;
-	}
+	RunRawExternalFunction(dcCallVM, exFunctions[funcID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, callStorage);
 
 	return callContinue;
 #else
@@ -1633,6 +1259,10 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 			if(response == NULLC_BREAK_STEP_OUT && callStack.size() != lastFinalReturn)
 				nextCommand = callStack.back();
 
+			// If the next instruction is the breakpoint pseudo-command to return to regular code, place a one time breakpoint on its target
+			if(nextCommand->code == rviNop && nextCommand->rB == EXEC_BREAK_RETURN)
+				nextCommand = &exLinker->exRegVmCode[nextCommand->argument];
+
 			if(nextCommand->code != rviNop)
 			{
 				unsigned pos = breakCode.size();
@@ -1657,19 +1287,11 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 	return codeBase + cmd.argument;
 }
 
-unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
+bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)
 {
+	unsigned *tempStackPtr = tempStackArrayBase;
+
 	ExternFuncInfo &target = exFunctions[functionId];
-
-	if(tempStackPtr + (target.bytesToPop >> 2) >= tempStackArrayEnd)
-	{
-		callStack.push_back(instruction + 1);
-
-		codeRunning = false;
-		strcpy(execError, "ERROR: call argument buffer overflow");
-
-		return NULL;
-	}
 
 	// Push arguments
 	unsigned *microcode = exLinker->exRegVmConstants.data + microcodePos;
@@ -1720,24 +1342,20 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		// Take arguments
 		tempStackPtr -= target.bytesToPop >> 2;
 
-		unsigned *tempStackTop = tempStackLastTop;
-
-		tempStackLastTop = tempStackPtr;
+		assert(tempStackPtr == tempStackArrayBase);
 
 		if(target.funcPtrWrap)
 		{
 			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
 
 			if(!callContinue)
-				return NULL;
+				return false;
 		}
 		else
 		{
 			if(!RunExternalFunction(functionId, tempStackPtr))
-				return NULL;
+				return false;
 		}
-
-		tempStackLastTop = tempStackTop;
 
 		callStack.pop_back();
 
@@ -1782,7 +1400,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 			}
 		}
 
-		return tempStackPtr;
+		return true;
 	}
 
 	callStack.push_back(instruction + 1);
@@ -1799,11 +1417,13 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		codeRunning = false;
 		strcpy(execError, "ERROR: stack overflow");
 
-		return NULL;
+		return false;
 	}
 
 	// Take arguments
 	tempStackPtr -= target.bytesToPop >> 2;
+
+	assert(tempStackPtr == tempStackArrayBase);
 
 	// Copy function arguments to new stack frame
 	memcpy((char*)(dataStack.data + dataStack.size()), tempStackPtr, argumentsSize);
@@ -1819,9 +1439,8 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		codeRunning = false;
 		strcpy(execError, "ERROR: register overflow");
 
-		return NULL;
+		return false;
 	}
-
 
 	assert(dataStack.size() % 16 == 0);
 
@@ -1830,7 +1449,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		codeRunning = false;
 		strcpy(execError, "ERROR: stack overflow");
 
-		return NULL;
+		return false;
 	}
 
 	dataStack.resize(dataStack.size() + stackSize);
@@ -1847,10 +1466,10 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 
 	memset(regFileTop + rvrrCount, 0, (regFileLastTop - regFileTop - rvrrCount) * sizeof(regFilePtr[0]));
 
-	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
+	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, this, codeBase);
 
 	if(execResultType == rvrError)
-		return NULL;
+		return false;
 
 	assert(execResultType == resultType);
 
@@ -1899,11 +1518,13 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		}
 	}
 
-	return tempStackPtr;
+	return true;
 }
 
-RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
+RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)
 {
+	unsigned *tempStackPtr = tempStackArrayBase;
+
 	if(cmd.rB == rvrError)
 	{
 		bool errorState = !callStack.empty();
@@ -1922,20 +1543,10 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 	{
 		unsigned *microcode = exLinker->exRegVmConstants.data + cmd.argument;
 
-		unsigned *tempStackPtrStart = tempStackPtr;
 		unsigned typeId = *microcode++;
-		unsigned typeSize = *microcode++;
 
-		if(tempStackPtr + (typeSize >> 2) >= tempStackArrayEnd)
-		{
-			callStack.push_back(instruction + 1);
-
-			strcpy(execError, "ERROR: call return buffer overflow");
-
-			codeRunning = false;
-
-			return rvrError;
-		}
+		// Skip type size
+		microcode++;
 
 		while(*microcode != rvmiReturn)
 		{
@@ -1970,7 +1581,7 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 		}
 
 		if(cmd.rC)
-			ExecCheckedReturn(typeId, regFilePtr, tempStackPtrStart);
+			ExecCheckedReturn(typeId, regFilePtr);
 	}
 
 	if(callStack.size() == lastFinalReturn)
@@ -2006,14 +1617,14 @@ bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruct
 	return true;
 }
 
-void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr)
+void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr)
 {
 	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
 	uintptr_t frameEnd = regFilePtr[rvrrGlobals].ptrValue + dataStack.size();
 
 	ExternTypeInfo &type = exLinker->exTypes[typeId];
 
-	char *returnValuePtr = (char*)tempStackPtr;
+	char *returnValuePtr = (char*)tempStackArrayBase;
 
 	void *ptr = vmLoadPointer(returnValuePtr);
 
@@ -2116,18 +1727,28 @@ void ExecutorRegVm::BeginCallStack()
 
 unsigned ExecutorRegVm::GetNextAddress()
 {
-	return currentFrame == callStack.size() ? 0 : (unsigned)(callStack[currentFrame++] - codeBase);
+	if(currentFrame == callStack.size())
+		return 0;
+
+	RegVmCmd *instruction = callStack[currentFrame++];
+
+	if(instruction >= breakCode.data && instruction < breakCode.data + breakCode.count)
+	{
+		assert(instruction->code == rviNop);
+
+		return instruction->argument;
+	}
+
+	return unsigned(instruction - codeBase);
 }
 
 void* ExecutorRegVm::GetStackStart()
 {
-	// TODO: what about temp stack?
 	return regFileArrayBase;
 }
 
 void* ExecutorRegVm::GetStackEnd()
 {
-	// TODO: what about temp stack?
 	return regFileLastTop;
 }
 

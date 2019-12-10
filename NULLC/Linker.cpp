@@ -1,7 +1,9 @@
 #include "Linker.h"
+
 #include "StdLib.h"
 #include "BinaryCache.h"
-#include"InstructionTreeRegVmLowerGraph.h"
+#include "InstructionSet.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 
 #ifdef NULLC_AUTOBINDING
 	#if defined(__linux)
@@ -25,8 +27,6 @@ Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(
 
 	typeMap.init();
 	funcMap.init();
-
-	fptrUpdater = NULL;
 
 	debugOutputIndent = 0;
 
@@ -79,8 +79,6 @@ void Linker::CleanCode()
 	vmOffsetToGlobalCode = 0;
 
 	regVmJumpTargets.clear();
-
-	regVmOffsetToGlobalCode = 0;
 
 	globalVarSize = 0;
 
@@ -1020,17 +1018,6 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 const char*	Linker::GetLinkError()
 {
 	return linkError;
-}
-
-void Linker::SetFunctionPointerUpdater(void (*updater)(unsigned, unsigned))
-{
-	fptrUpdater = updater;
-}
-
-void Linker::UpdateFunctionPointer(unsigned dest, unsigned source)
-{
-	if(fptrUpdater)
-		fptrUpdater(dest, source);
 }
 
 void Linker::FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize)

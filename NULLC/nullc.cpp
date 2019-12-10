@@ -1203,23 +1203,6 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	ExternFuncInfo &destFunc = linker->exFunctions[index];
 	ExternFuncInfo &srcFunc = linker->exFunctions[func.id];
 
-	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-	{
-		linker->UpdateFunctionPointer(index, func.id);
-
-		if((destFunc.funcPtrRaw && !srcFunc.funcPtrRaw) || (destFunc.funcPtrWrap && !srcFunc.funcPtrWrap))
-		{
-			nullcLastError = "Internal function cannot be overridden with external function on x86";
-			return false;
-		}
-
-		if((srcFunc.funcPtrRaw && !destFunc.funcPtrRaw) || (srcFunc.funcPtrWrap && !destFunc.funcPtrWrap))
-		{
-			nullcLastError = "External function cannot be overridden with internal function on x86";
-			return false;
-		}
-	}
-
 	destFunc.vmAddress = srcFunc.vmAddress;
 	destFunc.vmCodeSize = srcFunc.vmCodeSize;
 
@@ -1620,7 +1603,7 @@ ExternSourceInfo* nullcDebugSourceInfo(unsigned int *count)
 {
 	using namespace NULLC;
 
-	if(nullcGetCurrentExecutor(NULL) == NULLC_REG_VM)
+	if(nullcGetCurrentExecutor(NULL) == NULLC_REG_VM || nullcGetCurrentExecutor(NULL) == NULLC_X86)
 	{
 		if(count && linker)
 			*count = linker->exRegVmSourceInfo.size();
@@ -1831,39 +1814,48 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 {
 	using namespace NULLC;
 
-	if(!executor)
+	if(currExec == NULLC_VM)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executor->RemoveBreakpoint(instruction))
-	{
-		nullcLastError = executor->GetExecError();
-		return false;
+		if(!executor)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+		if(!executor->RemoveBreakpoint(instruction))
+		{
+			nullcLastError = executor->GetExecError();
+			return false;
+		}
 	}
 
 #ifdef NULLC_BUILD_X86_JIT
-	if(!executorX86)
+	if(currExec == NULLC_X86)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executorX86->RemoveBreakpoint(instruction))
-	{
-		nullcLastError = executorX86->GetExecError();
-		return false;
+		if(!executorX86)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+		if(!executorX86->RemoveBreakpoint(instruction))
+		{
+			nullcLastError = executorX86->GetExecError();
+			return false;
+		}
 	}
 #endif
 
-	if(!executorRegVm)
+	if(currExec == NULLC_REG_VM)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executorRegVm->RemoveBreakpoint(instruction))
-	{
-		nullcLastError = executorRegVm->GetExecError();
-		return false;
+		if(!executorRegVm)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+		if(!executorRegVm->RemoveBreakpoint(instruction))
+		{
+			nullcLastError = executorRegVm->GetExecError();
+			return false;
+		}
 	}
 
 	return true;
@@ -1873,7 +1865,7 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM || currExec == NULLC_X86)
+	if(currExec == NULLC_VM)
 	{
 		for(unsigned i = 0; i < functionCount; i++)
 		{
@@ -1881,7 +1873,7 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 				return &codeFunctions[i];
 		}
 	}
-	else if(currExec == NULLC_REG_VM)
+	else if(currExec == NULLC_REG_VM || currExec == NULLC_X86)
 	{
 		for(unsigned i = 0; i < functionCount; i++)
 		{

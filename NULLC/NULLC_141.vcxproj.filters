@@ -218,6 +218,12 @@
     <ClCompile Include="InstructionTreeRegVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="CodeGenRegVm_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Instruction_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -281,9 +287,6 @@
       <Filter>Executor_X86</Filter>
     </ClInclude>
     <ClInclude Include="Instruction_X86.h">
-      <Filter>Executor_X86</Filter>
-    </ClInclude>
-    <ClInclude Include="StdLib_X86.h">
       <Filter>Executor_X86</Filter>
     </ClInclude>
     <ClInclude Include="Translator_X86.h">
@@ -429,6 +432,9 @@
     </ClInclude>
     <ClInclude Include="Trace.h">
       <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGenRegVm_X86.h">
+      <Filter>Executor_X86</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

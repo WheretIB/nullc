@@ -1,11 +1,22 @@
 #include "Executor_Common.h"
 
 #include "StdLib.h"
+#include "nullc.h"
 #include "nullc_debug.h"
 #include "Executor.h"
 #include "Executor_X86.h"
 #include "Executor_LLVM.h"
 #include "Executor_RegVm.h"
+#include "Linker.h"
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+#define dcAllocMem NULLC::alloc
+#define dcFreeMem  NULLC::dealloc
+
+#include "../external/dyncall/dyncall.h"
+#endif
+
+typedef uintptr_t markerType;
 
 namespace NULLC
 {
@@ -37,17 +48,15 @@ unsigned ConvertFromAutoRef(unsigned int target, unsigned int source)
 	return 0;
 }
 
-bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
+bool AreMembersAligned(ExternTypeInfo *lType, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
 {
 	bool aligned = 1;
-	//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
 	for(unsigned m = 0; m < lType->memberCount; m++)
 	{
-		ExternMemberInfo &member = exLinker->exTypeExtra[lType->memberOffset + m];
-		ExternTypeInfo &memberType = exLinker->exTypes[member.type];
+		ExternMemberInfo &member = exTypeExtra[lType->memberOffset + m];
+		ExternTypeInfo &memberType = exTypes[member.type];
 		unsigned pos = member.offset;
 
-		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
 		switch(memberType.type)
 		{
 		case ExternTypeInfo::TYPE_COMPLEX:
@@ -79,13 +88,13 @@ bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
 	return aligned;
 }
 
-bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker)
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
 {
 	for(unsigned m = 0; m < type.memberCount; m++)
 	{
-		ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
+		ExternMemberInfo &member = exTypeExtra[type.memberOffset + m];
 
-		ExternTypeInfo &memberType = linker->exTypes[member.type];
+		ExternTypeInfo &memberType = exTypes[member.type];
 
 		if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
 		{
@@ -99,7 +108,7 @@ bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigne
 			}
 			else
 			{
-				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
+				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, exTypes, exTypeExtra))
 					return true;
 			}
 		}
@@ -129,15 +138,15 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
 
-	ExternSourceInfo *exInfo = execID == NULLC_REG_VM ? &NULLC::commonLinker->exRegVmSourceInfo[0] : &NULLC::commonLinker->exVmSourceInfo[0];
-	unsigned int infoSize = execID == NULLC_REG_VM ? NULLC::commonLinker->exRegVmSourceInfo.size() : NULLC::commonLinker->exVmSourceInfo.size();
+	ExternSourceInfo *exInfo = execID == NULLC_REG_VM || execID == NULLC_X86 ? &NULLC::commonLinker->exRegVmSourceInfo[0] : &NULLC::commonLinker->exVmSourceInfo[0];
+	unsigned int infoSize = execID == NULLC_REG_VM || execID == NULLC_X86 ? NULLC::commonLinker->exRegVmSourceInfo.size() : NULLC::commonLinker->exVmSourceInfo.size();
 
 	const char *source = &NULLC::commonLinker->exSource[0];
 
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 	{
-		if(execID == NULLC_REG_VM)
+		if(execID == NULLC_REG_VM || execID == NULLC_X86)
 		{
 			if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
 				funcID = i;
@@ -581,7 +590,7 @@ namespace GC
 
 	void PrintMarker(markerType marker)
 	{
-		GC_DEBUG_PRINT("\tMarker is 0x%2x [", marker);
+		GC_DEBUG_PRINT("\tMarker is 0x%2x [", unsigned(marker));
 
 		const uintptr_t OBJECT_VISIBLE		= 1 << 0;
 		const uintptr_t OBJECT_FREED		= 1 << 1;
@@ -603,7 +612,7 @@ namespace GC
 		if(marker & OBJECT_ARRAY)
 			GC_DEBUG_PRINT(" array");
 
-		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[marker >> 8].offsetToName);
+		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[unsigned(marker >> 8)].offsetToName);
 	}
 
 	char* ReadVmMemoryPointer(void* address)
@@ -1011,7 +1020,7 @@ void MarkUsedBlocks()
 		}else{
 			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
-				if(execID == NULLC_REG_VM)
+				if(execID == NULLC_REG_VM || execID == NULLC_X86)
 				{
 					if(address >= functions[i].regVmAddress && address < (functions[i].regVmAddress + functions[i].regVmCodeSize))
 						funcID = i;
@@ -1162,4 +1171,399 @@ void ResetGC()
 	GC::rootsB.reset();
 
 	GC::functionIDs.reset();
+}
+
+namespace
+{
+	long long vmLoadLong(void* target)
+	{
+		long long value;
+		memcpy(&value, target, sizeof(long long));
+		return value;
+	}
+
+	void vmStoreLong(void* target, long long value)
+	{
+		memcpy(target, &value, sizeof(long long));
+	}
+
+	double vmLoadDouble(void* target)
+	{
+		double value;
+		memcpy(&value, target, sizeof(double));
+		return value;
+	}
+
+	void vmStoreDouble(void* target, double value)
+	{
+		memcpy(target, &value, sizeof(double));
+	}
+
+	char* vmLoadPointer(void* target)
+	{
+		char* value;
+		memcpy(&value, target, sizeof(char*));
+		return value;
+	}
+}
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *callStorage)
+{
+	(void)exTypeExtra;
+
+	assert(func.funcPtrRaw);
+
+	void* fPtr = (void*)func.funcPtrRaw;
+	unsigned retType = func.retType;
+
+	unsigned *stackStart = callStorage;
+
+	dcReset(dcCallVM);
+
+#if defined(_WIN64)
+	bool returnByPointer = func.returnShift > 1;
+#elif !defined(_M_X64)
+	bool returnByPointer = true;
+#elif defined(__aarch64__)
+	ExternTypeInfo &funcType = exTypes[func.funcType];
+
+	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exTypes[member.type];
+
+	bool returnByPointer = false;
+
+	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
+
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exTypes, exTypeExtra);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exTypes, exTypeExtra);
+#else
+	ExternTypeInfo &funcType = exTypes[func.funcType];
+
+	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exTypes[member.type];
+
+	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exTypes, exTypeExtra));
+
+	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
+
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exTypes, exTypeExtra);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exTypes, exTypeExtra);
+#endif
+
+	unsigned ret[128];
+
+	if(retType == ExternFuncInfo::RETURN_UNKNOWN && returnByPointer)
+		dcArgPointer(dcCallVM, ret);
+
+	for(unsigned i = 0; i < func.paramCount; i++)
+	{
+		// Get information about local
+		ExternLocalInfo &lInfo = exLocals[func.offsetToFirstLocal + i];
+
+		ExternTypeInfo &tInfo = exTypes[lInfo.type];
+
+		switch(tInfo.type)
+		{
+		case ExternTypeInfo::TYPE_COMPLEX:
+#if defined(_WIN64)
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}
+			else if(tInfo.size <= 8)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				stackStart += 2;
+			}
+			else
+			{
+				dcArgPointer(dcCallVM, stackStart);
+				stackStart += tInfo.size / 4;
+			}
+#elif defined(__aarch64__)
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}
+			else if(tInfo.size <= 8)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				stackStart += 2;
+			}
+			else if(tInfo.size <= 12)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				dcArgInt(dcCallVM, *(int*)(stackStart + 2));
+				stackStart += 3;
+			}
+			else if(tInfo.size <= 16)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
+				stackStart += 4;
+			}
+			else
+			{
+				dcArgPointer(dcCallVM, stackStart);
+				stackStart += tInfo.size / 4;
+			}
+#elif defined(_M_X64)
+			if(tInfo.size > 16 || lInfo.type == NULLC_TYPE_AUTO_REF || (tInfo.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&tInfo, exTypes, exTypeExtra)))
+			{
+				dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
+				stackStart += tInfo.size / 4;
+			}
+			else
+			{
+				bool opaqueType = tInfo.subCat != ExternTypeInfo::CAT_CLASS || tInfo.memberCount == 0;
+
+				bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 0, 8, exTypes, exTypeExtra);
+				bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 8, 16, exTypes, exTypeExtra);
+
+				if(tInfo.size <= 4)
+				{
+					if(tInfo.size != 0)
+					{
+						if(firstQwordInteger)
+							dcArgInt(dcCallVM, *(int*)stackStart);
+						else
+							dcArgFloat(dcCallVM, *(float*)stackStart);
+					}
+					else
+					{
+						stackStart += 1;
+					}
+				}
+				else if(tInfo.size <= 8)
+				{
+					if(firstQwordInteger)
+						dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+					else
+						dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
+				}
+				else
+				{
+					int requredIRegs = (firstQwordInteger ? 1 : 0) + (secondQwordInteger ? 1 : 0);
+
+					if(dcFreeIRegs(dcCallVM) < requredIRegs || dcFreeFRegs(dcCallVM) < (2 - requredIRegs))
+					{
+						dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
+					}
+					else
+					{
+						if(firstQwordInteger)
+							dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+						else
+							dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
+
+						if(secondQwordInteger)
+							dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
+						else
+							dcArgDouble(dcCallVM, vmLoadDouble(stackStart + 2));
+					}
+				}
+
+				stackStart += tInfo.size / 4;
+			}
+#else
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}
+			else
+			{
+				for(unsigned k = 0; k < tInfo.size / 4; k++)
+				{
+					dcArgInt(dcCallVM, *(int*)stackStart);
+					stackStart += 1;
+				}
+			}
+#endif
+			break;
+		case ExternTypeInfo::TYPE_VOID:
+			return;
+		case ExternTypeInfo::TYPE_INT:
+			dcArgInt(dcCallVM, *(int*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			dcArgFloat(dcCallVM, *(float*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_LONG:
+			dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+			stackStart += 2;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
+			stackStart += 2;
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			dcArgShort(dcCallVM, *(short*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+			dcArgChar(dcCallVM, *(char*)stackStart);
+			stackStart += 1;
+			break;
+		}
+	}
+
+	dcArgPointer(dcCallVM, (DCpointer)vmLoadPointer(stackStart));
+
+	unsigned *newStackPtr = callStorage;
+
+	switch(retType)
+	{
+	case ExternFuncInfo::RETURN_VOID:
+		dcCallVoid(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_INT:
+		*newStackPtr = dcCallInt(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_DOUBLE:
+		if(func.returnShift == 1)
+			vmStoreDouble(newStackPtr, dcCallFloat(dcCallVM, fPtr));
+		else
+			vmStoreDouble(newStackPtr, dcCallDouble(dcCallVM, fPtr));
+		break;
+	case ExternFuncInfo::RETURN_LONG:
+		vmStoreLong(newStackPtr, dcCallLongLong(dcCallVM, fPtr));
+		break;
+	case ExternFuncInfo::RETURN_UNKNOWN:
+#if defined(_WIN64)
+		if(func.returnShift == 1)
+		{
+			*newStackPtr = dcCallInt(dcCallVM, fPtr);
+		}
+		else
+		{
+			dcCallVoid(dcCallVM, fPtr);
+
+			// copy return value on top of the stack
+			memcpy(newStackPtr, ret, func.returnShift * 4);
+		}
+#elif !defined(_M_X64)
+		dcCallPointer(dcCallVM, fPtr);
+
+		// copy return value on top of the stack
+		memcpy(newStackPtr, ret, func.returnShift * 4);
+#elif defined(__aarch64__)
+		if(func.returnShift > 4)
+		{
+			DCcomplexbig res = dcCallComplexBig(dcCallVM, fPtr);
+
+			memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+		}
+		else
+		{
+			if(!firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(!firstQwordInteger && secondQwordInteger)
+			{
+				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else
+			{
+				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+		}
+#else
+		if(returnByPointer)
+		{
+			dcCallPointer(dcCallVM, fPtr);
+
+			// copy return value on top of the stack
+			memcpy(newStackPtr, ret, func.returnShift * 4);
+		}
+		else
+		{
+			if(!firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(!firstQwordInteger && secondQwordInteger)
+			{
+				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else
+			{
+				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+		}
+#endif
+		break;
+	}
+}
+#endif
+
+int VmIntPow(int power, int number)
+{
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+	int result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
+}
+
+long long VmLongPow(long long power, long long number)
+{
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+	long long result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
 }

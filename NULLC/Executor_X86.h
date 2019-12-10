@@ -1,15 +1,25 @@
 #pragma once
 
 #include "stdafx.h"
-
-#include "Executor_Common.h"
-#include "InstructionSet.h"
-#include "Instruction_X86.h"
-#include "Output.h"
+#include "InstructionTreeRegVm.h"
+#include "CodeGenRegVm_X86.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
 #endif
+
+typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY RUNTIME_FUNCTION;
+
+class Linker;
+
+struct x86Instruction;
+
+struct ExternTypeInfo;
+struct ExternFuncInfo;
+
+struct OutputContext;
+
+const int REGVM_X86_ERROR_BUFFER_SIZE = 1024;
 
 class ExecutorX86
 {
@@ -49,52 +59,79 @@ public:
 	bool	RemoveBreakpoint(unsigned int instruction);
 
 private:
-	bool	InitStack();
 	bool	InitExecution();
+
+	CodeGenRegVmContext *codeGenCtx;
 
 	bool	codeRunning;
 
-	char	execError[512];
+	RegVmReturnType	lastResultType;
+	RegVmRegister	lastResult;
+
+	char	execError[REGVM_X86_ERROR_BUFFER_SIZE];
 	char	execResult[64];
 
+	// Linker and linker data
 	Linker		*exLinker;
 
 	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo>	&exFunctions;
-	FastVector<VMCmd>			&exCode;
-	FastVector<bool>			codeJumpTargets;
+	FastVector<RegVmCmd>		&exRegVmCode;
+	FastVector<unsigned int>	&exRegVmConstants;
+	FastVector<unsigned char>	codeJumpTargets;
+
+	// Data stack
+	unsigned int	minStackSize;
+
+	unsigned	currentFrame;
+
+	unsigned	lastFinalReturn;
+
+public:
+	CodeGenRegVmStateContext vmState;
+
+	unsigned char	*binCode;
+	unsigned		binCodeSize;
+	unsigned		binCodeReserved;
+
+	struct ExpiredCodeBlock
+	{
+		unsigned char *code;
+		unsigned codeSize;
+		RUNTIME_FUNCTION *unwindTable;
+	};
+
+	FastVector<ExpiredCodeBlock>	expiredCodeBlocks;
+
+private:
+	// Native code data
+	static const unsigned codeLaunchHeaderSize = 4096;
+	unsigned char codeLaunchHeader[codeLaunchHeaderSize];
+	unsigned codeLaunchHeaderLength;
+	unsigned codeLaunchUnwindOffset;
+	unsigned codeLaunchDataLength;
+	unsigned oldCodeLaunchHeaderProtect;
+	RUNTIME_FUNCTION *codeLaunchWin64UnwindTable;
 
 	FastVector<x86Instruction, true, true>	instList;
 
-	unsigned int	globalStartInBytecode;
-
-	unsigned int	minStackSize;
-
-	char			*paramBase;
-	void			*genStackTop, *genStackPtr;
-
-	unsigned char	*binCode;
-	unsigned int	binCodeStart;
-	unsigned int	binCodeSize, binCodeReserved;
-
 	unsigned int	lastInstructionCount;
-
-	int				callContinue;
-
-	unsigned int	*callstackTop;
 
 	unsigned int	oldJumpTargetCount;
 	unsigned int	oldFunctionSize;
-
-	unsigned int	oldCodeHeadProtect;
 	unsigned int	oldCodeBodyProtect;
+
+public:
+	bool			callContinue;
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	DCCallVM		*dcCallVM;
 #endif
 
-public:
 	FastVector<unsigned char*>	instAddress;
+
+	FastVector<unsigned> globalCodeRanges;
+	FastVector<RUNTIME_FUNCTION> functionWin64UnwindTable;
 
 	void *breakFunctionContext;
 	unsigned (*breakFunction)(void*, unsigned);
@@ -108,16 +145,6 @@ public:
 		bool			oneHit;
 	};
 	FastVector<Breakpoint>		breakInstructions;
-
-	FastVector<unsigned int>	functionAddress;
-	struct FunctionListInfo
-	{
-		FunctionListInfo(): list(NULL), count(0){}
-		FunctionListInfo(unsigned *list, unsigned count): list(list), count(count){}
-		unsigned	*list;
-		unsigned	count;
-	};
-	FastVector<FunctionListInfo>	oldFunctionLists;
 
 private:
 	ExecutorX86(const ExecutorX86&);

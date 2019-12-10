@@ -18,7 +18,7 @@ struct TestLongVariable : TestQueue
 				continue;
 
 			testsCount[t]++;
-			if(Tests::RunCode(code, t, "12", "Long variable name."))
+			if(Tests::RunCode(code, testTarget[t], "12", "Long variable name."))
 				testsPassed[t]++;
 		}
 	}
@@ -41,7 +41,7 @@ struct TestLongFunction : TestQueue
 				continue;
 
 			testsCount[t]++;
-			if(Tests::RunCode(code, t, "1", "Long function name."))
+			if(Tests::RunCode(code, testTarget[t], "1", "Long function name."))
 				testsPassed[t]++;
 		}
 	}

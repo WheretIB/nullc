@@ -50,6 +50,7 @@ LIB_SOURCES = \
   NULLC/BinaryCache.cpp \
   NULLC/Bytecode.cpp \
   NULLC/CodeGen_X86.cpp \
+  NULLC/CodeGenRegVm_X86.cpp \
   NULLC/Compiler.cpp \
   NULLC/Executor_Common.cpp \
   NULLC/Executor_X86.cpp \
@@ -67,6 +68,7 @@ LIB_SOURCES = \
   NULLC/InstructionTreeVmGraph.cpp \
   NULLC/InstructionTreeVmLower.cpp \
   NULLC/InstructionTreeVmLowerGraph.cpp \
+  NULLC/Instruction_X86.cpp \
   NULLC/Lexer.cpp \
   NULLC/Linker.cpp \
   NULLC/nullc.cpp \
@@ -86,6 +88,7 @@ LIB_TARGETS = \
   temp/BinaryCache.o \
   temp/Bytecode.o \
   temp/CodeGen_X86.o \
+  temp/CodeGenRegVm_X86.o \
   temp/Compiler.o \
   temp/Executor_Common.o \
   temp/Executor_X86.o \
@@ -103,6 +106,7 @@ LIB_TARGETS = \
   temp/InstructionTreeVmGraph.o \
   temp/InstructionTreeVmLower.o \
   temp/InstructionTreeVmLowerGraph.o \
+  temp/Instruction_X86.o \
   temp/Lexer.o \
   temp/Linker.o \
   temp/nullc.o \
