@@ -170,12 +170,6 @@ namespace NULLC
 	}
 #else
 
-#if defined(_M_X64)
-#define RegisterIp rip
-#else
-#define RegisterIp eip
-#endif
-
 #define EXCEPTION_INT_DIVIDE_BY_ZERO 1
 #define EXCEPTION_INVALID_POINTER 4
 
@@ -186,9 +180,9 @@ namespace NULLC
 		char data[sizeof(sigjmp_buf)];
 	};
 
-	void HandleError(int signum, struct sigcontext ctx)
+	void HandleError(int signum, siginfo_t *info, void*)
 	{
-		uintptr_t address = uintptr_t(ctx.RegisterIp);
+		uintptr_t address = uintptr_t(info->si_addr);
 
 		// Check that exception happened in NULLC code
 		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
@@ -202,19 +196,22 @@ namespace NULLC
 			}
 		}
 
+		if(currExecutor->vmState.instWrapperActive)
+			isInternal = true;
+
 		if(!isInternal)
 		{
 			signal(signum, SIG_DFL);
 			raise(signum);
+			return;
 		}
 
 		if(signum == SIGFPE)
 		{
 			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
-
 			siglongjmp(errorHandler, expCodePublic);
 		}
-		else if(signum == SIGSEGV && ctx.cr2 < 0x00010000)
+		else if(signum == SIGSEGV && uintptr_t(info->si_lower) < 0x00010000)
 		{
 			expCodePublic = EXCEPTION_INVALID_POINTER;
 			siglongjmp(errorHandler, expCodePublic);
@@ -827,9 +824,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 		if(firstRun)
 		{
-			sa.sa_handler = (void (*)(int))NULLC::HandleError;
+			sa.sa_sigaction = NULLC::HandleError;
 			sigemptyset(&sa.sa_mask);
-			sa.sa_flags = SA_RESTART;
+			sa.sa_flags = SA_RESTART | SA_SIGINFO;
 
 			sigaction(SIGFPE, &sa, &sigFPE);
 			sigaction(SIGTRAP, &sa, &sigTRAP);
