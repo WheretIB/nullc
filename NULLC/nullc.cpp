@@ -1203,21 +1203,6 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	ExternFuncInfo &destFunc = linker->exFunctions[index];
 	ExternFuncInfo &srcFunc = linker->exFunctions[func.id];
 
-	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-	{
-		if((destFunc.funcPtrRaw && !srcFunc.funcPtrRaw) || (destFunc.funcPtrWrap && !srcFunc.funcPtrWrap))
-		{
-			nullcLastError = "Internal function cannot be overridden with external function on x86";
-			return false;
-		}
-
-		if((srcFunc.funcPtrRaw && !destFunc.funcPtrRaw) || (srcFunc.funcPtrWrap && !destFunc.funcPtrWrap))
-		{
-			nullcLastError = "External function cannot be overridden with internal function on x86";
-			return false;
-		}
-	}
-
 	destFunc.vmAddress = srcFunc.vmAddress;
 	destFunc.vmCodeSize = srcFunc.vmCodeSize;
 

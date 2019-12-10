@@ -48,7 +48,7 @@ override(funcA, funcB);\r\n\
 override(funcB, funcNew);\r\n\
 \r\n\
 return funcA(5) * funcB(5);";
-TEST_VM("Function override between internal and external functions", testFunctionOverrideInternalExternal, "130")
+TEST("Function override between internal and external functions", testFunctionOverrideInternalExternal, "130")
 {
 	CHECK_INT("a", 0, -5, lastFailed);
 	CHECK_INT("b", 0, 10, lastFailed);
@@ -90,7 +90,7 @@ override(funcA, funcB);\r\n\
 override(funcB, funcNew);\r\n\
 \r\n\
 return a_(5) * b_(5);";
-TEST_VM("Function override between internal and external functions (with function pointers)", testFunctionOverrideInternalExternalPtr, "130")
+TEST("Function override between internal and external functions (with function pointers)", testFunctionOverrideInternalExternalPtr, "130")
 {
 	CHECK_INT("a", 0, -5, lastFailed);
 	CHECK_INT("b", 0, 10, lastFailed);
