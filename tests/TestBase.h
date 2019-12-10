@@ -140,6 +140,8 @@ struct Test_##code : TestQueue {	\
 				return;	\
 			}else{	\
 				RunTest();	\
+				if(lastFailed)	\
+					printf("%s failed\n", testTarget[t] == NULLC_VM ? "VM " : testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
 			}	\
 			if(!lastFailed)	\
 				testsPassed[t]++;	\
@@ -166,6 +168,8 @@ struct Test_##code : TestQueue {	\
 				return;	\
 			}else{	\
 				RunTest();	\
+				if(lastFailed)	\
+					printf("%s failed\n", testTarget[t] == NULLC_VM ? "VM " : testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
 			}	\
 			if(!lastFailed)	\
 				testsPassed[t]++;	\
