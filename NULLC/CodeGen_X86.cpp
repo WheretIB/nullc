@@ -613,6 +613,7 @@ void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num)
 	switch(op)
 	{
 	case o_push:
+	case o_int:
 		break;
 	default:
 		assert(!"unknown instruction");

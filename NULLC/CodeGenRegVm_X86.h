@@ -23,6 +23,13 @@ struct CodeGenRegVmStateContext
 	{
 		ctx = NULL;
 
+		callWrap = NULL;
+		callPtrWrap = NULL;
+		checkedReturnWrap = NULL;
+		convertPtrWrap = NULL;
+
+		errorOutOfBoundsWrap = NULL;
+
 		dataStackBase = NULL;
 		dataStackTop = NULL;
 		dataStackEnd = NULL;
@@ -45,10 +52,6 @@ struct CodeGenRegVmStateContext
 
 		codeLaunchHeader = NULL;
 
-		callWrap = NULL;
-		checkedReturnWrap = NULL;
-		convertPtrWrap = NULL;
-
 		x64PowWrap = NULL;
 		x64PowdWrap = NULL;
 		x64ModdWrap = NULL;
@@ -66,10 +69,22 @@ struct CodeGenRegVmStateContext
 		x86ShllWrap = NULL;
 		x86ShrlWrap = NULL;
 
+		pad = NULL;
+
 		vsAsmStyle = false;
+
+		instWrapperActive = false;
 	}
 
 	CodeGenRegVmContext *ctx;
+
+	void (*callWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
+	void (*callPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
+	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, unsigned microcodePos);
+	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
+
+	void (*errorOutOfBoundsWrap)(CodeGenRegVmStateContext *vmState);
+	void (*errorNoReturnWrap)(CodeGenRegVmStateContext *vmState);
 
 	char *dataStackBase;
 	char *dataStackTop;
@@ -93,10 +108,6 @@ struct CodeGenRegVmStateContext
 
 	unsigned char *codeLaunchHeader;
 
-	void (*callWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
-	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, unsigned microcodePos);
-	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
-
 	void (*x64PowWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
 	void (*x64PowdWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
 	void (*x64ModdWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
@@ -114,7 +125,12 @@ struct CodeGenRegVmStateContext
 	void (*x86ShllWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ShrlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 
+	void *pad;
+	jmp_buf errorHandler;
+
 	bool vsAsmStyle;
+
+	bool instWrapperActive;
 };
 
 class ExecutorX86;

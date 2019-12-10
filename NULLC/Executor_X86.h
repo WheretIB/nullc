@@ -87,21 +87,10 @@ private:
 
 	unsigned	lastFinalReturn;
 
+public:
 	CodeGenRegVmStateContext vmState;
 
-	// Native code data
-	static const unsigned codeLaunchHeaderSize = 4096;
-	unsigned char codeLaunchHeader[codeLaunchHeaderSize];
-	unsigned codeLaunchHeaderLength;
-	unsigned codeLaunchUnwindOffset;
-	unsigned codeLaunchDataLength;
-	unsigned oldCodeLaunchHeaderProtect;
-	RUNTIME_FUNCTION *codeLaunchWin64UnwindTable;
-
-	FastVector<x86Instruction, true, true>	instList;
-
 	unsigned char	*binCode;
-	uintptr_t		binCodeStart;
 	unsigned		binCodeSize;
 	unsigned		binCodeReserved;
 
@@ -113,6 +102,18 @@ private:
 	};
 
 	FastVector<ExpiredCodeBlock>	expiredCodeBlocks;
+
+private:
+	// Native code data
+	static const unsigned codeLaunchHeaderSize = 4096;
+	unsigned char codeLaunchHeader[codeLaunchHeaderSize];
+	unsigned codeLaunchHeaderLength;
+	unsigned codeLaunchUnwindOffset;
+	unsigned codeLaunchDataLength;
+	unsigned oldCodeLaunchHeaderProtect;
+	RUNTIME_FUNCTION *codeLaunchWin64UnwindTable;
+
+	FastVector<x86Instruction, true, true>	instList;
 
 	unsigned int	lastInstructionCount;
 

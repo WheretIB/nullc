@@ -94,6 +94,17 @@ namespace Tests
 	bool	testFailureExecutor[TEST_TARGET_COUNT] = {
 		true,
 		true,
+#if defined(NULLC_BUILD_X86_JIT)
+		true,
+#else
+		false,
+#endif
+		false
+	};
+
+	bool	testHardFailureExecutor[TEST_TARGET_COUNT] = {
+		true,
+		true,
 #if defined(NULLC_BUILD_X86_JIT) && defined(NDEBUG)
 		true,
 #else

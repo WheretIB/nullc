@@ -104,6 +104,7 @@ namespace Tests
 	extern bool	testExecutor[TEST_TARGET_COUNT];
 	extern bool	testVmExecutor[TEST_TARGET_COUNT];
 	extern bool	testFailureExecutor[TEST_TARGET_COUNT];
+	extern bool	testHardFailureExecutor[TEST_TARGET_COUNT];
 
 	extern const char* (*fileLoadFunc)(const char*, unsigned*);
 	extern void (*fileFreeFunc)(const char*);
@@ -176,32 +177,6 @@ struct Test_##code : TestQueue {	\
 Test_##code test_##code;	\
 void Test_##code::RunTest()
 
-#define TEST_VM(name, code, result)	\
-struct Test_##code : TestQueue {	\
-	virtual void Run(){	\
-		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
-		{	\
-			if(!Tests::testVmExecutor[t])	\
-				continue;	\
-			testsCount[t]++;	\
-			lastFailed = false;	\
-			if(!Tests::RunCode(code, testTarget[t], result, name))	\
-			{	\
-				lastFailed = true;	\
-				return;	\
-			}else{	\
-				RunTest();	\
-			}	\
-			if(!lastFailed)	\
-				testsPassed[t]++;	\
-		}	\
-	}	\
-	bool lastFailed;	\
-	void RunTest();	\
-};	\
-Test_##code test_##code;	\
-void Test_##code::RunTest()
-
 #define TEST_RESULT(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
@@ -238,6 +213,21 @@ struct Test_##code : TestQueue {	\
 		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
 		{	\
 			if(!Tests::testFailureExecutor[t])	\
+				continue;	\
+			testsCount[t]++;	\
+			if(Tests::RunCode(code, testTarget[t], result, name, true))	\
+				testsPassed[t]++;	\
+		}	\
+	}	\
+};	\
+Test_##code test_##code;
+
+#define TEST_HARD_RUNTIME_FAIL(name, code, result)	\
+struct Test_##code : TestQueue {	\
+	virtual void Run(){	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
+		{	\
+			if(!Tests::testHardFailureExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
 			if(Tests::RunCode(code, testTarget[t], result, name, true))	\

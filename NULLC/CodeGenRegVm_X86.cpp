@@ -917,14 +917,38 @@ void GenCodeCmdLtoi(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store value
 }
 
+void ErrorOutOfBoundsWrap(CodeGenRegVmStateContext *vmState)
+{
+	CodeGenRegVmContext &ctx = *vmState->ctx;
+
+	vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
+	vmState->callStackTop++;
+
+	ctx.x86rvm->Stop("ERROR: array index out of bounds");
+	longjmp(vmState->errorHandler, 1);
+}
+
 void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
+	ctx.vmState->errorOutOfBoundsWrap = ErrorOutOfBoundsWrap;
+
 #if defined(_M_X64)
-	// TODO: index bounds check
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load index with zero extension to use in lea (top RAX bits are cleared)
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8); // Load size
+
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rECX);
+	EMIT_OP_LABEL(ctx.ctx, o_jb, ctx.labelCount, false);
+
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->errorOutOfBoundsWrap) - uintptr_t(ctx.vmState)));
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 
 	// Multiply index by size and add to source pointer
 	unsigned size = (cmd.argument & 0xffff);
@@ -958,9 +982,20 @@ void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
 #else
-	// TODO: index bounds check
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load inde
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8); // Load size
+
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rECX);
+	EMIT_OP_LABEL(ctx.ctx, o_jb, ctx.labelCount, false);
+
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
+	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->errorOutOfBoundsWrap));
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load index with zero extension to use in lea (top RAX bits are cleared)
 
 	// Multiply index by size and add to source pointer
 	unsigned size = (cmd.argument & 0xffff);
@@ -1171,16 +1206,13 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
 	vmState->callStackTop++;
 
-	// TODO: only for callptr
-	/*if(functionId == 0)
+	if(vmState->callStackTop == vmState->callStackEnd)
 	{
-		ctx.x86rvm->Stop("ERROR: invalid function pointer");
-		return;
-	}*/
+		ctx.x86rvm->Stop("ERROR: call stack overflow");
+		longjmp(vmState->errorHandler, 1);
+	}
 
-	unsigned address = target.regVmAddress;
-
-	if(address == ~0u)
+	if(target.regVmAddress == -1)
 	{
 		if(target.funcPtrWrap)
 		{
@@ -1196,20 +1228,18 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		}
 
 		if(!ctx.x86rvm->callContinue)
-			return;
+			longjmp(vmState->errorHandler, 1);
 
 		vmState->callStackTop--;
 	}
 	else
 	{
-		unsigned prevDataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
-
 		unsigned argumentsSize = target.bytesToPop;
 
 		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + argumentsSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
 		{
 			ctx.x86rvm->Stop("ERROR: stack overflow");
-			return;
+			longjmp(vmState->errorHandler, 1);
 		}
 
 		// Copy function arguments to new stack frame
@@ -1220,22 +1250,24 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		RegVmRegister *prevRegFilePtr = vmState->regFileLastPtr;
 		RegVmRegister *prevRegFileTop = vmState->regFileLastTop;
 
-		RegVmRegister *newRegFilePtr = prevRegFileTop;
-
-		vmState->regFileLastPtr = newRegFilePtr;
-		vmState->regFileLastTop = newRegFilePtr + target.regVmRegisters;
+		vmState->regFileLastPtr = prevRegFileTop;
+		vmState->regFileLastTop = prevRegFileTop + target.regVmRegisters;
 
 		if(vmState->regFileLastTop >= vmState->regFileArrayEnd)
 		{
 			ctx.x86rvm->Stop("ERROR: register overflow");
-			return;
+
+			longjmp(vmState->errorHandler, 1);
 		}
 
 		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + stackSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
 		{
 			ctx.x86rvm->Stop("ERROR: stack overflow");
-			return;
+
+			longjmp(vmState->errorHandler, 1);
 		}
+
+		unsigned prevDataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
 
 		vmState->dataStackTop += stackSize;
 
@@ -1244,21 +1276,21 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		if(stackSize - argumentsSize)
 			memset(vmState->dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
-		newRegFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
-		newRegFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackBase + prevDataSize);
-		newRegFilePtr[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
-		newRegFilePtr[rvrrRegisters].ptrValue = uintptr_t(newRegFilePtr);
+		prevRegFileTop[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
+		prevRegFileTop[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackBase + prevDataSize);
+		prevRegFileTop[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
+		prevRegFileTop[rvrrRegisters].ptrValue = uintptr_t(prevRegFileTop);
 
-		memset(newRegFilePtr + rvrrCount, 0, (vmState->regFileLastTop - newRegFilePtr - rvrrCount) * sizeof(RegVmRegister));
+		memset(prevRegFileTop + rvrrCount, 0, (vmState->regFileLastTop - prevRegFileTop - rvrrCount) * sizeof(RegVmRegister));
 
 		unsigned char *codeStart = vmState->instAddress[target.regVmAddress];
 
 		typedef	void (*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
 		nullcFunc gate = (nullcFunc)(uintptr_t)vmState->codeLaunchHeader;
-		gate(codeStart, newRegFilePtr);
+		gate(codeStart, prevRegFileTop);
 
 		if(!ctx.x86rvm->callContinue)
-			return;
+			longjmp(vmState->errorHandler, 1);
 
 		vmState->regFileLastPtr = prevRegFilePtr;
 		vmState->regFileLastTop = prevRegFileTop;
@@ -1269,12 +1301,23 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	}
 }
 
+void CallPtrWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
+{
+	CodeGenRegVmContext &ctx = *vmState->ctx;
+
+	if(functionId == 0)
+	{
+		ctx.x86rvm->Stop("ERROR: invalid function pointer");
+		longjmp(vmState->errorHandler, 1);
+	}
+
+	CallWrap(vmState, functionId);
+}
+
 unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos)
 {
 	// Push arguments
 	unsigned *microcode = ctx.exRegVmConstants + microcodePos;
-
-	// TODO: ERROR: call argument buffer overflow
 
 #if defined(_M_X64)
 	x86Reg rTempStack = rRBP;
@@ -1527,6 +1570,8 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
+	ctx.vmState->callPtrWrap = CallPtrWrap;
+
 	unsigned *microcode = GetCodeCmdCallPrologue(ctx, cmd.argument);
 
 	unsigned char resultReg = *microcode++ & 0xff;
@@ -1537,13 +1582,13 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rArg2, sDWORD, rREG, cmd.rC * 8); // Get function id
 	EMIT_REG_READ(ctx.ctx, rArg2);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callPtrWrap) - uintptr_t(ctx.vmState)));
 #else
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Get function id
 	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
-	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callWrap));
+	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callPtrWrap));
 	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
 #endif
 
@@ -1592,20 +1637,31 @@ void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, unsigned microcodePos)
 	}
 }
 
+void ErrorNoReturnWrap(CodeGenRegVmStateContext *vmState)
+{
+	CodeGenRegVmContext &ctx = *vmState->ctx;
+
+	vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
+	vmState->callStackTop++;
+
+	ctx.x86rvm->Stop("ERROR: function didn't return a value");
+	longjmp(vmState->errorHandler, 1);
+}
+
 void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->checkedReturnWrap = CheckedReturnWrap;
+	ctx.vmState->errorNoReturnWrap = ErrorNoReturnWrap;
 
 #if defined(_M_X64)
-	// TODO: ERROR: function didn't return a value
-
 	if(cmd.rB == rvrError)
 	{
-		EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
-		EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 32);
-		EMIT_OP(ctx.ctx, o_ret);
+		EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+		EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+		EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->errorNoReturnWrap) - uintptr_t(ctx.vmState)));
+
 		return;
 	}
 
@@ -1613,13 +1669,9 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	{
 		unsigned *microcode = ctx.exRegVmConstants + cmd.argument;
 
-		unsigned typeId = *microcode++;
-		unsigned typeSize = *microcode++;
-
-		(void)typeId;
-		(void)typeSize;
-
-		// TODO: ERROR: call return buffer overflow
+		// Skip type id and type size
+		microcode++;
+		microcode++;
 
 		x86Reg rTempStack = rRBP;
 
@@ -1686,12 +1738,11 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 32);
 	EMIT_OP(ctx.ctx, o_ret);
 #else
-	// TODO: ERROR: function didn't return a value
-
 	if(cmd.rB == rvrError)
 	{
-		EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
-		EMIT_OP(ctx.ctx, o_ret);
+		EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
+		EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+		EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->errorNoReturnWrap));
 		return;
 	}
 
@@ -1704,8 +1755,6 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 		(void)typeId;
 		(void)typeSize;
-
-		// TODO: ERROR: call return buffer overflow
 
 		unsigned tempStackPtrOffset = 0;
 
@@ -1883,16 +1932,22 @@ void GenCodeCmdDiv(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x64PowWrap(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	RegVmCmd cmd;
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].intValue = VmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
+
+	vmState->instWrapperActive = false;
 }
 
 void x86PowWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -1900,6 +1955,8 @@ void x86PowWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned 
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].intValue = VmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -2324,6 +2381,8 @@ void GenCodeCmdSubl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86MullWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -2331,6 +2390,8 @@ void x86MullWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue * *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdMull(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -2361,6 +2422,8 @@ void GenCodeCmdMull(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86DivlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -2368,6 +2431,8 @@ void x86DivlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue / *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdDivl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -2399,16 +2464,22 @@ void GenCodeCmdDivl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x64PowlWrap(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	RegVmCmd cmd;
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = VmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
+
+	vmState->instWrapperActive = false;
 }
 
 void x86PowlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -2416,6 +2487,8 @@ void x86PowlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = VmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -2447,6 +2520,8 @@ void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86ModlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -2454,6 +2529,8 @@ void x86ModlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue % *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdModl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -2671,6 +2748,8 @@ void GenCodeCmdNequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86ShllWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -2678,6 +2757,8 @@ void x86ShllWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue << *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdShll(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -2708,6 +2789,8 @@ void GenCodeCmdShll(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86ShrlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -2715,6 +2798,8 @@ void x86ShrlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue >> *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdShrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -3036,16 +3121,22 @@ void GenCodeCmdDivf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x64PowdWrap(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	RegVmCmd cmd;
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = pow(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
+
+	vmState->instWrapperActive = false;
 }
 
 void x86PowdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -3053,6 +3144,8 @@ void x86PowdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = pow(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -3084,16 +3177,22 @@ void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x64ModdWrap(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	RegVmCmd cmd;
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = fmod(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
+
+	vmState->instWrapperActive = false;
 }
 
 void x86ModdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
+	vmState->instWrapperActive = true;
+
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -3101,6 +3200,8 @@ void x86ModdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = fmod(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
+
+	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -3465,7 +3566,9 @@ void ConvertPtrWrap(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, un
 
 		char execError[REGVM_X86_ERROR_BUFFER_SIZE];
 		NULLC::SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &ctx.exSymbols[ctx.exTypes[sourceTypeId].offsetToName], &ctx.exSymbols[ctx.exTypes[targetTypeId].offsetToName]);
+
 		ctx.x86rvm->Stop(execError);
+		longjmp(vmState->errorHandler, 1);
 	}
 }
 

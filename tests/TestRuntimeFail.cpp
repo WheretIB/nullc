@@ -6,31 +6,31 @@ const char	*testDivZeroInt =
 "// Division by zero handling\r\n\
 int a = 5, b = 0;\r\n\
 return a/b;";
-TEST_RUNTIME_FAIL("Division by zero handling 1", testDivZeroInt, "ERROR: integer division by zero");
+TEST_RUNTIME_FAIL("Division by zero handling 1 [failure handling]", testDivZeroInt, "ERROR: integer division by zero");
 
 const char	*testDivZeroLong = 
 "// Division by zero handling\r\n\
 long a = 5, b = 0;\r\n\
 return a / b;";
-TEST_RUNTIME_FAIL("Division by zero handling 2", testDivZeroLong, "ERROR: integer division by zero");
+TEST_RUNTIME_FAIL("Division by zero handling 2 [failure handling]", testDivZeroLong, "ERROR: integer division by zero");
 
 const char	*testModZeroInt = 
 "// Division by zero handling\r\n\
 int a = 5, b = 0;\r\n\
 return a % b;";
-TEST_RUNTIME_FAIL("Modulus division by zero handling 1", testModZeroInt, "ERROR: integer division by zero");
+TEST_RUNTIME_FAIL("Modulus division by zero handling 1 [failure handling]", testModZeroInt, "ERROR: integer division by zero");
 
 const char	*testModZeroLong = 
 "// Division by zero handling\r\n\
 long a = 5, b = 0;\r\n\
 return a % b;";
-TEST_RUNTIME_FAIL("Modulus division by zero handling 2", testModZeroLong, "ERROR: integer division by zero");
+TEST_RUNTIME_FAIL("Modulus division by zero handling 2 [failure handling]", testModZeroLong, "ERROR: integer division by zero");
 
 const char	*testFuncNoReturn = 
 "// Function with no return handling\r\n\
 int test(){ if(0) return 2; } // temporary\r\n\
 return test();";
-TEST_RUNTIME_FAIL("Function with no return handling", testFuncNoReturn, "ERROR: function didn't return a value");
+TEST_RUNTIME_FAIL("Function with no return handling [failure handling]", testFuncNoReturn, "ERROR: function didn't return a value");
 
 const char	*testBounds1 = 
 "// Array out of bound check \r\n\
@@ -38,7 +38,7 @@ int[4] n;\r\n\
 int i = 4;\r\n\
 n[i] = 3;\r\n\
 return 1;";
-TEST_RUNTIME_FAIL("Array out of bounds error check 1", testBounds1, "ERROR: array index out of bounds");
+TEST_RUNTIME_FAIL("Array out of bounds error check 1 [failure handling]", testBounds1, "ERROR: array index out of bounds");
 
 const char	*testBounds2 = 
 "// Array out of bound check 2\r\n\
@@ -47,7 +47,7 @@ int[] nn = n;\r\n\
 int i = 4;\r\n\
 nn[i] = 3;\r\n\
 return 1;";
-TEST_RUNTIME_FAIL("Array out of bounds error check 2", testBounds2, "ERROR: array index out of bounds");
+TEST_RUNTIME_FAIL("Array out of bounds error check 2 [failure handling]", testBounds2, "ERROR: array index out of bounds");
 
 const char	*testBounds3 = 
 "// Array out of bound check 3\r\n\
@@ -60,26 +60,26 @@ x[1] = x1;\r\n\
 x[2] = x2;\r\n\
 int[][] xr = x;\r\n\
 return xr[1][3];";
-TEST_RUNTIME_FAIL("Array out of bounds error check 3", testBounds3, "ERROR: array index out of bounds");
+TEST_RUNTIME_FAIL("Array out of bounds error check 3 [failure handling]", testBounds3, "ERROR: array index out of bounds");
 
 const char	*testInvalidFuncPtr1 = 
 "int ref(int) a;\r\n\
 return a(5);";
-TEST_RUNTIME_FAIL("Invalid function pointer check 1", testInvalidFuncPtr1, "ERROR: invalid function pointer");
+TEST_RUNTIME_FAIL("Invalid function pointer check 1 [failure handling]", testInvalidFuncPtr1, "ERROR: invalid function pointer");
 
 const char	*testInvalidFuncPtr2 = 
 "int foo(){ return 2; } int x = 0; auto a = x ? foo : nullptr; return a();";
-TEST_RUNTIME_FAIL("Invalid function pointer check 2", testInvalidFuncPtr2, "ERROR: invalid function pointer");
+TEST_RUNTIME_FAIL("Invalid function pointer check 2 [failure handling]", testInvalidFuncPtr2, "ERROR: invalid function pointer");
 
 const char	*testAutoReferenceMismatch =
 "int a = 17;\r\n\
 auto ref d = &a;\r\n\
 double ref ll = d;\r\n\
 return *ll;";
-TEST_RUNTIME_FAIL("Auto reference type mismatch", testAutoReferenceMismatch, "ERROR: cannot convert from int ref to double ref");
+TEST_RUNTIME_FAIL("Auto reference type mismatch [failure handling]", testAutoReferenceMismatch, "ERROR: cannot convert from int ref to double ref");
 
 const char	*testFunctionIsNotACoroutine = "for(i in auto(){return 1;}){}";
-TEST_RUNTIME_FAIL("Iteration over a a function that is not a coroutine", testFunctionIsNotACoroutine, "ERROR: function is not a coroutine");
+TEST_RUNTIME_FAIL("Iteration over a a function that is not a coroutine [failure handling]", testFunctionIsNotACoroutine, "ERROR: function is not a coroutine");
 
 const char	*testTypeDoesntImplementMethod =
 "class Foo{ int i; }\r\n\
@@ -91,34 +91,34 @@ objs[1] = &test.i;\r\n\
 for(i in objs)\r\n\
 	i.test();\r\n\
 return 0;";
-TEST_RUNTIME_FAIL("Type doesn't implement method on auto ref function call", testTypeDoesntImplementMethod, "ERROR: type 'int' doesn't implement method 'int::test' of type 'void ref()'");
+TEST_RUNTIME_FAIL("Type doesn't implement method on auto ref function call [failure handling]", testTypeDoesntImplementMethod, "ERROR: type 'int' doesn't implement method 'int::test' of type 'void ref()'");
 
 const char	*testAutoArrayOutOfBounds = "auto str = \"Hello\"; auto[] arr = str; return char(arr[-1]) - 'l';";
-TEST_RUNTIME_FAIL("auto[] type underflow", testAutoArrayOutOfBounds, "ERROR: array index out of bounds");
+TEST_RUNTIME_FAIL("auto[] type underflow [failure handling]", testAutoArrayOutOfBounds, "ERROR: array index out of bounds");
 
 const char	*testAutoArrayOutOfBounds2 = "auto str = \"Hello\"; auto[] arr = str; return char(arr[7]) - 'l';";
-TEST_RUNTIME_FAIL("auto[] type overflow 2", testAutoArrayOutOfBounds2, "ERROR: array index out of bounds");
+TEST_RUNTIME_FAIL("auto[] type overflow 2 [failure handling]", testAutoArrayOutOfBounds2, "ERROR: array index out of bounds");
 
 const char	*testAutoArrayConversionFail3 = "auto str = \"Hello\"; auto[] arr = str; char[7] str2 = arr; return 0;";
-TEST_RUNTIME_FAIL("auto[] type conversion mismatch 2", testAutoArrayConversionFail3, "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'char[7]'");
+TEST_RUNTIME_FAIL("auto[] type conversion mismatch 2 [failure handling]", testAutoArrayConversionFail3, "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'char[7]'");
 
 const char	*testAutoArrayConversionFail4 = "auto str = \"Hello\"; auto[] arr = str; int[] str2 = arr; return 0;";
-TEST_RUNTIME_FAIL("auto[] type conversion mismatch 3", testAutoArrayConversionFail4, "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'int[]'");
+TEST_RUNTIME_FAIL("auto[] type conversion mismatch 3 [failure handling]", testAutoArrayConversionFail4, "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'int[]'");
 
 const char	*testAutoRefFail = "class X{} auto ref x = 5; X a = X(x); return 1;";
-TEST_RUNTIME_FAIL("Auto reference type mismatch 2", testAutoRefFail, "ERROR: cannot convert from int ref to X ref");
+TEST_RUNTIME_FAIL("Auto reference type mismatch 2 [failure handling]", testAutoRefFail, "ERROR: cannot convert from int ref to X ref");
 
 const char	*testInvalidPointer = 
 "class Test{ int a, b; }\r\n\
 Test ref x;\r\n\
 return x.b;";
-TEST_RUNTIME_FAIL("Invalid pointer check", testInvalidPointer, "ERROR: null pointer access");
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check [failure handling]", testInvalidPointer, "ERROR: null pointer access");
 
 const char	*testArrayAllocationFail = 
 "int[] f = new int[1024*1024*1024];\r\n\
 f[5] = 0;\r\n\
 return 0;";
-TEST_RUNTIME_FAIL("Array allocation failure", testArrayAllocationFail, "ERROR: can't allocate array with 1073741824 elements of size 4");
+TEST_RUNTIME_FAIL("Array allocation failure [failure handling]", testArrayAllocationFail, "ERROR: can't allocate array with 1073741824 elements of size 4");
 
 const char	*testBaseToDerivedFail1 =
 "class vec2 extendable{ float x, y; }\r\n\
@@ -127,7 +127,7 @@ class vec3 : vec2{ float z; }\r\n\
 vec2 ref x = new vec2;\r\n\
 vec3 ref y = x;\r\n\
 return 0;";
-TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure", testBaseToDerivedFail1, "ERROR: cannot convert from 'vec2' to 'vec3'");
+TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure [failure handling]", testBaseToDerivedFail1, "ERROR: cannot convert from 'vec2' to 'vec3'");
 
 const char	*testBaseToDerivedFail2 =
 "class vec2 extendable{ float x, y; }\r\n\
@@ -135,15 +135,15 @@ class vec3 : vec2{ float z; }\r\n\
 vec2 x;\r\n\
 int bar(vec3 ref x){ return x.z; }\r\n\
 return bar(&x);";
-TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure 2", testBaseToDerivedFail2, "ERROR: cannot convert from 'vec2' to 'vec3'");
+TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure 2 [failure handling]", testBaseToDerivedFail2, "ERROR: cannot convert from 'vec2' to 'vec3'");
 
 const char	*testAssertionFail1 =
 "assert(0, \"%s%s%s%s%s%s%s\");";
-TEST_RUNTIME_FAIL("Assertion fail correctly handles formatting string", testAssertionFail1, "%s%s%s%s%s%s%s");
+TEST_RUNTIME_FAIL("Assertion fail correctly handles formatting string [failure handling]", testAssertionFail1, "%s%s%s%s%s%s%s");
 
 const char	*testAssertionFail2 =
 "char[4] a = 'a'; char[1024] b = 'b'; assert(0, a);";
-TEST_RUNTIME_FAIL("Assertion fail correctly handles string length", testAssertionFail2, "aaaa");
+TEST_RUNTIME_FAIL("Assertion fail correctly handles string length [failure handling]", testAssertionFail2, "aaaa");
 
 void RecallerTransition(int x)
 {
@@ -239,6 +239,7 @@ struct Test_testDepthOverflow : TestQueue
 {
 	virtual void Run()
 	{
+		nullcClean();
 		nullcSetExecutorStackSize(32 * 1024);
 
 		if(Tests::messageVerbose)
@@ -253,7 +254,7 @@ struct Test_testDepthOverflow : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *expected = "ERROR: allocated stack overflow";
+				const char *expected = "ERROR: stack overflow";
 				char buf[512];
 
 				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
@@ -280,6 +281,7 @@ struct Test_testDepthOverflow : TestQueue
 			}
 		}
 
+		nullcClean();
 		nullcSetExecutorStackSize(Tests::testStackSize);
 	}
 };
@@ -300,12 +302,13 @@ double abs(double x)\r\n\
     return -x;\r\n\
   return x;\r\n\
 }\r\n\
-double[2700] res;\r\n\
+double[5400] res;\r\n\
 return clamp(abs(-1.5), 0.0, 1.0);";
 struct Test_testGlobalOverflow : TestQueue
 {
 	virtual void Run()
 	{
+		nullcClean();
 		nullcSetExecutorStackSize(32 * 1024);
 
 		if(Tests::messageVerbose)
@@ -347,6 +350,7 @@ struct Test_testGlobalOverflow : TestQueue
 			}
 		}
 
+		nullcClean();
 		nullcSetExecutorStackSize(Tests::testStackSize);
 	}
 };
@@ -365,7 +369,9 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 {
 	virtual void Run()
 	{
+		nullcClean();
 		nullcSetExecutorStackSize(1024 * 1024);
+
 		if(Tests::messageVerbose)
 			printf("Depth overflow in unmanaged memory\r\n");
 		if(Tests::testFailureExecutor[TEST_TYPE_X86])
@@ -377,7 +383,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *expected = "ERROR: failed to reserve new stack memory";
+				const char *expected = "ERROR: stack overflow";
 				char buf[512];
 
 				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
@@ -404,6 +410,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 			}
 		}
 
+		nullcClean();
 		nullcSetExecutorStackSize(Tests::testStackSize);
 	}
 };

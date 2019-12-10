@@ -92,22 +92,8 @@ typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
 
 namespace NULLC
 {
-	// Hidden pointer to the beginning of NULLC parameter stack, skipping DataStackHeader
-	uintptr_t paramDataBase;
-
-	// Binary code range in hidden pointers
-	uintptr_t binCodeStart;
-	uintptr_t binCodeEnd;
-
-	// Signal that call stack contains stack of execution that ended in SEH handler with a fatal exception
-	volatile bool abnormalTermination;
-
 	// Part of state that SEH handler saves for future use
 	unsigned int expCodePublic;
-	unsigned int expAllocCode;
-	uintptr_t expEAXstate;
-	uintptr_t expECXstate;
-	uintptr_t expESPstate;
 
 	ExecutorX86	*currExecutor = NULL;
 
@@ -129,21 +115,30 @@ namespace NULLC
 
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
-		// Check that exception happened in NULLC code (division by zero and int overflow still catched)
-		bool externalCode = expInfo->ContextRecord->RegisterIp < binCodeStart || expInfo->ContextRecord->RegisterIp > binCodeEnd;
-		bool managedMemoryEnd = expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase && expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->RegisterDi + paramDataBase + 64 * 1024;
+		uintptr_t address = uintptr_t(expInfo->ContextRecord->RegisterIp);
 
-		if(externalCode && (expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && !managedMemoryEnd)))
+		// Check that exception happened in NULLC code
+		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
+
+		for(unsigned i = 0; i < currExecutor->expiredCodeBlocks.size(); i++)
+		{
+			if(address >= uintptr_t(currExecutor->expiredCodeBlocks[i].code) && address <= uintptr_t(currExecutor->expiredCodeBlocks[i].code + currExecutor->expiredCodeBlocks[i].codeSize))
+			{
+				isInternal = true;
+				break;
+			}
+		}
+
+		if(currExecutor->vmState.instWrapperActive)
+			isInternal = true;
+
+		if(!isInternal)
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 
 		// Save part of state for later use
-		expEAXstate = expInfo->ContextRecord->RegisterAx;
-		expECXstate = expInfo->ContextRecord->RegisterCx;
-		expESPstate = expInfo->ContextRecord->RegisterSp;
 		expCodePublic = expCode;
-		expAllocCode = ~0u;
 
-		if(!externalCode && *(unsigned char*)(intptr_t)expInfo->ContextRecord->RegisterIp == 0xcc)
+		if(*(unsigned char*)(intptr_t)expInfo->ContextRecord->RegisterIp == 0xcc)
 		{
 			unsigned index = ~0u;
 			for(unsigned i = 0; i < currExecutor->breakInstructions.size() && index == ~0u; i++)
@@ -156,37 +151,20 @@ namespace NULLC
 				return EXCEPTION_CONTINUE_SEARCH;
 			//printf("Returning execution (%d)\n", currExecutor->breakInstructions[index].instIndex);
 
-			//??uintptr_t array[2] = { expInfo->ContextRecord->RegisterIp, 0 };
-			//??NULLC::dataHead->instructionPtr = (uintptr_t)&array[1];
+			currExecutor->vmState.callStackTop->instruction = currExecutor->breakInstructions[index].instIndex;
+			currExecutor->vmState.callStackTop++;
 
 			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakFunctionContext, currExecutor->breakInstructions[index].instIndex);
 			//printf("Returned command %d\n", command);
 			*currExecutor->instAddress[currExecutor->breakInstructions[index].instIndex] = currExecutor->breakInstructions[index].oldOpcode;
+
+			currExecutor->vmState.callStackTop--;
+
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
 		}
 
-		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
-		{
-			// Save address of access violation
-			if(expCode == EXCEPTION_ACCESS_VIOLATION)
-				expECXstate = (unsigned int)expInfo->ExceptionRecord->ExceptionInformation[1];
-
-			// Mark that execution terminated abnormally
-			NULLC::abnormalTermination = true;
-
-			return EXCEPTION_EXECUTE_HANDLER;
-		}
-
-		if(expCode == EXCEPTION_ACCESS_VIOLATION)
-		{
-			// If access violation is in some considerable boundaries out of parameter stack, extend it
-			if(managedMemoryEnd)
-			{
-				expAllocCode = 5;
-
-				return EXCEPTION_EXECUTE_HANDLER;
-			}
-		}
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
 
 		return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 	}
@@ -199,8 +177,6 @@ namespace NULLC
 #endif
 
 #define EXCEPTION_INT_DIVIDE_BY_ZERO 1
-#define EXCEPTION_ARRAY_OUT_OF_BOUNDS 2
-#define EXCEPTION_ALLOCATED_STACK_OVERFLOW 3
 #define EXCEPTION_INVALID_POINTER 4
 
 	sigjmp_buf errorHandler;
@@ -212,31 +188,38 @@ namespace NULLC
 
 	void HandleError(int signum, struct sigcontext ctx)
 	{
-		bool externalCode = ctx.RegisterIp < binCodeStart || ctx.RegisterIp > binCodeEnd;
+		uintptr_t address = uintptr_t(ctx.RegisterIp);
+
+		// Check that exception happened in NULLC code
+		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
+
+		for(unsigned i = 0; i < currExecutor->expiredCodeBlocks.size(); i++)
+		{
+			if(address >= uintptr_t(currExecutor->expiredCodeBlocks[i].code) && address <= uintptr_t(currExecutor->expiredCodeBlocks[i].code + currExecutor->expiredCodeBlocks[i].codeSize))
+			{
+				isInternal = true;
+				break;
+			}
+		}
+
+		if(!isInternal)
+		{
+			signal(signum, SIG_DFL);
+			raise(signum);
+		}
+
 		if(signum == SIGFPE)
 		{
 			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
-			siglongjmp(errorHandler, expCodePublic);
-		}
-		if(signum == SIGTRAP)
-		{
-			expCodePublic = EXCEPTION_ARRAY_OUT_OF_BOUNDS;
-			siglongjmp(errorHandler, expCodePublic);
-		}
-		if(signum == SIGSEGV)
-		{
-			/*if((void*)ctx.cr2 >= NULLC::stackBaseAddress && (void*)ctx.cr2 <= NULLC::stackEndAddress)
-			{
-				expCodePublic = EXCEPTION_ALLOCATED_STACK_OVERFLOW;
 
-				siglongjmp(errorHandler, expCodePublic);
-			}*/
-			if(!externalCode && ctx.cr2 < 0x00010000)
-			{
-				expCodePublic = EXCEPTION_INVALID_POINTER;
-				siglongjmp(errorHandler, expCodePublic);
-			}
+			siglongjmp(errorHandler, expCodePublic);
 		}
+		else if(signum == SIGSEGV && ctx.cr2 < 0x00010000)
+		{
+			expCodePublic = EXCEPTION_INVALID_POINTER;
+			siglongjmp(errorHandler, expCodePublic);
+		}
+
 		signal(signum, SIG_DFL);
 		raise(signum);
 	}
@@ -291,7 +274,6 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 	codeLaunchWin64UnwindTable = NULL;
 
 	binCode = NULL;
-	binCodeStart = 0;
 	binCodeSize = 0;
 	binCodeReserved = 0;
 
@@ -302,10 +284,6 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 	oldCodeBodyProtect = 0;
 
 	NULLC::currExecutor = this;
-
-#ifdef __linux
-	//SetLongJmpTarget(NULLC::errorHandler);
-#endif
 }
 
 ExecutorX86::~ExecutorX86()
@@ -598,16 +576,16 @@ bool ExecutorX86::Initialize()
 
 	if(!vmState.callStackBase)
 	{
-		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
-		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
-		vmState.callStackEnd = vmState.callStackBase + 1024 * 8;
+		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
+		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
+		vmState.callStackEnd = vmState.callStackBase + 1024 * 2;
 	}
 
 	if(!vmState.tempStackArrayBase)
 	{
-		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
-		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
-		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 32;
+		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 16);
+		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
+		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 16;
 	}
 
 	if(!vmState.dataStackBase)
@@ -644,6 +622,12 @@ bool ExecutorX86::InitExecution()
 	CommonSetLinker(exLinker);
 
 	vmState.dataStackTop = vmState.dataStackBase + ((exLinker->globalVarSize + 0xf) & ~0xf);
+
+	if(vmState.dataStackTop >= vmState.dataStackEnd)
+	{
+		strcpy(execError, "ERROR: allocated stack overflow");
+		return false;
+	}
 
 	SetUnmanagableRange(vmState.dataStackBase, unsigned(vmState.dataStackEnd - vmState.dataStackBase));
 
@@ -835,13 +819,12 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	if(instructionPos != ~0u)
 	{
-		NULLC::abnormalTermination = false;
-
 #ifdef __linux
 		struct sigaction sa;
 		struct sigaction sigFPE;
 		struct sigaction sigTRAP;
 		struct sigaction sigSEGV;
+
 		if(firstRun)
 		{
 			sa.sa_handler = (void (*)(int))NULLC::HandleError;
@@ -852,55 +835,40 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			sigaction(SIGTRAP, &sa, &sigTRAP);
 			sigaction(SIGSEGV, &sa, &sigSEGV);
 		}
+
 		int errorCode = 0;
 
 		NULLC::JmpBufData data;
 		memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
+
 		if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
 		{
 			unsigned char *codeStart = instAddress[instructionPos];
 
-			typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
-			nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
-			resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
+			jmp_buf prevErrorHandler;
+			memcpy(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
+
+			if(!setjmp(vmState.errorHandler))
+			{
+				typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+				nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
+				resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
+			}
+			else
+			{
+				resultType = rvrError;
+			}
+
+			memcpy(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		}
 		else
 		{
 			if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
 				strcpy(execError, "ERROR: integer division by zero");
-			//else if(errorCode == EXCEPTION_FUNCTION_NO_RETURN)
-			//	strcpy(execError, "ERROR: function didn't return a value");
-			else if(errorCode == EXCEPTION_ARRAY_OUT_OF_BOUNDS)
-				strcpy(execError, "ERROR: array index out of bounds");
-			//else if(errorCode == EXCEPTION_INVALID_FUNCTION)
-			//	strcpy(execError, "ERROR: invalid function pointer");
-			/*else if((errorCode & 0xff) == EXCEPTION_CONVERSION_ERROR)
-				NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
-					&exLinker->exSymbols[exLinker->exTypes[NULLC::dataHead->unused1].offsetToName],
-					&exLinker->exSymbols[exLinker->exTypes[errorCode >> 8].offsetToName]);*/
-			else if(errorCode == EXCEPTION_ALLOCATED_STACK_OVERFLOW)
-				strcpy(execError, "ERROR: allocated stack overflow");
 			else if(errorCode == EXCEPTION_INVALID_POINTER)
 				strcpy(execError, "ERROR: null pointer access");
-			//else if(errorCode == EXCEPTION_FAILED_TO_RESERVE)
-			//	strcpy(execError, "ERROR: failed to reserve new stack memory");
-
-			/*if(!NULLC::abnormalTermination && NULLC::dataHead->instructionPtr)
-			{
-				// Create call stack
-				unsigned int *paramData = &NULLC::dataHead->nextElement;
-				int count = 0;
-				while((unsigned)count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
-				{
-					NULLC::stackTrace[count++] = unsigned(paramData[-1]);
-					paramData = (unsigned int*)(long long)(*paramData);
-				}
-				NULLC::stackTrace[count] = 0;
-				NULLC::dataHead->nextElement = 0;
-			}
-			NULLC::dataHead->instructionPtr = 0;*/
-			NULLC::abnormalTermination = true;
 		}
+
 		// Disable signal handlers only from top-level Run
 		if(lastFinalReturn == 0)
 		{
@@ -915,62 +883,32 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		{
 			unsigned char *codeStart = instAddress[instructionPos];
 
-			typedef	uintptr_t (*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
-			nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
-			resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
+			jmp_buf prevErrorHandler;
+			memcpy(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
+
+			if(!setjmp(vmState.errorHandler))
+			{
+				typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+				nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
+				resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
+			}
+			else
+			{
+				resultType = rvrError;
+			}
+
+			memcpy(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		}
 		__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation()))
 		{
 			if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
-			{
 				strcpy(execError, "ERROR: integer division by zero");
-			}
 			else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW)
-			{
 				strcpy(execError, "ERROR: integer overflow");
-			}
-			else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0)
-			{
-				strcpy(execError, "ERROR: array index out of bounds");
-			}
-			else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xFFFFFFFF)
-			{
-				strcpy(execError, "ERROR: function didn't return a value");
-			}
-			else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xDEADBEEF)
-			{
-				strcpy(execError, "ERROR: invalid function pointer");
-			}
-			else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate)
-			{
-				NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
-					NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[unsigned(NULLC::expEAXstate)].offsetToName],
-					NULLC::expECXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[unsigned(NULLC::expECXstate)].offsetToName]);
-			}
-			else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW)
-			{
-#ifndef __DMC__
-				// Restore stack guard
-				_resetstkoflw();
-#endif
-
-				strcpy(execError, "ERROR: stack overflow");
-			}
 			else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION)
-			{
-				if(NULLC::expAllocCode == 1)
-					strcpy(execError, "ERROR: failed to commit old stack memory");
-				else if(NULLC::expAllocCode == 2)
-					strcpy(execError, "ERROR: failed to reserve new stack memory");
-				else if(NULLC::expAllocCode == 3)
-					strcpy(execError, "ERROR: failed to commit new stack memory");
-				else if(NULLC::expAllocCode == 4)
-					strcpy(execError, "ERROR: no more memory (512Mb maximum exceeded)");
-				else if(NULLC::expAllocCode == 5)
-					strcpy(execError, "ERROR: allocated stack overflow");
-				else
-					strcpy(execError, "ERROR: null pointer access");
-			}
+				strcpy(execError, "ERROR: null pointer access");
+
+			resultType = rvrError;
 		}
 #endif
 	}
@@ -1450,13 +1388,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		}
 
 		for(unsigned i = 0; i < instAddress.size(); i++)
-			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + uintptr_t(binCodeNew);
+			instAddress[i] = (instAddress[i] - binCode) + binCodeNew;
 		binCode = binCodeNew;
-		binCodeStart = uintptr_t(binCode);
 	}
-
-	NULLC::binCodeStart = binCodeStart;
-	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
 
 	// Translate to x86
 	unsigned char *code = binCode + binCodeSize;
