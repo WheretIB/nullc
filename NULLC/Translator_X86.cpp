@@ -3602,6 +3602,8 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 {
 	(void)codeLaunchHeader;
 
+	// clang takes an extreemely long time to optimize this function
+#if !defined(NDEBUG)
 	unsigned bufSize = 2048 * 1024;
 	unsigned char *buf = new unsigned char[bufSize];
 
@@ -3835,4 +3837,5 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	typedef	uintptr_t(*nullcFunc)(unsigned char *codeStart, uintptr_t *regFilePtr);
 	nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
 	gate(buf, regFilePtr);*/
+#endif
 }
