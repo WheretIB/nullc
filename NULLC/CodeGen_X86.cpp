@@ -357,17 +357,20 @@ x86XmmReg CodeGenGenericContext::GetXmmReg()
 	// Simple rotation
 	x86XmmReg res = currFreeXmmReg;
 
-#if defined(_M_X64)
-	if(currFreeXmmReg == rXMM15)
-		currFreeXmmReg = rXMM0;
-	else
-		currFreeXmmReg = x86XmmReg(currFreeXmmReg + 1);
+#if defined(_MSC_VER) && defined(_M_X64)
+	x86XmmReg lastXmmReg = rXMM5; // Less volatile registers than on x86
+#elif defined(_MSC_VER)
+	x86XmmReg lastXmmReg = rXMM7;
+#elif defined(_M_X64)
+	x86XmmReg lastXmmReg = rXMM15;
 #else
-	if(currFreeXmmReg == rXMM7)
+	x86XmmReg lastXmmReg = rXMM7;
+#endif
+
+	if(currFreeXmmReg == lastXmmReg)
 		currFreeXmmReg = rXMM0;
 	else
 		currFreeXmmReg = x86XmmReg(currFreeXmmReg + 1);
-#endif
 
 	return res;
 }
