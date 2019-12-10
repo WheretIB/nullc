@@ -29,6 +29,7 @@ struct CodeGenRegVmStateContext
 		convertPtrWrap = NULL;
 
 		errorOutOfBoundsWrap = NULL;
+		errorNoReturnWrap = NULL;
 
 		dataStackBase = NULL;
 		dataStackTop = NULL;
