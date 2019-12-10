@@ -32,18 +32,6 @@ namespace
 		memcpy(target, &value, sizeof(long long));
 	}
 
-	double vmLoadDouble(void* target)
-	{
-		double value;
-		memcpy(&value, target, sizeof(double));
-		return value;
-	}
-
-	void vmStoreDouble(void* target, double value)
-	{
-		memcpy(target, &value, sizeof(double));
-	}
-
 	char* vmLoadPointer(void* target)
 	{
 		char* value;
@@ -1556,7 +1544,9 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 		unsigned *microcode = exLinker->exRegVmConstants.data + cmd.argument;
 
 		unsigned typeId = *microcode++;
-		unsigned typeSize = *microcode++;
+
+		// Skip type size
+		microcode++;
 
 		while(*microcode != rvmiReturn)
 		{
