@@ -180,9 +180,13 @@ namespace NULLC
 		char data[sizeof(sigjmp_buf)];
 	};
 
-	void HandleError(int signum, siginfo_t *info, void*)
+	void HandleError(int signum, siginfo_t *info, void *ucontext)
 	{
-		uintptr_t address = uintptr_t(info->si_addr);
+#if defined(_M_X64)
+		uintptr_t address = uintptr_t(((ucontext_t*)ucontext)->uc_mcontext.gregs[REG_RIP]);
+#else
+		uintptr_t address = uintptr_t(((ucontext_t*)ucontext->uc_mcontext.gregs[REG_EIP]);
+#endif
 
 		// Check that exception happened in NULLC code
 		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
@@ -211,7 +215,7 @@ namespace NULLC
 			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
 			siglongjmp(errorHandler, expCodePublic);
 		}
-		else if(signum == SIGSEGV && uintptr_t(info->si_lower) < 0x00010000)
+		else if(signum == SIGSEGV && uintptr_t(info->si_addr) < 0x00010000)
 		{
 			expCodePublic = EXCEPTION_INVALID_POINTER;
 			siglongjmp(errorHandler, expCodePublic);
