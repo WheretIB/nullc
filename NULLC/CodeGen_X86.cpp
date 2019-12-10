@@ -379,6 +379,7 @@ void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text)
 	ctx.x86Op->comment = text;
 	ctx.x86Op++;
 #else
+	(void)ctx;
 	(void)text;
 #endif
 }

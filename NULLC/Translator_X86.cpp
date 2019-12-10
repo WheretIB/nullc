@@ -283,6 +283,7 @@ int x86MOVSS(unsigned char *stream, x86Size size, x86Reg index, int multiplier, 
 	unsigned char *start = stream;
 
 	assert(size == sDWORD);
+	(void)size;
 
 	*stream++ = 0xf3;
 	stream += encodeRex(stream, false, src, index, base);
@@ -299,6 +300,7 @@ int x86MOVSD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, 
 	unsigned char *start = stream;
 
 	assert(size == sQWORD);
+	(void)size;
 
 	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, src, index, base);
@@ -315,6 +317,7 @@ int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, i
 	unsigned char *start = stream;
 
 	assert(size == sQWORD);
+	(void)size;
 
 	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, dst, index, base);
@@ -373,6 +376,7 @@ int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index
 	unsigned char *start = stream;
 
 	assert(size == sDWORD);
+	(void)size;
 
 	*stream++ = 0xf3;
 	stream += encodeRex(stream, false, dst, index, base);
@@ -389,6 +393,7 @@ int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index
 	unsigned char *start = stream;
 
 	assert(size == sQWORD);
+	(void)size;
 
 	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, dst, index, base);
@@ -405,6 +410,7 @@ int x86CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, 
 	unsigned char *start = stream;
 
 	assert(size == sQWORD);
+	(void)size;
 
 	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, dst, index, base);
@@ -421,6 +427,7 @@ int x64CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, 
 	unsigned char *start = stream;
 
 	assert(size == sQWORD);
+	(void)size;
 
 	*stream++ = 0xf2;
 	stream += encodeRex(stream, true, dst, index, base);
@@ -561,6 +568,7 @@ int x86PUSH(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x
 	unsigned char *start = stream;
 
 	assert(size == sDWORD || size == sQWORD);
+	(void)size;
 
 	if(base == rNONE && index != rNONE && multiplier == 1)	// swap so if there is only one register, it will be base
 	{
@@ -609,6 +617,7 @@ int x86POP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	unsigned char *start = stream;
 
 	assert(size == sDWORD || size == sQWORD);
+	(void)size;
 
 	if(base == rNONE && index != rNONE && multiplier == 1)	// swap so if there is only one register, it will be base
 	{
@@ -703,7 +712,6 @@ int x86MOV(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int mu
 {
 	unsigned char *start = stream;
 
-	(void)size;
 	assert(size == sDWORD || size == sQWORD);
 
 	stream += encodeRex(stream, size == sQWORD, dst, index, base);
@@ -863,8 +871,6 @@ int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift)
 // lea dst, [index*multiplier+base+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
-	(void)size;
-
 	unsigned char *start = stream;
 
 	stream += encodeRex(stream, size == sQWORD, dst, index, base);
@@ -3097,6 +3103,7 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 		}
 
 		assert(code < codeEnd);
+		(void)codeEnd;
 
 		curr++;
 	}
@@ -3816,6 +3823,8 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	unsigned char *stream2 = x86TranslateInstructionList(buf2, buf2 + bufSize, instList, instCount, NULL);
 
 	assert(unsigned(stream2 - buf2) == unsigned(stream - buf));
+	(void)stream2;
+
 	assert(memcmp(buf, buf2, unsigned(stream - buf)) == 0);
 
 	/*DWORD oldProtect;
