@@ -1537,7 +1537,7 @@ void ExecutorX86::SaveListing(OutputContext &output)
 
 			output.Printf("; %4d: ", instList[i].instID - 1);
 
-			PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+			PrintInstruction(output, (char*)exRegVmConstants.data, exFunctions.data, exLinker->exSymbols.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
 
 			output.Print('\n');
 		}

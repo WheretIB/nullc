@@ -982,7 +982,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 			}
 		}
 
-		PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+		PrintInstruction(output, (char*)exRegVmConstants.data, exFunctions.data, exSymbols.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
 
 		if(cmd.code == rviCall || cmd.code == rviFuncAddr)
 			output.Printf(" (%s)", exSymbols.data + exFunctions[exRegVmCode[i].argument].offsetToName);
