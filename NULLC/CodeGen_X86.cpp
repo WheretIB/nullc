@@ -352,6 +352,21 @@ x86XmmReg CodeGenGenericContext::RedirectRegister(x86XmmReg reg)
 	return reg;
 }
 
+x86Reg CodeGenGenericContext::GetReg()
+{
+	static x86Reg regs[] = { rRAX, rRDX, rEDI, rESI, rR8, rR9, rR10, rR11 };
+
+	// Simple rotation
+	x86Reg res = regs[currFreeReg];
+
+	if(res == rR11)
+		currFreeReg = 0;
+	else
+		currFreeReg += 1;
+
+	return res;
+}
+
 x86XmmReg CodeGenGenericContext::GetXmmReg()
 {
 	// Simple rotation

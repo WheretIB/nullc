@@ -1841,13 +1841,16 @@ void GenCodeCmdAdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
+	x86Reg rhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_add, rEAX, rEDX);
+	GenCodeLoadInt32FromPointer(ctx, rhsReg, rhsReg, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_add, lhsReg, rhsReg);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -1864,13 +1867,16 @@ void GenCodeCmdSub(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
+	x86Reg rhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_sub, rEAX, rEDX);
+	GenCodeLoadInt32FromPointer(ctx, rhsReg, rhsReg, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_sub, lhsReg, rhsReg);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -1887,13 +1893,16 @@ void GenCodeCmdMul(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
+	x86Reg rhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_imul, rEAX, rEDX);
+	GenCodeLoadInt32FromPointer(ctx, rhsReg, rhsReg, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_imul, lhsReg, rhsReg);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2178,13 +2187,15 @@ void GenCodeCmdShl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rECX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_sal, rEAX, rECX);
+	GenCodeLoadInt32FromPointer(ctx, rRCX, rECX, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_sal, lhsReg, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2201,13 +2212,15 @@ void GenCodeCmdShr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rECX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_sar, rEAX, rECX);
+	GenCodeLoadInt32FromPointer(ctx, rRCX, rECX, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_sar, lhsReg, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2224,13 +2237,16 @@ void GenCodeCmdBitAnd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
+	x86Reg rhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_and, rEAX, rEDX);
+	GenCodeLoadInt32FromPointer(ctx, rhsReg, rhsReg, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_and, lhsReg, rhsReg);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2247,13 +2263,16 @@ void GenCodeCmdBitOr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
+	x86Reg rhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_or, rEAX, rEDX);
+	GenCodeLoadInt32FromPointer(ctx, rhsReg, rhsReg, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_or, lhsReg, rhsReg);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2270,13 +2289,16 @@ void GenCodeCmdBitXor(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	x86Reg lhsReg = ctx.ctx.GetReg();
+	x86Reg rhsReg = ctx.ctx.GetReg();
 
-	GenCodeLoadInt32FromPointer(ctx, rRDX, rEDX, cmd.rC, cmd.argument);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
-	EMIT_OP_REG_REG(ctx.ctx, o_xor, rEAX, rEDX);
+	GenCodeLoadInt32FromPointer(ctx, rhsReg, rhsReg, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, lhsReg, rhsReg);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 

@@ -28,6 +28,7 @@ struct CodeGenGenericContext
 
 		optimizationCount = 0;
 
+		currFreeReg = 0;
 		currFreeXmmReg = rXMM0;
 	}
 
@@ -71,6 +72,7 @@ struct CodeGenGenericContext
 	x86Reg RedirectRegister(x86Reg reg);
 	x86XmmReg RedirectRegister(x86XmmReg reg);
 
+	x86Reg GetReg();
 	x86XmmReg GetXmmReg();
 
 	x86Instruction *x86Op;
@@ -102,6 +104,7 @@ struct CodeGenGenericContext
 
 	unsigned optimizationCount;
 
+	unsigned currFreeReg;
 	x86XmmReg currFreeXmmReg;
 };
 
