@@ -1039,9 +1039,22 @@ void GenCodeCmdGetAddr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRAX, cmd.argument); // Add offset
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	if(cmd.rC == rvrrFrame)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rR15, cmd.argument); // Add offset
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	}
+	else if(cmd.rC == rvrrConstants)
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rR14, cmd.argument); // Add offset
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+		EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRAX, cmd.argument); // Add offset
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	}
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_NUM(ctx.ctx, o_add, rEAX, cmd.argument); // Add offset
