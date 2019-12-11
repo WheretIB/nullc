@@ -1527,8 +1527,27 @@ void ExecutorX86::SaveListing(OutputContext &output)
 	{
 		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 		{
+			const char *functionName = NULL;
+			unsigned functionId = 0;
+
+			for(unsigned k = 0, e = exLinker->exFunctions.size(); k != e; k++)
+			{
+				ExternFuncInfo &funcInfo = exLinker->exFunctions[k];
+
+				if(funcInfo.regVmAddress == instList[i].instID - 1)
+				{
+					functionName = funcInfo.offsetToName + exLinker->exSymbols.data;
+					functionId = k;
+					break;
+				}
+			}
+
 			output.Print("; ------------------- Invalidation ----------------\n");
-			output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
+
+			if(functionName)
+				output.Printf("0x%x: ; %4d // %s#%d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1, functionName, functionId);
+			else
+				output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
 		}
 
 		if(instList[i].instID && instList[i].instID - 1 < exRegVmCode.size())
