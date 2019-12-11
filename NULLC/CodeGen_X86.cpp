@@ -682,9 +682,13 @@ void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Re
 		ctx.ReadRegister(rEDX);
 		break;
 	case o_call:
-		ctx.KillUnreadRegisters();
+		if(!ctx.skipInvalidate)
+		{
+			ctx.KillUnreadRegisters();
 
-		ctx.InvalidateState();
+			ctx.InvalidateState();
+		}
+		ctx.skipInvalidate = false;
 		break;
 	default:
 		assert(!"unknown instruction");

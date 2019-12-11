@@ -30,6 +30,8 @@ struct CodeGenGenericContext
 
 		currFreeReg = 0;
 		currFreeXmmReg = rXMM0;
+
+		skipInvalidate = false;
 	}
 
 	void SetLastInstruction(x86Instruction *pos, x86Instruction *base)
@@ -106,6 +108,8 @@ struct CodeGenGenericContext
 
 	unsigned currFreeReg;
 	x86XmmReg currFreeXmmReg;
+
+	bool skipInvalidate;
 };
 
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text);
