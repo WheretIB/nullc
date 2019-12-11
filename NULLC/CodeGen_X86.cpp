@@ -831,14 +831,28 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		break;
 	case o_cmp:
 	case o_cmp64:
-		// TODO: compare directly with memory, compare with immediate (x86)
-
+		reg1 = ctx.RedirectRegister(reg1);
 		reg2 = ctx.RedirectRegister(reg2);
+
+		// Load source directly from memory
+		if(ctx.genReg[reg2].type == x86Argument::argNumber)
+		{
+			EMIT_OP_REG_NUM(ctx, op, reg1, ctx.genReg[reg2].num);
+			return;
+		}
+
+		// Load source directly from memory
+		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == (op == o_cmp ? sDWORD : sQWORD))
+		{
+			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
+			return;
+		}
 
 		ctx.ReadRegister(reg1);
 		ctx.ReadRegister(reg2);
 		break;
 	case o_test:
+		reg1 = ctx.RedirectRegister(reg1);
 		reg2 = ctx.RedirectRegister(reg2);
 
 		ctx.ReadRegister(reg1);
