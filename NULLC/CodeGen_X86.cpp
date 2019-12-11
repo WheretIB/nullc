@@ -819,6 +819,8 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		}
 		else
 		{
+			reg2 = ctx.RedirectRegister(reg2);
+
 			ctx.ReadRegister(reg2);
 			ctx.ReadAndModifyRegister(reg1);
 		}
