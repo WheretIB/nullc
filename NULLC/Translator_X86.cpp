@@ -370,6 +370,20 @@ int x86MOVSXD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int
 	return int(stream - start);
 }
 
+// cvtss2sd xmm*, xmm*
+int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x5A;
+	*stream++ = encodeRegister(src, dst);
+
+	return int(stream - start);
+}
+
 // cvtss2sd xmm*, dword [index*mult+base+shift]
 int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -383,6 +397,20 @@ int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index
 	*stream++ = 0x0f;
 	*stream++ = 0x5A;
 	stream += encodeAddress(stream, index, multiplier, base, shift, (char)dst);
+
+	return int(stream - start);
+}
+
+// cvtsd2ss xmm*, xmm*
+int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x5A;
+	*stream++ = encodeRegister(src, dst);
 
 	return int(stream - start);
 }
@@ -2816,13 +2844,29 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			break;
 		case o_cvtss2sd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
-			assert(cmd.argB.type == x86Argument::argPtr);
-			code += x86CVTSS2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+
+			if(cmd.argB.type == x86Argument::argXmmReg)
+			{
+				code += x86CVTSS2SD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argPtr);
+				code += x86CVTSS2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
 			break;
 		case o_cvtsd2ss:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
-			assert(cmd.argB.type == x86Argument::argPtr);
-			code += x86CVTSD2SS(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+
+			if(cmd.argB.type == x86Argument::argXmmReg)
+			{
+				code += x86CVTSD2SS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argPtr);
+				code += x86CVTSD2SS(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
 			break;
 		case o_cvttsd2si:
 			assert(cmd.argA.type == x86Argument::argReg);

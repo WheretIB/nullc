@@ -1117,6 +1117,14 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 
 		ctx.OverwriteRegisterWithValue(reg1, x86Argument(reg2));
 		break;
+	case o_cvtss2sd:
+	case o_cvtsd2ss:
+		reg2 = ctx.RedirectRegister(reg2);
+
+		ctx.ReadRegister(reg2);
+
+		ctx.OverwriteRegisterWithUnknown(reg1);
+		break;
 	case o_addsd:
 	case o_subsd:
 	case o_mulsd:
@@ -1304,6 +1312,18 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 	{
 	case o_cvtss2sd:
 	case o_cvtsd2ss:
+		if(unsigned memIndex = ctx.MemFind(newArg))
+		{
+			memIndex--;
+
+			if(ctx.memCache[memIndex].value.type == x86Argument::argXmmReg)
+			{
+				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.xmmArg);
+				ctx.MemUpdate(memIndex);
+				return;
+			}
+		}
+
 		// Register reads
 		ctx.ReadRegister(base);
 		ctx.ReadRegister(index);

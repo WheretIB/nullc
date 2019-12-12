@@ -24,8 +24,14 @@ int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src);
 // movsxd reg, dword [index*mult+base+shift]
 int x86MOVSXD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
+// cvtss2sd xmm*, xmm*
+int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+
 // cvtss2sd xmm*, dword [index*mult+base+shift]
 int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+
+// cvtsd2ss xmm*, xmm*
+int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
 // cvtsd2ss xmm*, qword [index*mult+base+shift]
 int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
