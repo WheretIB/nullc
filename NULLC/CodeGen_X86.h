@@ -46,6 +46,7 @@ struct CodeGenGenericContext
 	}
 
 	unsigned MemFind(const x86Argument &address);
+	unsigned MemIntersectFind(const x86Argument &address);
 
 	void MemRead(const x86Argument &address);
 	void MemWrite(const x86Argument &address, const x86Argument &value);

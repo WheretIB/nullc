@@ -13,13 +13,23 @@ unsigned CodeGenGenericContext::MemFind(const x86Argument &address)
 	{
 		MemCache &entry = memCache[i];
 
-		if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone &&
-			entry.address.ptrSize == address.ptrSize && entry.address.ptrNum == address.ptrNum &&
-			entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex)
-		{
+		if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone && entry.address.ptrSize == address.ptrSize && entry.address.ptrNum == address.ptrNum && entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex)
 			return i + 1;
-		}
 	}
+
+	return 0;
+}
+
+unsigned CodeGenGenericContext::MemIntersectFind(const x86Argument &address)
+{
+	for(unsigned i = 0; i < memoryStateSize; i++)
+	{
+		MemCache &entry = memCache[i];
+
+		if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone && address.ptrSize >= entry.address.ptrSize && entry.address.ptrNum == address.ptrNum && entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex)
+			return i + 1;
+	}
+
 	return 0;
 }
 
@@ -1380,7 +1390,7 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 		if(ctx.genReg[reg2].type == x86Argument::argNone || ctx.genReg[reg2].type == x86Argument::argPtr)
 			ctx.genReg[reg2] = arg;
 
-		if(unsigned memIndex = ctx.MemFind(arg))
+		if(unsigned memIndex = ctx.MemIntersectFind(arg))
 		{
 			memIndex--;
 
@@ -1468,7 +1478,7 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 		if(ctx.xmmReg[reg2].type == x86Argument::argNone || ctx.xmmReg[reg2].type == x86Argument::argPtr)
 			ctx.xmmReg[reg2] = arg;
 
-		if(unsigned memIndex = ctx.MemFind(arg))
+		if(unsigned memIndex = ctx.MemIntersectFind(arg))
 		{
 			memIndex--;
 
@@ -1550,7 +1560,7 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 
 		ctx.InvalidateAddressValue(arg);
 
-		if(unsigned memIndex = ctx.MemFind(arg))
+		if(unsigned memIndex = ctx.MemIntersectFind(arg))
 		{
 			memIndex--;
 
