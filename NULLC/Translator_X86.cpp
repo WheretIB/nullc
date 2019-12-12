@@ -1,5 +1,12 @@
 #include "Translator_X86.h"
 
+#ifndef __linux
+
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+#endif
+
 #include "CodeGen_X86.h"
 #include "CodeGenRegVm_X86.h"
 #include "Output.h"
@@ -3635,6 +3642,22 @@ int TestRegXmmEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Com
 	return int(stream - start);
 }
 
+int TestXmmRegEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86XmmReg dst, x86Reg src))
+{
+	unsigned char *start = stream;
+
+	for(unsigned xmm = 0; xmm < sizeof(testXmmRegs) / sizeof(testXmmRegs[0]); xmm++)
+	{
+		for(unsigned reg = 0; reg < sizeof(testRegs) / sizeof(testRegs[0]); reg++)
+		{
+			EMIT_OP_REG_REG(ctx, op, testXmmRegs[xmm], testRegs[reg]);
+			stream += fun(stream, testXmmRegs[xmm], testRegs[reg]);
+		}
+	}
+
+	return int(stream - start);
+}
+
 int TestRptrXmmEncoding(CodeGenGenericContext &ctx, unsigned char *stream, x86Command op, int (*fun)(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86XmmReg src), unsigned testSize = testSizeDword | testSizeQword)
 {
 	unsigned char *start = stream;
@@ -3790,14 +3813,17 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	stream += TestRegRptrEncoding(ctx, stream, o_movsxd, x86MOVSXD, testSizeDword);
 
 	stream += TestXmmRptrEncoding(ctx, stream, o_cvtss2sd, x86CVTSS2SD, testSizeDword);
+	stream += TestXmmXmmEncoding(ctx, stream, o_cvtss2sd, x86CVTSS2SD);
 
 	stream += TestXmmRptrEncoding(ctx, stream, o_cvtsd2ss, x86CVTSD2SS, testSizeQword);
+	stream += TestXmmXmmEncoding(ctx, stream, o_cvtsd2ss, x86CVTSD2SS);
 
 	stream += TestRegRptrEncoding(ctx, stream, o_cvttsd2si, x86CVTTSD2SI, testSizeQword);
 
 	stream += TestRegRptrEncoding(ctx, stream, o_cvttsd2si64, x64CVTTSD2SI, testSizeQword);
 
 	stream += TestXmmRptrEncoding(ctx, stream, o_cvtsi2sd, x86CVTSI2SD, testSizeDword);
+	stream += TestXmmRegEncoding(ctx, stream, o_cvtsi2sd, x86CVTSI2SD);
 
 	stream += TestXmmXmmEncoding(ctx, stream, o_addsd, x86ADDSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_subsd, x86SUBSD);
@@ -3897,12 +3923,16 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	stream += TestRptrNumEncoding(ctx, stream, o_shl, x86SHL, testSizeDword);
 
 	stream += TestRegEncoding(ctx, stream, o_sal, x86SAL);
+	stream += TestRegNumEncoding(ctx, stream, o_sal, x86SAL, true);
 
 	stream += TestRegEncoding(ctx, stream, o_sal64, x64SAL);
+	stream += TestRegNumEncoding(ctx, stream, o_sal64, x64SAL, true);
 
 	stream += TestRegEncoding(ctx, stream, o_sar, x86SAR);
+	stream += TestRegNumEncoding(ctx, stream, o_sar, x86SAR, true);
 
 	stream += TestRegEncoding(ctx, stream, o_sar64, x64SAR);
+	stream += TestRegNumEncoding(ctx, stream, o_sar64, x64SAR, true);
 
 	stream += TestRptrEncoding(ctx, stream, o_not, x86NOT, testSizeDword);
 	stream += TestRegEncoding(ctx, stream, o_not, x86NOT);
