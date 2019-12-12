@@ -146,6 +146,7 @@ void CodeGenGenericContext::InvalidateState()
 #endif
 
 	currFreeXmmReg = rXMM0;
+	currFreeReg = 0;
 }
 
 void CodeGenGenericContext::InvalidateDependand(x86Reg dreg)
@@ -378,6 +379,12 @@ void CodeGenGenericContext::ReadAndModifyRegister(x86XmmReg reg)
 
 void CodeGenGenericContext::RedirectAddressComputation(x86Reg &index, int &multiplier, x86Reg &base, unsigned &shift)
 {
+	// If selected index register contains the value of another register, use it instead
+	if(genReg[index].type == x86Argument::argReg)
+	{
+		index = genReg[index].reg;
+	}
+
 	// If selected base register contains the value of another register, use it instead
 	if(genReg[base].type == x86Argument::argReg)
 	{
@@ -1254,6 +1261,8 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
+	ctx.RedirectAddressComputation(index, multiplier, base, shift);
+
 	x86Argument newArg = x86Argument(size, index, multiplier, base, shift);
 
 	switch(op)
