@@ -1210,35 +1210,23 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	// Now regenerate instructions
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
+		x86Instruction &inst = instList[i];
+
 		// Skip trash
-		if(instList[i].name == o_none)
+		if(inst.name == o_none)
 		{
-			if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
-			{
-				codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
-				EMIT_OP(codeGenCtx->ctx, o_none);
-				SetOptimizationLookBehind(codeGenCtx->ctx, false);
-			}
+			EMIT_OP(codeGenCtx->ctx, o_none);
 			continue;
 		}
 		// If invalidation flag is set
-		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
+		if(inst.instID && codeJumpTargets[inst.instID - 1])
 			SetOptimizationLookBehind(codeGenCtx->ctx, false);
-		codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
 
-		x86Instruction &inst = instList[i];
 		if(inst.name == o_label)
 		{
 			EMIT_LABEL(codeGenCtx->ctx, inst.labelID, inst.argA.num);
 			SetOptimizationLookBehind(codeGenCtx->ctx, true);
 			continue;
-		}
-
-		if(inst.name == o_call)
-		{
-			EMIT_REG_READ(codeGenCtx->ctx, rECX);
-			EMIT_REG_READ(codeGenCtx->ctx, rEDX);
-			EMIT_REG_READ(codeGenCtx->ctx, rR8);
 		}
 
 		switch(inst.argA.type)
@@ -1319,6 +1307,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
+
 	unsigned int currSize = (int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]);
 	for(unsigned int i = currSize; i < instList.size(); i++)
 	{
