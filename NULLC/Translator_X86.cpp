@@ -487,6 +487,20 @@ int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src)
 	return int(stream - start);
 }
 
+// REX.W cvtsi2sd xmm*, src
+int x64CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, true, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x2A;
+	*stream++ = encodeRegister(src, dst);
+
+	return int(stream - start);
+}
+
 // cvtsi2sd xmm*, *word [index*mult+base+shift]
 int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -2890,6 +2904,7 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			else
 			{
 				assert(cmd.argB.type == x86Argument::argPtr);
+				assert(cmd.argB.ptrSize == sDWORD);
 				code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}
 			break;
@@ -3268,6 +3283,20 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			assert(cmd.argB.type == x86Argument::argPtr);
 			assert(cmd.argB.ptrSize == sQWORD);
 			code += x64CVTTSD2SI(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cvtsi2sd64:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+
+			if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x64CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.reg);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argPtr);
+				assert(cmd.argB.ptrSize == sQWORD);
+				code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
 			break;
 		default:
 			assert(!"unknown instruction");
@@ -3824,6 +3853,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 
 	stream += TestXmmRptrEncoding(ctx, stream, o_cvtsi2sd, x86CVTSI2SD, testSizeDword);
 	stream += TestXmmRegEncoding(ctx, stream, o_cvtsi2sd, x86CVTSI2SD);
+	stream += TestXmmRegEncoding(ctx, stream, o_cvtsi2sd64, x64CVTSI2SD);
 
 	stream += TestXmmXmmEncoding(ctx, stream, o_addsd, x86ADDSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_subsd, x86SUBSD);

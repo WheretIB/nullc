@@ -1182,6 +1182,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 	switch(op)
 	{
 	case o_cvtsi2sd:
+	case o_cvtsi2sd64:
 		reg2 = ctx.RedirectRegister(reg2);
 
 		ctx.ReadRegister(reg2);
@@ -1221,6 +1222,8 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 
 			if(ctx.memCache[memIndex].value.type == x86Argument::argReg)
 			{
+				assert(ctx.memCache[memIndex].address.ptrSize == (op == o_mov ? sDWORD : sQWORD));
+
 				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
 				ctx.MemUpdate(memIndex);
 				return;
@@ -1339,6 +1342,31 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 
 			if(ctx.memCache[memIndex].value.type == x86Argument::argReg)
 			{
+				assert(ctx.memCache[memIndex].address.ptrSize == sDWORD);
+
+				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
+				ctx.MemUpdate(memIndex);
+				return;
+			}
+		}
+
+		// Register reads
+		ctx.ReadRegister(base);
+		ctx.ReadRegister(index);
+
+		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+
+		ctx.OverwriteRegisterWithUnknown(reg1);
+		break;
+	case o_cvtsi2sd64:
+		if(unsigned memIndex = ctx.MemFind(newArg))
+		{
+			memIndex--;
+
+			if(ctx.memCache[memIndex].value.type == x86Argument::argReg)
+			{
+				assert(ctx.memCache[memIndex].address.ptrSize == sQWORD);
+
 				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
 				ctx.MemUpdate(memIndex);
 				return;

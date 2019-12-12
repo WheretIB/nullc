@@ -879,7 +879,7 @@ void GenCodeCmdLtod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	x86XmmReg temp = ctx.ctx.GetXmmReg();
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtsi2sd, temp, sQWORD, rREG, cmd.rC * 8); // Load long as double
+	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtsi2sd64, temp, sQWORD, rREG, cmd.rC * 8); // Load long as double
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, temp); // Store value
 #else
 	unsigned cmdValue[2];

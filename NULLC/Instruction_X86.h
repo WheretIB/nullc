@@ -194,6 +194,7 @@ enum x86Command
 	o_cmp64,
 
 	o_cvttsd2si64,
+	o_cvtsi2sd64,
 
 	// Aliases
 	o_jc = o_jb,
@@ -213,7 +214,7 @@ static const char* x86CmdText[] =
 
 	"mov",
 	"neg", "add", "sub", "imul", "idiv", "sal", "sar", "not", "and", "or", "xor", "cmp",
-	"cvttsd2si"
+	"cvttsd2si", "cvtsi2sd"
 };
 
 struct CodeGenRegVmStateContext;
