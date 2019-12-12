@@ -31,6 +31,36 @@ void CodeGenGenericContext::MemRead(const x86Argument &address)
 	{
 		MemCache &entry = memCache[i];
 
+		x86Argument &write = entry.address;
+
+		if(entry.address.type == x86Argument::argNone)
+			continue;
+
+		// Reading a constant can't mark any memory write entries as used, since they can't write there
+		if(address.ptrIndex == rNONE && address.ptrBase == rR14)
+			continue;
+
+		// Reading from register file can't mark any memory writes with addresses from other registers since they can't point to it
+		if(address.ptrIndex == rNONE && address.ptrBase == rEBX && (write.ptrIndex != rNONE || write.ptrBase != rEBX))
+			continue;
+
+		// Reading from an address in a register different from register file can't mark writes to register file as read
+		if((address.ptrIndex != rNONE || address.ptrBase != rEBX) && write.ptrIndex == rNONE && write.ptrBase == rEBX)
+			continue;
+
+		// When reading and writing from register file, check read range intersection with write range
+		if(address.ptrIndex == rNONE && address.ptrBase == rEBX && write.ptrIndex == rNONE && write.ptrBase == rEBX)
+		{
+			assert(address.ptrSize != sNONE);
+			assert(write.ptrSize != sNONE);
+
+			unsigned readSize = address.ptrSize == sBYTE ? 1 : (address.ptrSize == sWORD ? 2 : (address.ptrSize == sDWORD ? 4 : 8));
+			unsigned writeSize = write.ptrSize == sBYTE ? 1 : (write.ptrSize == sWORD ? 2 : (write.ptrSize == sDWORD ? 4 : 8));
+
+			if(unsigned(address.ptrNum) + readSize <= unsigned(write.ptrNum) || unsigned(address.ptrNum) >= unsigned(write.ptrNum) + writeSize)
+				continue;
+		}
+
 		entry.read = true;
 	}
 }
