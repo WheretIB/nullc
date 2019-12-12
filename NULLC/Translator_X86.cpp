@@ -438,6 +438,20 @@ int x64CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, 
 	return int(stream - start);
 }
 
+// cvtsi2sd xmm*, src
+int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x2A;
+	*stream++ = encodeRegister(src, dst);
+
+	return int(stream - start);
+}
+
 // cvtsi2sd xmm*, *word [index*mult+base+shift]
 int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -2817,8 +2831,16 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			break;
 		case o_cvtsi2sd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
-			assert(cmd.argB.type == x86Argument::argPtr);
-			code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+
+			if(cmd.argB.type == x86Argument::argReg)
+			{
+				code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.reg);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argPtr);
+				code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
 			break;
 		case o_addsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);

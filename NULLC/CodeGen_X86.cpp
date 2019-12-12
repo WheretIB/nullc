@@ -1167,6 +1167,31 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 	ctx.x86Op++;
 }
 
+
+void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Reg reg2)
+{
+#ifdef NULLC_OPTIMIZE_X86
+	switch(op)
+	{
+	case o_cvtsi2sd:
+		reg2 = ctx.RedirectRegister(reg2);
+
+		ctx.ReadRegister(reg2);
+		ctx.OverwriteRegisterWithUnknown(reg1);
+		break;
+	default:
+		assert(!"unknown instruction");
+	}
+#endif
+
+	ctx.x86Op->name = op;
+	ctx.x86Op->argA.type = x86Argument::argXmmReg;
+	ctx.x86Op->argA.xmmArg = reg1;
+	ctx.x86Op->argB.type = x86Argument::argReg;
+	ctx.x86Op->argB.reg = reg2;
+	ctx.x86Op++;
+}
+
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
@@ -1279,7 +1304,27 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 	{
 	case o_cvtss2sd:
 	case o_cvtsd2ss:
+		// Register reads
+		ctx.ReadRegister(base);
+		ctx.ReadRegister(index);
+
+		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+
+		ctx.OverwriteRegisterWithUnknown(reg1);
+		break;
 	case o_cvtsi2sd:
+		if(unsigned memIndex = ctx.MemFind(newArg))
+		{
+			memIndex--;
+
+			if(ctx.memCache[memIndex].value.type == x86Argument::argReg)
+			{
+				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
+				ctx.MemUpdate(memIndex);
+				return;
+			}
+		}
+
 		// Register reads
 		ctx.ReadRegister(base);
 		ctx.ReadRegister(index);
