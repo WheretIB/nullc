@@ -456,6 +456,8 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 #ifdef NULLC_OPTIMIZE_X86
 	switch(op)
 	{
+	case o_none:
+		break;
 	case o_ret:
 		// Mark return registers as implicitly used
 		ctx.ReadRegister(rEAX);
@@ -965,6 +967,22 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 	case o_sal64:
 	case o_sar64:
 		// Can't redirect source register since the instruction has it fixed to ecx
+
+		if(ctx.genReg[reg2].type == x86Argument::argNumber && (char)ctx.genReg[reg2].num == ctx.genReg[reg2].num)
+		{
+			EMIT_OP_REG_NUM(ctx, op, reg1, ctx.genReg[reg2].num);
+			return;
+		}
+
+		{
+			x86Reg redirect = ctx.RedirectRegister(reg2);
+
+			if(ctx.genReg[redirect].type == x86Argument::argNumber && (char)ctx.genReg[redirect].num == ctx.genReg[redirect].num)
+			{
+				EMIT_OP_REG_NUM(ctx, op, reg1, ctx.genReg[redirect].num);
+				return;
+			}
+		}
 
 		ctx.ReadRegister(reg2);
 		ctx.ReadAndModifyRegister(reg1);

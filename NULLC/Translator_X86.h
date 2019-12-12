@@ -186,11 +186,23 @@ int x86SAL(unsigned char *stream, x86Reg reg);
 // REX.W sal reg, cl
 int x64SAL(unsigned char *stream, x86Reg reg);
 
+// sal reg, num
+int x86SAL(unsigned char *stream, x86Reg reg, int num);
+
+// REX.W sal reg, num
+int x64SAL(unsigned char *stream, x86Reg reg, int num);
+
 // sar reg, cl
 int x86SAR(unsigned char *stream, x86Reg reg);
 
 // REX.W sar reg, cl
 int x64SAR(unsigned char *stream, x86Reg reg);
+
+// sar reg, cl
+int x86SAR(unsigned char *stream, x86Reg reg, int num);
+
+// REX.W sar reg, cl
+int x64SAR(unsigned char *stream, x86Reg reg, int num);
 
 // not reg
 int x86NOT(unsigned char *stream, x86Reg reg);

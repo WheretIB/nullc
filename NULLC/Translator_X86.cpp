@@ -1489,6 +1489,36 @@ int x64SAL(unsigned char *stream, x86Reg reg)
 	return int(stream - start);
 }
 
+// sal reg, num
+int x86SAL(unsigned char *stream, x86Reg reg, int num)
+{
+	unsigned char *start = stream;
+
+	assert(char(num) == num);
+
+	stream += encodeRex(stream, false, rNONE, rNONE, reg);
+	*stream++ = 0xc1;
+	*stream++ = encodeRegister(reg, 4);
+	stream += encodeImmByte(stream, (char)num);
+
+	return int(stream - start);
+}
+
+// REX.W sal reg, num
+int x64SAL(unsigned char *stream, x86Reg reg, int num)
+{
+	unsigned char *start = stream;
+
+	assert(char(num) == num);
+
+	stream += encodeRex(stream, true, rNONE, rNONE, reg);
+	*stream++ = 0xc1;
+	*stream++ = encodeRegister(reg, 4);
+	stream += encodeImmByte(stream, (char)num);
+
+	return int(stream - start);
+}
+
 // sar reg, cl
 int x86SAR(unsigned char *stream, x86Reg reg)
 {
@@ -1509,6 +1539,36 @@ int x64SAR(unsigned char *stream, x86Reg reg)
 	stream += encodeRex(stream, true, rNONE, rNONE, reg);
 	*stream++ = 0xd3;
 	*stream++ = encodeRegister(reg, 7);
+
+	return int(stream - start);
+}
+
+// sar reg, cl
+int x86SAR(unsigned char *stream, x86Reg reg, int num)
+{
+	unsigned char *start = stream;
+
+	assert(char(num) == num);
+
+	stream += encodeRex(stream, false, rNONE, rNONE, reg);
+	*stream++ = 0xc1;
+	*stream++ = encodeRegister(reg, 7);
+	stream += encodeImmByte(stream, (char)num);
+
+	return int(stream - start);
+}
+
+// REX.W sar reg, cl
+int x64SAR(unsigned char *stream, x86Reg reg, int num)
+{
+	unsigned char *start = stream;
+
+	assert(char(num) == num);
+
+	stream += encodeRex(stream, true, rNONE, rNONE, reg);
+	*stream++ = 0xc1;
+	*stream++ = encodeRegister(reg, 7);
+	stream += encodeImmByte(stream, (char)num);
 
 	return int(stream - start);
 }
@@ -2494,13 +2554,29 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			break;
 		case o_sal:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
-			code += x86SAL(code, cmd.argA.reg);
+
+			if(cmd.argB.type == x86Argument::argNumber)
+			{
+				code += x86SAL(code, cmd.argA.reg, cmd.argB.num);
+			}
+			else
+			{
+				assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+				code += x86SAL(code, cmd.argA.reg);
+			}
 			break;
 		case o_sar:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
-			code += x86SAR(code, cmd.argA.reg);
+
+			if(cmd.argB.type == x86Argument::argNumber)
+			{
+				code += x86SAR(code, cmd.argA.reg, cmd.argB.num);
+			}
+			else
+			{
+				assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+				code += x86SAR(code, cmd.argA.reg);
+			}
 			break;
 		case o_not:
 			if(cmd.argA.type == x86Argument::argPtr)
@@ -2942,13 +3018,29 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			break;
 		case o_sal64:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
-			code += x64SAL(code, cmd.argA.reg);
+
+			if(cmd.argB.type == x86Argument::argNumber)
+			{
+				code += x64SAL(code, cmd.argA.reg, cmd.argB.num);
+			}
+			else
+			{
+				assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+				code += x64SAL(code, cmd.argA.reg);
+			}
 			break;
 		case o_sar64:
 			assert(cmd.argA.type == x86Argument::argReg);
-			assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
-			code += x64SAR(code, cmd.argA.reg);
+
+			if(cmd.argB.type == x86Argument::argNumber)
+			{
+				code += x64SAR(code, cmd.argA.reg, cmd.argB.num);
+			}
+			else
+			{
+				assert(cmd.argB.reg == rECX || cmd.argB.type == x86Argument::argNone);
+				code += x64SAR(code, cmd.argA.reg);
+			}
 			break;
 		case o_not64:
 			if(cmd.argA.type == x86Argument::argPtr)
