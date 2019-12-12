@@ -2795,6 +2795,12 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			break;
 		case o_other:
 			break;
+		case o_read_register:
+			break;
+		case o_kill_register:
+			break;
+		case o_set_tracking:
+			break;
 		case o_mov64:
 			if(cmd.argA.type != x86Argument::argPtr)
 			{

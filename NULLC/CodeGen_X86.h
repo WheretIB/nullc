@@ -31,7 +31,7 @@ struct CodeGenGenericContext
 		currFreeReg = 0;
 		currFreeXmmReg = rXMM0;
 
-		skipInvalidate = false;
+		skipTracking = false;
 	}
 
 	void SetLastInstruction(x86Instruction *pos, x86Instruction *base)
@@ -55,6 +55,9 @@ struct CodeGenGenericContext
 	void InvalidateDependand(x86Reg dreg);
 	void InvalidateDependand(x86XmmReg dreg);
 	void InvalidateAddressValue(x86Argument arg);
+
+	void KillRegister(x86Reg reg);
+	void KillRegister(x86XmmReg reg);
 
 	void KillUnreadRegisters();
 
@@ -109,7 +112,7 @@ struct CodeGenGenericContext
 	unsigned currFreeReg;
 	x86XmmReg currFreeXmmReg;
 
-	bool skipInvalidate;
+	bool skipTracking;
 };
 
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text);
@@ -118,6 +121,7 @@ void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned labelID, int invalidate = t
 void EMIT_OP(CodeGenGenericContext &ctx, x86Command op);
 void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, int invalidate = true, int longJump = false);
 void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1);
+void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1);
 void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num);
 
 void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift);

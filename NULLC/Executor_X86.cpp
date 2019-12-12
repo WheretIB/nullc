@@ -1534,7 +1534,7 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			{
 				ExternFuncInfo &funcInfo = exLinker->exFunctions[k];
 
-				if(funcInfo.regVmAddress == instList[i].instID - 1)
+				if(unsigned(funcInfo.regVmAddress) == instList[i].instID - 1)
 				{
 					functionName = funcInfo.offsetToName + exLinker->exSymbols.data;
 					functionId = k;

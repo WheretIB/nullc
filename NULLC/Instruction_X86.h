@@ -95,6 +95,7 @@ const unsigned int LABEL_GLOBAL = 1 << 30;
 enum x86Command
 {
 	o_none,
+
 	o_mov,
 	o_movsx,
 	o_push,
@@ -173,6 +174,10 @@ enum x86Command
 	o_nop,
 	o_other,
 
+	o_read_register,
+	o_kill_register,
+	o_set_tracking,
+
 	o_mov64,
 
 	o_neg64,
@@ -197,12 +202,14 @@ enum x86Command
 };
 
 static const char* x86CmdText[] = 
-{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "cqo", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
+{	"",
+	"mov", "movsx", "push", "pop", "lea", "cdq", "cqo", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
 	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
 	"movss", "movsd", "movd", "movsxd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd", "cmpeqsd", "cmpltsd", "cmplesd", "cmpneqsd",
 	"int", "label", "use32", "nop", "other",
+	"; read_register", "; kill_register", "; set_tracking",
 
 	"mov",
 	"neg", "add", "sub", "imul", "idiv", "sal", "sar", "not", "and", "or", "xor", "cmp",
