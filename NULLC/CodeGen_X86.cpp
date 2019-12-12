@@ -900,26 +900,12 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 	case o_or:
 		reg2 = ctx.RedirectRegister(reg2);
 
-		// Load source directly from memory
-		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == sDWORD)
-		{
-			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
-			return;
-		}
-
 		ctx.ReadRegister(reg2);
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_and64:
 	case o_or64:
 		reg2 = ctx.RedirectRegister(reg2);
-
-		// Load source directly from memory
-		if(ctx.genReg[reg2].type == x86Argument::argPtr && ctx.genReg[reg2].ptrSize == sQWORD)
-		{
-			EMIT_OP_REG_RPTR(ctx, op, reg1, ctx.genReg[reg2].ptrSize, ctx.genReg[reg2].ptrIndex, ctx.genReg[reg2].ptrMult, ctx.genReg[reg2].ptrBase, ctx.genReg[reg2].ptrNum);
-			return;
-		}
 
 		ctx.ReadRegister(reg2);
 		ctx.ReadAndModifyRegister(reg1);
