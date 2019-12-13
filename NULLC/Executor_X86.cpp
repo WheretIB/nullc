@@ -1228,7 +1228,27 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
+				// Advance frame top
 				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+
+				// Clear register values
+				if (target.regVmRegisters > rvrrCount)
+				{
+					unsigned count = target.regVmRegisters - rvrrCount;
+
+					if(count <= 8)
+					{
+						for(unsigned regId = rvrrCount; regId < target.regVmRegisters; regId++)
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov64, sQWORD, rRBX, regId * 8, 0);
+					}
+					else
+					{
+						EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rRAX, rRAX);
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rRDI, sQWORD, rRBX, rvrrCount * 8);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosq);
+					}
+				}
 #else
 				assert(!"not implemented");
 #endif

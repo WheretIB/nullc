@@ -1421,8 +1421,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 		unsigned prevDataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
 
-		assert(argumentsSize <= stackSize);
-
 		if(stackSize - argumentsSize)
 			memset(vmState->dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
@@ -1430,8 +1428,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		prevRegFileTop[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackBase + prevDataSize);
 		prevRegFileTop[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
 		prevRegFileTop[rvrrRegisters].ptrValue = uintptr_t(prevRegFileTop);
-
-		memset(prevRegFileTop + rvrrCount, 0, (vmState->regFileLastTop - prevRegFileTop - rvrrCount) * sizeof(RegVmRegister));
 
 		unsigned char *codeStart = vmState->instAddress[target.regVmAddress];
 
