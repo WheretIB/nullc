@@ -1469,9 +1469,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		nullcFunc gate = (nullcFunc)(uintptr_t)vmState->codeLaunchHeader;
 		gate(codeStart, prevRegFileTop);
 
-		if(!ctx.x86rvm->callContinue)
-			longjmp(vmState->errorHandler, 1);
-
 		vmState->regFileLastPtr = prevRegFilePtr;
 		vmState->regFileLastTop = prevRegFileTop;
 
