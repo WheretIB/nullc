@@ -473,6 +473,64 @@ x86XmmReg CodeGenGenericContext::GetXmmReg()
 	return res;
 }
 
+x86Reg CodeGenGenericContext::FindRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters)
+{
+#ifdef NULLC_OPTIMIZE_X86
+	RedirectAddressComputation(index, multiplier, base, shift);
+
+	x86Argument newArg = x86Argument(size, index, multiplier, base, shift);
+
+	if(unsigned memIndex = MemFind(newArg))
+	{
+		memIndex--;
+
+		if(memCache[memIndex].value.type == x86Argument::argReg)
+			return memCache[memIndex].value.reg;
+	}
+
+	if(checkRegisters)
+	{
+		// If another register contains data from memory
+		for(unsigned i = 0; i < rRegCount; i++)
+		{
+			if(genReg[i].type == x86Argument::argPtr && genReg[i] == newArg)
+				return (x86Reg)i;
+		}
+	}
+#endif
+
+	return rRegCount;
+}
+
+x86XmmReg CodeGenGenericContext::FindXmmRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters)
+{
+#ifdef NULLC_OPTIMIZE_X86
+	RedirectAddressComputation(index, multiplier, base, shift);
+
+	x86Argument newArg = x86Argument(size, index, multiplier, base, shift);
+
+	if(unsigned memIndex = MemFind(newArg))
+	{
+		memIndex--;
+
+		if(memCache[memIndex].value.type == x86Argument::argXmmReg)
+			return memCache[memIndex].value.xmmArg;
+	}
+
+	if(checkRegisters)
+	{
+		// If another register contains data from memory
+		for(unsigned i = 0; i < rXmmRegCount; i++)
+		{
+			if(xmmReg[i].type == x86Argument::argPtr && xmmReg[i] == newArg)
+				return (x86XmmReg)i;
+		}
+	}
+#endif
+
+	return rXmmRegCount;
+}
+
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text)
 {
 #if !defined(NDEBUG)
@@ -1565,6 +1623,11 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 			break;
 
 		ctx.InvalidateAddressValue(arg);
+
+		// If the source register value was unknown, now we know that it is stored at destination memory location
+		// If the source register value contained a value from an address, now we know that it contains the value from the destination address
+		//if(ctx.xmmReg[reg2].type == x86Argument::argNone || ctx.xmmReg[reg2].type == x86Argument::argPtr)
+		//	ctx.xmmReg[reg2] = arg;
 
 		if(unsigned memIndex = ctx.MemIntersectFind(arg))
 		{

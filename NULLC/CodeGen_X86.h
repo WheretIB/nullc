@@ -81,6 +81,9 @@ struct CodeGenGenericContext
 	x86Reg GetReg();
 	x86XmmReg GetXmmReg();
 
+	x86Reg FindRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters);
+	x86XmmReg FindXmmRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters);
+
 	x86Instruction *x86Op;
 	x86Instruction *x86Base;
 
