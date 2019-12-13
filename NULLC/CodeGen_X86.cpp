@@ -1566,11 +1566,6 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 
 		ctx.InvalidateAddressValue(arg);
 
-		// If the source register value was unknown, now we know that it is stored at destination memory location
-		// If the source register value contained a value from an address, now we know that it contains the value from the destination address
-		if(ctx.xmmReg[reg2].type == x86Argument::argNone || ctx.xmmReg[reg2].type == x86Argument::argPtr)
-			ctx.xmmReg[reg2] = arg;
-
 		if(unsigned memIndex = ctx.MemIntersectFind(arg))
 		{
 			memIndex--;
