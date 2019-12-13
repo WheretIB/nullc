@@ -1410,9 +1410,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	}
 	else
 	{
-		unsigned argumentsSize = target.bytesToPop;
-		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
-
 		RegVmRegister *prevRegFilePtr = vmState->regFileLastPtr;
 		RegVmRegister *prevRegFileTop = vmState->regFileLastTop;
 
@@ -1420,9 +1417,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		vmState->regFileLastTop = prevRegFileTop + target.regVmRegisters;
 
 		unsigned prevDataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
-
-		if(stackSize - argumentsSize)
-			memset(vmState->dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
 		prevRegFileTop[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
 		prevRegFileTop[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackBase + prevDataSize);

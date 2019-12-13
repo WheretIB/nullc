@@ -1228,8 +1228,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-				// Advance frame top
-				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+				bool isRaxCleared = false;
 
 				// Clear register values
 				if (target.regVmRegisters > rvrrCount)
@@ -1238,17 +1237,45 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 					if(count <= 8)
 					{
-						for(unsigned regId = rvrrCount; regId < target.regVmRegisters; regId++)
+						for(int regId = rvrrCount; regId < target.regVmRegisters; regId++)
 							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov64, sQWORD, rRBX, regId * 8, 0);
 					}
 					else
 					{
+						isRaxCleared = true;
+
 						EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rRAX, rRAX);
 						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rRDI, sQWORD, rRBX, rvrrCount * 8);
 						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count);
 						EMIT_OP(codeGenCtx->ctx, o_rep_stosq);
 					}
 				}
+
+				// Clear data stack
+				unsigned argumentsSize = target.bytesToPop;
+
+				if(unsigned count = stackSize - argumentsSize)
+				{
+					assert(count % 4 == 0);
+
+					if(count <= 16)
+					{
+						for(unsigned dataId = 0; dataId < count / 4; dataId++)
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rR15, argumentsSize + dataId * 4, 0);
+					}
+					else
+					{
+						if(!isRaxCleared)
+							EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rRAX, rRAX);
+
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rRDI, sQWORD, rR15, argumentsSize);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count / 4);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosd);
+					}
+				}
+
+				// Advance frame top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
 #else
 				assert(!"not implemented");
 #endif
