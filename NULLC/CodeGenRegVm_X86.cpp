@@ -1509,8 +1509,7 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 #if defined(_M_X64)
 	x86Reg rTempStack = rRBP;
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rTempStack, (uintptr_t)&ctx.vmState->tempStackArrayBase);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempStack, sQWORD, rTempStack, 0);
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rTempStack, (uintptr_t)ctx.vmState->tempStackArrayBase);
 
 	unsigned tempStackPtrOffset = 0;
 
@@ -1863,10 +1862,7 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		x86Reg rTempStack = rRBP;
 
 		if(*microcode != rvmiReturn)
-		{
-			EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rTempStack, (uintptr_t)&ctx.vmState->tempStackArrayBase);
-			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempStack, sQWORD, rTempStack, 0);
-		}
+			EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rTempStack, (uintptr_t)ctx.vmState->tempStackArrayBase);
 
 		unsigned tempStackPtrOffset = 0;
 
