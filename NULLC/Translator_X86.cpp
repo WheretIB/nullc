@@ -852,7 +852,8 @@ int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 			return int(stream - start);
 		}
 
-		stream += encodeRex(stream, false, src, index, base);
+		// To address byte register after dl, REX prefix is required, on x86 this is not possible at all
+		stream += encodeRex(stream, src > rEDX, src, index, base);
 		*stream++ = 0x88;
 		stream += encodeAddress(stream, index, multiplier, base, shift, regCode[src]);
 
