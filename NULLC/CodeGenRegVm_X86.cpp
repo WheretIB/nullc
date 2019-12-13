@@ -1422,17 +1422,17 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	else
 	{
 		unsigned argumentsSize = target.bytesToPop;
+		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + argumentsSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
+		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + stackSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
 		{
 			ctx.x86rvm->Stop("ERROR: stack overflow");
+
 			longjmp(vmState->errorHandler, 1);
 		}
 
 		// Copy function arguments to new stack frame
 		memcpy(vmState->dataStackTop, vmState->tempStackArrayBase, argumentsSize);
-
-		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
 		RegVmRegister *prevRegFilePtr = vmState->regFileLastPtr;
 		RegVmRegister *prevRegFileTop = vmState->regFileLastTop;
@@ -1443,13 +1443,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		if(vmState->regFileLastTop >= vmState->regFileArrayEnd)
 		{
 			ctx.x86rvm->Stop("ERROR: register overflow");
-
-			longjmp(vmState->errorHandler, 1);
-		}
-
-		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + stackSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
-		{
-			ctx.x86rvm->Stop("ERROR: stack overflow");
 
 			longjmp(vmState->errorHandler, 1);
 		}
