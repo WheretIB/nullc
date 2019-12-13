@@ -155,6 +155,7 @@ struct CodeGenRegVmContext
 		vmState = NULL;
 
 		currInstructionPos = 0;
+		currFunctionId = 0;
 
 		x86FuncAddr = NULL;
 		x86Continue = NULL;
@@ -180,6 +181,7 @@ struct CodeGenRegVmContext
 	CodeGenRegVmStateContext *vmState;
 
 	unsigned currInstructionPos;
+	unsigned currFunctionId;
 
 	unsigned *x86FuncAddr; // unused?
 	int *x86Continue; // unused?

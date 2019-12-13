@@ -768,8 +768,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	RegVmRegister *regFilePtr = vmState.regFileLastTop;
 	RegVmRegister *regFileTop = vmState.regFileLastTop + 256;
 
-	unsigned *tempStackPtr = vmState.tempStackArrayBase;
-
 	if(functionID != ~0u)
 	{
 		ExternFuncInfo &target = exFunctions[functionID];
@@ -796,12 +794,12 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			}
 
 			// Copy all arguments
-			memcpy(tempStackPtr, arguments, target.bytesToPop);
+			memcpy(vmState.tempStackArrayBase, arguments, target.bytesToPop);
 
 			// Call function
 			if(target.funcPtrWrap)
 			{
-				target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
+				target.funcPtrWrap(target.funcPtrWrapTarget, (char*)vmState.tempStackArrayBase, (char*)vmState.tempStackArrayBase);
 
 				if(!callContinue)
 					errorState = true;
@@ -809,7 +807,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			else
 			{
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-				RunRawExternalFunction(dcCallVM, exFunctions[functionID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, tempStackPtr);
+				RunRawExternalFunction(dcCallVM, exFunctions[functionID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, vmState.tempStackArrayBase, vmState.tempStackArrayBase);
 
 				if(!callContinue)
 					errorState = true;
@@ -865,8 +863,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				}
 				else
 				{
-					vmState.dataStackTop += stackSize;
-
 					assert(argumentsSize <= stackSize);
 
 					if(stackSize - argumentsSize)
@@ -1040,13 +1036,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	switch(lastResultType)
 	{
 	case rvrInt:
-		lastResult.intValue = tempStackPtr[0];
+		memcpy(&lastResult.intValue, vmState.tempStackArrayBase, sizeof(lastResult.intValue));
 		break;
 	case rvrDouble:
-		memcpy(&lastResult.doubleValue, tempStackPtr, sizeof(double));
+		memcpy(&lastResult.doubleValue, vmState.tempStackArrayBase, sizeof(lastResult.doubleValue));
 		break;
 	case rvrLong:
-		memcpy(&lastResult.longValue, tempStackPtr, sizeof(long long));
+		memcpy(&lastResult.longValue, vmState.tempStackArrayBase, sizeof(lastResult.longValue));
 		break;
 	default:
 		break;
@@ -1135,6 +1131,8 @@ void ExecutorX86::ClearNative()
 	codeRunning = false;
 }
 
+#define nullcOffsetOf(obj, field) unsigned(uintptr_t(&(obj)->field) - uintptr_t(obj))
+
 bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
 	if(instList.size())
@@ -1167,7 +1165,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	codeJumpTargets.resize(exRegVmCode.size());
 	if(codeJumpTargets.size())
-		memset(&codeJumpTargets[lastInstructionCount], 0, codeJumpTargets.size() - lastInstructionCount);
+		memset(&codeJumpTargets[lastInstructionCount], 0, (codeJumpTargets.size() - lastInstructionCount) * sizeof(codeJumpTargets[0]));
 
 	// Mirror extra global return so that jump to global return can be marked (rviNop, because we will have some custom code)
 	codeJumpTargets.push_back(0);
@@ -1177,10 +1175,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	// Mark function locations
 	for(unsigned i = 0, e = exLinker->exFunctions.size(); i != e; i++)
 	{
-		unsigned address = exLinker->exFunctions[i].regVmAddress;
+		ExternFuncInfo &target = exLinker->exFunctions[i];
 
-		if(address != ~0u)
-			codeJumpTargets[address] |= 2;
+		if(target.regVmAddress != ~0u && target.vmCodeSize != 0 && (codeJumpTargets[target.regVmAddress] >> 8) == 0)
+			codeJumpTargets[target.regVmAddress] |= 2 + (i << 8);
 	}
 
 	SetOptimizationLookBehind(codeGenCtx->ctx, false);
@@ -1210,11 +1208,31 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		if((codeJumpTargets[pos] & 6) != 0)
 		{
 			if(codeJumpTargets[pos] & 4)
+			{
 				activeGlobalCodeStart = pos;
+
+				codeGenCtx->currFunctionId = 0;
+			}
 
 #if defined(_M_X64)
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
 #endif
+
+			// Generate function prologue (register cleanup, data stack advance, data stack cleanup)
+			if(codeJumpTargets[pos] & 2)
+			{
+				codeGenCtx->currFunctionId = codeJumpTargets[pos] >> 8;
+
+				ExternFuncInfo &target = exLinker->exFunctions[codeGenCtx->currFunctionId];
+
+#if defined(_M_X64)
+				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+#else
+				assert(!"not implemented");
+#endif
+			}
 		}
 
 		if(cmd.code == rviJmp && cmd.rA)

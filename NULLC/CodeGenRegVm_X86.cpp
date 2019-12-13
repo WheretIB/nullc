@@ -1394,12 +1394,12 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	{
 		if(target.funcPtrWrap)
 		{
-			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)vmState->tempStackArrayBase, (char*)vmState->tempStackArrayBase);
+			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)vmState->tempStackArrayBase, (char*)vmState->dataStackTop);
 		}
 		else
 		{
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-			RunRawExternalFunction(ctx.x86rvm->dcCallVM, ctx.exFunctions[functionId], ctx.exLocals, ctx.exTypes, ctx.exTypeExtra, vmState->tempStackArrayBase);
+			RunRawExternalFunction(ctx.x86rvm->dcCallVM, ctx.exFunctions[functionId], ctx.exLocals, ctx.exTypes, ctx.exTypeExtra, (unsigned*)vmState->dataStackTop, (unsigned*)vmState->tempStackArrayBase);
 #else
 			ctx.x86rvm->Stop("ERROR: external raw function calls are disabled");
 #endif
@@ -1413,9 +1413,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		unsigned argumentsSize = target.bytesToPop;
 		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-		// Copy function arguments to new stack frame
-		memcpy(vmState->dataStackTop, vmState->tempStackArrayBase, argumentsSize);
-
 		RegVmRegister *prevRegFilePtr = vmState->regFileLastPtr;
 		RegVmRegister *prevRegFileTop = vmState->regFileLastTop;
 
@@ -1423,8 +1420,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		vmState->regFileLastTop = prevRegFileTop + target.regVmRegisters;
 
 		unsigned prevDataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
-
-		vmState->dataStackTop += stackSize;
 
 		assert(argumentsSize <= stackSize);
 
@@ -1446,8 +1441,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 		vmState->regFileLastPtr = prevRegFilePtr;
 		vmState->regFileLastTop = prevRegFileTop;
-
-		vmState->dataStackTop = vmState->dataStackBase + prevDataSize;
 	}
 }
 
@@ -1464,6 +1457,8 @@ void CallPtrWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	CallWrap(vmState, functionId);
 }
 
+#define nullcOffsetOf(obj, field) unsigned(uintptr_t(&obj->field) - uintptr_t(obj))
+
 unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos)
 {
 	// Push arguments
@@ -1472,7 +1467,7 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 #if defined(_M_X64)
 	x86Reg rTempStack = rRBP;
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rTempStack, (uintptr_t)ctx.vmState->tempStackArrayBase);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempStack, sQWORD, rR13, nullcOffsetOf(ctx.vmState, dataStackTop));
 
 	unsigned tempStackPtrOffset = 0;
 
@@ -1517,6 +1512,10 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 		}
 	}
 #else
+	x86Reg rTempStack = rEDX;
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rTempStack, sDWORD, uintptr_t(&ctx.vmState->dataStackTop));
+
 	unsigned tempStackPtrOffset = 0;
 
 	while(*microcode != rvmiCall)
@@ -1525,24 +1524,24 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 		{
 		case rvmiPush:
 			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, *microcode++ * 8);
-			EMIT_OP_ADDR_REG(ctx.ctx, o_mov, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset, rEAX);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
 			tempStackPtrOffset += sizeof(int);
 			break;
 		case rvmiPushQword:
 			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, *microcode * 8);
-			EMIT_OP_ADDR_REG(ctx.ctx, o_mov, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset, rEAX);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
 			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, *microcode++ * 8 + 4);
-			EMIT_OP_ADDR_REG(ctx.ctx, o_mov, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset + 4, rEAX);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset + 4, rEAX);
 			tempStackPtrOffset += sizeof(long long);
 			break;
 		case rvmiPushImm:
-			EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset, *microcode++);
+			EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, *microcode++);
 			tempStackPtrOffset += sizeof(int);
 			break;
 		case rvmiPushImmq:
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, *microcode++);
-			EMIT_OP_ADDR_REG(ctx.ctx, o_mov, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset, rEAX);
-			EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset + 4, 0);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
+			EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset + 4, 0);
 			tempStackPtrOffset += sizeof(long long);
 			break;
 		case rvmiPushMem:
@@ -1554,7 +1553,7 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rEDX, rESI); // Save frame register
 			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rESI, sDWORD, rREG, reg * 8);
 			EMIT_OP_REG_NUM(ctx.ctx, o_add, rESI, offset);
-			EMIT_OP_REG_ADDR(ctx.ctx, o_lea, rEDI, sDWORD, uintptr_t(ctx.vmState->tempStackArrayBase) + tempStackPtrOffset);
+			EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rEDI, sDWORD, rTempStack, tempStackPtrOffset);
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 			EMIT_OP(ctx.ctx, o_rep_movsd);
 			EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
@@ -1576,6 +1575,8 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 {
 #if defined(_M_X64)
 	x86Reg rTempStack = rRBP;
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempStack, sQWORD, rR13, nullcOffsetOf(ctx.vmState, tempStackArrayBase));
 
 	switch(resultType)
 	{
@@ -1687,8 +1688,6 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 #endif
 }
 
-#define nullcOffsetOf(obj, field) unsigned(uintptr_t(&obj->field) - uintptr_t(obj))
-
 void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
@@ -1783,10 +1782,8 @@ void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, unsigned microcodePos)
 
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
-	unsigned dataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
-
 	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
-	uintptr_t frameEnd = regFilePtr[rvrrGlobals].ptrValue + dataSize;
+	uintptr_t frameEnd = uintptr_t(vmState->dataStackEnd);
 
 	char *returnValuePtr = (char*)vmState->tempStackArrayBase;
 
@@ -1845,6 +1842,15 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->errorNoReturnWrap) - uintptr_t(ctx.vmState)));
 
 		return;
+	}
+
+	if(unsigned functionId = ctx.currFunctionId)
+	{
+		ExternFuncInfo &target = ctx.exFunctions[functionId];
+
+		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+
+		EMIT_OP_RPTR_NUM(ctx.ctx, o_sub64, sQWORD, rR13, nullcOffsetOf(ctx.vmState, dataStackTop), stackSize); // vmState->dataStackTop -= stackSize;
 	}
 
 	if(cmd.rB != rvrVoid)
@@ -1923,6 +1929,15 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 		EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->errorNoReturnWrap));
 		return;
+	}
+
+	if(unsigned functionId = ctx.currFunctionId)
+	{
+		ExternFuncInfo &target = ctx.exFunctions[functionId];
+
+		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+
+		assert(!"not implemented"); // vmState->dataStackTop -= stackSize;
 	}
 
 	if(cmd.rB != rvrVoid)
