@@ -1390,12 +1390,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 	ExternFuncInfo &target = vmState->ctx->exFunctions[functionId];
 
-	if(vmState->callStackTop == vmState->callStackEnd)
-	{
-		ctx.x86rvm->Stop("ERROR: call stack overflow");
-		longjmp(vmState->errorHandler, 1);
-	}
-
 	if(target.regVmAddress == -1)
 	{
 		if(target.funcPtrWrap)
@@ -1419,13 +1413,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 		unsigned argumentsSize = target.bytesToPop;
 		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + stackSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
-		{
-			ctx.x86rvm->Stop("ERROR: stack overflow");
-
-			longjmp(vmState->errorHandler, 1);
-		}
-
 		// Copy function arguments to new stack frame
 		memcpy(vmState->dataStackTop, vmState->tempStackArrayBase, argumentsSize);
 
@@ -1434,13 +1421,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 		vmState->regFileLastPtr = prevRegFileTop;
 		vmState->regFileLastTop = prevRegFileTop + target.regVmRegisters;
-
-		if(vmState->regFileLastTop >= vmState->regFileArrayEnd)
-		{
-			ctx.x86rvm->Stop("ERROR: register overflow");
-
-			longjmp(vmState->errorHandler, 1);
-		}
 
 		unsigned prevDataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
 

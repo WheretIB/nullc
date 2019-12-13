@@ -245,7 +245,7 @@ struct Test_testDepthOverflow : TestQueue
 		if(Tests::messageVerbose)
 			printf("Call depth test\r\n");
 
-		if(Tests::testFailureExecutor[TEST_TYPE_X86])
+		if(Tests::testHardFailureExecutor[TEST_TYPE_X86])
 		{
 			testsCount[TEST_TYPE_X86]++;
 			nullcSetExecutor(NULLC_X86);
@@ -374,7 +374,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 
 		if(Tests::messageVerbose)
 			printf("Depth overflow in unmanaged memory\r\n");
-		if(Tests::testFailureExecutor[TEST_TYPE_X86])
+		if(Tests::testHardFailureExecutor[TEST_TYPE_X86])
 		{
 			testsCount[TEST_TYPE_X86]++;
 			nullcSetExecutor(NULLC_X86);

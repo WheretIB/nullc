@@ -92,9 +92,6 @@ typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
 
 namespace NULLC
 {
-	// Part of state that SEH handler saves for future use
-	unsigned int expCodePublic;
-
 	ExecutorX86	*currExecutor = NULL;
 
 #ifndef __linux
@@ -115,6 +112,27 @@ namespace NULLC
 
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] >= uintptr_t(currExecutor->vmState.callStackEnd) && expInfo->ExceptionRecord->ExceptionInformation[1] <= uintptr_t(currExecutor->vmState.callStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: call stack overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] >= uintptr_t(currExecutor->vmState.dataStackEnd) && expInfo->ExceptionRecord->ExceptionInformation[1] <= uintptr_t(currExecutor->vmState.dataStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: stack overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] >= uintptr_t(currExecutor->vmState.regFileArrayEnd) && expInfo->ExceptionRecord->ExceptionInformation[1] <= uintptr_t(currExecutor->vmState.regFileArrayEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: register overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
 		uintptr_t address = uintptr_t(expInfo->ContextRecord->RegisterIp);
 
 		// Check that exception happened in NULLC code
@@ -134,9 +152,6 @@ namespace NULLC
 
 		if(!isInternal)
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
-
-		// Save part of state for later use
-		expCodePublic = expCode;
 
 		if(*(unsigned char*)(intptr_t)expInfo->ContextRecord->RegisterIp == 0xcc)
 		{
@@ -163,8 +178,26 @@ namespace NULLC
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
 		}
 
-		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
+		{
+			currExecutor->Stop("ERROR: integer division by zero");
+
 			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_INT_OVERFLOW)
+		{
+			currExecutor->Stop("ERROR: integer overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000)
+		{
+			currExecutor->Stop("ERROR: null pointer access");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
 
 		return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 	}
@@ -182,6 +215,24 @@ namespace NULLC
 
 	void HandleError(int signum, siginfo_t *info, void *ucontext)
 	{
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) >= uintptr_t(currExecutor->vmState.callStackEnd) && uintptr_t(info->si_addr) <= uintptr_t(currExecutor->vmState.callStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: call stack overflow");
+			siglongjmp(errorHandler, 1);
+		}
+
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) >= uintptr_t(currExecutor->vmState.dataStackEnd) && uintptr_t(info->si_addr) <= uintptr_t(currExecutor->vmState.dataStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: stack overflow");
+			siglongjmp(errorHandler, 1);
+		}
+
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) >= uintptr_t(currExecutor->vmState.regFileArrayEnd) && uintptr_t(info->si_addr) <= uintptr_t(currExecutor->vmState.regFileArrayEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: register overflow");
+			siglongjmp(errorHandler, 1);
+		}
+
 #if defined(_M_X64)
 		uintptr_t address = uintptr_t(((ucontext_t*)ucontext)->uc_mcontext.gregs[REG_RIP]);
 #else
@@ -212,13 +263,14 @@ namespace NULLC
 
 		if(signum == SIGFPE)
 		{
-			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
-			siglongjmp(errorHandler, expCodePublic);
+			currExecutor->Stop("ERROR: integer division by zero");
+			siglongjmp(errorHandler, 1);
 		}
-		else if(signum == SIGSEGV && uintptr_t(info->si_addr) < 0x00010000)
+
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) < 0x00010000)
 		{
-			expCodePublic = EXCEPTION_INVALID_POINTER;
-			siglongjmp(errorHandler, expCodePublic);
+			currExecutor->Stop("ERROR: null pointer access");
+			siglongjmp(errorHandler, 1);
 		}
 
 		signal(signum, SIG_DFL);
@@ -235,6 +287,30 @@ namespace NULLC
 		return result;
 	}
 #endif
+
+	void DenyMemoryPageRead(void *addr)
+	{
+		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
+
+#if !defined(_linux)
+		DWORD unusedProtect;
+		VirtualProtect(alignedAddr, 4096, PAGE_NOACCESS, &unusedProtect);
+#else
+		mprotect(alignedAddr, 4096, PROT_NONE);
+#endif
+	}
+
+	void AllowMemoryPageRead(void *addr)
+	{
+		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
+
+#if !defined(_linux)
+		DWORD unusedProtect;
+		VirtualProtect(alignedAddr, 4096, PAGE_READWRITE, &unusedProtect);
+#else
+		mprotect(alignedAddr, 4096, PROT_READ | PROT_WRITE);
+#endif
+	}
 
 	typedef void (*codegenCallback)(CodeGenRegVmContext &ctx, RegVmCmd);
 	codegenCallback cgFuncs[rviConvertPtr + 1];
@@ -289,6 +365,10 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 
 ExecutorX86::~ExecutorX86()
 {
+	NULLC::AllowMemoryPageRead(vmState.callStackEnd);
+	NULLC::AllowMemoryPageRead(vmState.dataStackEnd);
+	NULLC::AllowMemoryPageRead(vmState.regFileArrayEnd);
+
 	NULLC::dealloc(vmState.dataStackBase);
 
 	NULLC::dealloc(vmState.callStackBase);
@@ -579,7 +659,7 @@ bool ExecutorX86::Initialize()
 
 	if(!vmState.callStackBase)
 	{
-		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
+		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2 + 8192); // Two extra pages for page guard
 		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
 		vmState.callStackEnd = vmState.callStackBase + 1024 * 2;
 	}
@@ -593,17 +673,21 @@ bool ExecutorX86::Initialize()
 
 	if(!vmState.dataStackBase)
 	{
-		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize + 8192); // Two extra pages for page guard
 		memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
 		vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
 	}
 
 	if(!vmState.regFileArrayBase)
 	{
-		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
+		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32 + 8192); // Two extra pages for page guard
 		memset(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
 		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
 	}
+
+	NULLC::DenyMemoryPageRead(vmState.callStackEnd);
+	NULLC::DenyMemoryPageRead(vmState.dataStackEnd);
+	NULLC::DenyMemoryPageRead(vmState.regFileArrayEnd);
 
 	//x86TestEncoding(codeLaunchHeader);
 
@@ -866,10 +950,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}
 		else
 		{
-			if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
-				strcpy(execError, "ERROR: integer division by zero");
-			else if(errorCode == EXCEPTION_INVALID_POINTER)
-				strcpy(execError, "ERROR: null pointer access");
+			resultType = rvrError;
 		}
 
 		// Disable signal handlers only from top-level Run
@@ -904,13 +985,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}
 		__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation()))
 		{
-			if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
-				strcpy(execError, "ERROR: integer division by zero");
-			else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW)
-				strcpy(execError, "ERROR: integer overflow");
-			else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION)
-				strcpy(execError, "ERROR: null pointer access");
-
 			resultType = rvrError;
 		}
 #endif
@@ -994,11 +1068,15 @@ bool ExecutorX86::SetStackSize(unsigned bytes)
 
 	minStackSize = bytes;
 
+	NULLC::AllowMemoryPageRead(vmState.dataStackEnd);
+
 	NULLC::dealloc(vmState.dataStackBase);
 
-	vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+	vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize + 8192); // Two extra pages for page guard
 	memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
 	vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
+
+	NULLC::DenyMemoryPageRead(vmState.dataStackEnd);
 
 	return true;
 }
