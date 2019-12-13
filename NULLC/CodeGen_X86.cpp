@@ -437,7 +437,7 @@ x86XmmReg CodeGenGenericContext::RedirectRegister(x86XmmReg reg)
 
 x86Reg CodeGenGenericContext::GetReg()
 {
-	static x86Reg regs[] = { rRAX, rRDX, rEDI, rESI, rR8, rR9, rR10, rR11 };
+	static x86Reg regs[] = { rRAX, rRDX, rEDI, rESI, rR8, rR9, rR10, rR11, rR12 };
 
 	// Simple rotation
 	x86Reg res = regs[currFreeReg];
