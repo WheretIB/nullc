@@ -444,11 +444,13 @@ bool ExecutorX86::Initialize()
 	pos += x64MOV(pos, rRBX, rRDX);
 	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
 	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+	pos += x64MOV(pos, rR13, uintptr_t(&vmState));
 	pos += x86CALL(pos, rECX);
 #else
 	pos += x64MOV(pos, rRBX, rRSI);
 	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
 	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+	pos += x64MOV(pos, rR13, uintptr_t(&vmState));
 	pos += x86CALL(pos, rRDI);
 #endif
 
