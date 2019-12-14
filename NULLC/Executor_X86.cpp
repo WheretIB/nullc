@@ -61,7 +61,7 @@ struct UNWIND_INFO_ENTRY
 	unsigned char countOfCodes;
 	unsigned char frameRegister : 4;
 	unsigned char frameOffset : 4;
-	UNWIND_CODE unwindCode[8];
+	UNWIND_CODE unwindCode[10];
 };
 
 struct UNWIND_INFO_FUNCTION
@@ -519,6 +519,7 @@ bool ExecutorX86::Initialize()
 	pos += x86PUSH(pos, rR13);
 	pos += x86PUSH(pos, rR14);
 	pos += x86PUSH(pos, rR15);
+	pos += x64SUB(pos, rRSP, 40);
 
 #ifndef __linux
 	pos += x64MOV(pos, rRBX, rRDX);
@@ -535,6 +536,7 @@ bool ExecutorX86::Initialize()
 #endif
 
 	// Restore registers
+	pos += x64ADD(pos, rRSP, 40);
 	pos += x86POP(pos, rR15);
 	pos += x86POP(pos, rR14);
 	pos += x86POP(pos, rR13);
@@ -589,48 +591,52 @@ bool ExecutorX86::Initialize()
 	codeLaunchUnwindOffset = unsigned(pos - codeLaunchHeader);
 
 	assert(sizeof(UNWIND_CODE) == 2);
-	assert(sizeof(UNWIND_INFO_ENTRY) == 4 + 8 * 2);
+	assert(sizeof(UNWIND_INFO_ENTRY) == 4 + 10 * 2);
 
 	UNWIND_INFO_ENTRY unwindInfo = { 0 };
 
 	unwindInfo.version = 1;
 	unwindInfo.flags = 0; // No EH
-	unwindInfo.sizeOfProlog = 12;
-	unwindInfo.countOfCodes = 8;
+	unwindInfo.sizeOfProlog = 16;
+	unwindInfo.countOfCodes = 9;
 	unwindInfo.frameRegister = 0;
 	unwindInfo.frameOffset = 0;
 
-	unwindInfo.unwindCode[0].offsetInPrologue = 12;
-	unwindInfo.unwindCode[0].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[0].operationInfo = 15; // r15
+	unwindInfo.unwindCode[0].offsetInPrologue = 16;
+	unwindInfo.unwindCode[0].operationCode = UWOP_ALLOC_SMALL;
+	unwindInfo.unwindCode[0].operationInfo = (40 - 8) / 8;
 
-	unwindInfo.unwindCode[1].offsetInPrologue = 10;
+	unwindInfo.unwindCode[1].offsetInPrologue = 12;
 	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[1].operationInfo = 14; // r14
+	unwindInfo.unwindCode[1].operationInfo = 15; // r15
 
-	unwindInfo.unwindCode[2].offsetInPrologue = 8;
+	unwindInfo.unwindCode[2].offsetInPrologue = 10;
 	unwindInfo.unwindCode[2].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[2].operationInfo = 13; // r13
+	unwindInfo.unwindCode[2].operationInfo = 14; // r14
 
-	unwindInfo.unwindCode[3].offsetInPrologue = 6;
+	unwindInfo.unwindCode[3].offsetInPrologue = 8;
 	unwindInfo.unwindCode[3].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[3].operationInfo = 12; // r12
+	unwindInfo.unwindCode[3].operationInfo = 13; // r13
 
-	unwindInfo.unwindCode[4].offsetInPrologue = 4;
+	unwindInfo.unwindCode[4].offsetInPrologue = 6;
 	unwindInfo.unwindCode[4].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[4].operationInfo = UWOP_REGISTER_RSI;
+	unwindInfo.unwindCode[4].operationInfo = 12; // r12
 
-	unwindInfo.unwindCode[5].offsetInPrologue = 3;
+	unwindInfo.unwindCode[5].offsetInPrologue = 4;
 	unwindInfo.unwindCode[5].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RDI;
+	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RSI;
 
-	unwindInfo.unwindCode[6].offsetInPrologue = 2;
+	unwindInfo.unwindCode[6].offsetInPrologue = 3;
 	unwindInfo.unwindCode[6].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[6].operationInfo = UWOP_REGISTER_RBX;
+	unwindInfo.unwindCode[6].operationInfo = UWOP_REGISTER_RDI;
 
-	unwindInfo.unwindCode[7].offsetInPrologue = 1;
+	unwindInfo.unwindCode[7].offsetInPrologue = 2;
 	unwindInfo.unwindCode[7].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[7].operationInfo = UWOP_REGISTER_RBP;
+	unwindInfo.unwindCode[7].operationInfo = UWOP_REGISTER_RBX;
+
+	unwindInfo.unwindCode[8].offsetInPrologue = 1;
+	unwindInfo.unwindCode[8].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[8].operationInfo = UWOP_REGISTER_RBP;
 
 	memcpy(pos, &unwindInfo, sizeof(unwindInfo));
 	pos += sizeof(unwindInfo);
@@ -766,7 +772,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	assert(prevDataSize % 16 == 0);
 
 	RegVmRegister *regFilePtr = vmState.regFileLastTop;
-	RegVmRegister *regFileTop = vmState.regFileLastTop + 256;
 
 	if(functionID != ~0u)
 	{
@@ -846,9 +851,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-				regFilePtr = vmState.regFileLastTop;
-				regFileTop = vmState.regFileLastTop + target.regVmRegisters;
-
 				if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + stackSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
 				{
 					CodeGenRegVmCallStackEntry *entry = vmState.callStackTop;
@@ -863,18 +865,11 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				}
 				else
 				{
-					assert(argumentsSize <= stackSize);
-
-					if(stackSize - argumentsSize)
-						memset(vmState.dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
-
 					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState.dataStackBase);
 					regFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState.dataStackBase + prevDataSize);
 					regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 					regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 				}
-
-				memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 			}
 		}
 	}
@@ -889,14 +884,15 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 		regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 
-		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
+		memset(regFilePtr + rvrrCount, 0, (256 - rvrrCount) * sizeof(regFilePtr[0]));
 	}
 
 	RegVmRegister *prevRegFilePtr = vmState.regFileLastPtr;
-	RegVmRegister *prevRegFileTop = vmState.regFileLastTop;
 
 	vmState.regFileLastPtr = regFilePtr;
-	vmState.regFileLastTop = regFileTop;
+
+	if(functionID == ~0u)
+		vmState.regFileLastTop += 256;
 
 	RegVmReturnType resultType = retType;
 
@@ -987,7 +983,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	}
 
 	vmState.regFileLastPtr = prevRegFilePtr;
-	vmState.regFileLastTop = prevRegFileTop;
+
+	if(functionID == ~0u)
+		vmState.regFileLastTop -= 256;
 
 	vmState.dataStackTop = vmState.dataStackBase + prevDataSize;
 
@@ -1217,7 +1215,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
-			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #endif
 
 			// Generate function prologue (register cleanup, data stack advance, data stack cleanup)
@@ -1229,6 +1227,20 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 #if defined(_M_X64)
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+				unsigned argumentsSize = target.bytesToPop;
+
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rRBX, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop));
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+
+				// Advance frame top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+
+				// Advance register top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop), target.regVmRegisters * 8); // vmState->regFileLastTop += target.regVmRegisters;
+
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
 
 				bool isRaxCleared = false;
 
@@ -1254,8 +1266,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				}
 
 				// Clear data stack
-				unsigned argumentsSize = target.bytesToPop;
-
 				// TODO: use target.stackSize which is smaller?
 				if(unsigned count = stackSize - argumentsSize)
 				{
@@ -1276,12 +1286,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 						EMIT_OP(codeGenCtx->ctx, o_rep_stosd);
 					}
 				}
-
-				// Advance frame top
-				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
-
-				// Advance register top
-				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop), target.regVmRegisters * 8); // vmState->regFileLastTop += target.regVmRegisters;
 #else
 				assert(!"not implemented");
 #endif
@@ -1300,7 +1304,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 			if(pos)
 			{
-				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
 			}
@@ -1324,14 +1328,14 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
-		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #endif
 	}
 
 	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
 
 #if defined(_M_X64)
-	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
 #endif
@@ -1548,7 +1552,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	if(binCodeSize != 0)
 	{
 #if defined(_M_X64)
-		code -= 10; // xor eax, eax; add rsp, 32; pop r15; pop rbx; ret;
+		code -= 10; // xor eax, eax; add rsp, 40; pop r15; pop rbx; ret;
 #else
 		code -= 3; // xor eax, eax; ret;
 #endif
@@ -1595,7 +1599,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	unwindInfo.unwindCode[0].offsetInPrologue = 7;
 	unwindInfo.unwindCode[0].operationCode = UWOP_ALLOC_SMALL;
-	unwindInfo.unwindCode[0].operationInfo = (32 - 8) / 8;
+	unwindInfo.unwindCode[0].operationInfo = (40 - 8) / 8;
 
 	unwindInfo.unwindCode[1].offsetInPrologue = 3;
 	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
