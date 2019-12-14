@@ -48,6 +48,10 @@ void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, RegVmLoweredInstr
 
 		lastInstruction = instruction;
 	}
+
+	for(unsigned i = 0; i < parent->killedRegisters.size(); i++)
+		instruction->preKillRegisters.push_back(parent->killedRegisters[i]);
+	parent->killedRegisters.clear();
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code)
