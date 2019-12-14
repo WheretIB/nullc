@@ -1378,7 +1378,7 @@ int x86IMUL(unsigned char *stream, x86Reg srcdst, int num)
 
 	if((char)(num) == num)
 	{
-		stream += encodeRex(stream, false, rNONE, rNONE, srcdst);
+		stream += encodeRex(stream, false, srcdst, rNONE, srcdst);
 		*stream++ = 0x6b;
 		*stream++ = encodeRegister(srcdst, regCode[srcdst]);
 		stream += encodeImmByte(stream, (char)num);
@@ -1386,7 +1386,7 @@ int x86IMUL(unsigned char *stream, x86Reg srcdst, int num)
 		return int(stream - start);
 	}
 
-	stream += encodeRex(stream, false, rNONE, rNONE, srcdst);
+	stream += encodeRex(stream, false, srcdst, rNONE, srcdst);
 	*stream++ = 0x69;
 	*stream++ = encodeRegister(srcdst, regCode[srcdst]);
 	stream += encodeImmDword(stream, num);
