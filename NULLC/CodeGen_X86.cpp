@@ -1377,6 +1377,12 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 		ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
 	case o_lea:
+		if(index == rNONE && shift == 0)
+		{
+			EMIT_OP_REG_REG(ctx, sizeof(void*) == 8 ? o_mov64 : o_mov, reg1, base);
+			return;
+		}
+
 		ctx.OverwriteRegisterWithUnknown(reg1);
 		break;
 	case o_cvttsd2si:
