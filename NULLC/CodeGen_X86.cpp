@@ -1265,11 +1265,14 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
-	ctx.RedirectAddressComputation(index, multiplier, base, shift);
+	if(!ctx.skipTracking)
+	{
+		ctx.RedirectAddressComputation(index, multiplier, base, shift);
 
-	// Register reads
-	ctx.ReadRegister(base);
-	ctx.ReadRegister(index);
+		// Register reads
+		ctx.ReadRegister(base);
+		ctx.ReadRegister(index);
+	}
 
 	x86Argument address = x86Argument(size, index, multiplier, base, shift);
 
@@ -1277,6 +1280,9 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	{
 	case o_mov:
 	case o_mov64:
+		if(ctx.skipTracking)
+			break;
+
 		if(unsigned memIndex = ctx.MemFind(address))
 		{
 			memIndex--;
@@ -1751,6 +1757,9 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	case o_and64:
 	case o_or64:
 	case o_xor64:
+		if(ctx.skipTracking)
+			break;
+
 		ctx.MemRead(arg);
 
 		ctx.InvalidateAddressValue(arg);

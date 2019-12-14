@@ -279,6 +279,9 @@ int x86CMP(unsigned char *stream, x86Reg reg, int num);
 // cmp reg1, reg2
 int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
 
+// REX.W cmp reg1, num
+int x64CMP(unsigned char *stream, x86Reg reg1, int num);
+
 // REX.W cmp reg1, reg2
 int x64CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
 

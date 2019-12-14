@@ -25,19 +25,8 @@ namespace NULLCDynamic
 			nullcThrowError("Cannot convert from '%s' to '%s'", &linker->exSymbols[linker->exTypes[src.typeID].offsetToName], &linker->exSymbols[linker->exTypes[dest.typeID].offsetToName]);
 			return;
 		}
-		ExternFuncInfo &destFunc = linker->exFunctions[((NULLCFuncPtr*)dest.ptr)->id];
-		ExternFuncInfo &srcFunc = linker->exFunctions[((NULLCFuncPtr*)src.ptr)->id];
 
-		destFunc.vmAddress = srcFunc.vmAddress;
-		destFunc.vmCodeSize = srcFunc.vmCodeSize;
-
-		destFunc.regVmAddress = srcFunc.regVmAddress;
-		destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
-		destFunc.regVmRegisters = srcFunc.regVmRegisters;
-
-		destFunc.funcPtrRaw = srcFunc.funcPtrRaw;
-		destFunc.funcPtrWrapTarget = srcFunc.funcPtrWrapTarget;
-		destFunc.funcPtrWrap = srcFunc.funcPtrWrap;
+		nullcRedirectFunction(((NULLCFuncPtr*)dest.ptr)->id, ((NULLCFuncPtr*)src.ptr)->id);
 	}
 
 	void Override(NULLCRef dest, NULLCArray code)
@@ -77,19 +66,7 @@ namespace NULLCDynamic
 		}
 		delete[] bytecode;
 
-		ExternFuncInfo &destFunc = linker->exFunctions[((NULLCFuncPtr*)dest.ptr)->id];
-		ExternFuncInfo &srcFunc = linker->exFunctions.back();
-
-		destFunc.vmAddress = srcFunc.vmAddress;
-		destFunc.vmCodeSize = srcFunc.vmCodeSize;
-
-		destFunc.regVmAddress = srcFunc.regVmAddress;
-		destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
-		destFunc.regVmRegisters = srcFunc.regVmRegisters;
-
-		destFunc.funcPtrRaw = srcFunc.funcPtrRaw;
-		destFunc.funcPtrWrapTarget = srcFunc.funcPtrWrapTarget;
-		destFunc.funcPtrWrap = srcFunc.funcPtrWrap;
+		nullcRedirectFunction(((NULLCFuncPtr*)dest.ptr)->id, linker->exFunctions.size() - 1);
 	}
 }
 

@@ -31,6 +31,7 @@ public:
 
 	void	ClearNative();
 	bool	TranslateToNative(bool enableLogFiles, OutputContext &output);
+	void	UpdateFunctionPointer(unsigned source, unsigned target);
 	void	SaveListing(OutputContext &output);
 
 	void	Run(unsigned int functionID, const char *arguments);
@@ -128,7 +129,8 @@ public:
 	DCCallVM		*dcCallVM;
 #endif
 
-	FastVector<unsigned char*>	instAddress;
+	FastVector<unsigned char*> instAddress;
+	FastVector<unsigned char*> functionAddress;
 
 	FastVector<unsigned> globalCodeRanges;
 	FastVector<RUNTIME_FUNCTION> functionWin64UnwindTable;

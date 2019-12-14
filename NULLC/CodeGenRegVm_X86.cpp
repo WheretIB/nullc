@@ -1703,11 +1703,26 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	unsigned char resultType = *microcode++ & 0xff;
 
 #if defined(_M_X64)
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rR13, nullcOffsetOf(ctx.vmState, functionAddress));
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRAX, cmd.argument * sizeof(void*));
+	EMIT_OP_REG_NUM(ctx.ctx, o_cmp64, rRAX, 0);
+
+	EMIT_OP_LABEL(ctx.ctx, o_je, ctx.labelCount, false);
+
+	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+	EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount + 1, false);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
 	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg1, rR13);
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rArg2, cmd.argument);
 	EMIT_REG_READ(ctx.ctx, rArg1);
 	EMIT_REG_READ(ctx.ctx, rArg2);
 	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, nullcOffsetOf(ctx.vmState, callWrap));
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
 #else
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDI, uintptr_t(ctx.vmState));
 

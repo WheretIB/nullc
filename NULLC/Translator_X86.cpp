@@ -1995,6 +1995,29 @@ int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2)
 	return int(stream - start);
 }
 
+// cmp reg, num
+int x64CMP(unsigned char *stream, x86Reg reg, int num)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, rNONE, rNONE, reg);
+
+	if((char)(num) == num)
+	{
+		*stream++ = 0x83;
+		*stream++ = encodeRegister(reg, 7);
+		stream += encodeImmByte(stream, (char)num);
+
+		return int(stream - start);
+	}
+
+	*stream++ = 0x81;
+	*stream++ = encodeRegister(reg, 7);
+	stream += encodeImmDword(stream, num);
+
+	return int(stream - start);
+}
+
 // REX.W cmp reg1, reg2
 int x64CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2)
 {
@@ -3269,6 +3292,10 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 
 					code += x86CMP(code, cmd.argA.reg, sQWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 				}
+				else if(cmd.argB.type == x86Argument::argNumber)
+				{
+					code += x64CMP(code, cmd.argA.reg, cmd.argB.num);
+				}
 				else if(cmd.argB.type == x86Argument::argReg)
 				{
 					code += x64CMP(code, cmd.argA.reg, cmd.argB.reg);
@@ -4011,6 +4038,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	stream += TestRptrNumEncoding(ctx, stream, o_cmp, x86CMP, testSizeDword);
 
 	stream += TestRegRegEncoding(ctx, stream, o_cmp64, x64CMP);
+	stream += TestRegNumEncoding(ctx, stream, o_cmp64, x64CMP);
 	stream += TestRegRptrEncoding(ctx, stream, o_cmp64, x86CMP, testSizeQword);
 	stream += TestRptrRegEncoding(ctx, stream, o_cmp64, x86CMP, testSizeQword);
 	stream += TestRptrNumEncoding(ctx, stream, o_cmp64, x86CMP, testSizeQword);

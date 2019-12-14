@@ -1542,6 +1542,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 		for(unsigned i = 0; i < instAddress.size(); i++)
 			instAddress[i] = (instAddress[i] - binCode) + binCodeNew;
+
+		for(unsigned i = 0; i < functionAddress.size(); i++)
+			functionAddress[i] = (functionAddress[i] - binCode) + binCodeNew;
+
 		binCode = binCodeNew;
 	}
 
@@ -1661,15 +1665,20 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	x86SatisfyJumps(instAddress);
 
+	if(codeRunning && exFunctions.size() > functionAddress.max)
+		assert(!"not implemented");
+
+	functionAddress.resize(exFunctions.size());
+
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
 		if(exFunctions[i].regVmAddress != -1)
-			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].regVmAddress] - binCode);
-		else if(exFunctions[i].funcPtrWrap)
-			exFunctions[i].startInByteCode = 0xffffffff;
+			functionAddress[i] = instAddress[exFunctions[i].regVmAddress];
 		else
-			exFunctions[i].startInByteCode = 0xffffffff;
+			functionAddress[i] = 0;
 	}
+
+	vmState.functionAddress = functionAddress.data;
 
 	lastInstructionCount = exRegVmCode.size();
 
@@ -1677,6 +1686,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	oldFunctionSize = exFunctions.size();
 
 	return true;
+}
+
+void ExecutorX86::UpdateFunctionPointer(unsigned source, unsigned target)
+{
+	functionAddress[source] = functionAddress[target];
 }
 
 void ExecutorX86::SaveListing(OutputContext &output)
