@@ -1151,6 +1151,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	codeGenCtx->exLocals = exLinker->exLocals.data;
 	codeGenCtx->exRegVmConstants = exRegVmConstants.data;
 	codeGenCtx->exRegVmConstantsEnd = exRegVmConstants.data + exRegVmConstants.count;
+	codeGenCtx->exRegVmRegKillInfo = exRegVmRegKillInfo.data;
 	codeGenCtx->exSymbols = exLinker->exSymbols.data;
 
 	codeGenCtx->vmState = &vmState;
@@ -1215,6 +1216,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
 		codeGenCtx->currInstructionPos = pos;
+		codeGenCtx->currInstructionRegKillOffset = codeRegKillInfoOffsets[pos];
 
 		// Frame setup
 		if((codeJumpTargets[pos] & 6) != 0)
@@ -1328,6 +1330,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		pos++;
 
 		NULLC::cgFuncs[cmd.code](*codeGenCtx, cmd);
+
+		codeGenCtx->ctx.KillLateUnreadRegVmRegisters(exRegVmRegKillInfo.data + codeGenCtx->currInstructionRegKillOffset);
 
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}

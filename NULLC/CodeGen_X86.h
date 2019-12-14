@@ -62,6 +62,10 @@ struct CodeGenGenericContext
 
 	void KillUnreadRegisters();
 
+	void KillUnreadRegVmRegister(unsigned char regId);
+	void KillEarlyUnreadRegVmRegisters(unsigned char *instRegKillInfo);
+	void KillLateUnreadRegVmRegisters(unsigned char *instRegKillInfo);
+
 	void ReadRegister(x86Reg reg);
 	void ReadRegister(x86XmmReg reg);
 

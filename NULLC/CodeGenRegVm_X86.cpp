@@ -1371,6 +1371,10 @@ void GenCodeCmdJmpz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load value
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+	ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_test, rEAX, rEAX);
 	EMIT_OP_LABEL(ctx.ctx, o_jz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 }
@@ -1380,6 +1384,10 @@ void GenCodeCmdJmpnz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load value
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+	ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_test, rEAX, rEAX);
 	EMIT_OP_LABEL(ctx.ctx, o_jnz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 }

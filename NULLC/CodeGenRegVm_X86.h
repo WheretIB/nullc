@@ -149,11 +149,13 @@ struct CodeGenRegVmContext
 		exLocals = NULL;
 		exRegVmConstants = NULL;
 		exRegVmConstantsEnd = NULL;
+		exRegVmRegKillInfo = NULL;
 		exSymbols = NULL;
 
 		vmState = NULL;
 
 		currInstructionPos = 0;
+		currInstructionRegKillOffset = 0;
 		currFunctionId = 0;
 	}
 
@@ -169,11 +171,13 @@ struct CodeGenRegVmContext
 	ExternLocalInfo *exLocals;
 	unsigned *exRegVmConstants;
 	unsigned *exRegVmConstantsEnd;
+	unsigned char *exRegVmRegKillInfo;
 	char *exSymbols;
 
 	CodeGenRegVmStateContext *vmState;
 
 	unsigned currInstructionPos;
+	unsigned currInstructionRegKillOffset;
 	unsigned currFunctionId;
 };
 

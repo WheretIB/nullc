@@ -279,6 +279,55 @@ void CodeGenGenericContext::KillUnreadRegisters()
 		KillRegister(x86XmmReg(i));
 }
 
+void CodeGenGenericContext::KillUnreadRegVmRegister(unsigned char regId)
+{
+	if(unsigned memIndex = MemIntersectFind(x86Argument(sQWORD, rRBX, regId * 8)))
+	{
+		memIndex--;
+
+		if(!memCache[memIndex].read)
+		{
+			// Remove dead store
+			x86Instruction *curr = memCache[memIndex].location + x86Base;
+
+			if(curr->name != o_none)
+			{
+				curr->name = o_none;
+				optimizationCount++;
+			}
+		}
+	}
+}
+
+void CodeGenGenericContext::KillEarlyUnreadRegVmRegisters(unsigned char *instRegKillInfo)
+{
+	if(unsigned regKillCounts = *instRegKillInfo)
+	{
+		instRegKillInfo++;
+
+		unsigned preKillCount = (regKillCounts >> 4);
+
+		for(unsigned k = 0; k < preKillCount; k++)
+			KillUnreadRegVmRegister(*instRegKillInfo++);
+	}
+}
+
+void CodeGenGenericContext::KillLateUnreadRegVmRegisters(unsigned char *instRegKillInfo)
+{
+	if(unsigned regKillCounts = *instRegKillInfo)
+	{
+		instRegKillInfo++;
+
+		unsigned preKillCount = (regKillCounts >> 4);
+		unsigned postKillCount = (regKillCounts & 0xf);
+
+		instRegKillInfo += preKillCount;
+
+		for(unsigned k = 0; k < postKillCount; k++)
+			KillUnreadRegVmRegister(*instRegKillInfo++);
+	}
+}
+
 void CodeGenGenericContext::KillRegister(x86Reg reg)
 {
 	// Eliminate dead stores to the register
