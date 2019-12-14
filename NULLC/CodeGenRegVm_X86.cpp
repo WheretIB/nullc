@@ -2566,12 +2566,19 @@ void GenCodeCmdAddImml(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load lhs
+	if(cmd.rA == cmd.rB)
+	{
+		EMIT_OP_RPTR_NUM(ctx.ctx, o_add, sDWORD, rREG, cmd.rA * 8, cmd.argument); // Modify inplace
+	}
+	else
+	{
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load lhs
 
-	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
-	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rEAX, cmd.argument);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+		EMIT_OP_REG_NUM(ctx.ctx, o_add64, rEAX, cmd.argument);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	}
 #else
 	// Load long LHS value into ECX:EDI
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8);
