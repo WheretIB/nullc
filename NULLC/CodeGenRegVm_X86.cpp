@@ -1942,6 +1942,9 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		}
 	}
 
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+	ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
 	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 40);
 	EMIT_OP_REG(ctx.ctx, o_pop, rR15);
