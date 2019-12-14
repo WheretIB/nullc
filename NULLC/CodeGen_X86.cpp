@@ -745,6 +745,9 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		break;
 	case o_pop:
 		ctx.OverwriteRegisterWithUnknown(reg1);
+
+		// Push and pop are part of the frame setup, so implicitly use the register so it won't be removed
+		ctx.ReadRegister(reg1);
 		break;
 	case o_sal:
 	case o_sar:

@@ -72,7 +72,7 @@ struct UNWIND_INFO_FUNCTION
 	unsigned char countOfCodes;
 	unsigned char frameRegister : 4;
 	unsigned char frameOffset : 4;
-	UNWIND_CODE unwindCode[2];
+	UNWIND_CODE unwindCode[4];
 };
 
 #else
@@ -1215,6 +1215,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			}
 
 #if defined(_M_X64)
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
 #endif
 
@@ -1254,6 +1256,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				// Clear data stack
 				unsigned argumentsSize = target.bytesToPop;
 
+				// TODO: use target.stackSize which is smaller?
 				if(unsigned count = stackSize - argumentsSize)
 				{
 					assert(count % 4 == 0);
@@ -1276,6 +1279,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 				// Advance frame top
 				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+
+				// Advance register top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop), target.regVmRegisters * 8); // vmState->regFileLastTop += target.regVmRegisters;
 #else
 				assert(!"not implemented");
 #endif
@@ -1293,7 +1299,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 #if defined(_M_X64)
 			if(pos)
+			{
 				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
+			}
 #endif
 		}
 
@@ -1312,6 +1322,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	if((codeJumpTargets[exRegVmCode.size()] & 6) != 0)
 	{
 #if defined(_M_X64)
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
 		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
 #endif
 	}
@@ -1320,6 +1332,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
 #endif
 
 	EMIT_OP(codeGenCtx->ctx, o_ret);
@@ -1568,20 +1582,28 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Write the unwind data
 	assert(sizeof(UNWIND_CODE) == 2);
-	assert(sizeof(UNWIND_INFO_FUNCTION) == 4 + 2 * 2);
+	assert(sizeof(UNWIND_INFO_FUNCTION) == 4 + 4 * 2);
 
 	UNWIND_INFO_FUNCTION unwindInfo = { 0 };
 
 	unwindInfo.version = 1;
 	unwindInfo.flags = 0; // No EH
-	unwindInfo.sizeOfProlog = 4;
-	unwindInfo.countOfCodes = 1;
+	unwindInfo.sizeOfProlog = 7;
+	unwindInfo.countOfCodes = 3;
 	unwindInfo.frameRegister = 0;
 	unwindInfo.frameOffset = 0;
 
-	unwindInfo.unwindCode[0].offsetInPrologue = 4;
+	unwindInfo.unwindCode[0].offsetInPrologue = 7;
 	unwindInfo.unwindCode[0].operationCode = UWOP_ALLOC_SMALL;
 	unwindInfo.unwindCode[0].operationInfo = (32 - 8) / 8;
+
+	unwindInfo.unwindCode[1].offsetInPrologue = 3;
+	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[1].operationInfo = 15; // r15
+
+	unwindInfo.unwindCode[2].offsetInPrologue = 1;
+	unwindInfo.unwindCode[2].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[2].operationInfo = UWOP_REGISTER_RBX;
 
 	unsigned char *unwindPos = code;
 
@@ -1613,7 +1635,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	for(unsigned i = 0, e = globalCodeRanges.size(); i != e; i += 2)
 	{
 		unsigned char *codeStart = instAddress[globalCodeRanges[i]];
-		unsigned char *codeEnd = instAddress[globalCodeRanges[i + 1]] + 4; // add 'sub rsp, 32'
+		unsigned char *codeEnd = instAddress[globalCodeRanges[i + 1]] + unwindInfo.sizeOfProlog; // Add prologue
 
 		// Store function info
 		RUNTIME_FUNCTION rtFunc;
