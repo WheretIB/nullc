@@ -1082,7 +1082,10 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	size += sizeof(ExternSourceInfo) * regVmInfoCount;
 
 	unsigned offsetToRegVmConstants = size;
-	size += ctx.instRegVmFinalizeCtx.constants.size() * sizeof(unsigned);
+	size += ctx.instRegVmFinalizeCtx.constants.size() * sizeof(ctx.instRegVmFinalizeCtx.constants[0]);
+
+	unsigned offsetToRegVmRegKillInfo = size;
+	size += ctx.instRegVmFinalizeCtx.regKillInfo.size() * sizeof(ctx.instRegVmFinalizeCtx.regKillInfo[0]);
 
 	unsigned offsetToSymbols = size;
 	size += symbolStorageSize;
@@ -1142,6 +1145,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 	code->regVmConstantCount = ctx.instRegVmFinalizeCtx.constants.size();
 	code->regVmOffsetToConstants = offsetToRegVmConstants;
+
+	code->regVmRegKillInfoCount = ctx.instRegVmFinalizeCtx.regKillInfo.size();
+	code->regVmOffsetToRegKillInfo = offsetToRegVmRegKillInfo;
 
 	code->symbolLength = symbolStorageSize;
 	code->offsetToSymbols = offsetToSymbols;
@@ -1942,7 +1948,10 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		memcpy(FindRegVmCode(code), ctx.instRegVmFinalizeCtx.cmds.data, ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(RegVmCmd));
 
 	if(ctx.instRegVmFinalizeCtx.constants.size())
-		memcpy(FindRegVmConstants(code), ctx.instRegVmFinalizeCtx.constants.data, ctx.instRegVmFinalizeCtx.constants.size() * sizeof(unsigned));
+		memcpy(FindRegVmConstants(code), ctx.instRegVmFinalizeCtx.constants.data, ctx.instRegVmFinalizeCtx.constants.size() * sizeof(ctx.instRegVmFinalizeCtx.constants[0]));
+
+	if(ctx.instRegVmFinalizeCtx.regKillInfo.size())
+		memcpy(FindRegVmRegKillInfo(code), ctx.instRegVmFinalizeCtx.regKillInfo.data, ctx.instRegVmFinalizeCtx.regKillInfo.size() * sizeof(ctx.instRegVmFinalizeCtx.regKillInfo[0]));
 
 	char *sourceCode = (char*)code + offsetToSource;
 	memcpy(sourceCode, ctx.code, sourceLength);

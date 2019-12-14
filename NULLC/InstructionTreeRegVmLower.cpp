@@ -3484,6 +3484,24 @@ void RegFinalizeInstruction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredIn
 	}
 
 	ctx.cmds.push_back(cmd);
+
+	// Register kill info
+	unsigned preKillCount = lowInstruction->preKillRegisters.size();
+	unsigned postKillCount = lowInstruction->postKillRegisters.size();
+
+	if(preKillCount > 16)
+		preKillCount = 16;
+
+	if(postKillCount > 16)
+		postKillCount = 16;
+
+	ctx.regKillInfo.push_back((unsigned char)((preKillCount << 4) | postKillCount));
+
+	for(unsigned i = 0; i < preKillCount; i++)
+		ctx.regKillInfo.push_back(lowInstruction->preKillRegisters[i]);
+
+	for(unsigned i = 0; i < postKillCount; i++)
+		ctx.regKillInfo.push_back(lowInstruction->postKillRegisters[i]);
 }
 
 void RegFinalizeBlock(InstructionRegVmFinalizeContext &ctx, RegVmLoweredBlock *lowBlock)
@@ -3531,6 +3549,7 @@ void RegVmFinalizeModule(InstructionRegVmFinalizeContext &ctx, RegVmLoweredModul
 
 	ctx.locations.push_back(NULL);
 	ctx.cmds.push_back(RegVmCmd(rviJmp, 1, 0, 0, 0));
+	ctx.regKillInfo.push_back(0);
 
 	for(unsigned i = 0; i < lowModule->functions.size(); i++)
 	{

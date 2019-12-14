@@ -79,7 +79,9 @@ private:
 	FastVector<ExternFuncInfo>	&exFunctions;
 	FastVector<RegVmCmd>		&exRegVmCode;
 	FastVector<unsigned int>	&exRegVmConstants;
+	FastVector<unsigned char>	&exRegVmRegKillInfo;
 	FastVector<unsigned int>	codeJumpTargets;
+	FastVector<unsigned int>	codeRegKillInfoOffsets;
 
 	// Data stack
 	unsigned int	minStackSize;
@@ -119,6 +121,7 @@ private:
 	unsigned int	lastInstructionCount;
 
 	unsigned int	oldJumpTargetCount;
+	unsigned int	oldRegKillInfoCount;
 	unsigned int	oldFunctionSize;
 	unsigned int	oldCodeBodyProtect;
 

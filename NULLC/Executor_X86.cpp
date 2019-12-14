@@ -316,7 +316,7 @@ namespace NULLC
 	codegenCallback cgFuncs[rviConvertPtr + 1];
 }
 
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants), exRegVmRegKillInfo(linker->exRegVmRegKillInfo)
 {
 	codeGenCtx = NULL;
 
@@ -357,6 +357,7 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 	lastInstructionCount = 0;
 
 	oldJumpTargetCount = 0;
+	oldRegKillInfoCount = 0;
 	oldFunctionSize = 0;
 	oldCodeBodyProtect = 0;
 
@@ -1119,6 +1120,7 @@ void ExecutorX86::ClearNative()
 #endif
 
 	oldJumpTargetCount = 0;
+	oldRegKillInfoCount = 0;
 	oldFunctionSize = 0;
 
 	// Create new code generation context
@@ -1178,6 +1180,18 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		if(target.regVmAddress != ~0u && target.vmCodeSize != 0 && (codeJumpTargets[target.regVmAddress] >> 8) == 0)
 			codeJumpTargets[target.regVmAddress] |= 2 + (i << 8);
 	}
+
+	// Find instruction register kill info positions
+	codeRegKillInfoOffsets.resize(exRegVmCode.size());
+	for(unsigned i = lastInstructionCount, e = exRegVmCode.size(); i != e; i++)
+	{
+		codeRegKillInfoOffsets[i] = oldRegKillInfoCount;
+
+		unsigned counts = exRegVmRegKillInfo[oldRegKillInfoCount];
+
+		oldRegKillInfoCount += 1 + (counts >> 4) + (counts & 0xf);
+	}
+	assert(oldRegKillInfoCount == exRegVmRegKillInfo.size());
 
 	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
@@ -1683,6 +1697,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	lastInstructionCount = exRegVmCode.size();
 
 	oldJumpTargetCount = exLinker->regVmJumpTargets.size();
+	oldRegKillInfoCount = exRegVmRegKillInfo.size();
 	oldFunctionSize = exFunctions.size();
 
 	return true;
@@ -1699,7 +1714,11 @@ void ExecutorX86::SaveListing(OutputContext &output)
 
 	for(unsigned i = 0; i < instList.size(); i++)
 	{
-		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
+		x86Instruction &inst = instList[i];
+
+		unsigned instID = inst.instID;
+
+		if(instID && codeJumpTargets[instID - 1])
 		{
 			const char *functionName = NULL;
 			unsigned functionId = 0;
@@ -1708,7 +1727,7 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			{
 				ExternFuncInfo &funcInfo = exLinker->exFunctions[k];
 
-				if(unsigned(funcInfo.regVmAddress) == instList[i].instID - 1)
+				if(unsigned(funcInfo.regVmAddress) == instID - 1)
 				{
 					functionName = funcInfo.offsetToName + exLinker->exSymbols.data;
 					functionId = k;
@@ -1719,26 +1738,61 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			output.Print("; ------------------- Invalidation ----------------\n");
 
 			if(functionName)
-				output.Printf("0x%x: ; %4d // %s#%d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1, functionName, functionId);
+				output.Printf("0x%x: ; %4d // %s#%d", 0xc0000000 | (instID - 1), instID - 1, functionName, functionId);
 			else
-				output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
-		}
-
-		if(instList[i].instID && instList[i].instID - 1 < exRegVmCode.size())
-		{
-			RegVmCmd &cmd = exRegVmCode[instList[i].instID - 1];
-
-			output.Printf("; %4d: ", instList[i].instID - 1);
-
-			PrintInstruction(output, (char*)exRegVmConstants.data, exFunctions.data, exLinker->exSymbols.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+				output.Printf("0x%x: ; %4d", 0xc0000000 | (instID - 1), instID - 1);
 
 			output.Print('\n');
 		}
 
-		if(instList[i].name == o_other)
+		if(instID && instID - 1 < exRegVmCode.size())
+		{
+			RegVmCmd &cmd = exRegVmCode[instID - 1];
+
+			output.Printf("; %4d: ", instID - 1);
+
+			PrintInstruction(output, (char*)exRegVmConstants.data, exFunctions.data, exLinker->exSymbols.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+
+			unsigned regKillInfoOffset = codeRegKillInfoOffsets[instID - 1];
+			unsigned regKillCounts = exRegVmRegKillInfo[regKillInfoOffset];
+
+			if(regKillCounts)
+			{
+				output.Print(" // kill");
+
+				regKillInfoOffset++;
+
+				unsigned preKillCount = (regKillCounts >> 4);
+				unsigned postKillCount = (regKillCounts & 0xf);
+
+				if(preKillCount)
+				{
+					output.Print(" early[");
+
+					for(unsigned k = 0; k < preKillCount; k++)
+						output.Printf("%sr%d", k == 0 ? "" : ", ", exRegVmRegKillInfo[regKillInfoOffset++]);
+
+					output.Print(']');
+				}
+
+				if(postKillCount)
+				{
+					output.Print(" late[");
+
+					for(unsigned k = 0; k < postKillCount; k++)
+						output.Printf("%sr%d", k == 0 ? "" : ", ", exRegVmRegKillInfo[regKillInfoOffset++]);
+
+					output.Print(']');
+				}
+			}
+
+			output.Print('\n');
+		}
+
+		if(inst.name == o_other)
 			continue;
 
-		instList[i].Decode(vmState, instBuf);
+		inst.Decode(vmState, instBuf);
 
 		output.Print(instBuf);
 		output.Print('\n');

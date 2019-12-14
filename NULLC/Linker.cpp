@@ -59,6 +59,7 @@ void Linker::CleanCode()
 	exRegVmSourceInfo.clear();
 	exRegVmExecCount.clear();
 	exRegVmConstants.clear();
+	exRegVmRegKillInfo.clear();
 	memset(exRegVmInstructionExecCount.data, 0, sizeof(exRegVmInstructionExecCount));
 
 #ifdef NULLC_LLVM_SUPPORT
@@ -410,7 +411,11 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 
 	unsigned int oldRegVmConstantsSize = exRegVmConstants.size();
 	exRegVmConstants.resize(oldRegVmConstantsSize + bCode->regVmConstantCount);
-	memcpy(exRegVmConstants.data + oldRegVmConstantsSize, FindRegVmConstants(bCode), bCode->regVmConstantCount * sizeof(unsigned));
+	memcpy(exRegVmConstants.data + oldRegVmConstantsSize, FindRegVmConstants(bCode), bCode->regVmConstantCount * sizeof(exRegVmConstants[0]));
+
+	unsigned int oldRegVmRegKillInfoSize = exRegVmRegKillInfo.size();
+	exRegVmRegKillInfo.resize(oldRegVmRegKillInfoSize + bCode->regVmRegKillInfoCount);
+	memcpy(exRegVmRegKillInfo.data + oldRegVmRegKillInfoSize, FindRegVmRegKillInfo(bCode), bCode->regVmRegKillInfoCount * sizeof(exRegVmRegKillInfo[0]));
 
 	debugOutputIndent--;
 
