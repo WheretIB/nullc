@@ -1145,7 +1145,7 @@ void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	else if(size == 16)
 	{
 		EMIT_OP_REG_NUM(ctx.ctx, o_shl, indexReg, 4); // 32 bit shift is ok, top bits are zero
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, indexReg, 1, pointerReg, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, pointerReg, sQWORD, indexReg, 1, pointerReg, 0);
 	}
 	else
 	{
