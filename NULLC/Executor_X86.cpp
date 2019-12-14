@@ -1548,7 +1548,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	if(binCodeSize != 0)
 	{
 #if defined(_M_X64)
-		code -= 7; // xor eax, eax; add rsp, 32; ret;
+		code -= 10; // xor eax, eax; add rsp, 32; pop r15; pop rbx; ret;
 #else
 		code -= 3; // xor eax, eax; ret;
 #endif
