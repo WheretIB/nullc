@@ -1101,10 +1101,13 @@ void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	ctx.vmState->errorOutOfBoundsWrap = ErrorOutOfBoundsWrap;
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load index with zero extension to use in lea (top RAX bits are cleared)
+	x86Reg indexReg = ctx.ctx.GetReg();
+	x86Reg pointerReg = ctx.ctx.GetReg();
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, indexReg, sDWORD, rREG, cmd.rB * 8); // Load index with zero extension to use in lea (top RAX bits are cleared)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8); // Load size
 
-	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rECX);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, indexReg, rECX);
 	EMIT_OP_LABEL(ctx.ctx, o_jb, ctx.labelCount, false);
 
 	EMIT_OP_NUM(ctx.ctx, o_set_tracking, 0);
@@ -1118,39 +1121,39 @@ void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
 	ctx.labelCount++;
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, pointerReg, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 
 	// Multiply index by size and add to source pointer
 	unsigned size = (cmd.argument & 0xffff);
 
 	if(size == 1)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 1, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, pointerReg, sQWORD, indexReg, 1, pointerReg, 0);
 	}
 	else if(size == 2)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 2, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, pointerReg, sQWORD, indexReg, 2, pointerReg, 0);
 	}
 	else if(size == 4)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 4, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, pointerReg, sQWORD, indexReg, 4, pointerReg, 0);
 	}
 	else if(size == 8)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 8, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, pointerReg, sQWORD, indexReg, 8, pointerReg, 0);
 	}
 	else if(size == 16)
 	{
-		EMIT_OP_REG_NUM(ctx.ctx, o_shl, rEAX, 4); // 32 bit shift is ok, top bits are zero
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 1, rRDX, 0);
+		EMIT_OP_REG_NUM(ctx.ctx, o_shl, indexReg, 4); // 32 bit shift is ok, top bits are zero
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, indexReg, 1, pointerReg, 0);
 	}
 	else
 	{
-		EMIT_OP_REG_NUM(ctx.ctx, o_imul, rEAX, size); // 32 bit multiplication is ok, top bits are zero
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 1, rRDX, 0);
+		EMIT_OP_REG_NUM(ctx.ctx, o_imul, indexReg, size); // 32 bit multiplication is ok, top bits are zero
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, pointerReg, sQWORD, indexReg, 1, pointerReg, 0);
 	}
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, pointerReg); // Store to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load inde
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rECX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8); // Load size
