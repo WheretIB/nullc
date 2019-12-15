@@ -9,9 +9,30 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 	if(type == argNumber)
 	{
 		if(ctx.vsAsmStyle)
+		{
 			curr += sprintf(curr, "%x%s", num, num > 9 ? "h" : "");
+		}
 		else
-			curr += sprintf(curr, "%d", num);
+		{
+			if(uintptr_t(num) == uintptr_t(&ctx.callInstructionPos))
+				curr += sprintf(curr, "&ctx.callInstructionPos");
+			else if(uintptr_t(num) == uintptr_t(&ctx.dataStackTop))
+				curr += sprintf(curr, "&ctx.dataStackTop");
+			else if(uintptr_t(num) == uintptr_t(&ctx.callStackTop))
+				curr += sprintf(curr, "&ctx.callStackTop");
+			else if(uintptr_t(num) == uintptr_t(&ctx.regFileLastTop))
+				curr += sprintf(curr, "&ctx.regFileLastTop");
+			else if(uintptr_t(num) == uintptr_t(&ctx.regFileLastPtr))
+				curr += sprintf(curr, "&ctx.regFileLastPtr");
+			else if(uintptr_t(num) == uintptr_t(ctx.dataStackBase))
+				curr += sprintf(curr, "ctx.dataStackBase");
+			else if(uintptr_t(num) == uintptr_t(ctx.ctx->exRegVmConstants))
+				curr += sprintf(curr, "ctx.exRegVmConstants");
+			else if(uintptr_t(num) == uintptr_t(&ctx))
+				curr += sprintf(curr, "&ctx");
+			else
+				curr += sprintf(curr, "%d", num);
+		}
 	}
 	else if(type == argReg)
 	{
@@ -98,7 +119,27 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.ctx->exRegVmConstants) && uintptr_t(ptrNum) < uintptr_t(ctx.ctx->exRegVmConstantsEnd))
 			curr += sprintf(curr, "constants+%d", unsigned(ptrNum - uintptr_t(ctx.ctx->exRegVmConstants)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callInstructionPos))
-			curr += sprintf(curr, "inst_pos");
+			curr += sprintf(curr, "&ctx.callInstructionPos");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.dataStackTop))
+			curr += sprintf(curr, "&ctx.dataStackTop");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callStackTop))
+			curr += sprintf(curr, "&ctx.callStackTop");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.regFileLastTop))
+			curr += sprintf(curr, "&ctx.regFileLastTop");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.regFileLastPtr))
+			curr += sprintf(curr, "&ctx.regFileLastPtr");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callWrap))
+			curr += sprintf(curr, "&ctx.callWrap");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callPtrWrap))
+			curr += sprintf(curr, "&ctx.callPtrWrap");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.checkedReturnWrap))
+			curr += sprintf(curr, "&ctx.checkedReturnWrap");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.convertPtrWrap))
+			curr += sprintf(curr, "&ctx.convertPtrWrap");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.errorOutOfBoundsWrap))
+			curr += sprintf(curr, "&ctx.errorOutOfBoundsWrap");
+		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.errorNoReturnWrap))
+			curr += sprintf(curr, "&ctx.errorNoReturnWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE)
 			curr += sprintf(curr, "%d", ptrNum);
 		else if(ptrNum != 0 && ctx.vsAsmStyle)
@@ -112,11 +153,11 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 	else if(type == argImm64)
 	{
 		if(imm64Arg == uintptr_t(&ctx))
-			curr += sprintf(curr, "&vmState");
+			curr += sprintf(curr, "&ctx");
 		else if(imm64Arg == uintptr_t(&ctx.tempStackArrayBase))
-			curr += sprintf(curr, "&vmState.tempStackArrayBase");
+			curr += sprintf(curr, "&ctx.tempStackArrayBase");
 		else if(imm64Arg == uintptr_t(ctx.tempStackArrayBase))
-			curr += sprintf(curr, "vmState.tempStackArrayBase");
+			curr += sprintf(curr, "ctx.tempStackArrayBase");
 		else if(ctx.vsAsmStyle)
 			curr += sprintf(curr, "%llXh", (unsigned long long)imm64Arg);
 		else

@@ -486,6 +486,7 @@ x86XmmReg CodeGenGenericContext::RedirectRegister(x86XmmReg reg)
 
 x86Reg CodeGenGenericContext::GetReg()
 {
+#if defined(_M_X64)
 	static x86Reg regs[] = { rRAX, rRDX, rEDI, rESI, rR8, rR9, rR10, rR11, rR12 };
 
 	// Simple rotation
@@ -497,6 +498,19 @@ x86Reg CodeGenGenericContext::GetReg()
 		currFreeReg += 1;
 
 	return res;
+#else
+	static x86Reg regs[] = { rEAX, rEDX, rEDI, rECX };
+
+	// Simple rotation
+	x86Reg res = regs[currFreeReg];
+
+	if(res == rECX)
+		currFreeReg = 0;
+	else
+		currFreeReg += 1;
+
+	return res;
+#endif
 }
 
 x86XmmReg CodeGenGenericContext::GetXmmReg()
@@ -790,9 +804,15 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_push:
+		if(ctx.skipTracking)
+			break;
+
 		ctx.ReadRegister(reg1);
 		break;
 	case o_pop:
+		if(ctx.skipTracking)
+			break;
+
 		ctx.OverwriteRegisterWithUnknown(reg1);
 
 		// Push and pop are part of the frame setup, so implicitly use the register so it won't be removed
@@ -1182,6 +1202,9 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		break;
 	case o_mov:
 	case o_mov64:
+		if(ctx.skipTracking)
+			break;
+
 		reg2 = ctx.RedirectRegister(reg2);
 
 		// Skip self-assignment

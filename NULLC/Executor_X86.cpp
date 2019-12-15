@@ -292,7 +292,7 @@ namespace NULLC
 	{
 		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
 
-#if !defined(_linux)
+#ifndef __linux
 		DWORD unusedProtect;
 		VirtualProtect(alignedAddr, 4096, PAGE_NOACCESS, &unusedProtect);
 #else
@@ -304,7 +304,7 @@ namespace NULLC
 	{
 		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
 
-#if !defined(_linux)
+#ifndef __linux
 		DWORD unusedProtect;
 		VirtualProtect(alignedAddr, 4096, PAGE_READWRITE, &unusedProtect);
 #else
@@ -1111,6 +1111,14 @@ void ExecutorX86::ClearNative()
 
 	expiredCodeBlocks.clear();
 
+	for(unsigned i = 0; i < expiredFunctionAddressLists.size(); i++)
+	{
+		ExpiredFunctionAddressList &info = expiredFunctionAddressLists[i];
+
+		NULLC::dealloc(info.data);
+	}
+	expiredFunctionAddressLists.clear();
+
 #if defined(_M_X64) && !defined(__linux)
 	// Remove function table for unwind information
 	if(!functionWin64UnwindTable.empty())
@@ -1178,7 +1186,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	{
 		ExternFuncInfo &target = exLinker->exFunctions[i];
 
-		if(target.regVmAddress != ~0u && target.vmCodeSize != 0 && (codeJumpTargets[target.regVmAddress] >> 8) == 0)
+		if(target.regVmAddress != -1 && target.vmCodeSize != 0 && (codeJumpTargets[target.regVmAddress] >> 8) == 0)
 			codeJumpTargets[target.regVmAddress] |= 2 + (i << 8);
 	}
 
@@ -1193,6 +1201,36 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		oldRegKillInfoCount += 1 + (counts >> 4) + (counts & 0xf);
 	}
 	assert(oldRegKillInfoCount == exRegVmRegKillInfo.size());
+
+	if(codeRunning && exFunctions.size() >= functionAddress.max)
+	{
+		ExpiredFunctionAddressList info;
+
+		info.data = functionAddress.data;
+		info.count = functionAddress.count;
+
+		expiredFunctionAddressLists.push_back(info);
+
+		functionAddress.data = NULL;
+		functionAddress.count = 0;
+		functionAddress.max = 0;
+
+		functionAddress.resize(exFunctions.size());
+
+		for(unsigned int i = 0; i < oldFunctionSize; i++)
+		{
+			if(exFunctions[i].regVmAddress != -1)
+				functionAddress[i] = instAddress[exFunctions[i].regVmAddress];
+			else
+				functionAddress[i] = 0;
+		}
+	}
+	else
+	{
+		functionAddress.resize(exFunctions.size());
+	}
+
+	vmState.functionAddress = functionAddress.data;
 
 	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
@@ -1228,11 +1266,20 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				codeGenCtx->currFunctionId = 0;
 			}
 
+			EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
 #if defined(_M_X64)
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
+#else
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBX);
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rESI);
+			EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
+
+			EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
 
 			// Generate function prologue (register cleanup, data stack advance, data stack cleanup)
 			if(codeJumpTargets[pos] & 2)
@@ -1241,10 +1288,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 				ExternFuncInfo &target = exLinker->exFunctions[codeGenCtx->currFunctionId];
 
-#if defined(_M_X64)
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 				unsigned argumentsSize = target.bytesToPop;
 
+#if defined(_M_X64)
 				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
 
 				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rRBX, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop));
@@ -1303,7 +1350,66 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					}
 				}
 #else
-				assert(!"not implemented");
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
+				EMIT_OP_REG_ADDR(codeGenCtx->ctx, o_mov, rEBX, sDWORD, uintptr_t(&vmState.regFileLastTop));
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov, rESI, sDWORD, rNONE, 1, rEBX, rvrrFrame * 8);
+
+				// Advance frame top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add, sDWORD, uintptr_t(&vmState.dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+
+				// Advance register top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add, sDWORD, uintptr_t(&vmState.regFileLastTop), target.regVmRegisters * 8); // vmState->regFileLastTop += target.regVmRegisters;
+
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
+
+				bool isEaxCleared = false;
+
+				// Clear register values
+				if(target.regVmRegisters > rvrrCount)
+				{
+					unsigned count = target.regVmRegisters - rvrrCount;
+
+					if(count <= 4)
+					{
+						for(int regId = rvrrCount; regId < target.regVmRegisters; regId++)
+						{
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rEBX, regId * 8, 0);
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rEBX, regId * 8, 4);
+						}
+					}
+					else
+					{
+						isEaxCleared = true;
+
+						EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rEDI, sDWORD, rEBX, rvrrCount * 8);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count * 2);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosd);
+					}
+				}
+
+				// Clear data stack
+				// TODO: use target.stackSize which is smaller?
+				if(unsigned count = stackSize - argumentsSize)
+				{
+					assert(count % 4 == 0);
+
+					if(count <= 16)
+					{
+						for(unsigned dataId = 0; dataId < count / 4; dataId++)
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rESI, argumentsSize + dataId * 4, 0);
+					}
+					else
+					{
+						if(!isEaxCleared)
+							EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
+
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rEDI, sDWORD, rESI, argumentsSize);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count / 4);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosd);
+					}
+				}
 #endif
 			}
 		}
@@ -1317,14 +1423,20 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 			globalCodeRanges.push_back(cmd.argument);
 
-#if defined(_M_X64)
 			if(pos)
 			{
+#if defined(_M_X64)
 				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
-			}
+#else
+				EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
+				EMIT_REG_READ(codeGenCtx->ctx, rESP);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rESI);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBX);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
+			}
 		}
 
 		pos++;
@@ -1343,11 +1455,20 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	if((codeJumpTargets[exRegVmCode.size()] & 6) != 0)
 	{
+		EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
 #if defined(_M_X64)
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
 		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
+#else
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBX);
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rESI);
+		EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
+
+		EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
 	}
 
 	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
@@ -1356,6 +1477,12 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
+#else
+	EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
+	EMIT_REG_READ(codeGenCtx->ctx, rESP);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rESI);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBX);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
 
 	EMIT_OP(codeGenCtx->ctx, o_ret);
@@ -1562,7 +1689,21 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			instAddress[i] = (instAddress[i] - binCode) + binCodeNew;
 
 		for(unsigned i = 0; i < functionAddress.size(); i++)
-			functionAddress[i] = (functionAddress[i] - binCode) + binCodeNew;
+		{
+			if(functionAddress[i])
+				functionAddress[i] = uintptr_t(functionAddress[i] - binCode) + binCodeNew;
+		}
+
+		for(unsigned i = 0; i < expiredFunctionAddressLists.size(); i++)
+		{
+			ExpiredFunctionAddressList &info = expiredFunctionAddressLists[i];
+
+			for(unsigned k = 0; k < info.count; k++)
+			{
+				if(info.data[k])
+					info.data[k] = uintptr_t(info.data[k] - binCode) + binCodeNew;
+			}
+		}
 
 		binCode = binCodeNew;
 	}
@@ -1576,7 +1717,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 		code -= 10; // xor eax, eax; add rsp, 40; pop r15; pop rbx; ret;
 #else
-		code -= 3; // xor eax, eax; ret;
+		code -= 8; // xor eax, eax; mov esp, ebp; pop esi; pop ebx; pop ebp; ret;
 #endif
 	}
 
@@ -1683,11 +1824,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	x86SatisfyJumps(instAddress);
 
-	if(codeRunning && exFunctions.size() > functionAddress.max)
-		assert(!"not implemented");
-
-	functionAddress.resize(exFunctions.size());
-
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
 		if(exFunctions[i].regVmAddress != -1)
@@ -1695,8 +1831,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		else
 			functionAddress[i] = 0;
 	}
-
-	vmState.functionAddress = functionAddress.data;
 
 	lastInstructionCount = exRegVmCode.size();
 
@@ -1710,6 +1844,14 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 void ExecutorX86::UpdateFunctionPointer(unsigned source, unsigned target)
 {
 	functionAddress[source] = functionAddress[target];
+
+	for(unsigned i = 0; i < expiredFunctionAddressLists.size(); i++)
+	{
+		ExpiredFunctionAddressList &info = expiredFunctionAddressLists[i];
+
+		if(source < info.count)
+			info.data[source] = functionAddress[target];
+	}
 }
 
 void ExecutorX86::SaveListing(OutputContext &output)
