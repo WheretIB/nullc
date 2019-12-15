@@ -292,7 +292,7 @@ namespace NULLC
 	{
 		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
 
-#if !defined(_linux)
+#ifndef __linux
 		DWORD unusedProtect;
 		VirtualProtect(alignedAddr, 4096, PAGE_NOACCESS, &unusedProtect);
 #else
@@ -304,7 +304,7 @@ namespace NULLC
 	{
 		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
 
-#if !defined(_linux)
+#ifndef __linux
 		DWORD unusedProtect;
 		VirtualProtect(alignedAddr, 4096, PAGE_READWRITE, &unusedProtect);
 #else
