@@ -486,6 +486,19 @@ x86XmmReg CodeGenGenericContext::RedirectRegister(x86XmmReg reg)
 
 x86Reg CodeGenGenericContext::GetReg()
 {
+#ifdef NULLC_OPTIMIZE_X86
+	static x86Reg regs[] = { rEAX, rEDX, rEDI, rECX };
+
+	// Simple rotation
+	x86Reg res = regs[currFreeReg];
+
+	if(res == rECX)
+		currFreeReg = 0;
+	else
+		currFreeReg += 1;
+
+	return res;
+#else
 	static x86Reg regs[] = { rRAX, rRDX, rEDI, rESI, rR8, rR9, rR10, rR11, rR12 };
 
 	// Simple rotation
@@ -497,6 +510,7 @@ x86Reg CodeGenGenericContext::GetReg()
 		currFreeReg += 1;
 
 	return res;
+#endif
 }
 
 x86XmmReg CodeGenGenericContext::GetXmmReg()
