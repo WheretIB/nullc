@@ -1691,7 +1691,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		for(unsigned i = 0; i < functionAddress.size(); i++)
 		{
 			if(functionAddress[i])
-				functionAddress[i] = (functionAddress[i] - binCode) + binCodeNew;
+				functionAddress[i] = uintptr_t(functionAddress[i] - binCode) + binCodeNew;
 		}
 
 		for(unsigned i = 0; i < expiredFunctionAddressLists.size(); i++)
@@ -1701,7 +1701,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			for(unsigned k = 0; k < info.count; k++)
 			{
 				if(info.data[k])
-					info.data[k] = (info.data[k] - binCode) + binCodeNew;
+					info.data[k] = uintptr_t(info.data[k] - binCode) + binCodeNew;
 			}
 		}
 
