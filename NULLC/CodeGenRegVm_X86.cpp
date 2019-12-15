@@ -2160,7 +2160,19 @@ void GenCodeCmdAddImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	if(cmd.rA == cmd.rB)
 	{
-		EMIT_OP_RPTR_NUM(ctx.ctx, o_add, sDWORD, rREG, cmd.rA * 8, cmd.argument); // Modify inplace
+		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rA * 8, true);
+
+		if(sourceReg == rRegCount)
+		{
+			EMIT_OP_RPTR_NUM(ctx.ctx, o_add, sDWORD, rREG, cmd.rA * 8, cmd.argument); // Modify inplace
+		}
+		else
+		{
+			ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+			EMIT_OP_REG_NUM(ctx.ctx, o_add, sourceReg, cmd.argument); // Modify inplace
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, sourceReg); // Store int to target
+		}
 	}
 	else
 	{
@@ -2680,7 +2692,19 @@ void GenCodeCmdAddImml(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	if(cmd.rA == cmd.rB)
 	{
-		EMIT_OP_RPTR_NUM(ctx.ctx, o_add, sDWORD, rREG, cmd.rA * 8, cmd.argument); // Modify inplace
+		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rA * 8, true);
+
+		if(sourceReg == rRegCount)
+		{
+			EMIT_OP_RPTR_NUM(ctx.ctx, o_add64, sQWORD, rREG, cmd.rA * 8, cmd.argument); // Modify inplace
+		}
+		else
+		{
+			ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+			EMIT_OP_REG_NUM(ctx.ctx, o_add64, sourceReg, cmd.argument); // Modify inplace
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, sourceReg); // Store int to target
+		}
 	}
 	else
 	{
