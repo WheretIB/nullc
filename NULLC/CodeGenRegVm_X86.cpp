@@ -2172,6 +2172,9 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	}
 
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
+	EMIT_OP_REG_REG(ctx.ctx, o_mov, rESP, rEBP);
+	EMIT_REG_READ(ctx.ctx, rESP);
+	EMIT_OP_REG(ctx.ctx, o_pop, rEBP);
 	EMIT_OP(ctx.ctx, o_ret);
 #endif
 }

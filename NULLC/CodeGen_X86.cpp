@@ -790,9 +790,15 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 		ctx.ReadAndModifyRegister(reg1);
 		break;
 	case o_push:
+		if(ctx.skipTracking)
+			break;
+
 		ctx.ReadRegister(reg1);
 		break;
 	case o_pop:
+		if(ctx.skipTracking)
+			break;
+
 		ctx.OverwriteRegisterWithUnknown(reg1);
 
 		// Push and pop are part of the frame setup, so implicitly use the register so it won't be removed
@@ -1182,6 +1188,9 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 		break;
 	case o_mov:
 	case o_mov64:
+		if(ctx.skipTracking)
+			break;
+
 		reg2 = ctx.RedirectRegister(reg2);
 
 		// Skip self-assignment

@@ -1228,11 +1228,18 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				codeGenCtx->currFunctionId = 0;
 			}
 
+			EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
 #if defined(_M_X64)
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
+#else
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+			EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
+
+			EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
 
 			// Generate function prologue (register cleanup, data stack advance, data stack cleanup)
 			if(codeJumpTargets[pos] & 2)
@@ -1376,14 +1383,18 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 			globalCodeRanges.push_back(cmd.argument);
 
-#if defined(_M_X64)
 			if(pos)
 			{
+#if defined(_M_X64)
 				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
-			}
+#else
+				EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
+				EMIT_REG_READ(codeGenCtx->ctx, rESP);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
+			}
 		}
 
 		pos++;
@@ -1402,11 +1413,18 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	if((codeJumpTargets[exRegVmCode.size()] & 6) != 0)
 	{
+		EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
 #if defined(_M_X64)
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
 		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
+#else
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+		EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
+
+		EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
 	}
 
 	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
@@ -1415,6 +1433,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
+#else
+	EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
+	EMIT_REG_READ(codeGenCtx->ctx, rESP);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
 
 	EMIT_OP(codeGenCtx->ctx, o_ret);
@@ -1635,7 +1657,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 		code -= 10; // xor eax, eax; add rsp, 40; pop r15; pop rbx; ret;
 #else
-		code -= 3; // xor eax, eax; ret;
+		code -= 6; // xor eax, eax; mov esp, ebp; pop ebp; ret;
 #endif
 	}
 
