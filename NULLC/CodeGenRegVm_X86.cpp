@@ -910,7 +910,20 @@ void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	assert(cmd.rA != cmd.rC);
 
 #if defined(_M_X64)
+	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rC * 8, true);
+
+	if(sourceReg != rRegCount)
+	{
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, sourceReg); // Store to target
+		return;
+	}
+
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source
