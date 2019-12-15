@@ -1194,6 +1194,13 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	}
 	assert(oldRegKillInfoCount == exRegVmRegKillInfo.size());
 
+	if(codeRunning && exFunctions.size() > functionAddress.max)
+		assert(!"not implemented");
+
+	functionAddress.resize(exFunctions.size());
+
+	vmState.functionAddress = functionAddress.data;
+
 	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
 	unsigned activeGlobalCodeStart = 0;
@@ -1236,6 +1243,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #else
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBX);
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rESI);
 			EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
 
@@ -1392,6 +1401,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #else
 				EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
 				EMIT_REG_READ(codeGenCtx->ctx, rESP);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rESI);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBX);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
 			}
@@ -1421,6 +1432,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #else
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBX);
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rESI);
 		EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
 
@@ -1436,6 +1449,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #else
 	EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
 	EMIT_REG_READ(codeGenCtx->ctx, rESP);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rESI);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBX);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
 
@@ -1657,7 +1672,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #if defined(_M_X64)
 		code -= 10; // xor eax, eax; add rsp, 40; pop r15; pop rbx; ret;
 #else
-		code -= 6; // xor eax, eax; mov esp, ebp; pop ebp; ret;
+		code -= 8; // xor eax, eax; mov esp, ebp; pop esi; pop ebx; pop ebp; ret;
 #endif
 	}
 
@@ -1764,11 +1779,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	x86SatisfyJumps(instAddress);
 
-	if(codeRunning && exFunctions.size() > functionAddress.max)
-		assert(!"not implemented");
-
-	functionAddress.resize(exFunctions.size());
-
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
 		if(exFunctions[i].regVmAddress != -1)
@@ -1776,8 +1786,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		else
 			functionAddress[i] = 0;
 	}
-
-	vmState.functionAddress = functionAddress.data;
 
 	lastInstructionCount = exRegVmCode.size();
 

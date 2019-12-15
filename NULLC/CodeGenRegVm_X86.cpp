@@ -2043,10 +2043,24 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
 	ctx.labelCount++;
 #else
+	EMIT_OP_REG_ADDR(ctx.ctx, o_mov, rEAX, sDWORD, cmd.argument * sizeof(void*) + (uintptr_t)ctx.vmState->functionAddress);
+	EMIT_OP_REG_NUM(ctx.ctx, o_cmp, rEAX, 0);
+
+	EMIT_OP_LABEL(ctx.ctx, o_je, ctx.labelCount, false);
+
+	EMIT_OP_REG(ctx.ctx, o_call, rEAX);
+	EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount + 1, false);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
 	EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument);
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callWrap));
 	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
 #endif
 
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
@@ -2328,6 +2342,8 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
 	EMIT_OP_REG_REG(ctx.ctx, o_mov, rESP, rEBP);
 	EMIT_REG_READ(ctx.ctx, rESP);
+	EMIT_OP_REG(ctx.ctx, o_pop, rESI);
+	EMIT_OP_REG(ctx.ctx, o_pop, rEBX);
 	EMIT_OP_REG(ctx.ctx, o_pop, rEBP);
 	EMIT_OP(ctx.ctx, o_ret);
 #endif
