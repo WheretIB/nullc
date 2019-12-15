@@ -135,6 +135,13 @@ public:
 	FastVector<unsigned char*> instAddress;
 	FastVector<unsigned char*> functionAddress;
 
+	struct ExpiredFunctionAddressList
+	{
+		unsigned char **data;
+		unsigned count;
+	};
+	FastVector<ExpiredFunctionAddressList> expiredFunctionAddressLists;
+
 	FastVector<unsigned> globalCodeRanges;
 	FastVector<RUNTIME_FUNCTION> functionWin64UnwindTable;
 

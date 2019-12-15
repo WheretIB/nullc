@@ -1111,6 +1111,14 @@ void ExecutorX86::ClearNative()
 
 	expiredCodeBlocks.clear();
 
+	for(unsigned i = 0; i < expiredFunctionAddressLists.size(); i++)
+	{
+		ExpiredFunctionAddressList &info = expiredFunctionAddressLists[i];
+
+		NULLC::dealloc(info.data);
+	}
+	expiredFunctionAddressLists.clear();
+
 #if defined(_M_X64) && !defined(__linux)
 	// Remove function table for unwind information
 	if(!functionWin64UnwindTable.empty())
@@ -1194,10 +1202,33 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	}
 	assert(oldRegKillInfoCount == exRegVmRegKillInfo.size());
 
-	if(codeRunning && exFunctions.size() > functionAddress.max)
-		assert(!"not implemented");
+	if(codeRunning && exFunctions.size() >= functionAddress.max)
+	{
+		ExpiredFunctionAddressList info;
 
-	functionAddress.resize(exFunctions.size());
+		info.data = functionAddress.data;
+		info.count = functionAddress.count;
+
+		expiredFunctionAddressLists.push_back(info);
+
+		functionAddress.data = NULL;
+		functionAddress.count = 0;
+		functionAddress.max = 0;
+
+		functionAddress.resize(exFunctions.size());
+
+		for(unsigned int i = 0; i < oldFunctionSize; i++)
+		{
+			if(exFunctions[i].regVmAddress != -1)
+				functionAddress[i] = instAddress[exFunctions[i].regVmAddress];
+			else
+				functionAddress[i] = 0;
+		}
+	}
+	else
+	{
+		functionAddress.resize(exFunctions.size());
+	}
 
 	vmState.functionAddress = functionAddress.data;
 
@@ -1658,7 +1689,21 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			instAddress[i] = (instAddress[i] - binCode) + binCodeNew;
 
 		for(unsigned i = 0; i < functionAddress.size(); i++)
-			functionAddress[i] = (functionAddress[i] - binCode) + binCodeNew;
+		{
+			if(functionAddress[i])
+				functionAddress[i] = (functionAddress[i] - binCode) + binCodeNew;
+		}
+
+		for(unsigned i = 0; i < expiredFunctionAddressLists.size(); i++)
+		{
+			ExpiredFunctionAddressList &info = expiredFunctionAddressLists[i];
+
+			for(unsigned k = 0; k < info.count; k++)
+			{
+				if(info.data[k])
+					info.data[k] = (info.data[k] - binCode) + binCodeNew;
+			}
+		}
 
 		binCode = binCodeNew;
 	}
@@ -1799,6 +1844,14 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 void ExecutorX86::UpdateFunctionPointer(unsigned source, unsigned target)
 {
 	functionAddress[source] = functionAddress[target];
+
+	for(unsigned i = 0; i < expiredFunctionAddressLists.size(); i++)
+	{
+		ExpiredFunctionAddressList &info = expiredFunctionAddressLists[i];
+
+		if(source < info.count)
+			info.data[source] = functionAddress[target];
+	}
 }
 
 void ExecutorX86::SaveListing(OutputContext &output)
