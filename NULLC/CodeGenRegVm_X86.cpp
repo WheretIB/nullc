@@ -694,6 +694,81 @@ void x86GenCodeLoadDoubleFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x
 	}
 }
 
+x86XmmReg x86GenCodeLoadDoubleFromPointerIntoRegister(CodeGenRegVmContext &ctx, x86Reg tempReg, unsigned char reg, unsigned offset)
+{
+	if(reg == rvrrRegisters)
+	{
+		x86XmmReg targetReg = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, offset, true);
+
+		if(targetReg != rXmmRegCount)
+			return targetReg;
+
+		targetReg = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rREG, offset); // Load double value
+
+		return targetReg;
+	}
+
+	if(reg == rvrrFrame)
+	{
+		x86XmmReg targetReg = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rESI, offset, true);
+
+		if(targetReg != rXmmRegCount)
+			return targetReg;
+
+		targetReg = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, rESI, offset); // Load double value
+
+		return targetReg;
+	}
+
+	if(reg == rvrrGlobals)
+	{
+		assert(ctx.vmState->dataStackBase);
+
+		x86XmmReg targetReg = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rNONE, uintptr_t(ctx.vmState->dataStackBase) + offset, true);
+
+		if(targetReg != rXmmRegCount)
+			return targetReg;
+
+		targetReg = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_ADDR(ctx.ctx, o_movsd, targetReg, sQWORD, uintptr_t(ctx.vmState->dataStackBase) + offset); // Load double value
+
+		return targetReg;
+	}
+
+	if(reg == rvrrConstants)
+	{
+		x86XmmReg targetReg = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rNONE, uintptr_t(ctx.exRegVmConstants) + offset, true);
+
+		if(targetReg != rXmmRegCount)
+			return targetReg;
+
+		targetReg = ctx.ctx.GetXmmReg();
+
+		// TODO: like old function pointer tables, jit has to store a copy of all constants so that the buffer won't relocate after a link (or patch all code locations like this one)
+		EMIT_OP_REG_ADDR(ctx.ctx, o_movsd, targetReg, sQWORD, uintptr_t(ctx.exRegVmConstants) + offset); // Load double value
+
+		return targetReg;
+	}
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, tempReg, sDWORD, rREG, reg * 8); // Load source pointer
+
+	x86XmmReg targetReg = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, tempReg, offset, true);
+
+	if(targetReg != rXmmRegCount)
+		return targetReg;
+
+	targetReg = ctx.ctx.GetXmmReg();
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, targetReg, sQWORD, tempReg, offset); // Load double value
+
+	return targetReg;
+}
+
 void x86GenCodeStoreDoubleToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -3529,11 +3604,12 @@ void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs =  x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_addsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
@@ -3557,11 +3633,12 @@ void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_subsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
@@ -3585,11 +3662,12 @@ void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_mulsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
@@ -3613,11 +3691,12 @@ void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_divsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
@@ -3648,6 +3727,8 @@ void GenCodeCmdAddf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	x86GenCodeLoadFloatFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
 
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_addsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
 #endif
@@ -3676,6 +3757,8 @@ void GenCodeCmdSubf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
 	x86GenCodeLoadFloatFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_subsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
@@ -3706,6 +3789,8 @@ void GenCodeCmdMulf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	x86GenCodeLoadFloatFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
 
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_mulsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
 #endif
@@ -3734,6 +3819,8 @@ void GenCodeCmdDivf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
 	x86GenCodeLoadFloatFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_divsd, lhs, rhs);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, lhs); // Store double to target
@@ -3872,11 +3959,12 @@ void GenCodeCmdLessd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmpltsd, lhs, rhs);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, lhs);
@@ -3906,11 +3994,12 @@ void GenCodeCmdGreaterd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmpltsd, rhs, lhs);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, rhs);
@@ -3940,11 +4029,12 @@ void GenCodeCmdLequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmplesd, lhs, rhs);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, lhs);
@@ -3974,11 +4064,12 @@ void GenCodeCmdGequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmplesd, rhs, lhs);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, rhs);
@@ -4008,11 +4099,12 @@ void GenCodeCmdEquald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmpeqsd, lhs, rhs);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, lhs);
@@ -4042,11 +4134,12 @@ void GenCodeCmdNequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
-	x86XmmReg rhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
 
-	x86GenCodeLoadDoubleFromPointer(ctx, rEAX, rhs, cmd.rC, cmd.argument);
+	x86XmmReg rhs = x86GenCodeLoadDoubleFromPointerIntoRegister(ctx, rEAX, cmd.rC, cmd.argument);
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_REG_REG(ctx.ctx, o_cmpneqsd, lhs, rhs);
 	EMIT_OP_REG_REG(ctx.ctx, o_movd, rEAX, lhs);
@@ -4070,9 +4163,14 @@ void GenCodeCmdNeg(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG(ctx.ctx, o_neg, lhsReg);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load int value
-	EMIT_OP_REG(ctx.ctx, o_neg, rEAX);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	x86Reg lhsReg = ctx.ctx.GetReg();
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rC * 8); // Load int value
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+	EMIT_OP_REG(ctx.ctx, o_neg, lhsReg);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #endif
 }
 
@@ -4146,9 +4244,14 @@ void GenCodeCmdBitNot(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG(ctx.ctx, o_not, lhsReg);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load int value
-	EMIT_OP_REG(ctx.ctx, o_not, rEAX);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	x86Reg lhsReg = ctx.ctx.GetReg();
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rC * 8); // Load int value
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+	EMIT_OP_REG(ctx.ctx, o_not, lhsReg);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #endif
 }
 
