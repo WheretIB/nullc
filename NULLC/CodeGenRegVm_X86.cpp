@@ -1375,12 +1375,67 @@ void GenCodeCmdJmpz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load value
+	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rC * 8, true);
 
-	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
-	ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+	if(sourceReg == rRegCount)
+	{
+		sourceReg = rEAX;
 
-	EMIT_OP_REG_REG(ctx.ctx, o_test, rEAX, rEAX);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, sourceReg, sDWORD, rREG, cmd.rC * 8); // Load value
+
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+		ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+	}
+	else
+	{
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+		ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		if(ctx.ctx.x86LookBehind)
+		{
+			// Transform "xor, cmp, setcc, test, jz/jnz" into "cmp, jmpcc"
+			x86Instruction *setInst = ctx.ctx.x86Op;
+
+			while(setInst->name == o_none || setInst->name == o_other)
+				setInst--;
+
+			if((setInst->name >= o_setl && setInst->name <= o_setnz) && setInst->argA.type == x86Argument::argReg && setInst->argA.reg == sourceReg)
+			{
+				x86Command setCmd = setInst->name;
+
+				x86Instruction *cmpInst = setInst - 1;
+
+				while(cmpInst->name == o_none || cmpInst->name == o_other)
+					cmpInst--;
+
+				if(cmpInst->name == o_cmp)
+				{
+					x86Instruction *xorInst = cmpInst - 1;
+
+					while(xorInst->name == o_none || xorInst->name == o_other)
+						xorInst--;
+
+					if(xorInst->name == o_xor && xorInst->argA.type == x86Argument::argReg && xorInst->argA.reg == sourceReg && xorInst->argB.type == x86Argument::argReg && xorInst->argB.reg == sourceReg)
+					{
+						// Keep xor if it's used by compare
+						if(!((cmpInst->argA.type == x86Argument::argReg && cmpInst->argA.reg == sourceReg) || (cmpInst->argB.type == x86Argument::argReg && cmpInst->argB.reg == sourceReg)))
+							xorInst->name = o_none;
+
+						setInst->name = o_none;
+
+						static const x86Command jump[] = { o_jge, o_jle, o_jg, o_jl, o_jne, o_je, o_jnz, o_jz };
+
+						ctx.ctx.optimizationCount++;
+
+						EMIT_OP_LABEL(ctx.ctx, jump[setCmd - o_setl], LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	EMIT_OP_REG_REG(ctx.ctx, o_test, sourceReg, sourceReg);
 	EMIT_OP_LABEL(ctx.ctx, o_jz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 }
 
@@ -1388,12 +1443,67 @@ void GenCodeCmdJmpnz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load value
+	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rC * 8, true);
 
-	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
-	ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+	if(sourceReg == rRegCount)
+	{
+		sourceReg = rEAX;
 
-	EMIT_OP_REG_REG(ctx.ctx, o_test, rEAX, rEAX);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, sourceReg, sDWORD, rREG, cmd.rC * 8); // Load value
+
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+		ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+	}
+	else
+	{
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+		ctx.ctx.KillLateUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		if(ctx.ctx.x86LookBehind)
+		{
+			// Transform "xor, cmp, setcc, test, jz/jnz" into "cmp, jmpcc"
+			x86Instruction *setInst = ctx.ctx.x86Op;
+
+			while(setInst->name == o_none || setInst->name == o_other)
+				setInst--;
+
+			if((setInst->name >= o_setl && setInst->name <= o_setnz) && setInst->argA.type == x86Argument::argReg && setInst->argA.reg == sourceReg)
+			{
+				x86Command setCmd = setInst->name;
+
+				x86Instruction *cmpInst = setInst - 1;
+
+				while(cmpInst->name == o_none || cmpInst->name == o_other)
+					cmpInst--;
+
+				if(cmpInst->name == o_cmp)
+				{
+					x86Instruction *xorInst = cmpInst - 1;
+
+					while(xorInst->name == o_none || xorInst->name == o_other)
+						xorInst--;
+
+					if(xorInst->name == o_xor && xorInst->argA.type == x86Argument::argReg && xorInst->argA.reg == sourceReg && xorInst->argB.type == x86Argument::argReg && xorInst->argB.reg == sourceReg)
+					{
+						// Keep xor if it's used by compare
+						if(!((cmpInst->argA.type == x86Argument::argReg && cmpInst->argA.reg == sourceReg) || (cmpInst->argB.type == x86Argument::argReg && cmpInst->argB.reg == sourceReg)))
+							xorInst->name = o_none;
+
+						setInst->name = o_none;
+
+						static const x86Command jump[] = { o_jl, o_jg, o_jle, o_jge, o_je, o_jne, o_jz, o_jnz };
+
+						ctx.ctx.optimizationCount++;
+
+						EMIT_OP_LABEL(ctx.ctx, jump[setCmd - o_setl], LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	EMIT_OP_REG_REG(ctx.ctx, o_test, sourceReg, sourceReg);
 	EMIT_OP_LABEL(ctx.ctx, o_jnz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 }
 
