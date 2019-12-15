@@ -115,6 +115,8 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 			curr += sprintf(curr, "&vmState");
 		else if(imm64Arg == uintptr_t(&ctx.tempStackArrayBase))
 			curr += sprintf(curr, "&vmState.tempStackArrayBase");
+		else if(imm64Arg == uintptr_t(ctx.tempStackArrayBase))
+			curr += sprintf(curr, "vmState.tempStackArrayBase");
 		else if(ctx.vsAsmStyle)
 			curr += sprintf(curr, "%llXh", (unsigned long long)imm64Arg);
 		else

@@ -48,6 +48,10 @@ void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, RegVmLoweredInstr
 
 		lastInstruction = instruction;
 	}
+
+	for(unsigned i = 0; i < parent->killedRegisters.size(); i++)
+		instruction->preKillRegisters.push_back(parent->killedRegisters[i]);
+	parent->killedRegisters.clear();
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code)
@@ -1510,13 +1514,42 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		VmValue *index = inst->arguments[3];
 
 		assert(arrSize && elementSize);
+		assert((unsigned short)elementSize->iValue == elementSize->iValue);
+
+		if(VmConstant *constantIndex = getType<VmConstant>(index))
+		{
+			if(constantIndex->iValue < arrSize->iValue)
+			{
+				if(constantIndex->iValue == 0)
+				{
+					unsigned char pointerReg = GetArgumentRegister(ctx, lowFunction, lowBlock, pointer);
+
+					if(!lowFunction->TransferRegisterTo(inst, pointerReg))
+					{
+						unsigned char targetReg = lowFunction->AllocateRegister(inst, 0, false);
+
+						lowBlock->AddInstruction(ctx, inst->source, rviMov, targetReg, 0, pointerReg);
+					}
+				}
+				else
+				{
+					unsigned char pointerReg = GetArgumentRegister(ctx, lowFunction, lowBlock, pointer);
+					unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+					if(NULLC_PTR_SIZE == 4)
+						lowBlock->AddInstruction(ctx, inst->source, rviAddImm, targetReg, pointerReg, 0, constantIndex->iValue * elementSize->iValue);
+					else
+						lowBlock->AddInstruction(ctx, inst->source, rviAddImml, targetReg, pointerReg, 0, constantIndex->iValue * elementSize->iValue);
+				}
+
+				break;
+			}
+		}
 
 		unsigned char indexReg = GetArgumentRegister(ctx, lowFunction, lowBlock, index);
 		unsigned char pointerReg = GetArgumentRegister(ctx, lowFunction, lowBlock, pointer);
 		unsigned char arrSizeReg = GetArgumentRegister(ctx, lowFunction, lowBlock, arrSize);
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-		assert((unsigned short)elementSize->iValue == elementSize->iValue);
 
 		lowBlock->AddInstruction(ctx, inst->source, rviIndex, targetReg, indexReg, pointerReg, arrSizeReg << 16 | (unsigned short)elementSize->iValue);
 	}
@@ -3484,6 +3517,24 @@ void RegFinalizeInstruction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredIn
 	}
 
 	ctx.cmds.push_back(cmd);
+
+	// Register kill info
+	unsigned preKillCount = lowInstruction->preKillRegisters.size();
+	unsigned postKillCount = lowInstruction->postKillRegisters.size();
+
+	if(preKillCount > 16)
+		preKillCount = 16;
+
+	if(postKillCount > 16)
+		postKillCount = 16;
+
+	ctx.regKillInfo.push_back((unsigned char)((preKillCount << 4) | postKillCount));
+
+	for(unsigned i = 0; i < preKillCount; i++)
+		ctx.regKillInfo.push_back(lowInstruction->preKillRegisters[i]);
+
+	for(unsigned i = 0; i < postKillCount; i++)
+		ctx.regKillInfo.push_back(lowInstruction->postKillRegisters[i]);
 }
 
 void RegFinalizeBlock(InstructionRegVmFinalizeContext &ctx, RegVmLoweredBlock *lowBlock)
@@ -3531,6 +3582,7 @@ void RegVmFinalizeModule(InstructionRegVmFinalizeContext &ctx, RegVmLoweredModul
 
 	ctx.locations.push_back(NULL);
 	ctx.cmds.push_back(RegVmCmd(rviJmp, 1, 0, 0, 0));
+	ctx.regKillInfo.push_back(0);
 
 	for(unsigned i = 0; i < lowModule->functions.size(); i++)
 	{

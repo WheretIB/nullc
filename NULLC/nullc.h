@@ -127,6 +127,9 @@ nullres		nullcGetFunction(const char* name, NULLCFuncPtr* func);
 /*	Set function using function pointer	*/
 nullres		nullcSetFunction(const char* name, NULLCFuncPtr func);
 
+/*	Change one function to target another	*/
+nullres		nullcRedirectFunction(unsigned sourceId, unsigned targetId);
+
 /*	Function returns 1 if passed pointer points to NULLC stack; otherwise, the return value is 0	*/
 nullres		nullcIsStackPointer(void* ptr);
 

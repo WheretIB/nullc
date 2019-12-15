@@ -161,6 +161,7 @@ struct InstructionRegVmFinalizeContext
 	FastVector<SynBase*> locations;
 	FastVector<RegVmCmd> cmds;
 	FastVector<unsigned> constants;
+	FastVector<unsigned char> regKillInfo;
 
 	struct FixupPoint
 	{

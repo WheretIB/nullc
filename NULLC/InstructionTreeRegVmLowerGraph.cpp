@@ -4,6 +4,7 @@
 #include "InstructionTreeVm.h"
 #include "InstructionTreeVmCommon.h"
 #include "InstructionTreeRegVmLower.h"
+#include "Bytecode.h"
 
 void (*nullcDumpGraphRegVmLoweredModule)(RegVmLoweredModule*) = DumpGraph;
 
@@ -291,7 +292,7 @@ void PrintReturn(OutputContext &ctx, char *constantData, unsigned microcodePos)
 	Print(ctx, ") @%d", microcodePos * 4);
 }
 
-void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant)
+void PrintInstruction(OutputContext &ctx, char *constantData, ExternFuncInfo *functionData, char *symbolData, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant)
 {
 	Print(ctx, "%s ", GetInstructionName(code));
 
@@ -461,7 +462,13 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCall:
-		PrintConstant(ctx, argument, constant);
+		if(constant)
+			PrintConstant(ctx, constant);
+		else if (functionData)
+			Print(ctx, "%s#%d", functionData[argument].offsetToName + symbolData, argument);
+		else
+			Print(ctx, "%d", argument);
+
 		PrintCall(ctx, constantData, (rA << 16) | (rB << 8) | rC);
 		break;
 	case rviCallPtr:
@@ -679,7 +686,7 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, char *constantData
 		}
 	}
 
-	PrintInstruction(ctx.output, constantData, RegVmInstructionCode(lowInstruction->code), lowInstruction->rA, lowInstruction->rB, lowInstruction->rC, lowInstruction->argument ? lowInstruction->argument->iValue : 0, lowInstruction->argument);
+	PrintInstruction(ctx.output, constantData, NULL, NULL, RegVmInstructionCode(lowInstruction->code), lowInstruction->rA, lowInstruction->rB, lowInstruction->rC, lowInstruction->argument ? lowInstruction->argument->iValue : 0, lowInstruction->argument);
 
 	if(!lowInstruction->preKillRegisters.empty() || !lowInstruction->postKillRegisters.empty())
 	{

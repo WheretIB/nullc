@@ -79,3 +79,8 @@ unsigned* FindRegVmConstants(ByteCode *code)
 {
 	return (unsigned*)((char*)(code) + code->regVmOffsetToConstants);
 }
+
+unsigned char* FindRegVmRegKillInfo(ByteCode *code)
+{
+	return (unsigned char*)((char*)(code) + code->regVmOffsetToRegKillInfo);
+}

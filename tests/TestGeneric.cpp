@@ -123,6 +123,25 @@ TEST("Generic member function test 2 ", testGeneric10a, "1084")
 	CHECK_LONG("c", 0, 14, lastFailed);
 }
 
+const char *testGeneric10c =
+"class Foo\r\n\
+{\r\n\
+	auto foo(generic a){ return a * 2; }\r\n\
+}\r\n\
+Foo x;\r\n\
+\r\n\
+auto a = x.foo(5);\r\n\
+auto b = x.foo(3.5);\r\n\
+auto c = x.foo(7000000000l);\r\n\
+\r\n\
+return long(a * 100 + b * 10 + c);";
+TEST("Generic member function test 3", testGeneric10c, "14000001070L")
+{
+	CHECK_INT("a", 0, 10, lastFailed);
+	CHECK_DOUBLE("b", 0, 7, lastFailed);
+	CHECK_LONG("c", 0, 14000000000ll, lastFailed);
+}
+
 const char *testGeneric11 =
 "int foo(int x)\r\n\
 {\r\n\

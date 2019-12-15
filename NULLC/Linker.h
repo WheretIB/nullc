@@ -54,6 +54,7 @@ public:
 	FastVector<unsigned int>		exRegVmExecCount;
 	FixedArray<unsigned int, 256>	exRegVmInstructionExecCount;
 	FastVector<unsigned int>		exRegVmConstants;
+	FastVector<unsigned char>		exRegVmRegKillInfo;
 
 	FastVector<unsigned int>		regVmJumpTargets;
 

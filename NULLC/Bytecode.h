@@ -277,6 +277,9 @@ struct ByteCode
 	unsigned int	regVmConstantCount;
 	unsigned int	regVmOffsetToConstants;
 
+	unsigned int	regVmRegKillInfoCount;
+	unsigned int	regVmOffsetToRegKillInfo;
+
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
 
@@ -350,5 +353,6 @@ ExternSourceInfo*	FindRegVmSourceInfo(ByteCode *code);
 char*				FindSymbols(ByteCode *code);
 char*				FindSource(ByteCode *code);
 unsigned*			FindRegVmConstants(ByteCode *code);
+unsigned char*		FindRegVmRegKillInfo(ByteCode *code);
 
 #endif

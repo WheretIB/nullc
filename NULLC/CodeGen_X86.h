@@ -28,7 +28,10 @@ struct CodeGenGenericContext
 
 		optimizationCount = 0;
 
+		currFreeReg = 0;
 		currFreeXmmReg = rXMM0;
+
+		skipTracking = false;
 	}
 
 	void SetLastInstruction(x86Instruction *pos, x86Instruction *base)
@@ -43,6 +46,7 @@ struct CodeGenGenericContext
 	}
 
 	unsigned MemFind(const x86Argument &address);
+	unsigned MemIntersectFind(const x86Argument &address);
 
 	void MemRead(const x86Argument &address);
 	void MemWrite(const x86Argument &address, const x86Argument &value);
@@ -53,7 +57,14 @@ struct CodeGenGenericContext
 	void InvalidateDependand(x86XmmReg dreg);
 	void InvalidateAddressValue(x86Argument arg);
 
+	void KillRegister(x86Reg reg);
+	void KillRegister(x86XmmReg reg);
+
 	void KillUnreadRegisters();
+
+	void KillUnreadRegVmRegister(unsigned char regId);
+	void KillEarlyUnreadRegVmRegisters(unsigned char *instRegKillInfo);
+	void KillLateUnreadRegVmRegisters(unsigned char *instRegKillInfo);
 
 	void ReadRegister(x86Reg reg);
 	void ReadRegister(x86XmmReg reg);
@@ -71,7 +82,11 @@ struct CodeGenGenericContext
 	x86Reg RedirectRegister(x86Reg reg);
 	x86XmmReg RedirectRegister(x86XmmReg reg);
 
+	x86Reg GetReg();
 	x86XmmReg GetXmmReg();
+
+	x86Reg FindRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters);
+	x86XmmReg FindXmmRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters);
 
 	x86Instruction *x86Op;
 	x86Instruction *x86Base;
@@ -102,7 +117,10 @@ struct CodeGenGenericContext
 
 	unsigned optimizationCount;
 
+	unsigned currFreeReg;
 	x86XmmReg currFreeXmmReg;
+
+	bool skipTracking;
 };
 
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text);
@@ -111,6 +129,7 @@ void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned labelID, int invalidate = t
 void EMIT_OP(CodeGenGenericContext &ctx, x86Command op);
 void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, int invalidate = true, int longJump = false);
 void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1);
+void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1);
 void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num);
 
 void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift);
@@ -122,6 +141,7 @@ void EMIT_OP_REG_NUM64(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, u
 void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Reg reg2);
 void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86XmmReg reg2);
 void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86XmmReg reg2);
+void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Reg reg2);
 
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift);
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift);

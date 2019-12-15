@@ -50,6 +50,7 @@ struct CodeGenRegVmStateContext
 		callInstructionPos = 0;
 
 		instAddress = NULL;
+		functionAddress = NULL;
 
 		codeLaunchHeader = NULL;
 
@@ -69,8 +70,6 @@ struct CodeGenRegVmStateContext
 		x86DtolWrap = NULL;
 		x86ShllWrap = NULL;
 		x86ShrlWrap = NULL;
-
-		pad = NULL;
 
 		vsAsmStyle = false;
 
@@ -106,6 +105,7 @@ struct CodeGenRegVmStateContext
 	unsigned callInstructionPos;
 
 	unsigned char **instAddress;
+	unsigned char **functionAddress;
 
 	unsigned char *codeLaunchHeader;
 
@@ -126,7 +126,6 @@ struct CodeGenRegVmStateContext
 	void (*x86ShllWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ShrlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 
-	void *pad;
 	jmp_buf errorHandler;
 
 	bool vsAsmStyle;
@@ -150,17 +149,14 @@ struct CodeGenRegVmContext
 		exLocals = NULL;
 		exRegVmConstants = NULL;
 		exRegVmConstantsEnd = NULL;
+		exRegVmRegKillInfo = NULL;
 		exSymbols = NULL;
 
 		vmState = NULL;
 
 		currInstructionPos = 0;
-
-		x86FuncAddr = NULL;
-		x86Continue = NULL;
-
-		nullcJmpTarget = 0;
-		siglongjmpPtr = NULL;
+		currInstructionRegKillOffset = 0;
+		currFunctionId = 0;
 	}
 
 	CodeGenGenericContext ctx;
@@ -175,17 +171,14 @@ struct CodeGenRegVmContext
 	ExternLocalInfo *exLocals;
 	unsigned *exRegVmConstants;
 	unsigned *exRegVmConstantsEnd;
+	unsigned char *exRegVmRegKillInfo;
 	char *exSymbols;
 
 	CodeGenRegVmStateContext *vmState;
 
 	unsigned currInstructionPos;
-
-	unsigned *x86FuncAddr; // unused?
-	int *x86Continue; // unused?
-
-	uintptr_t nullcJmpTarget; // unused?
-	void (*siglongjmpPtr)(); // unused?
+	unsigned currInstructionRegKillOffset;
+	unsigned currFunctionId;
 };
 
 void GenCodeCmdNop(CodeGenRegVmContext &ctx, RegVmCmd cmd);

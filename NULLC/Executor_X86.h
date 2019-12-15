@@ -31,6 +31,7 @@ public:
 
 	void	ClearNative();
 	bool	TranslateToNative(bool enableLogFiles, OutputContext &output);
+	void	UpdateFunctionPointer(unsigned source, unsigned target);
 	void	SaveListing(OutputContext &output);
 
 	void	Run(unsigned int functionID, const char *arguments);
@@ -78,7 +79,9 @@ private:
 	FastVector<ExternFuncInfo>	&exFunctions;
 	FastVector<RegVmCmd>		&exRegVmCode;
 	FastVector<unsigned int>	&exRegVmConstants;
-	FastVector<unsigned char>	codeJumpTargets;
+	FastVector<unsigned char>	&exRegVmRegKillInfo;
+	FastVector<unsigned int>	codeJumpTargets;
+	FastVector<unsigned int>	codeRegKillInfoOffsets;
 
 	// Data stack
 	unsigned int	minStackSize;
@@ -118,6 +121,7 @@ private:
 	unsigned int	lastInstructionCount;
 
 	unsigned int	oldJumpTargetCount;
+	unsigned int	oldRegKillInfoCount;
 	unsigned int	oldFunctionSize;
 	unsigned int	oldCodeBodyProtect;
 
@@ -128,7 +132,8 @@ public:
 	DCCallVM		*dcCallVM;
 #endif
 
-	FastVector<unsigned char*>	instAddress;
+	FastVector<unsigned char*> instAddress;
+	FastVector<unsigned char*> functionAddress;
 
 	FastVector<unsigned> globalCodeRanges;
 	FastVector<RUNTIME_FUNCTION> functionWin64UnwindTable;

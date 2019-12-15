@@ -61,7 +61,7 @@ struct UNWIND_INFO_ENTRY
 	unsigned char countOfCodes;
 	unsigned char frameRegister : 4;
 	unsigned char frameOffset : 4;
-	UNWIND_CODE unwindCode[8];
+	UNWIND_CODE unwindCode[10];
 };
 
 struct UNWIND_INFO_FUNCTION
@@ -72,7 +72,7 @@ struct UNWIND_INFO_FUNCTION
 	unsigned char countOfCodes;
 	unsigned char frameRegister : 4;
 	unsigned char frameOffset : 4;
-	UNWIND_CODE unwindCode[2];
+	UNWIND_CODE unwindCode[4];
 };
 
 #else
@@ -92,9 +92,6 @@ typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
 
 namespace NULLC
 {
-	// Part of state that SEH handler saves for future use
-	unsigned int expCodePublic;
-
 	ExecutorX86	*currExecutor = NULL;
 
 #ifndef __linux
@@ -115,6 +112,27 @@ namespace NULLC
 
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] >= uintptr_t(currExecutor->vmState.callStackEnd) && expInfo->ExceptionRecord->ExceptionInformation[1] <= uintptr_t(currExecutor->vmState.callStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: call stack overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] >= uintptr_t(currExecutor->vmState.dataStackEnd) && expInfo->ExceptionRecord->ExceptionInformation[1] <= uintptr_t(currExecutor->vmState.dataStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: stack overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] >= uintptr_t(currExecutor->vmState.regFileArrayEnd) && expInfo->ExceptionRecord->ExceptionInformation[1] <= uintptr_t(currExecutor->vmState.regFileArrayEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: register overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
 		uintptr_t address = uintptr_t(expInfo->ContextRecord->RegisterIp);
 
 		// Check that exception happened in NULLC code
@@ -134,9 +152,6 @@ namespace NULLC
 
 		if(!isInternal)
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
-
-		// Save part of state for later use
-		expCodePublic = expCode;
 
 		if(*(unsigned char*)(intptr_t)expInfo->ContextRecord->RegisterIp == 0xcc)
 		{
@@ -163,8 +178,26 @@ namespace NULLC
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
 		}
 
-		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
+		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
+		{
+			currExecutor->Stop("ERROR: integer division by zero");
+
 			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_INT_OVERFLOW)
+		{
+			currExecutor->Stop("ERROR: integer overflow");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
+
+		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000)
+		{
+			currExecutor->Stop("ERROR: null pointer access");
+
+			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
+		}
 
 		return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 	}
@@ -182,6 +215,24 @@ namespace NULLC
 
 	void HandleError(int signum, siginfo_t *info, void *ucontext)
 	{
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) >= uintptr_t(currExecutor->vmState.callStackEnd) && uintptr_t(info->si_addr) <= uintptr_t(currExecutor->vmState.callStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: call stack overflow");
+			siglongjmp(errorHandler, 1);
+		}
+
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) >= uintptr_t(currExecutor->vmState.dataStackEnd) && uintptr_t(info->si_addr) <= uintptr_t(currExecutor->vmState.dataStackEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: stack overflow");
+			siglongjmp(errorHandler, 1);
+		}
+
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) >= uintptr_t(currExecutor->vmState.regFileArrayEnd) && uintptr_t(info->si_addr) <= uintptr_t(currExecutor->vmState.regFileArrayEnd) + 8192)
+		{
+			currExecutor->Stop("ERROR: register overflow");
+			siglongjmp(errorHandler, 1);
+		}
+
 #if defined(_M_X64)
 		uintptr_t address = uintptr_t(((ucontext_t*)ucontext)->uc_mcontext.gregs[REG_RIP]);
 #else
@@ -212,13 +263,14 @@ namespace NULLC
 
 		if(signum == SIGFPE)
 		{
-			expCodePublic = EXCEPTION_INT_DIVIDE_BY_ZERO;
-			siglongjmp(errorHandler, expCodePublic);
+			currExecutor->Stop("ERROR: integer division by zero");
+			siglongjmp(errorHandler, 1);
 		}
-		else if(signum == SIGSEGV && uintptr_t(info->si_addr) < 0x00010000)
+
+		if(signum == SIGSEGV && uintptr_t(info->si_addr) < 0x00010000)
 		{
-			expCodePublic = EXCEPTION_INVALID_POINTER;
-			siglongjmp(errorHandler, expCodePublic);
+			currExecutor->Stop("ERROR: null pointer access");
+			siglongjmp(errorHandler, 1);
 		}
 
 		signal(signum, SIG_DFL);
@@ -236,11 +288,35 @@ namespace NULLC
 	}
 #endif
 
+	void DenyMemoryPageRead(void *addr)
+	{
+		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
+
+#if !defined(_linux)
+		DWORD unusedProtect;
+		VirtualProtect(alignedAddr, 4096, PAGE_NOACCESS, &unusedProtect);
+#else
+		mprotect(alignedAddr, 4096, PROT_NONE);
+#endif
+	}
+
+	void AllowMemoryPageRead(void *addr)
+	{
+		void *alignedAddr = (void*)((uintptr_t(addr) & ~4095) + 4096);
+
+#if !defined(_linux)
+		DWORD unusedProtect;
+		VirtualProtect(alignedAddr, 4096, PAGE_READWRITE, &unusedProtect);
+#else
+		mprotect(alignedAddr, 4096, PROT_READ | PROT_WRITE);
+#endif
+	}
+
 	typedef void (*codegenCallback)(CodeGenRegVmContext &ctx, RegVmCmd);
 	codegenCallback cgFuncs[rviConvertPtr + 1];
 }
 
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants), exRegVmRegKillInfo(linker->exRegVmRegKillInfo)
 {
 	codeGenCtx = NULL;
 
@@ -281,6 +357,7 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 	lastInstructionCount = 0;
 
 	oldJumpTargetCount = 0;
+	oldRegKillInfoCount = 0;
 	oldFunctionSize = 0;
 	oldCodeBodyProtect = 0;
 
@@ -289,6 +366,10 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 
 ExecutorX86::~ExecutorX86()
 {
+	NULLC::AllowMemoryPageRead(vmState.callStackEnd);
+	NULLC::AllowMemoryPageRead(vmState.dataStackEnd);
+	NULLC::AllowMemoryPageRead(vmState.regFileArrayEnd);
+
 	NULLC::dealloc(vmState.dataStackBase);
 
 	NULLC::dealloc(vmState.callStackBase);
@@ -439,20 +520,24 @@ bool ExecutorX86::Initialize()
 	pos += x86PUSH(pos, rR13);
 	pos += x86PUSH(pos, rR14);
 	pos += x86PUSH(pos, rR15);
+	pos += x64SUB(pos, rRSP, 40);
 
 #ifndef __linux
 	pos += x64MOV(pos, rRBX, rRDX);
 	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
 	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+	pos += x64MOV(pos, rR13, uintptr_t(&vmState));
 	pos += x86CALL(pos, rECX);
 #else
 	pos += x64MOV(pos, rRBX, rRSI);
 	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
 	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+	pos += x64MOV(pos, rR13, uintptr_t(&vmState));
 	pos += x86CALL(pos, rRDI);
 #endif
 
 	// Restore registers
+	pos += x64ADD(pos, rRSP, 40);
 	pos += x86POP(pos, rR15);
 	pos += x86POP(pos, rR14);
 	pos += x86POP(pos, rR13);
@@ -507,48 +592,52 @@ bool ExecutorX86::Initialize()
 	codeLaunchUnwindOffset = unsigned(pos - codeLaunchHeader);
 
 	assert(sizeof(UNWIND_CODE) == 2);
-	assert(sizeof(UNWIND_INFO_ENTRY) == 4 + 8 * 2);
+	assert(sizeof(UNWIND_INFO_ENTRY) == 4 + 10 * 2);
 
 	UNWIND_INFO_ENTRY unwindInfo = { 0 };
 
 	unwindInfo.version = 1;
 	unwindInfo.flags = 0; // No EH
-	unwindInfo.sizeOfProlog = 12;
-	unwindInfo.countOfCodes = 8;
+	unwindInfo.sizeOfProlog = 16;
+	unwindInfo.countOfCodes = 9;
 	unwindInfo.frameRegister = 0;
 	unwindInfo.frameOffset = 0;
 
-	unwindInfo.unwindCode[0].offsetInPrologue = 12;
-	unwindInfo.unwindCode[0].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[0].operationInfo = 15; // r15
+	unwindInfo.unwindCode[0].offsetInPrologue = 16;
+	unwindInfo.unwindCode[0].operationCode = UWOP_ALLOC_SMALL;
+	unwindInfo.unwindCode[0].operationInfo = (40 - 8) / 8;
 
-	unwindInfo.unwindCode[1].offsetInPrologue = 10;
+	unwindInfo.unwindCode[1].offsetInPrologue = 12;
 	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[1].operationInfo = 14; // r14
+	unwindInfo.unwindCode[1].operationInfo = 15; // r15
 
-	unwindInfo.unwindCode[2].offsetInPrologue = 8;
+	unwindInfo.unwindCode[2].offsetInPrologue = 10;
 	unwindInfo.unwindCode[2].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[2].operationInfo = 13; // r13
+	unwindInfo.unwindCode[2].operationInfo = 14; // r14
 
-	unwindInfo.unwindCode[3].offsetInPrologue = 6;
+	unwindInfo.unwindCode[3].offsetInPrologue = 8;
 	unwindInfo.unwindCode[3].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[3].operationInfo = 12; // r12
+	unwindInfo.unwindCode[3].operationInfo = 13; // r13
 
-	unwindInfo.unwindCode[4].offsetInPrologue = 4;
+	unwindInfo.unwindCode[4].offsetInPrologue = 6;
 	unwindInfo.unwindCode[4].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[4].operationInfo = UWOP_REGISTER_RSI;
+	unwindInfo.unwindCode[4].operationInfo = 12; // r12
 
-	unwindInfo.unwindCode[5].offsetInPrologue = 3;
+	unwindInfo.unwindCode[5].offsetInPrologue = 4;
 	unwindInfo.unwindCode[5].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RDI;
+	unwindInfo.unwindCode[5].operationInfo = UWOP_REGISTER_RSI;
 
-	unwindInfo.unwindCode[6].offsetInPrologue = 2;
+	unwindInfo.unwindCode[6].offsetInPrologue = 3;
 	unwindInfo.unwindCode[6].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[6].operationInfo = UWOP_REGISTER_RBX;
+	unwindInfo.unwindCode[6].operationInfo = UWOP_REGISTER_RDI;
 
-	unwindInfo.unwindCode[7].offsetInPrologue = 1;
+	unwindInfo.unwindCode[7].offsetInPrologue = 2;
 	unwindInfo.unwindCode[7].operationCode = UWOP_PUSH_NONVOL;
-	unwindInfo.unwindCode[7].operationInfo = UWOP_REGISTER_RBP;
+	unwindInfo.unwindCode[7].operationInfo = UWOP_REGISTER_RBX;
+
+	unwindInfo.unwindCode[8].offsetInPrologue = 1;
+	unwindInfo.unwindCode[8].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[8].operationInfo = UWOP_REGISTER_RBP;
 
 	memcpy(pos, &unwindInfo, sizeof(unwindInfo));
 	pos += sizeof(unwindInfo);
@@ -577,7 +666,7 @@ bool ExecutorX86::Initialize()
 
 	if(!vmState.callStackBase)
 	{
-		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
+		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2 + 8192); // Two extra pages for page guard
 		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
 		vmState.callStackEnd = vmState.callStackBase + 1024 * 2;
 	}
@@ -591,17 +680,21 @@ bool ExecutorX86::Initialize()
 
 	if(!vmState.dataStackBase)
 	{
-		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize + 8192); // Two extra pages for page guard
 		memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
 		vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
 	}
 
 	if(!vmState.regFileArrayBase)
 	{
-		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
+		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32 + 8192); // Two extra pages for page guard
 		memset(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
 		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
 	}
+
+	NULLC::DenyMemoryPageRead(vmState.callStackEnd);
+	NULLC::DenyMemoryPageRead(vmState.dataStackEnd);
+	NULLC::DenyMemoryPageRead(vmState.regFileArrayEnd);
 
 	//x86TestEncoding(codeLaunchHeader);
 
@@ -680,9 +773,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	assert(prevDataSize % 16 == 0);
 
 	RegVmRegister *regFilePtr = vmState.regFileLastTop;
-	RegVmRegister *regFileTop = vmState.regFileLastTop + 256;
-
-	unsigned *tempStackPtr = vmState.tempStackArrayBase;
 
 	if(functionID != ~0u)
 	{
@@ -710,12 +800,12 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			}
 
 			// Copy all arguments
-			memcpy(tempStackPtr, arguments, target.bytesToPop);
+			memcpy(vmState.tempStackArrayBase, arguments, target.bytesToPop);
 
 			// Call function
 			if(target.funcPtrWrap)
 			{
-				target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
+				target.funcPtrWrap(target.funcPtrWrapTarget, (char*)vmState.tempStackArrayBase, (char*)vmState.tempStackArrayBase);
 
 				if(!callContinue)
 					errorState = true;
@@ -723,7 +813,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			else
 			{
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-				RunRawExternalFunction(dcCallVM, exFunctions[functionID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, tempStackPtr);
+				RunRawExternalFunction(dcCallVM, exFunctions[functionID], exLinker->exLocals.data, exTypes.data, exLinker->exTypeExtra.data, vmState.tempStackArrayBase, vmState.tempStackArrayBase);
 
 				if(!callContinue)
 					errorState = true;
@@ -762,9 +852,6 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-				regFilePtr = vmState.regFileLastTop;
-				regFileTop = vmState.regFileLastTop + target.regVmRegisters;
-
 				if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + stackSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
 				{
 					CodeGenRegVmCallStackEntry *entry = vmState.callStackTop;
@@ -779,20 +866,11 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				}
 				else
 				{
-					vmState.dataStackTop += stackSize;
-
-					assert(argumentsSize <= stackSize);
-
-					if(stackSize - argumentsSize)
-						memset(vmState.dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
-
 					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState.dataStackBase);
 					regFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState.dataStackBase + prevDataSize);
 					regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 					regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 				}
-
-				memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 			}
 		}
 	}
@@ -807,14 +885,15 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 		regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 
-		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
+		memset(regFilePtr + rvrrCount, 0, (256 - rvrrCount) * sizeof(regFilePtr[0]));
 	}
 
 	RegVmRegister *prevRegFilePtr = vmState.regFileLastPtr;
-	RegVmRegister *prevRegFileTop = vmState.regFileLastTop;
 
 	vmState.regFileLastPtr = regFilePtr;
-	vmState.regFileLastTop = regFileTop;
+
+	if(functionID == ~0u)
+		vmState.regFileLastTop += 256;
 
 	RegVmReturnType resultType = retType;
 
@@ -864,10 +943,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}
 		else
 		{
-			if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
-				strcpy(execError, "ERROR: integer division by zero");
-			else if(errorCode == EXCEPTION_INVALID_POINTER)
-				strcpy(execError, "ERROR: null pointer access");
+			resultType = rvrError;
 		}
 
 		// Disable signal handlers only from top-level Run
@@ -902,20 +978,15 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}
 		__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation()))
 		{
-			if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
-				strcpy(execError, "ERROR: integer division by zero");
-			else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW)
-				strcpy(execError, "ERROR: integer overflow");
-			else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION)
-				strcpy(execError, "ERROR: null pointer access");
-
 			resultType = rvrError;
 		}
 #endif
 	}
 
 	vmState.regFileLastPtr = prevRegFilePtr;
-	vmState.regFileLastTop = prevRegFileTop;
+
+	if(functionID == ~0u)
+		vmState.regFileLastTop -= 256;
 
 	vmState.dataStackTop = vmState.dataStackBase + prevDataSize;
 
@@ -964,13 +1035,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	switch(lastResultType)
 	{
 	case rvrInt:
-		lastResult.intValue = tempStackPtr[0];
+		memcpy(&lastResult.intValue, vmState.tempStackArrayBase, sizeof(lastResult.intValue));
 		break;
 	case rvrDouble:
-		memcpy(&lastResult.doubleValue, tempStackPtr, sizeof(double));
+		memcpy(&lastResult.doubleValue, vmState.tempStackArrayBase, sizeof(lastResult.doubleValue));
 		break;
 	case rvrLong:
-		memcpy(&lastResult.longValue, tempStackPtr, sizeof(long long));
+		memcpy(&lastResult.longValue, vmState.tempStackArrayBase, sizeof(lastResult.longValue));
 		break;
 	default:
 		break;
@@ -992,11 +1063,15 @@ bool ExecutorX86::SetStackSize(unsigned bytes)
 
 	minStackSize = bytes;
 
+	NULLC::AllowMemoryPageRead(vmState.dataStackEnd);
+
 	NULLC::dealloc(vmState.dataStackBase);
 
-	vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+	vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize + 8192); // Two extra pages for page guard
 	memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
 	vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
+
+	NULLC::DenyMemoryPageRead(vmState.dataStackEnd);
 
 	return true;
 }
@@ -1045,6 +1120,7 @@ void ExecutorX86::ClearNative()
 #endif
 
 	oldJumpTargetCount = 0;
+	oldRegKillInfoCount = 0;
 	oldFunctionSize = 0;
 
 	// Create new code generation context
@@ -1054,6 +1130,8 @@ void ExecutorX86::ClearNative()
 
 	codeRunning = false;
 }
+
+#define nullcOffsetOf(obj, field) unsigned(uintptr_t(&(obj)->field) - uintptr_t(obj))
 
 bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
@@ -1073,6 +1151,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	codeGenCtx->exLocals = exLinker->exLocals.data;
 	codeGenCtx->exRegVmConstants = exRegVmConstants.data;
 	codeGenCtx->exRegVmConstantsEnd = exRegVmConstants.data + exRegVmConstants.count;
+	codeGenCtx->exRegVmRegKillInfo = exRegVmRegKillInfo.data;
 	codeGenCtx->exSymbols = exLinker->exSymbols.data;
 
 	codeGenCtx->vmState = &vmState;
@@ -1087,7 +1166,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	codeJumpTargets.resize(exRegVmCode.size());
 	if(codeJumpTargets.size())
-		memset(&codeJumpTargets[lastInstructionCount], 0, codeJumpTargets.size() - lastInstructionCount);
+		memset(&codeJumpTargets[lastInstructionCount], 0, (codeJumpTargets.size() - lastInstructionCount) * sizeof(codeJumpTargets[0]));
 
 	// Mirror extra global return so that jump to global return can be marked (rviNop, because we will have some custom code)
 	codeJumpTargets.push_back(0);
@@ -1097,11 +1176,23 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	// Mark function locations
 	for(unsigned i = 0, e = exLinker->exFunctions.size(); i != e; i++)
 	{
-		unsigned address = exLinker->exFunctions[i].regVmAddress;
+		ExternFuncInfo &target = exLinker->exFunctions[i];
 
-		if(address != ~0u)
-			codeJumpTargets[address] |= 2;
+		if(target.regVmAddress != ~0u && target.vmCodeSize != 0 && (codeJumpTargets[target.regVmAddress] >> 8) == 0)
+			codeJumpTargets[target.regVmAddress] |= 2 + (i << 8);
 	}
+
+	// Find instruction register kill info positions
+	codeRegKillInfoOffsets.resize(exRegVmCode.size());
+	for(unsigned i = lastInstructionCount, e = exRegVmCode.size(); i != e; i++)
+	{
+		codeRegKillInfoOffsets[i] = oldRegKillInfoCount;
+
+		unsigned counts = exRegVmRegKillInfo[oldRegKillInfoCount];
+
+		oldRegKillInfoCount += 1 + (counts >> 4) + (counts & 0xf);
+	}
+	assert(oldRegKillInfoCount == exRegVmRegKillInfo.size());
 
 	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
@@ -1125,16 +1216,96 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
 		codeGenCtx->currInstructionPos = pos;
+		codeGenCtx->currInstructionRegKillOffset = codeRegKillInfoOffsets[pos];
 
 		// Frame setup
 		if((codeJumpTargets[pos] & 6) != 0)
 		{
 			if(codeJumpTargets[pos] & 4)
+			{
 				activeGlobalCodeStart = pos;
 
+				codeGenCtx->currFunctionId = 0;
+			}
+
 #if defined(_M_X64)
-			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
+			EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
+			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #endif
+
+			// Generate function prologue (register cleanup, data stack advance, data stack cleanup)
+			if(codeJumpTargets[pos] & 2)
+			{
+				codeGenCtx->currFunctionId = codeJumpTargets[pos] >> 8;
+
+				ExternFuncInfo &target = exLinker->exFunctions[codeGenCtx->currFunctionId];
+
+#if defined(_M_X64)
+				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+				unsigned argumentsSize = target.bytesToPop;
+
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rRBX, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop));
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+
+				// Advance frame top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+
+				// Advance register top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop), target.regVmRegisters * 8); // vmState->regFileLastTop += target.regVmRegisters;
+
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
+
+				bool isRaxCleared = false;
+
+				// Clear register values
+				if (target.regVmRegisters > rvrrCount)
+				{
+					unsigned count = target.regVmRegisters - rvrrCount;
+
+					if(count <= 8)
+					{
+						for(int regId = rvrrCount; regId < target.regVmRegisters; regId++)
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov64, sQWORD, rRBX, regId * 8, 0);
+					}
+					else
+					{
+						isRaxCleared = true;
+
+						EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rRAX, rRAX);
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rRDI, sQWORD, rRBX, rvrrCount * 8);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosq);
+					}
+				}
+
+				// Clear data stack
+				// TODO: use target.stackSize which is smaller?
+				if(unsigned count = stackSize - argumentsSize)
+				{
+					assert(count % 4 == 0);
+
+					if(count <= 16)
+					{
+						for(unsigned dataId = 0; dataId < count / 4; dataId++)
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rR15, argumentsSize + dataId * 4, 0);
+					}
+					else
+					{
+						if(!isRaxCleared)
+							EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rRAX, rRAX);
+
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rRDI, sQWORD, rR15, argumentsSize);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count / 4);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosd);
+					}
+				}
+#else
+				assert(!"not implemented");
+#endif
+			}
 		}
 
 		if(cmd.code == rviJmp && cmd.rA)
@@ -1148,13 +1319,19 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 #if defined(_M_X64)
 			if(pos)
-				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+			{
+				EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
+				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
+			}
 #endif
 		}
 
 		pos++;
 
 		NULLC::cgFuncs[cmd.code](*codeGenCtx, cmd);
+
+		codeGenCtx->ctx.KillLateUnreadRegVmRegisters(exRegVmRegKillInfo.data + codeGenCtx->currInstructionRegKillOffset);
 
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
@@ -1167,14 +1344,18 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	if((codeJumpTargets[exRegVmCode.size()] & 6) != 0)
 	{
 #if defined(_M_X64)
-		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 32);
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rRBX);
+		EMIT_OP_REG(codeGenCtx->ctx, o_push, rR15);
+		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #endif
 	}
 
 	EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
 
 #if defined(_M_X64)
-	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 32);
+	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_add64, rRSP, 40);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
 #endif
 
 	EMIT_OP(codeGenCtx->ctx, o_ret);
@@ -1210,35 +1391,23 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	// Now regenerate instructions
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
+		x86Instruction &inst = instList[i];
+
 		// Skip trash
-		if(instList[i].name == o_none)
+		if(inst.name == o_none)
 		{
-			if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
-			{
-				codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
-				EMIT_OP(codeGenCtx->ctx, o_none);
-				SetOptimizationLookBehind(codeGenCtx->ctx, false);
-			}
+			EMIT_OP(codeGenCtx->ctx, o_none);
 			continue;
 		}
 		// If invalidation flag is set
-		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
+		if(inst.instID && codeJumpTargets[inst.instID - 1])
 			SetOptimizationLookBehind(codeGenCtx->ctx, false);
-		codeGenCtx->ctx.GetLastInstruction()->instID = instList[i].instID;
 
-		x86Instruction &inst = instList[i];
 		if(inst.name == o_label)
 		{
 			EMIT_LABEL(codeGenCtx->ctx, inst.labelID, inst.argA.num);
 			SetOptimizationLookBehind(codeGenCtx->ctx, true);
 			continue;
-		}
-
-		if(inst.name == o_call)
-		{
-			EMIT_REG_READ(codeGenCtx->ctx, rECX);
-			EMIT_REG_READ(codeGenCtx->ctx, rEDX);
-			EMIT_REG_READ(codeGenCtx->ctx, rR8);
 		}
 
 		switch(inst.argA.type)
@@ -1319,6 +1488,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
+
 	unsigned int currSize = (int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]);
 	for(unsigned int i = currSize; i < instList.size(); i++)
 	{
@@ -1390,6 +1560,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 		for(unsigned i = 0; i < instAddress.size(); i++)
 			instAddress[i] = (instAddress[i] - binCode) + binCodeNew;
+
+		for(unsigned i = 0; i < functionAddress.size(); i++)
+			functionAddress[i] = (functionAddress[i] - binCode) + binCodeNew;
+
 		binCode = binCodeNew;
 	}
 
@@ -1400,7 +1574,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	if(binCodeSize != 0)
 	{
 #if defined(_M_X64)
-		code -= 7; // xor eax, eax; add rsp, 32; ret;
+		code -= 10; // xor eax, eax; add rsp, 40; pop r15; pop rbx; ret;
 #else
 		code -= 3; // xor eax, eax; ret;
 #endif
@@ -1434,20 +1608,28 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Write the unwind data
 	assert(sizeof(UNWIND_CODE) == 2);
-	assert(sizeof(UNWIND_INFO_FUNCTION) == 4 + 2 * 2);
+	assert(sizeof(UNWIND_INFO_FUNCTION) == 4 + 4 * 2);
 
 	UNWIND_INFO_FUNCTION unwindInfo = { 0 };
 
 	unwindInfo.version = 1;
 	unwindInfo.flags = 0; // No EH
-	unwindInfo.sizeOfProlog = 4;
-	unwindInfo.countOfCodes = 1;
+	unwindInfo.sizeOfProlog = 7;
+	unwindInfo.countOfCodes = 3;
 	unwindInfo.frameRegister = 0;
 	unwindInfo.frameOffset = 0;
 
-	unwindInfo.unwindCode[0].offsetInPrologue = 4;
+	unwindInfo.unwindCode[0].offsetInPrologue = 7;
 	unwindInfo.unwindCode[0].operationCode = UWOP_ALLOC_SMALL;
-	unwindInfo.unwindCode[0].operationInfo = (32 - 8) / 8;
+	unwindInfo.unwindCode[0].operationInfo = (40 - 8) / 8;
+
+	unwindInfo.unwindCode[1].offsetInPrologue = 3;
+	unwindInfo.unwindCode[1].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[1].operationInfo = 15; // r15
+
+	unwindInfo.unwindCode[2].offsetInPrologue = 1;
+	unwindInfo.unwindCode[2].operationCode = UWOP_PUSH_NONVOL;
+	unwindInfo.unwindCode[2].operationInfo = UWOP_REGISTER_RBX;
 
 	unsigned char *unwindPos = code;
 
@@ -1479,7 +1661,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	for(unsigned i = 0, e = globalCodeRanges.size(); i != e; i += 2)
 	{
 		unsigned char *codeStart = instAddress[globalCodeRanges[i]];
-		unsigned char *codeEnd = instAddress[globalCodeRanges[i + 1]] + 4; // add 'sub rsp, 32'
+		unsigned char *codeEnd = instAddress[globalCodeRanges[i + 1]] + unwindInfo.sizeOfProlog; // Add prologue
 
 		// Store function info
 		RUNTIME_FUNCTION rtFunc;
@@ -1501,22 +1683,33 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	x86SatisfyJumps(instAddress);
 
+	if(codeRunning && exFunctions.size() > functionAddress.max)
+		assert(!"not implemented");
+
+	functionAddress.resize(exFunctions.size());
+
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
 		if(exFunctions[i].regVmAddress != -1)
-			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].regVmAddress] - binCode);
-		else if(exFunctions[i].funcPtrWrap)
-			exFunctions[i].startInByteCode = 0xffffffff;
+			functionAddress[i] = instAddress[exFunctions[i].regVmAddress];
 		else
-			exFunctions[i].startInByteCode = 0xffffffff;
+			functionAddress[i] = 0;
 	}
+
+	vmState.functionAddress = functionAddress.data;
 
 	lastInstructionCount = exRegVmCode.size();
 
 	oldJumpTargetCount = exLinker->regVmJumpTargets.size();
+	oldRegKillInfoCount = exRegVmRegKillInfo.size();
 	oldFunctionSize = exFunctions.size();
 
 	return true;
+}
+
+void ExecutorX86::UpdateFunctionPointer(unsigned source, unsigned target)
+{
+	functionAddress[source] = functionAddress[target];
 }
 
 void ExecutorX86::SaveListing(OutputContext &output)
@@ -1525,27 +1718,85 @@ void ExecutorX86::SaveListing(OutputContext &output)
 
 	for(unsigned i = 0; i < instList.size(); i++)
 	{
-		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
+		x86Instruction &inst = instList[i];
+
+		unsigned instID = inst.instID;
+
+		if(instID && codeJumpTargets[instID - 1])
 		{
+			const char *functionName = NULL;
+			unsigned functionId = 0;
+
+			for(unsigned k = 0, e = exLinker->exFunctions.size(); k != e; k++)
+			{
+				ExternFuncInfo &funcInfo = exLinker->exFunctions[k];
+
+				if(unsigned(funcInfo.regVmAddress) == instID - 1)
+				{
+					functionName = funcInfo.offsetToName + exLinker->exSymbols.data;
+					functionId = k;
+					break;
+				}
+			}
+
 			output.Print("; ------------------- Invalidation ----------------\n");
-			output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
-		}
 
-		if(instList[i].instID && instList[i].instID - 1 < exRegVmCode.size())
-		{
-			RegVmCmd &cmd = exRegVmCode[instList[i].instID - 1];
-
-			output.Printf("; %4d: ", instList[i].instID - 1);
-
-			PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+			if(functionName)
+				output.Printf("0x%x: ; %4d // %s#%d", 0xc0000000 | (instID - 1), instID - 1, functionName, functionId);
+			else
+				output.Printf("0x%x: ; %4d", 0xc0000000 | (instID - 1), instID - 1);
 
 			output.Print('\n');
 		}
 
-		if(instList[i].name == o_other)
+		if(instID && instID - 1 < exRegVmCode.size())
+		{
+			RegVmCmd &cmd = exRegVmCode[instID - 1];
+
+			output.Printf("; %4d: ", instID - 1);
+
+			PrintInstruction(output, (char*)exRegVmConstants.data, exFunctions.data, exLinker->exSymbols.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+
+			unsigned regKillInfoOffset = codeRegKillInfoOffsets[instID - 1];
+			unsigned regKillCounts = exRegVmRegKillInfo[regKillInfoOffset];
+
+			if(regKillCounts)
+			{
+				output.Print(" // kill");
+
+				regKillInfoOffset++;
+
+				unsigned preKillCount = (regKillCounts >> 4);
+				unsigned postKillCount = (regKillCounts & 0xf);
+
+				if(preKillCount)
+				{
+					output.Print(" early[");
+
+					for(unsigned k = 0; k < preKillCount; k++)
+						output.Printf("%sr%d", k == 0 ? "" : ", ", exRegVmRegKillInfo[regKillInfoOffset++]);
+
+					output.Print(']');
+				}
+
+				if(postKillCount)
+				{
+					output.Print(" late[");
+
+					for(unsigned k = 0; k < postKillCount; k++)
+						output.Printf("%sr%d", k == 0 ? "" : ", ", exRegVmRegKillInfo[regKillInfoOffset++]);
+
+					output.Print(']');
+				}
+			}
+
+			output.Print('\n');
+		}
+
+		if(inst.name == o_other)
 			continue;
 
-		instList[i].Decode(vmState, instBuf);
+		inst.Decode(vmState, instBuf);
 
 		output.Print(instBuf);
 		output.Print('\n');

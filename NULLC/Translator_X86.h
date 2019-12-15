@@ -24,8 +24,14 @@ int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src);
 // movsxd reg, dword [index*mult+base+shift]
 int x86MOVSXD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
+// cvtss2sd xmm*, xmm*
+int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+
 // cvtss2sd xmm*, dword [index*mult+base+shift]
 int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+
+// cvtsd2ss xmm*, xmm*
+int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
 // cvtsd2ss xmm*, qword [index*mult+base+shift]
 int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
@@ -35,6 +41,12 @@ int x86CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, 
 
 // REX.W cvttsd2si dst, qword [index*mult+base+shift]
 int x64CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+
+// cvtsi2sd xmm*, src
+int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src);
+
+// REX.W cvtsi2sd xmm*, src
+int x64CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src);
 
 // cvtsi2sd xmm*, *word [index*mult+base+shift]
 int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
@@ -186,11 +198,23 @@ int x86SAL(unsigned char *stream, x86Reg reg);
 // REX.W sal reg, cl
 int x64SAL(unsigned char *stream, x86Reg reg);
 
+// sal reg, num
+int x86SAL(unsigned char *stream, x86Reg reg, int num);
+
+// REX.W sal reg, num
+int x64SAL(unsigned char *stream, x86Reg reg, int num);
+
 // sar reg, cl
 int x86SAR(unsigned char *stream, x86Reg reg);
 
 // REX.W sar reg, cl
 int x64SAR(unsigned char *stream, x86Reg reg);
+
+// sar reg, cl
+int x86SAR(unsigned char *stream, x86Reg reg, int num);
+
+// REX.W sar reg, cl
+int x64SAR(unsigned char *stream, x86Reg reg, int num);
 
 // not reg
 int x86NOT(unsigned char *stream, x86Reg reg);
@@ -254,6 +278,9 @@ int x86CMP(unsigned char *stream, x86Reg reg, int num);
 
 // cmp reg1, reg2
 int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
+
+// REX.W cmp reg1, num
+int x64CMP(unsigned char *stream, x86Reg reg1, int num);
 
 // REX.W cmp reg1, reg2
 int x64CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);

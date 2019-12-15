@@ -1208,7 +1208,7 @@ namespace
 }
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *callStorage)
+void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *argumentStorage, unsigned *resultStorage)
 {
 	(void)exTypeExtra;
 
@@ -1217,7 +1217,7 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 	void* fPtr = (void*)func.funcPtrRaw;
 	unsigned retType = func.retType;
 
-	unsigned *stackStart = callStorage;
+	unsigned *stackStart = argumentStorage;
 
 	dcReset(dcCallVM);
 
@@ -1418,7 +1418,7 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 
 	dcArgPointer(dcCallVM, (DCpointer)vmLoadPointer(stackStart));
 
-	unsigned *newStackPtr = callStorage;
+	unsigned *newStackPtr = resultStorage;
 
 	switch(retType)
 	{

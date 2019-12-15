@@ -1200,14 +1200,28 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 		return false;
 	}
 
-	ExternFuncInfo &destFunc = linker->exFunctions[index];
-	ExternFuncInfo &srcFunc = linker->exFunctions[func.id];
+	return nullcRedirectFunction(index, func.id);
+}
+
+nullres nullcRedirectFunction(unsigned sourceId, unsigned targetId)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		executorX86->UpdateFunctionPointer(sourceId, targetId);
+#endif
+
+	ExternFuncInfo &destFunc = linker->exFunctions[sourceId];
+	ExternFuncInfo &srcFunc = linker->exFunctions[targetId];
 
 	destFunc.vmAddress = srcFunc.vmAddress;
 	destFunc.vmCodeSize = srcFunc.vmCodeSize;
 
 	destFunc.regVmAddress = srcFunc.regVmAddress;
 	destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
+	destFunc.regVmRegisters = srcFunc.regVmRegisters;
 
 	destFunc.funcPtrRaw = srcFunc.funcPtrRaw;
 	destFunc.funcPtrWrapTarget = srcFunc.funcPtrWrapTarget;
