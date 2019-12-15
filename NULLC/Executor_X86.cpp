@@ -1241,10 +1241,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 				ExternFuncInfo &target = exLinker->exFunctions[codeGenCtx->currFunctionId];
 
-#if defined(_M_X64)
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 				unsigned argumentsSize = target.bytesToPop;
 
+#if defined(_M_X64)
 				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
 
 				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rRBX, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop));
@@ -1303,7 +1303,66 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					}
 				}
 #else
-				assert(!"not implemented");
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
+
+				EMIT_OP_REG_ADDR(codeGenCtx->ctx, o_mov, rEBX, sDWORD, uintptr_t(&vmState.regFileLastTop));
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov, rESI, sDWORD, rNONE, 1, rEBX, rvrrFrame * 8);
+
+				// Advance frame top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add, sDWORD, uintptr_t(&vmState.dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
+
+				// Advance register top
+				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add, sDWORD, uintptr_t(&vmState.regFileLastTop), target.regVmRegisters * 8); // vmState->regFileLastTop += target.regVmRegisters;
+
+				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
+
+				bool isEaxCleared = false;
+
+				// Clear register values
+				if(target.regVmRegisters > rvrrCount)
+				{
+					unsigned count = target.regVmRegisters - rvrrCount;
+
+					if(count <= 4)
+					{
+						for(int regId = rvrrCount; regId < target.regVmRegisters; regId++)
+						{
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rEBX, regId * 8, 0);
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rEBX, regId * 8, 4);
+						}
+					}
+					else
+					{
+						isEaxCleared = true;
+
+						EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rEDI, sDWORD, rEBX, rvrrCount * 8);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count * 2);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosd);
+					}
+				}
+
+				// Clear data stack
+				// TODO: use target.stackSize which is smaller?
+				if(unsigned count = stackSize - argumentsSize)
+				{
+					assert(count % 4 == 0);
+
+					if(count <= 16)
+					{
+						for(unsigned dataId = 0; dataId < count / 4; dataId++)
+							EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_mov, sDWORD, rESI, argumentsSize + dataId * 4, 0);
+					}
+					else
+					{
+						if(!isEaxCleared)
+							EMIT_OP_REG_REG(codeGenCtx->ctx, o_xor, rEAX, rEAX);
+
+						EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_lea, rEDI, sDWORD, rESI, argumentsSize);
+						EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rECX, count / 4);
+						EMIT_OP(codeGenCtx->ctx, o_rep_stosd);
+					}
+				}
 #endif
 			}
 		}

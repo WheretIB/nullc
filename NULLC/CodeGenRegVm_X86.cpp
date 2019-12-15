@@ -1648,7 +1648,7 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 #else
 	x86Reg rTempStack = rEDX;
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rTempStack, sDWORD, uintptr_t(&ctx.vmState->dataStackTop));
+	EMIT_OP_REG_ADDR(ctx.ctx, o_mov, rTempStack, sDWORD, uintptr_t(&ctx.vmState->dataStackTop));
 
 	unsigned tempStackPtrOffset = 0;
 
@@ -1684,13 +1684,13 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 			unsigned offset = *microcode++;
 			unsigned size = *microcode++;
 
-			EMIT_OP_REG_REG(ctx.ctx, o_mov, rEDX, rESI); // Save frame register
+			EMIT_OP_REG_REG(ctx.ctx, o_mov, rEAX, rESI); // Save frame register
 			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rESI, sDWORD, rREG, reg * 8);
 			EMIT_OP_REG_NUM(ctx.ctx, o_add, rESI, offset);
 			EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rEDI, sDWORD, rTempStack, tempStackPtrOffset);
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 			EMIT_OP(ctx.ctx, o_rep_movsd);
-			EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEDX); // Restore frame register
+			EMIT_OP_REG_REG(ctx.ctx, o_mov, rESI, rEAX); // Restore frame register
 			EMIT_REG_READ(ctx.ctx, rESI);
 
 			tempStackPtrOffset += size;
@@ -1698,6 +1698,29 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 		break;
 		}
 	}
+
+	// Add call stack frame
+	EMIT_OP_REG_ADDR(ctx.ctx, o_mov, rECX, sDWORD, uintptr_t(&ctx.vmState->callStackTop));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rECX, nullcOffsetOf(ctx.vmState->callStackTop, instruction), ctx.currInstructionPos + 1); // vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_add, sDWORD, uintptr_t(&ctx.vmState->callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop++;
+
+	//vmState->regFileLastTop
+	EMIT_OP_REG_ADDR(ctx.ctx, o_mov, rECX, sDWORD, uintptr_t(&ctx.vmState->regFileLastTop));
+
+	//vmState->regFileLastTop[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rECX, rvrrGlobals * 8, uintptr_t(ctx.vmState->dataStackBase));
+
+	//vmState->regFileLastTop[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackTop);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rECX, rvrrFrame * 8, rTempStack);
+
+	//vmState->regFileLastTop[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rECX, rvrrConstants * 8, uintptr_t(ctx.exRegVmConstants));
+
+	//vmState->regFileLastTop[rvrrRegisters].ptrValue = uintptr_t(vmState->regFileLastTop);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rECX, rvrrRegisters * 8, rECX);
+
+	//vmState->regFileLastPtr = vmState->regFileLastTop;
+	EMIT_OP_ADDR_REG(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->regFileLastPtr), rECX);
 #endif
 
 	microcode++;
@@ -1769,6 +1792,12 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 		}
 	}
 #else
+	//vmState->regFileLastPtr = prevRegFilePtr;
+	EMIT_OP_ADDR_REG(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->regFileLastPtr), rEBX);
+
+	// Remove call stack frame
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_sub, sDWORD, uintptr_t(&ctx.vmState->callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop--;
+
 	switch(resultType)
 	{
 	case rvrDouble:
@@ -1860,22 +1889,10 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
 	ctx.labelCount++;
 #else
-	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDI, uintptr_t(ctx.vmState));
-
-	// Add call stack frame
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rEDI, nullcOffsetOf(ctx.vmState, callStackTop));
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRDX, nullcOffsetOf(ctx.vmState->callStackTop, instruction), ctx.currInstructionPos + 1); // vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_add, sDWORD, rEDI, nullcOffsetOf(ctx.vmState, callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop++;
-
-	assert(!"setup registers");
-
 	EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument);
-	EMIT_OP_REG(ctx.ctx, o_push, rEDI);
+	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callWrap));
 	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
-
-	// Remove call stack frame
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_sub, sDWORD, rEDI, nullcOffsetOf(ctx.vmState, callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop++;
 #endif
 
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
@@ -1899,22 +1916,10 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_REG_READ(ctx.ctx, rArg2);
 	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callPtrWrap) - uintptr_t(ctx.vmState)));
 #else
-	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDI, uintptr_t(ctx.vmState));
-
-	// Add call stack frame
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rEDI, nullcOffsetOf(ctx.vmState, callStackTop));
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRDX, nullcOffsetOf(ctx.vmState->callStackTop, instruction), ctx.currInstructionPos + 1); // vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_add, sDWORD, rEDI, nullcOffsetOf(ctx.vmState, callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop++;
-
-	assert(!"setup registers");
-
 	EMIT_OP_RPTR(ctx.ctx, o_push, sDWORD, rREG, cmd.rC * 8); // Get function id
-	EMIT_OP_REG(ctx.ctx, o_push, rEDI);
+	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callPtrWrap));
 	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
-
-	// Remove call stack frame
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_sub, sDWORD, rEDI, nullcOffsetOf(ctx.vmState, callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop++;
 #endif
 
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
@@ -2090,7 +2095,11 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-		assert(!"not implemented"); // vmState->dataStackTop -= stackSize;
+		// Restore frame top
+		EMIT_OP_RPTR_NUM(ctx.ctx, o_sub, sDWORD, uintptr_t(&ctx.vmState->dataStackTop), stackSize); // vmState->dataStackTop -= stackSize;
+
+		// Restore register top
+		EMIT_OP_RPTR_NUM(ctx.ctx, o_sub, sDWORD, uintptr_t(&ctx.vmState->regFileLastTop), target.regVmRegisters * 8); // vmState->regFileLastTop -= target.regVmRegisters;
 	}
 
 	if(cmd.rB != rvrVoid)
