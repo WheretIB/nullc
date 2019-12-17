@@ -2916,7 +2916,20 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	VmValue *trueValue = CompileVm(ctx, module, node->trueBlock);
 
 	if(VmConstant *constant = getType<VmConstant>(trueValue))
-		trueValue = CreateLoadImmediate(module, node->source, constant);
+	{
+		if(constant->type.type == VM_TYPE_STRUCT)
+		{
+			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->trueBlock->type, "cond");
+
+			CreateStore(ctx, module, node->source, node->trueBlock->type, tempAddress, constant, 0);
+
+			trueValue = CreateLoad(ctx, module, node->source, node->trueBlock->type, tempAddress, 0);
+		}
+		else
+		{
+			trueValue = CreateLoadImmediate(module, node->source, constant);
+		}
+	}
 
 	CreateJump(module, node->source, exitBlock);
 
@@ -2926,7 +2939,20 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	VmValue *falseValue = CompileVm(ctx, module, node->falseBlock);
 
 	if(VmConstant *constant = getType<VmConstant>(falseValue))
-		falseValue = CreateLoadImmediate(module, node->source, constant);
+	{
+		if(constant->type.type == VM_TYPE_STRUCT)
+		{
+			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->falseBlock->type, "cond");
+
+			CreateStore(ctx, module, node->source, node->falseBlock->type, tempAddress, constant, 0);
+
+			falseValue = CreateLoad(ctx, module, node->source, node->falseBlock->type, tempAddress, 0);
+		}
+		else
+		{
+			falseValue = CreateLoadImmediate(module, node->source, constant);
+		}
+	}
 
 	CreateJump(module, node->source, exitBlock);
 

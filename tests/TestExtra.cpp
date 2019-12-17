@@ -1106,3 +1106,9 @@ auto t6 = test_rational with<double>();\r\n\
 \r\n\
 return int(t1 + t2 + t3 + t4 + t5 + t6);";
 TEST_RESULT("Numeric operations on different types", testNumericOperations, "1148063");
+
+const char	*testComplexConditional1 = "auto x = 1 ? \"aaa\" : \"bbb\"; return x[0] - 'a';";
+TEST_RESULT("Conditional with a complex value 1", testComplexConditional1, "0");
+
+const char	*testComplexConditional2 = "auto y = new int(1); auto x = *y ? \"aaa\" : \"bbb\"; return x[0] - 'a';";
+TEST_RESULT("Conditional with a complex value 2", testComplexConditional2, "0");
