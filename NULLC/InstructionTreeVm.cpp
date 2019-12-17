@@ -1905,6 +1905,12 @@ void VmBlock::AddInstruction(VmInstruction* instruction)
 			lastInstruction = instruction;
 	}
 
+	if(instruction->prevSibling)
+		assert(instruction->prevSibling->parent == this);
+
+	if(instruction->nextSibling)
+		assert(instruction->nextSibling->parent == this);
+
 	insertPoint = instruction;
 }
 
@@ -6668,6 +6674,9 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 		{
 			VmInstruction *value = getType<VmInstruction>(curr->arguments[i]);
 			VmBlock *edge = getType<VmBlock>(curr->arguments[i + 1]);
+
+			if(value->parent != edge)
+				edge = value->parent;
 
 			module->currentBlock = edge;
 
