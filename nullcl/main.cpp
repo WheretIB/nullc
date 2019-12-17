@@ -229,6 +229,7 @@ int main(int argc, char** argv)
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
+			nullcTerminate();
 			return 1;
 		}
 		unsigned int *bytecode = NULL;
