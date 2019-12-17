@@ -3122,7 +3122,9 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 			{
 				VmValue *element = instInit->arguments[i];
 
-				if(VmInstruction *elementInst = getType<VmInstruction>(element))
+				VmInstruction *elementInst = getType<VmInstruction>(element);
+
+				if(elementInst && elementInst->parent == module->currentBlock)
 				{
 					if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
 						element = elementInst->arguments[0];

@@ -1033,6 +1033,12 @@ total += -arr11[0] + -arr11[8];\r\n\
 return total;";
 TEST_RESULT("Array lowering check 6", testArrayLowering6, "10");
 
+const char	*testArrayLowering7 = 
+"int a(auto ref[] args){ return args.size; }\r\n\
+int b(bool ctx){ return a(ctx ? char[](\"a, \") : char[](\"\"), ctx ? char[](\"b, \") : char[](\"\"), ctx ? char[](\"c, \") : char[](\"\")); }\r\n\
+return b(true);";
+TEST_RESULT("Array lowering check 7", testArrayLowering7, "3");
+
 const char	*testDeadBlocksWithUsers =
 "int test(int t)\r\n\
 {\r\n\
