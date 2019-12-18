@@ -908,6 +908,17 @@ int test7()\r\n\
 return (test1() == 0) + (test2() == 3) + (test3() == 3) + (test4().y == 2) + (test5(test4()).y == 2) + (test6() == 1) + (test7() == 6);";
 TEST_RESULT("Large value copy aliasing 2", testLargeValues2, "7");
 
+const char	*testLargeValues3 =
+"class Large{ int x, y, z, w; }\r\n\
+class Huge{ Large[512] b; }\r\n\
+\r\n\
+Huge b, c;\r\n\
+b.b[123].y = 10;\r\n\
+c.b[123].y = 11;\r\n\
+Huge a = b.b[2].x ? b : c;\r\n\
+return a.b[123].y;";
+TEST_RESULT("Large value conditionals", testLargeValues3, "11");
+
 const char	*testArrayLowering1 =
 "char[] arr = \"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\r\n\
 Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\r\n\

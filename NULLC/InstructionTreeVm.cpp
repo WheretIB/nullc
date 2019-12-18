@@ -2916,8 +2916,12 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 
 	CreateJumpNotZero(module, node->source, condition, trueBlock, falseBlock);
 
+	assert(node->trueBlock->type == node->falseBlock->type);
+
 	module->currentFunction->AddBlock(trueBlock);
 	module->currentBlock = trueBlock;
+
+	VmConstant *tempAddress = NULL;
 
 	VmValue *trueValue = CompileVm(ctx, module, node->trueBlock);
 
@@ -2925,11 +2929,9 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	{
 		if(constant->type.type == VM_TYPE_STRUCT)
 		{
-			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->trueBlock->type, "cond");
+			tempAddress = CreateAlloca(ctx, module, node->source, node->trueBlock->type, "cond");
 
 			CreateStore(ctx, module, node->source, node->trueBlock->type, tempAddress, constant, 0);
-
-			trueValue = CreateLoad(ctx, module, node->source, node->trueBlock->type, tempAddress, 0);
 		}
 		else
 		{
@@ -2948,11 +2950,9 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	{
 		if(constant->type.type == VM_TYPE_STRUCT)
 		{
-			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->falseBlock->type, "cond");
+			assert(tempAddress);
 
 			CreateStore(ctx, module, node->source, node->falseBlock->type, tempAddress, constant, 0);
-
-			falseValue = CreateLoad(ctx, module, node->source, node->falseBlock->type, tempAddress, 0);
 		}
 		else
 		{
@@ -2964,6 +2964,9 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 
 	module->currentFunction->AddBlock(exitBlock);
 	module->currentBlock = exitBlock;
+
+	if(tempAddress)
+		return CheckType(ctx, node, CreateLoad(ctx, module, node->source, node->falseBlock->type, tempAddress, 0));
 
 	VmValue *phi = CreatePhi(module, node->source, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
 
