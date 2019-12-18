@@ -81,8 +81,6 @@ struct RegVmLoweredFunction
 
 		nextRegister = rvrrCount;
 
-		nextSearchMarker = 1;
-
 		hasRegisterOverflow = false;
 		registerOverflowLocation = NULL;
 	}
@@ -107,8 +105,6 @@ struct RegVmLoweredFunction
 	VmFunction *vmFunction;
 
 	SmallArray<RegVmLoweredBlock*, 16> blocks;
-
-	unsigned nextSearchMarker;
 
 	FixedArray<unsigned short, 256> registerUsers;
 

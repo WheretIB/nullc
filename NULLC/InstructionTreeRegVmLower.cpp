@@ -3175,7 +3175,7 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 
 			CopyRegisters(liveIn, source);
 
-			UpdateSharedStorage(liveIn, lowFunction->nextSearchMarker++);
+			UpdateSharedStorage(liveIn, lowFunction->vmFunction->nextSearchMarker++);
 		}
 	}
 
@@ -3191,7 +3191,7 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 
 			CopyRegisters(liveOut, source);
 
-			UpdateSharedStorage(liveOut, lowFunction->nextSearchMarker++);
+			UpdateSharedStorage(liveOut, lowFunction->vmFunction->nextSearchMarker++);
 		}
 	}
 
@@ -3281,7 +3281,7 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 			for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
 				usedRegisters.push_back(liveOut->regVmRegisters[k]);
 
-			UpdateSharedStorage(liveOut, lowFunction->nextSearchMarker++);
+			UpdateSharedStorage(liveOut, lowFunction->vmFunction->nextSearchMarker++);
 		}
 	}
 
