@@ -662,7 +662,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			instruction++;
 			BREAK;
 		CASE(rviIndex)
-			if(regFilePtr[cmd.rB].intValue >= regFilePtr[(cmd.argument >> 16) & 0xff].intValue)
+			if(unsigned(regFilePtr[cmd.rB].intValue) >= unsigned(regFilePtr[(cmd.argument >> 16) & 0xff].intValue))
 				return rvm->ExecError(instruction, "ERROR: array index out of bounds");
 
 			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + regFilePtr[cmd.rB].intValue * (cmd.argument & 0xffff);
