@@ -24,7 +24,10 @@ struct CodeGenGenericContext
 
 		memset(memCache, 0, memoryStateSize * sizeof(MemCache));
 
-		memCacheEntries = 0;
+		memCacheNextSlot = 0;
+		memCacheFreeSlotCount = 0;
+
+		memset(memCacheFreeSlots, 0, memoryStateSize * sizeof(unsigned));
 
 		optimizationCount = 0;
 
@@ -50,7 +53,6 @@ struct CodeGenGenericContext
 
 	void MemRead(const x86Argument &address);
 	void MemWrite(const x86Argument &address, const x86Argument &value);
-	void MemUpdate(unsigned index);
 
 	void InvalidateState();
 	void InvalidateDependand(x86Reg dreg);
@@ -113,7 +115,10 @@ struct CodeGenGenericContext
 
 	static const unsigned memoryStateSize = 16;
 	MemCache memCache[memoryStateSize];
-	unsigned memCacheEntries;
+
+	unsigned memCacheNextSlot;
+	unsigned memCacheFreeSlotCount;
+	unsigned memCacheFreeSlots[memoryStateSize];
 
 	unsigned optimizationCount;
 

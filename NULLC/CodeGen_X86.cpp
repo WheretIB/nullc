@@ -81,62 +81,63 @@ void CodeGenGenericContext::MemWrite(const x86Argument &address, const x86Argume
 	{
 		MemCache &entry = memCache[i];
 
-		if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone && entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex && entry.address.ptrSize != address.ptrSize)
+		if(entry.address.type == x86Argument::argNone)
+			continue;
+
+		if(entry.value.type == x86Argument::argNone)
+			continue;
+
+		x86Argument &write = entry.address;
+
+		// Reading from register file can't mark any memory writes with addresses from other registers since they can't point to it
+		if(address.ptrIndex == rNONE && address.ptrBase == rEBX && (write.ptrIndex != rNONE || write.ptrBase != rEBX))
+			continue;
+
+		// Reading from an address in a register different from register file can't mark writes to register file as read
+		if((address.ptrIndex != rNONE || address.ptrBase != rEBX) && write.ptrIndex == rNONE && write.ptrBase == rEBX)
+			continue;
+
+		// When reading and writing from register file, check read range intersection with write range
+		if(address.ptrIndex == rNONE && address.ptrBase == rEBX && write.ptrIndex == rNONE && write.ptrBase == rEBX)
 		{
-			unsigned dataSize = entry.address.ptrSize == sBYTE ? 1 : (entry.address.ptrSize == sWORD ? 2 : (entry.address.ptrSize == sDWORD ? 4 : 8));
-			unsigned argSize = address.ptrSize == sBYTE ? 1 : (address.ptrSize == sWORD ? 2 : (address.ptrSize == sDWORD ? 4 : 8));
+			assert(address.ptrSize != sNONE);
+			assert(write.ptrSize != sNONE);
 
-			if(unsigned(address.ptrNum) + argSize <= unsigned(entry.address.ptrNum) || unsigned(address.ptrNum) >= unsigned(entry.address.ptrNum) + dataSize)
+			unsigned readSize = address.ptrSize == sBYTE ? 1 : (address.ptrSize == sWORD ? 2 : (address.ptrSize == sDWORD ? 4 : 8));
+			unsigned writeSize = write.ptrSize == sBYTE ? 1 : (write.ptrSize == sWORD ? 2 : (write.ptrSize == sDWORD ? 4 : 8));
+
+			if(unsigned(address.ptrNum) + readSize <= unsigned(write.ptrNum) || unsigned(address.ptrNum) >= unsigned(write.ptrNum) + writeSize)
 				continue;
-
-			entry.address.type = x86Argument::argNone;
 		}
+
+		entry.address.type = x86Argument::argNone;
+		entry.value.type = x86Argument::argNone;
+
+		assert(memCacheFreeSlotCount < memoryStateSize);
+		memCacheFreeSlots[memCacheFreeSlotCount++] = i;
 	}
 
 	if(unsigned index = MemFind(address))
 	{
 		index--;
 
-		if(index != 0)
-		{
-			MemCache tmp = memCache[index - 1];
-			memCache[index - 1] = memCache[index];
-			memCache[index] = tmp;
-
-			memCache[index - 1].value = value;
-			memCache[index - 1].location = unsigned(x86Op - x86Base);
-			memCache[index - 1].read = false;
-		}
-		else
-		{
-			memCache[0].value = value;
-			memCache[0].location = unsigned(x86Op - x86Base);
-			memCache[0].read = false;
-		}
+		memCache[index].value = value;
+		memCache[index].location = unsigned(x86Op - x86Base);
+		memCache[index].read = false;
 	}
 	else
 	{
-		unsigned newIndex = memCacheEntries < memoryStateSize ? memCacheEntries : memoryStateSize - 1;
+		unsigned newIndex = 0;
 
-		if(memCacheEntries < memoryStateSize)
-			memCacheEntries++;
+		if(memCacheFreeSlotCount)
+			newIndex = memCacheFreeSlots[--memCacheFreeSlotCount];
 		else
-			memCacheEntries = memoryStateSize >> 1;	// Wrap to the middle
+			newIndex = memCacheNextSlot++ % memoryStateSize;
 
 		memCache[newIndex].address = address;
 		memCache[newIndex].value = value;
 		memCache[newIndex].location = unsigned(x86Op - x86Base);
 		memCache[newIndex].read = false;
-	}
-}
-
-void CodeGenGenericContext::MemUpdate(unsigned index)
-{
-	if(index != 0)
-	{
-		MemCache tmp = memCache[index - 1];
-		memCache[index - 1] = memCache[index];
-		memCache[index] = tmp;
 	}
 }
 
@@ -150,9 +151,13 @@ void CodeGenGenericContext::InvalidateState()
 		xmmReg[i].type = x86Argument::argNone;
 
 	for(unsigned i = 0; i < memoryStateSize; i++)
+	{
 		memCache[i].address.type = x86Argument::argNone;
+		memCache[i].value.type = x86Argument::argNone;
+	}
 
-	memCacheEntries = 0;
+	memCacheFreeSlotCount = 0;
+	memCacheNextSlot = 0;
 #endif
 
 	currFreeXmmReg = rXMM0;
@@ -181,16 +186,44 @@ void CodeGenGenericContext::InvalidateDependand(x86Reg dreg)
 		MemCache &entry = memCache[i];
 
 		if(entry.address.type == x86Argument::argReg && entry.address.reg == dreg)
+		{
 			entry.address.type = x86Argument::argNone;
+			entry.value.type = x86Argument::argNone;
+
+			assert(memCacheFreeSlotCount < memoryStateSize);
+			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
+			continue;
+		}
 
 		if(entry.address.type == x86Argument::argPtr && (entry.address.ptrBase == dreg || entry.address.ptrIndex == dreg))
+		{
 			entry.address.type = x86Argument::argNone;
+			entry.value.type = x86Argument::argNone;
+
+			assert(memCacheFreeSlotCount < memoryStateSize);
+			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
+			continue;
+		}
 
 		if(entry.value.type == x86Argument::argReg && entry.value.reg == dreg)
+		{
+			entry.address.type = x86Argument::argNone;
 			entry.value.type = x86Argument::argNone;
 
+			assert(memCacheFreeSlotCount < memoryStateSize);
+			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
+			continue;
+		}
+
 		if(entry.value.type == x86Argument::argPtr && (entry.value.ptrBase == dreg || entry.value.ptrIndex == dreg))
+		{
+			entry.address.type = x86Argument::argNone;
 			entry.value.type = x86Argument::argNone;
+
+			assert(memCacheFreeSlotCount < memoryStateSize);
+			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
+			continue;
+		}
 	}
 }
 
@@ -207,7 +240,14 @@ void CodeGenGenericContext::InvalidateDependand(x86XmmReg dreg)
 		MemCache &entry = memCache[i];
 
 		if(entry.value.type == x86Argument::argXmmReg && entry.value.xmmArg == dreg)
+		{
+			entry.address.type = x86Argument::argNone;
 			entry.value.type = x86Argument::argNone;
+
+			assert(memCacheFreeSlotCount < memoryStateSize);
+			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
+			continue;
+		}
 	}
 }
 
@@ -1379,13 +1419,11 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 				assert(ctx.memCache[memIndex].address.ptrSize == (op == o_mov ? sDWORD : sQWORD));
 
 				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
-				ctx.MemUpdate(memIndex);
 				return;
 			}
 			else if(ctx.memCache[memIndex].value.type == x86Argument::argNumber)
 			{
 				EMIT_OP_REG_NUM(ctx, op, reg1, ctx.memCache[memIndex].value.num);
-				ctx.MemUpdate(memIndex);
 				return;
 			}
 		}
@@ -1482,7 +1520,6 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 			if(ctx.memCache[memIndex].value.type == x86Argument::argXmmReg)
 			{
 				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.xmmArg);
-				ctx.MemUpdate(memIndex);
 				return;
 			}
 		}
@@ -1505,7 +1542,6 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 				assert(ctx.memCache[memIndex].address.ptrSize == sDWORD);
 
 				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
-				ctx.MemUpdate(memIndex);
 				return;
 			}
 		}
@@ -1528,7 +1564,6 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 				assert(ctx.memCache[memIndex].address.ptrSize == sQWORD);
 
 				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.reg);
-				ctx.MemUpdate(memIndex);
 				return;
 			}
 		}
@@ -1550,7 +1585,6 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 			if(ctx.memCache[memIndex].value.type == x86Argument::argXmmReg)
 			{
 				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.xmmArg);
-				ctx.MemUpdate(memIndex);
 				return;
 			}
 		}
