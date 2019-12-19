@@ -563,6 +563,10 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
 #endif
 
+	// Dead code elimination is required for correct register allocation
+	if(ctx.optimizationLevel == 0)
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+
 	if(ctx.optimizationLevel >= 1)
 	{
 		TRACE_SCOPE("compiler", "OptimizationLevel1");
