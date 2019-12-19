@@ -43,11 +43,13 @@ int main(int argc, char** argv)
 		printf("\t -x86\texecute using x86 JiT compilation\n");
 		printf("\t -p\tprofile code compilation speed\n");
 		printf("\t -v\tverbose output (module import warnings, program result)\n");
+		printf("\t -log\tenable compiler debug output\n");
 		return 0;
 	}
 	bool useX86 = false;
 	bool profile = false;
 	bool verbose = false;
+	bool logging = false;
 	const char *fileName = NULL;
 	for(int i = 1; i < argc; i++)
 	{
@@ -57,6 +59,8 @@ int main(int argc, char** argv)
 			profile = true;
 		if(strcmp(argv[i], "-v") == 0)
 			verbose = true;
+		if(strcmp(argv[i], "-log") == 0)
+			logging = true;
 		if(strstr(argv[i], ".nc"))
 			fileName = argv[i];
 	}
@@ -83,7 +87,9 @@ int main(int argc, char** argv)
 			printf("WARNING: Failed to open precompiled module file ");
 			printf(sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : X64_LIB"\r\n");
 		}
-	}else{
+	}
+	else
+	{
 		fseek(modulePack, 0, SEEK_END);
 		unsigned int fileSize = ftell(modulePack);
 		fseek(modulePack, 0, SEEK_SET);
@@ -171,7 +177,10 @@ int main(int argc, char** argv)
 #endif
 
 	nullcSetExecutor(useX86 ? NULLC_X86 : NULLC_REG_VM);
-	
+
+	if(logging)
+		nullcSetEnableLogFiles(true, NULL, NULL, NULL);
+
 	FILE *ncFile = fopen(fileName, "rb");
 	if(!ncFile)
 	{
