@@ -170,6 +170,12 @@ void CodeGenGenericContext::InvalidateDependand(x86Reg dreg)
 			genReg[i].type = x86Argument::argPtrLabel;
 	}
 
+	for(unsigned i = 0; i < rXmmRegCount; i++)
+	{
+		if(xmmReg[i].type == x86Argument::argPtr && (xmmReg[i].ptrBase == dreg || genReg[i].ptrIndex == dreg))
+			xmmReg[i].type = x86Argument::argPtrLabel;
+	}
+
 	for(unsigned i = 0; i < memoryStateSize; i++)
 	{
 		MemCache &entry = memCache[i];
