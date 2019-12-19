@@ -259,6 +259,14 @@ void CodeGenGenericContext::InvalidateAddressValue(x86Argument arg)
 			if(data.ptrIndex == rNONE && data.ptrBase == rR14)
 				continue;
 
+			// If register contains data from register memory block, no memory update using a different register can overwrite it
+			if(data.ptrIndex == rNONE && data.ptrBase == rEBX && (arg.ptrIndex != rNONE || arg.ptrBase != rEBX))
+				continue;
+
+			// If register doesn't contain data from a register memory block, register memory update can't overwrite it
+			if((data.ptrIndex != rNONE || data.ptrBase != rEBX) && arg.ptrIndex == rNONE && arg.ptrBase == rEBX)
+				continue;
+
 			if(data.ptrIndex == rNONE && arg.ptrIndex == rNONE && data.ptrBase == arg.ptrBase)
 			{
 				assert(data.ptrSize == sDWORD || data.ptrSize == sQWORD);
