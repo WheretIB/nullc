@@ -293,6 +293,51 @@ nullres nullcBindModuleFunctionWrapper(const char* module, void *func, void (*pt
 	return true;
 }
 
+nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex, const char* name, int index)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcBindModuleFunctionBuiltin");
+	TRACE_LABEL(module);
+
+	const char *bytecode = BinaryCache::FindBytecode(module, true);
+
+	// Create module if not found
+	if(!bytecode)
+	{
+		nullcLastError = "ERROR: failed to find module";
+		return false;
+	}
+
+	unsigned hash = NULLC::GetStringHash(name);
+	ByteCode *code = (ByteCode*)bytecode;
+
+	// Find function and set pointer
+	ExternFuncInfo *fInfo = FindFirstFunc(code);
+
+	unsigned end = code->functionCount - code->moduleFunctionCount;
+
+	for(unsigned i = 0; i < end; i++, fInfo++)
+	{
+		if(hash != fInfo->nameHash)
+			continue;
+
+		if(index == 0)
+		{
+			fInfo->builtinIndex = builtinIndex;
+			return true;
+		}
+
+		index--;
+	}
+
+	NULLC::SafeSprintf(errorBuf, NULLC_ERROR_BUFFER_SIZE, "ERROR: function '%s' or one of it's overload is not found in module '%s'", name, module);
+
+	nullcLastError = errorBuf;
+	return false;
+}
+
 nullres nullcLoadModuleBySource(const char* module, const char* code)
 {
 	using namespace NULLC;
@@ -1197,6 +1242,12 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	if(linker->exFunctions[func.id].funcCat != ExternFuncInfo::NORMAL)
 	{
 		nullcLastError = "ERROR: source function uses context, which is unavailable";
+		return false;
+	}
+
+	if(linker->exFunctions[index].builtinIndex != 0)
+	{
+		nullcLastError = "ERROR: can't override builtin function";
 		return false;
 	}
 

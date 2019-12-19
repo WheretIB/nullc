@@ -1601,6 +1601,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		funcInfo.funcPtrWrapTarget = NULL;
 		funcInfo.funcPtrWrap = NULL;
 
+		funcInfo.builtinIndex = 0;
+
 		// Only functions in global or namesapce scope remain visible
 		funcInfo.isVisible = (function->scope == ctx.exprCtx.globalScope || function->scope->ownerNamespace) && !function->isHidden;
 

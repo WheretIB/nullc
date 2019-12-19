@@ -109,6 +109,8 @@ struct ExternFuncInfo
 	int				regVmCodeSize;
 	int				regVmRegisters;
 
+	int				builtinIndex;
+
 	int				isVisible;
 
 	void			(*funcPtrRaw)();
