@@ -1,5 +1,6 @@
 #include "math.h"
 #include "../../NULLC/nullc.h"
+#include "../../NULLC/nullc_internal.h"
 #include "../../NULLC/nullbind.h"
 
 #include <math.h>
@@ -207,6 +208,7 @@ bool nullcInitMathModule()
 	REGISTER_FUNC(Log, "log", 0);
 
 	REGISTER_FUNC(Sqrt, "sqrt", 0);
+	if(!nullcBindModuleFunctionBuiltin("std.math", NULLC_BUILTIN_SQRT, "sqrt", 0)) return false;
 
 	REGISTER_FUNC(clamp, "clamp", 0);
 	REGISTER_FUNC(saturate, "saturate", 0);

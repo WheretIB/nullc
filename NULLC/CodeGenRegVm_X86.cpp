@@ -6,6 +6,7 @@
 #include "Executor_X86.h"
 #include "InstructionTreeRegVm.h"
 #include "StdLib.h"
+#include "nullc_internal.h"
 
 #if defined(_M_X64)
 const x86Reg rREG = rRBX;
@@ -2013,6 +2014,48 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
+
+	if(cmd.argument != -1 && ctx.exFunctions[cmd.argument].builtinIndex == NULLC_BUILTIN_SQRT)
+	{
+		unsigned *microcode = ctx.exRegVmConstants + ((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC);
+
+		if(*microcode++ == rvmiPushQword)
+		{
+			unsigned sourceReg = *microcode++;
+
+			if(*microcode++ == rvmiPushImmq)
+			{
+				microcode++;
+
+				if(*microcode++ == rvmiCall)
+				{
+					unsigned char resultReg = *microcode++ & 0xff;
+
+					x86XmmReg source = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, sourceReg * 8, true);
+
+					if(source == rXmmRegCount)
+					{
+						source = ctx.ctx.GetXmmReg();
+
+						EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, source, sQWORD, rREG, sourceReg * 8); // Load double value
+					}
+					else
+					{
+						ctx.ctx.LockXmmReg(source);
+					}
+
+					ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+					x86XmmReg destination = ctx.ctx.GetXmmReg();
+
+					EMIT_OP_REG_REG(ctx.ctx, o_sqrtsd, destination, source);
+					EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, resultReg * 8, destination); // Store double to target
+
+					return;
+				}
+			}
+		}
+	}
 
 	ctx.vmState->callWrap = CallWrap;
 
