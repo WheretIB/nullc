@@ -32,7 +32,12 @@ struct CodeGenGenericContext
 		optimizationCount = 0;
 
 		currFreeReg = 0;
+		lockedRegA = rRegCount;
+		lockedRegB = rRegCount;
+
 		currFreeXmmReg = rXMM0;
+		lockedXmmRegA = rXmmRegCount;
+		lockedXmmRegB = rXmmRegCount;
 
 		skipTracking = false;
 	}
@@ -85,7 +90,11 @@ struct CodeGenGenericContext
 	x86XmmReg RedirectRegister(x86XmmReg reg);
 
 	x86Reg GetReg();
+	void LockXmmReg(x86Reg reg);
 	x86XmmReg GetXmmReg();
+	void LockXmmReg(x86XmmReg reg);
+
+	void UnlockRegisters();
 
 	x86Reg FindRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters);
 	x86XmmReg FindXmmRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters);
@@ -123,7 +132,12 @@ struct CodeGenGenericContext
 	unsigned optimizationCount;
 
 	unsigned currFreeReg;
+	x86Reg lockedRegA;
+	x86Reg lockedRegB;
+
 	x86XmmReg currFreeXmmReg;
+	x86XmmReg lockedXmmRegA;
+	x86XmmReg lockedXmmRegB;
 
 	bool skipTracking;
 };

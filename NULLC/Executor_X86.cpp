@@ -1444,6 +1444,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		NULLC::cgFuncs[cmd.code](*codeGenCtx, cmd);
 
 		codeGenCtx->ctx.KillLateUnreadRegVmRegisters(exRegVmRegKillInfo.data + codeGenCtx->currInstructionRegKillOffset);
+		codeGenCtx->ctx.UnlockRegisters();
 
 		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}

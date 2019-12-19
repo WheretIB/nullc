@@ -550,8 +550,6 @@ x86Reg CodeGenGenericContext::GetReg()
 		currFreeReg = 0;
 	else
 		currFreeReg += 1;
-
-	return res;
 #else
 	static x86Reg regs[] = { rEAX, rEDX, rEDI, rECX };
 
@@ -562,9 +560,22 @@ x86Reg CodeGenGenericContext::GetReg()
 		currFreeReg = 0;
 	else
 		currFreeReg += 1;
+#endif
+
+	if(res == lockedRegA || res == lockedRegB)
+		return GetReg();
 
 	return res;
-#endif
+}
+
+void CodeGenGenericContext::LockXmmReg(x86Reg reg)
+{
+	if(lockedRegA == rRegCount)
+		lockedRegA = reg;
+	else if(lockedRegB == rRegCount)
+		lockedRegB = reg;
+	else
+		assert(!"too many register locks");
 }
 
 x86XmmReg CodeGenGenericContext::GetXmmReg()
@@ -587,7 +598,26 @@ x86XmmReg CodeGenGenericContext::GetXmmReg()
 	else
 		currFreeXmmReg = x86XmmReg(currFreeXmmReg + 1);
 
+	if(res == lockedXmmRegA || res == lockedXmmRegB)
+		return GetXmmReg();
+
 	return res;
+}
+
+void CodeGenGenericContext::LockXmmReg(x86XmmReg reg)
+{
+	if(lockedXmmRegA == rXmmRegCount)
+		lockedXmmRegA = reg;
+	else if(lockedXmmRegB == rXmmRegCount)
+		lockedXmmRegB = reg;
+	else
+		assert(!"too many register locks");
+}
+
+void CodeGenGenericContext::UnlockRegisters()
+{
+	lockedXmmRegA = rXmmRegCount;
+	lockedXmmRegB = rXmmRegCount;
 }
 
 x86Reg CodeGenGenericContext::FindRegAtMemory(x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned shift, bool checkRegisters)

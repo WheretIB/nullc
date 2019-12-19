@@ -3608,9 +3608,18 @@ void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	x86XmmReg lhs = ctx.ctx.GetXmmReg();
+	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	if(lhs == rXmmRegCount)
+	{
+		lhs = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	}
+	else
+	{
+		ctx.ctx.LockXmmReg(lhs);
+	}
 
 	x86XmmReg rhs = GenCodeLoadDoubleFromPointerIntoRegister(ctx, rRAX, cmd.rC, cmd.argument);
 
@@ -3637,9 +3646,18 @@ void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	x86XmmReg lhs = ctx.ctx.GetXmmReg();
+	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	if(lhs == rXmmRegCount)
+	{
+		lhs = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	}
+	else
+	{
+		ctx.ctx.LockXmmReg(lhs);
+	}
 
 	x86XmmReg rhs = GenCodeLoadDoubleFromPointerIntoRegister(ctx, rRAX, cmd.rC, cmd.argument);
 
@@ -3666,9 +3684,18 @@ void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	x86XmmReg lhs = ctx.ctx.GetXmmReg();
+	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	if(lhs == rXmmRegCount)
+	{
+		lhs = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	}
+	else
+	{
+		ctx.ctx.LockXmmReg(lhs);
+	}
 
 	x86XmmReg rhs = GenCodeLoadDoubleFromPointerIntoRegister(ctx, rRAX, cmd.rC, cmd.argument);
 
@@ -3695,9 +3722,18 @@ void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	x86XmmReg lhs = ctx.ctx.GetXmmReg();
+	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	if(lhs == rXmmRegCount)
+	{
+		lhs = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
+	}
+	else
+	{
+		ctx.ctx.LockXmmReg(lhs);
+	}
 
 	x86XmmReg rhs = GenCodeLoadDoubleFromPointerIntoRegister(ctx, rRAX, cmd.rC, cmd.argument);
 
