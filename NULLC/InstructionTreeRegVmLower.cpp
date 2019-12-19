@@ -1670,8 +1670,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	}
 	break;
 	case VM_INST_JUMP:
-		// Check if jump is fall-through
-		if(!(lowBlock->vmBlock->nextSibling && lowBlock->vmBlock->nextSibling == inst->arguments[0]))
+		// Check if jump is fall-through (except for fallthrough from empty entry block)
+		if(!(lowBlock->vmBlock->nextSibling && lowBlock->vmBlock->nextSibling == inst->arguments[0]) || (lowBlock->vmBlock->prevSibling == NULL && lowBlock->firstInstruction == NULL))
 		{
 			lowBlock->AddInstruction(ctx, inst->source, rviJmp, 0, 0, 0, getType<VmBlock>(inst->arguments[0]));
 		}
