@@ -1262,6 +1262,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, 
 	case o_subsd:
 	case o_mulsd:
 	case o_divsd:
+	case o_sqrtsd:
 	case o_cmpeqsd:
 	case o_cmpltsd:
 	case o_cmplesd:

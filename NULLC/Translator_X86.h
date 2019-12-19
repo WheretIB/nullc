@@ -55,6 +55,7 @@ int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86SQRTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
 int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86CMPLTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);

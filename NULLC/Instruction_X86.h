@@ -163,6 +163,7 @@ enum x86Command
 	o_subsd,
 	o_mulsd,
 	o_divsd,
+	o_sqrtsd,
 	o_cmpeqsd,
 	o_cmpltsd,
 	o_cmplesd,
@@ -208,7 +209,7 @@ static const char* x86CmdText[] =
 	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
-	"movss", "movsd", "movd", "movsxd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd", "cmpeqsd", "cmpltsd", "cmplesd", "cmpneqsd",
+	"movss", "movsd", "movd", "movsxd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd", "sqrtsd", "cmpeqsd", "cmpltsd", "cmplesd", "cmpneqsd",
 	"int", "label", "use32", "nop", "other",
 	"; read_register", "; kill_register", "; set_tracking",
 

@@ -569,6 +569,19 @@ int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	return int(stream - start);
 }
 
+int x86SQRTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x51;
+	*stream++ = encodeRegister(src, dst);
+
+	return int(stream - start);
+}
+
 int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char *start = stream;
@@ -2952,6 +2965,11 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			assert(cmd.argB.type == x86Argument::argXmmReg);
 			code += x86DIVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
 			break;
+		case o_sqrtsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86SQRTSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
 		case o_cmpeqsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
 			assert(cmd.argB.type == x86Argument::argXmmReg);
@@ -3887,6 +3905,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	stream += TestXmmXmmEncoding(ctx, stream, o_subsd, x86SUBSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_mulsd, x86MULSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_divsd, x86DIVSD);
+	stream += TestXmmXmmEncoding(ctx, stream, o_sqrtsd, x86SQRTSD);
 
 	stream += TestXmmXmmEncoding(ctx, stream, o_cmpeqsd, x86CMPEQSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_cmpltsd, x86CMPLTSD);
