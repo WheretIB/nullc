@@ -569,7 +569,7 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 
 	nullcSetOptimizationLevel(0);
 
-	nullcSetExecutor(NULLC_VM);
+	nullcSetExecutor(NULLC_REG_VM);
 
 	if(!nullcDebugSetBreakFunction(&ctx, OnDebugBreak))
 	{

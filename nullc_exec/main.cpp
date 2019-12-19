@@ -170,7 +170,7 @@ int main(int argc, char** argv)
 	}
 #endif
 
-	nullcSetExecutor(useX86 ? NULLC_X86 : NULLC_VM);
+	nullcSetExecutor(useX86 ? NULLC_X86 : NULLC_REG_VM);
 	
 	FILE *ncFile = fopen(fileName, "rb");
 	if(!ncFile)

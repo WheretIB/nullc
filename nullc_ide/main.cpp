@@ -735,7 +735,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	SendMessage(hContinue, WM_SETFONT, (WPARAM)fontDefault, 0);
 
-	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
+	hJITEnabled = CreateWindow("BUTTON", "Use JiT", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hJITEnabled)
 		return 0;
 	SendMessage(hJITEnabled, WM_SETFONT, (WPARAM)fontDefault, 0);
@@ -1917,7 +1917,7 @@ void IdeRun(bool debug)
 	SetWindowText(hCode, "");
 	SetWindowText(hResult, "");
 
-	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
+	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_REG_VM);
 
 	nullres good = nullcBuild(source);
 
