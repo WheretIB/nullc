@@ -109,10 +109,10 @@ struct CodeGenRegVmStateContext
 
 	unsigned char *codeLaunchHeader;
 
-	void (*x64PowWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
-	void (*x64PowdWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
-	void (*x64ModdWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
-	void (*x64PowlWrap)(CodeGenRegVmStateContext *vmState, uintptr_t cmdValue);
+	int (*x64PowWrap)(int lhs, int rhs);
+	double (*x64PowdWrap)(double lhs, double rhs);
+	double (*x64ModdWrap)(double lhs, double rhs);
+	long long (*x64PowlWrap)(long long lhs, long long rhs);
 
 	void (*x86PowWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86PowdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
