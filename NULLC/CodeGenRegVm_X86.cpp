@@ -2021,7 +2021,7 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	if(cmd.argument != -1 && ctx.exFunctions[cmd.argument].builtinIndex == NULLC_BUILTIN_SQRT)
+	if(cmd.argument != ~0u && ctx.exFunctions[cmd.argument].builtinIndex == NULLC_BUILTIN_SQRT)
 	{
 		unsigned *microcode = ctx.exRegVmConstants + ((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC);
 
