@@ -1686,7 +1686,7 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 
 		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
 
-		ctx.OverwriteRegisterWithUnknown(reg1);
+		ctx.ReadAndModifyRegister(reg1);
 		break;
 	default:
 		assert(!"unknown instruction");
