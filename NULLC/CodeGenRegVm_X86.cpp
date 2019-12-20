@@ -3798,7 +3798,7 @@ void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	if(cmd.rC == rvrrRegisters && ctx.ctx.IsLastRegVmRegisterUse((unsigned char)(cmd.argument / 8), ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset) && ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.argument, true) == rXmmRegCount)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mulsd, lhs, sQWORD, rREG, cmd.argument);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_divsd, lhs, sQWORD, rREG, cmd.argument);
 	}
 	else
 	{
