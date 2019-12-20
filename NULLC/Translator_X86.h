@@ -52,9 +52,14 @@ int x64CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src);
 int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86MULSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+
 int x86SQRTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
 int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);

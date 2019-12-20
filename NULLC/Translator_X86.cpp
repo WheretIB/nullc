@@ -530,6 +530,22 @@ int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	return int(stream - start);
 }
 
+int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	unsigned char *start = stream;
+
+	(void)size;
+	assert(size == sQWORD);
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, index, base);
+	*stream++ = 0x0f;
+	*stream++ = 0x58;
+	stream += encodeAddress(stream, index, multiplier, base, shift, (char)dst);
+
+	return int(stream - start);
+}
+
 int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char *start = stream;
@@ -539,6 +555,22 @@ int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	*stream++ = 0x0f;
 	*stream++ = 0x5c;
 	*stream++ = encodeRegister(src, dst);
+
+	return int(stream - start);
+}
+
+int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	unsigned char *start = stream;
+
+	(void)size;
+	assert(size == sQWORD);
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, index, base);
+	*stream++ = 0x0f;
+	*stream++ = 0x5c;
+	stream += encodeAddress(stream, index, multiplier, base, shift, (char)dst);
 
 	return int(stream - start);
 }
@@ -556,6 +588,22 @@ int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	return int(stream - start);
 }
 
+int x86MULSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	unsigned char *start = stream;
+
+	(void)size;
+	assert(size == sQWORD);
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, index, base);
+	*stream++ = 0x0f;
+	*stream++ = 0x59;
+	stream += encodeAddress(stream, index, multiplier, base, shift, (char)dst);
+
+	return int(stream - start);
+}
+
 int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char *start = stream;
@@ -565,6 +613,22 @@ int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	*stream++ = 0x0f;
 	*stream++ = 0x5e;
 	*stream++ = encodeRegister(src, dst);
+
+	return int(stream - start);
+}
+
+int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	unsigned char *start = stream;
+
+	(void)size;
+	assert(size == sQWORD);
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, false, dst, index, base);
+	*stream++ = 0x0f;
+	*stream++ = 0x5e;
+	stream += encodeAddress(stream, index, multiplier, base, shift, (char)dst);
 
 	return int(stream - start);
 }
@@ -2947,23 +3011,55 @@ unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *c
 			break;
 		case o_addsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
-			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86ADDSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				code += x86ADDSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argXmmReg);
+				code += x86ADDSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			}
 			break;
 		case o_subsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
-			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86SUBSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				code += x86SUBSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argXmmReg);
+				code += x86SUBSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			}
 			break;
 		case o_mulsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
-			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86MULSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				code += x86MULSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argXmmReg);
+				code += x86MULSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			}
 			break;
 		case o_divsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
-			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86DIVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+
+			if(cmd.argB.type == x86Argument::argPtr)
+			{
+				code += x86DIVSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			else
+			{
+				assert(cmd.argB.type == x86Argument::argXmmReg);
+				code += x86DIVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			}
 			break;
 		case o_sqrtsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
@@ -3902,9 +3998,14 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 	stream += TestXmmRegEncoding(ctx, stream, o_cvtsi2sd64, x64CVTSI2SD);
 
 	stream += TestXmmXmmEncoding(ctx, stream, o_addsd, x86ADDSD);
+	stream += TestXmmRptrEncoding(ctx, stream, o_addsd, x86ADDSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_subsd, x86SUBSD);
+	stream += TestXmmRptrEncoding(ctx, stream, o_subsd, x86SUBSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_mulsd, x86MULSD);
+	stream += TestXmmRptrEncoding(ctx, stream, o_mulsd, x86MULSD);
 	stream += TestXmmXmmEncoding(ctx, stream, o_divsd, x86DIVSD);
+	stream += TestXmmRptrEncoding(ctx, stream, o_divsd, x86DIVSD);
+
 	stream += TestXmmXmmEncoding(ctx, stream, o_sqrtsd, x86SQRTSD);
 
 	stream += TestXmmXmmEncoding(ctx, stream, o_cmpeqsd, x86CMPEQSD);

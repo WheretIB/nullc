@@ -1637,6 +1637,34 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1,
 
 		ctx.OverwriteRegisterWithValue(reg1, newArg);
 		break;
+	case o_addsd:
+	case o_subsd:
+	case o_mulsd:
+	case o_divsd:
+	case o_sqrtsd:
+	case o_cmpeqsd:
+	case o_cmpltsd:
+	case o_cmplesd:
+	case o_cmpneqsd:
+		if(unsigned memIndex = ctx.MemFind(newArg))
+		{
+			memIndex--;
+
+			if(ctx.memCache[memIndex].value.type == x86Argument::argXmmReg)
+			{
+				EMIT_OP_REG_REG(ctx, op, reg1, ctx.memCache[memIndex].value.xmmArg);
+				return;
+			}
+		}
+
+		// Register reads
+		ctx.ReadRegister(base);
+		ctx.ReadRegister(index);
+
+		ctx.MemRead(x86Argument(size, index, multiplier, base, shift));
+
+		ctx.OverwriteRegisterWithUnknown(reg1);
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
