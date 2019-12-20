@@ -26,7 +26,7 @@ unsigned CodeGenGenericContext::MemIntersectFind(const x86Argument &address)
 	{
 		MemCache &entry = memCache[i];
 
-		if(entry.value.type != x86Argument::argNone && entry.address.type != x86Argument::argNone && address.ptrSize >= entry.address.ptrSize && entry.address.ptrNum == address.ptrNum && entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex)
+		if(entry.address.type != x86Argument::argNone && address.ptrSize >= entry.address.ptrSize && entry.address.ptrNum == address.ptrNum && entry.address.ptrBase == address.ptrBase && entry.address.ptrIndex == address.ptrIndex)
 			return i + 1;
 	}
 
@@ -84,9 +84,6 @@ void CodeGenGenericContext::MemWrite(const x86Argument &address, const x86Argume
 		if(entry.address.type == x86Argument::argNone)
 			continue;
 
-		if(entry.value.type == x86Argument::argNone)
-			continue;
-
 		x86Argument &write = entry.address;
 
 		// Reading from register file can't mark any memory writes with addresses from other registers since they can't point to it
@@ -138,6 +135,34 @@ void CodeGenGenericContext::MemWrite(const x86Argument &address, const x86Argume
 		memCache[newIndex].value = value;
 		memCache[newIndex].location = unsigned(x86Op - x86Base);
 		memCache[newIndex].read = false;
+	}
+}
+
+void CodeGenGenericContext::MemKillDeadStore(const x86Argument &address)
+{
+	if(unsigned memIndex = MemIntersectFind(address))
+	{
+		memIndex--;
+
+		if(!memCache[memIndex].read)
+		{
+			MemCache &entry = memCache[memIndex];
+
+			entry.address.type = x86Argument::argNone;
+			entry.value.type = x86Argument::argNone;
+
+			assert(memCacheFreeSlotCount < memoryStateSize);
+			memCacheFreeSlots[memCacheFreeSlotCount++] = memIndex;
+
+			// Remove dead store
+			x86Instruction *curr = memCache[memIndex].location + x86Base;
+
+			if(curr->name != o_none)
+			{
+				curr->name = o_none;
+				optimizationCount++;
+			}
+		}
 	}
 }
 
@@ -207,21 +232,13 @@ void CodeGenGenericContext::InvalidateDependand(x86Reg dreg)
 
 		if(entry.value.type == x86Argument::argReg && entry.value.reg == dreg)
 		{
-			entry.address.type = x86Argument::argNone;
 			entry.value.type = x86Argument::argNone;
-
-			assert(memCacheFreeSlotCount < memoryStateSize);
-			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
 			continue;
 		}
 
 		if(entry.value.type == x86Argument::argPtr && (entry.value.ptrBase == dreg || entry.value.ptrIndex == dreg))
 		{
-			entry.address.type = x86Argument::argNone;
 			entry.value.type = x86Argument::argNone;
-
-			assert(memCacheFreeSlotCount < memoryStateSize);
-			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
 			continue;
 		}
 	}
@@ -241,11 +258,7 @@ void CodeGenGenericContext::InvalidateDependand(x86XmmReg dreg)
 
 		if(entry.value.type == x86Argument::argXmmReg && entry.value.xmmArg == dreg)
 		{
-			entry.address.type = x86Argument::argNone;
 			entry.value.type = x86Argument::argNone;
-
-			assert(memCacheFreeSlotCount < memoryStateSize);
-			memCacheFreeSlots[memCacheFreeSlotCount++] = i;
 			continue;
 		}
 	}
@@ -335,22 +348,32 @@ void CodeGenGenericContext::KillUnreadRegisters()
 
 void CodeGenGenericContext::KillUnreadRegVmRegister(unsigned char regId)
 {
-	if(unsigned memIndex = MemIntersectFind(x86Argument(sQWORD, rRBX, regId * 8)))
+	MemKillDeadStore(x86Argument(sQWORD, rRBX, regId * 8));
+}
+
+bool CodeGenGenericContext::IsLastRegVmRegisterUse(unsigned char regId, unsigned char *instRegKillInfo)
+{
+	if(unsigned regKillCounts = *instRegKillInfo)
 	{
-		memIndex--;
+		instRegKillInfo++;
 
-		if(!memCache[memIndex].read)
+		unsigned preKillCount = (regKillCounts >> 4);
+		unsigned postKillCount = (regKillCounts & 0xf);
+
+		for(unsigned k = 0; k < preKillCount; k++)
 		{
-			// Remove dead store
-			x86Instruction *curr = memCache[memIndex].location + x86Base;
+			if(regId == *instRegKillInfo++)
+				return true;
+		}
 
-			if(curr->name != o_none)
-			{
-				curr->name = o_none;
-				optimizationCount++;
-			}
+		for(unsigned k = 0; k < postKillCount; k++)
+		{
+			if(regId == *instRegKillInfo++)
+				return true;
 		}
 	}
+
+	return false;
 }
 
 void CodeGenGenericContext::KillEarlyUnreadRegVmRegisters(unsigned char *instRegKillInfo)
@@ -1730,22 +1753,7 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 
 		ctx.InvalidateAddressValue(arg);
 
-		if(unsigned memIndex = ctx.MemIntersectFind(arg))
-		{
-			memIndex--;
-
-			if(!ctx.memCache[memIndex].read)
-			{
-				// Remove dead store
-				x86Instruction *curr = ctx.memCache[memIndex].location + ctx.x86Base;
-
-				if(curr->name != o_none)
-				{
-					curr->name = o_none;
-					ctx.optimizationCount++;
-				}
-			}
-		}
+		ctx.MemKillDeadStore(arg);
 
 		// Track target memory value
 		ctx.MemWrite(arg, x86Argument(reg2));
@@ -1813,27 +1821,7 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 
 		ctx.InvalidateAddressValue(arg);
 
-		// If the source register value was unknown, now we know that it is stored at destination memory location
-		// If the source register value contained a value from an address, now we know that it contains the value from the destination address
-		//if(ctx.xmmReg[reg2].type == x86Argument::argNone || ctx.xmmReg[reg2].type == x86Argument::argPtr)
-		//	ctx.xmmReg[reg2] = arg;
-
-		if(unsigned memIndex = ctx.MemIntersectFind(arg))
-		{
-			memIndex--;
-
-			if(!ctx.memCache[memIndex].read)
-			{
-				// Remove dead store
-				x86Instruction *curr = ctx.memCache[memIndex].location + ctx.x86Base;
-
-				if(curr->name != o_none)
-				{
-					curr->name = o_none;
-					ctx.optimizationCount++;
-				}
-			}
-		}
+		ctx.MemKillDeadStore(arg);
 
 		// Track target memory value
 		ctx.MemWrite(arg, x86Argument(reg2));
@@ -1900,22 +1888,7 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 
 		ctx.InvalidateAddressValue(arg);
 
-		if(unsigned memIndex = ctx.MemIntersectFind(arg))
-		{
-			memIndex--;
-
-			if(!ctx.memCache[memIndex].read)
-			{
-				// Remove dead store
-				x86Instruction *curr = ctx.memCache[memIndex].location + ctx.x86Base;
-
-				if(curr->name != o_none)
-				{
-					curr->name = o_none;
-					ctx.optimizationCount++;
-				}
-			}
-		}
+		ctx.MemKillDeadStore(arg);
 
 		// Track target memory value
 		ctx.MemWrite(arg, x86Argument(num));

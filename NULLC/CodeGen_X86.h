@@ -58,6 +58,7 @@ struct CodeGenGenericContext
 
 	void MemRead(const x86Argument &address);
 	void MemWrite(const x86Argument &address, const x86Argument &value);
+	void MemKillDeadStore(const x86Argument &address);
 
 	void InvalidateState();
 	void InvalidateDependand(x86Reg dreg);
@@ -70,6 +71,7 @@ struct CodeGenGenericContext
 	void KillUnreadRegisters();
 
 	void KillUnreadRegVmRegister(unsigned char regId);
+	bool IsLastRegVmRegisterUse(unsigned char regId, unsigned char *instRegKillInfo);
 	void KillEarlyUnreadRegVmRegisters(unsigned char *instRegKillInfo);
 	void KillLateUnreadRegVmRegisters(unsigned char *instRegKillInfo);
 
