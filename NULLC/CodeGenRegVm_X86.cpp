@@ -375,19 +375,6 @@ x86XmmReg GenCodeLoadDoubleFromPointerIntoRegister(CodeGenRegVmContext &ctx, x86
 	return targetReg;
 }
 
-void GenCodeStoreDoubleToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rR15, offset, sourceReg); // Store double value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 #else
 
 void x86GenCodeLoadInt8FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
@@ -1018,11 +1005,32 @@ void GenCodeCmdStoreDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	x86XmmReg temp = ctx.ctx.GetXmmReg();
+	x86XmmReg temp = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rA * 8, true);
 
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, temp, sQWORD, rREG, cmd.rA * 8); // Load value
+	if(temp == rXmmRegCount)
+	{
+		temp = ctx.ctx.GetXmmReg();
 
-	GenCodeStoreDoubleToPointer(ctx, rRAX, temp, cmd.rC, cmd.argument);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, temp, sQWORD, rREG, cmd.rA * 8); // Load value
+	}
+
+	if(cmd.rC == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rR15, cmd.argument, temp); // Store double value
+	}
+	else
+	{
+		x86Reg address = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rC * 8, true);
+
+		if(address == rRegCount)
+		{
+			address = rRAX;
+
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load target pointer
+		}
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, address, cmd.argument, temp); // Store value to target with an offset
+	}
 #else
 	x86XmmReg temp = ctx.ctx.GetXmmReg();
 
