@@ -80,7 +80,7 @@ struct CodeGenRegVmStateContext
 
 	void (*callWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
 	void (*callPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
-	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, unsigned microcodePos);
+	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, RegVmRegister *regFilePtr, unsigned typeId);
 	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
 
 	void (*errorOutOfBoundsWrap)(CodeGenRegVmStateContext *vmState);

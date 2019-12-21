@@ -1673,7 +1673,7 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 		typedef	void (*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
 		nullcFunc gate = (nullcFunc)(uintptr_t)vmState->codeLaunchHeader;
-		gate(codeStart, vmState->regFileLastPtr);
+		gate(codeStart, vmState->regFileLastTop);
 	}
 }
 
@@ -1765,9 +1765,6 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 
 	//vmState->regFileLastTop[rvrrRegisters].ptrValue = uintptr_t(vmState->regFileLastTop);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rRDX, rvrrRegisters * 8, rRDX);
-
-	//vmState->regFileLastPtr = vmState->regFileLastTop;
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rR13, nullcOffsetOf(ctx.vmState, regFileLastPtr), rRDX);
 #else
 	x86Reg rTempStack = rEDX;
 
@@ -1854,9 +1851,6 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsigned char resultReg, unsigned char resultType)
 {
 #if defined(_M_X64)
-	//vmState->regFileLastPtr = prevRegFilePtr;
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rR13, nullcOffsetOf(ctx.vmState, regFileLastPtr), rRBX);
-
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_sub64, sQWORD, rR13, nullcOffsetOf(ctx.vmState, callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop--;
 
 	x86Reg rTempStack = rRBP;
@@ -2102,11 +2096,9 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
 }
 
-void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, unsigned microcodePos)
+void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, RegVmRegister *regFilePtr, unsigned typeId)
 {
 	CodeGenRegVmContext &ctx = *vmState->ctx;
-
-	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
 	uintptr_t frameEnd = uintptr_t(vmState->dataStackEnd);
@@ -2118,9 +2110,6 @@ void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, unsigned microcodePos)
 
 	if(uintptr_t(ptr) >= frameBase && uintptr_t(ptr) <= frameEnd)
 	{
-		unsigned *microcode = ctx.exRegVmConstants + microcodePos;
-		unsigned typeId = *microcode;
-
 		ExternTypeInfo &type = ctx.exTypes[typeId];
 
 		if(type.arrSize == ~0u)
@@ -2155,7 +2144,6 @@ void ErrorNoReturnWrap(CodeGenRegVmStateContext *vmState)
 
 void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->checkedReturnWrap = CheckedReturnWrap;
 	ctx.vmState->errorNoReturnWrap = ErrorNoReturnWrap;
 
@@ -2186,9 +2174,8 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	{
 		unsigned *microcode = ctx.exRegVmConstants + cmd.argument;
 
-		// Skip type id and type size
-		microcode++;
-		microcode++;
+		unsigned typeId = *microcode++;
+		microcode++; // Skip type size
 
 		x86Reg rTempStack = rRBP;
 
@@ -2242,8 +2229,10 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		if(cmd.rC)
 		{
 			EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
-			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rArg2, cmd.argument);
+			EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg2, rRBX);
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rArg3, typeId);
 			EMIT_REG_READ(ctx.ctx, rArg2);
+			EMIT_REG_READ(ctx.ctx, rArg3);
 			EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->checkedReturnWrap) - uintptr_t(ctx.vmState)));
 		}
 	}
@@ -2283,10 +2272,7 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		unsigned *microcode = ctx.exRegVmConstants + cmd.argument;
 
 		unsigned typeId = *microcode++;
-		unsigned typeSize = *microcode++;
-
-		(void)typeId;
-		(void)typeSize;
+		microcode++; // Skip type size
 
 		unsigned tempStackPtrOffset = 0;
 
@@ -2340,7 +2326,8 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		// Checked return value
 		if(cmd.rC)
 		{
-			EMIT_OP_NUM(ctx.ctx, o_push, cmd.argument);
+			EMIT_OP_NUM(ctx.ctx, o_push, typeId);
+			EMIT_OP_NUM(ctx.ctx, o_push, rEBX);
 			EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 			EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->checkedReturnWrap));
 			EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
