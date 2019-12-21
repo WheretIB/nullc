@@ -822,9 +822,9 @@ void GenCodeCmdLoadDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, target); // Store int to target
 #else
-	x86GenCodeLoadInt32FromPointer(ctx, rEAX, rEAX, cmd.rC, cmd.argument);
+	x86Reg target = x86GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, target); // Store int to target
 #endif
 }
 
