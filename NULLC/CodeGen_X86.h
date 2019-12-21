@@ -92,7 +92,7 @@ struct CodeGenGenericContext
 	x86XmmReg RedirectRegister(x86XmmReg reg);
 
 	x86Reg GetReg();
-	void LockXmmReg(x86Reg reg);
+	void LockReg(x86Reg reg);
 	x86XmmReg GetXmmReg();
 	void LockXmmReg(x86XmmReg reg);
 

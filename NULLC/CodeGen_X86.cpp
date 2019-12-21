@@ -591,7 +591,7 @@ x86Reg CodeGenGenericContext::GetReg()
 	return res;
 }
 
-void CodeGenGenericContext::LockXmmReg(x86Reg reg)
+void CodeGenGenericContext::LockReg(x86Reg reg)
 {
 	if(lockedRegA == rRegCount)
 		lockedRegA = reg;
@@ -639,6 +639,9 @@ void CodeGenGenericContext::LockXmmReg(x86XmmReg reg)
 
 void CodeGenGenericContext::UnlockRegisters()
 {
+	lockedRegA = rRegCount;
+	lockedRegB = rRegCount;
+
 	lockedXmmRegA = rXmmRegCount;
 	lockedXmmRegB = rXmmRegCount;
 }
