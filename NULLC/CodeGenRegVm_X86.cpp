@@ -1231,7 +1231,6 @@ void ErrorOutOfBoundsWrap(CodeGenRegVmStateContext *vmState)
 
 void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->errorOutOfBoundsWrap = ErrorOutOfBoundsWrap;
 
 #if defined(_M_X64)
@@ -1246,7 +1245,7 @@ void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_NUM(ctx.ctx, o_set_tracking, 0);
 
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg1, rR13);
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
 	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->errorOutOfBoundsWrap) - uintptr_t(ctx.vmState)));
 
@@ -2098,10 +2097,21 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
 }
 
+void ErrorInvalidFunctionPointer(CodeGenRegVmStateContext *vmState)
+{
+	CodeGenRegVmContext &ctx = *vmState->ctx;
+
+	vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
+	vmState->callStackTop++;
+
+	ctx.x86rvm->Stop("ERROR: invalid function pointer");
+	longjmp(vmState->errorHandler, 1);
+}
+
 void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->callPtrWrap = CallPtrWrap;
+	ctx.vmState->errorInvalidFunctionPointer = ErrorInvalidFunctionPointer;
 
 	unsigned *microcode = GetCodeCmdCallPrologue(ctx, cmd.argument);
 
@@ -2109,11 +2119,42 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	unsigned char resultType = *microcode++ & 0xff;
 
 #if defined(_M_X64)
+	// Get function id and check that it's valid
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8);
+	EMIT_OP_REG_NUM(ctx.ctx, o_cmp, rEDX, 0);
+	EMIT_OP_LABEL(ctx.ctx, o_jne, ctx.labelCount, false);
+
+	EMIT_OP_NUM(ctx.ctx, o_set_tracking, 0);
+
 	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg1, rR13);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rArg2, sDWORD, rREG, cmd.rC * 8); // Get function id
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->errorInvalidFunctionPointer) - uintptr_t(ctx.vmState)));
+
+	EMIT_OP_NUM(ctx.ctx, o_set_tracking, 1);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rR13, nullcOffsetOf(ctx.vmState, functionAddress));
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRDX, 8, rRAX, 0);
+	EMIT_OP_REG_NUM(ctx.ctx, o_cmp64, rRAX, 0);
+
+	EMIT_OP_LABEL(ctx.ctx, o_je, ctx.labelCount, false);
+
+	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+	EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount + 1, false);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
+	EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg1, rR13);
+	EMIT_OP_REG_REG(ctx.ctx, o_mov, rArg2, rEDX);
 	EMIT_REG_READ(ctx.ctx, rArg1);
 	EMIT_REG_READ(ctx.ctx, rArg2);
-	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callPtrWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, nullcOffsetOf(ctx.vmState, callWrap));
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
 #else
 	EMIT_OP_RPTR(ctx.ctx, o_push, sDWORD, rREG, cmd.rC * 8); // Get function id
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
@@ -2177,8 +2218,9 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	if(cmd.rB == rvrError)
 	{
-		EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
+		EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg1, rR13);
 		EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+		EMIT_REG_READ(ctx.ctx, rArg1);
 		EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->errorNoReturnWrap) - uintptr_t(ctx.vmState)));
 
 		return;

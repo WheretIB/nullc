@@ -30,6 +30,7 @@ struct CodeGenRegVmStateContext
 
 		errorOutOfBoundsWrap = NULL;
 		errorNoReturnWrap = NULL;
+		errorInvalidFunctionPointer = NULL;
 
 		dataStackBase = NULL;
 		dataStackTop = NULL;
@@ -73,8 +74,6 @@ struct CodeGenRegVmStateContext
 		x86ShllWrap = NULL;
 		x86ShrlWrap = NULL;
 
-		pad = NULL;
-
 		vsAsmStyle = false;
 
 		instWrapperActive = false;
@@ -89,6 +88,7 @@ struct CodeGenRegVmStateContext
 
 	void (*errorOutOfBoundsWrap)(CodeGenRegVmStateContext *vmState);
 	void (*errorNoReturnWrap)(CodeGenRegVmStateContext *vmState);
+	void (*errorInvalidFunctionPointer)(CodeGenRegVmStateContext *vmState);
 
 	char *dataStackBase;
 	char *dataStackTop;
@@ -132,7 +132,6 @@ struct CodeGenRegVmStateContext
 	void (*x86ShllWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ShrlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 
-	void *pad;
 	jmp_buf errorHandler;
 
 	bool vsAsmStyle;
