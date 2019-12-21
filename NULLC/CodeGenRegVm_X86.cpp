@@ -1785,13 +1785,6 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rR13, nullcOffsetOf(ctx.vmState, callStackTop));
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRDX, nullcOffsetOf(ctx.vmState->callStackBase, instruction), ctx.currInstructionPos + 1); // vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_add64, sQWORD, rR13, nullcOffsetOf(ctx.vmState, callStackTop), sizeof(CodeGenRegVmCallStackEntry)); // vmState->callStackTop++;
-
-	//vmState->regFileLastTop
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rR13, nullcOffsetOf(ctx.vmState, regFileLastTop));
-
-	//vmState->regFileLastTop[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRBX, rvrrGlobals * 8);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rRDX, rvrrGlobals * 8, rRAX);
 #else
 	x86Reg rTempStack = rEDX;
 

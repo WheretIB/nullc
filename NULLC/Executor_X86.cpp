@@ -531,9 +531,10 @@ bool ExecutorX86::Initialize()
 #endif
 
 	pos += x64MOV(pos, rR13, uintptr_t(&vmState));
-	//pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
 	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rR13, nullcOffsetOf(&vmState, dataStackTop));
 	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rR13, nullcOffsetOf(&vmState, exRegVmConstants));
+	pos += x86MOV(pos, rRAX, sQWORD, rNONE, 1, rR13, nullcOffsetOf(&vmState, dataStackBase));
+	pos += x86MOV(pos, sQWORD, rNONE, 1, rRBX, 0, rRAX);
 
 #ifndef __linux
 	pos += x86CALL(pos, rECX);
@@ -1300,6 +1301,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rRBX, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop));
 				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rR15, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop));
+
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rRAX, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackBase));
+				EMIT_OP_RPTR_REG(codeGenCtx->ctx, o_mov64, sQWORD, rRBX, 0, rRAX);
 
 				// Advance frame top
 				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;
