@@ -780,13 +780,13 @@ void x86GenCodeStoreDoubleToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x8
 
 void GenCodeCmdNop(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
+	(void)cmd;
+
+	EMIT_COMMENT(ctx.ctx, "nop");
 }
 
 void GenCodeCmdLoadByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	GenCodeLoadInt8FromPointer(ctx, rRAX, rEAX, cmd.rC, cmd.argument);
 
@@ -800,8 +800,6 @@ void GenCodeCmdLoadByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadWord(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	GenCodeLoadInt16FromPointer(ctx, rRAX, rEAX, cmd.rC, cmd.argument);
 
@@ -815,8 +813,6 @@ void GenCodeCmdLoadWord(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg target = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
@@ -830,8 +826,6 @@ void GenCodeCmdLoadDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg target = GenCodeLoadInt64FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
@@ -846,8 +840,6 @@ void GenCodeCmdLoadLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg target = ctx.ctx.GetXmmReg();
 
@@ -865,8 +857,6 @@ void GenCodeCmdLoadFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg target = GenCodeLoadDoubleFromPointerIntoRegister(ctx, rRAX, cmd.rC, cmd.argument);
 
@@ -882,8 +872,6 @@ void GenCodeCmdLoadDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, cmd.argument); // Store int to target
 #else
@@ -893,8 +881,6 @@ void GenCodeCmdLoadImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadImmLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	// TODO: should be as simple as on x86
 	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRAX, ((uint64_t)cmd.argument << 32ull));
@@ -909,7 +895,8 @@ void GenCodeCmdLoadImmLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLoadImmDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
+	(void)ctx;
+	(void)cmd;
 
 	//
 
@@ -922,8 +909,6 @@ void GenCodeCmdLoadImmDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdStoreByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
 
@@ -937,8 +922,6 @@ void GenCodeCmdStoreByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdStoreWord(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
 
@@ -952,8 +935,6 @@ void GenCodeCmdStoreWord(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdStoreDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
 
@@ -967,8 +948,6 @@ void GenCodeCmdStoreDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdStoreLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rA * 8); // Load value
 
@@ -983,8 +962,6 @@ void GenCodeCmdStoreLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdStoreFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg temp = ctx.ctx.GetXmmReg();
 
@@ -1002,8 +979,6 @@ void GenCodeCmdStoreFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdStoreDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg temp = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rA * 8, true);
 
@@ -1042,7 +1017,6 @@ void GenCodeCmdStoreDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdCombinedd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load low value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Load high value
@@ -1053,7 +1027,6 @@ void GenCodeCmdCombinedd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBreakupdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load low value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8 + 4); // Load high value
@@ -1064,7 +1037,6 @@ void GenCodeCmdBreakupdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	assert(cmd.rA != cmd.rC);
 
@@ -1094,7 +1066,6 @@ void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	assert(cmd.rA != cmd.rC);
 
@@ -1139,7 +1110,6 @@ void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDtoi(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvttsd2si, rEAX, sQWORD, rREG, cmd.rC * 8); // Load double as int
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store value
@@ -1158,7 +1128,6 @@ void x86DtolWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdDtol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x86DtolWrap = x86DtolWrap;
 
@@ -1179,7 +1148,6 @@ void GenCodeCmdDtol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDtof(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg temp = ctx.ctx.GetXmmReg();
 
@@ -1189,7 +1157,6 @@ void GenCodeCmdDtof(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdItod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg temp = ctx.ctx.GetXmmReg();
 
@@ -1210,7 +1177,6 @@ void x86LtodWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdLtod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x86LtodWrap = x86LtodWrap;
 
@@ -1233,8 +1199,6 @@ void GenCodeCmdLtod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdItol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsxd, rRAX, sDWORD, rREG, cmd.rC * 8); // Load int as long with sign extension
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store value
@@ -1249,7 +1213,6 @@ void GenCodeCmdItol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLtoi(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load lower int part of a long number
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store value
@@ -1268,7 +1231,6 @@ void ErrorOutOfBoundsWrap(CodeGenRegVmStateContext *vmState)
 
 void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->errorOutOfBoundsWrap = ErrorOutOfBoundsWrap;
 
@@ -1382,8 +1344,6 @@ void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGetAddr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg targetReg = ctx.ctx.GetReg();
 
@@ -1422,8 +1382,6 @@ void GenCodeCmdGetAddr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdSetRange(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	switch(RegVmSetRangeType(cmd.rB))
 	{
@@ -1526,7 +1484,6 @@ void GenCodeCmdSetRange(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMemCopy(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	assert(cmd.argument % 4 == 0);
 
@@ -1548,14 +1505,12 @@ void GenCodeCmdMemCopy(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdJmp(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_LABEL(ctx.ctx, o_jmp, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 }
 
 void GenCodeCmdJmpz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rC * 8, true);
 
@@ -1623,7 +1578,6 @@ void GenCodeCmdJmpz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdJmpnz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rC * 8, true);
 
@@ -2027,7 +1981,6 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 
 void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	if(cmd.argument != ~0u && ctx.exFunctions[cmd.argument].builtinIndex == NULLC_BUILTIN_SQRT)
 	{
@@ -2125,7 +2078,6 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->callPtrWrap = CallPtrWrap;
 
@@ -2203,7 +2155,6 @@ void ErrorNoReturnWrap(CodeGenRegVmStateContext *vmState)
 
 void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->checkedReturnWrap = CheckedReturnWrap;
 	ctx.vmState->errorNoReturnWrap = ErrorNoReturnWrap;
@@ -2408,7 +2359,6 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdAddImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	if(cmd.rA == cmd.rB)
 	{
@@ -2439,8 +2389,6 @@ void GenCodeCmdAddImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdAdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2470,8 +2418,6 @@ void GenCodeCmdAdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdSub(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2501,8 +2447,6 @@ void GenCodeCmdSub(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMul(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2532,8 +2476,6 @@ void GenCodeCmdMul(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDiv(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 	EMIT_OP(ctx.ctx, o_cdq);
@@ -2574,7 +2516,6 @@ void x86PowWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned 
 
 void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x64PowWrap = VmIntPow;
 	ctx.vmState->x86PowWrap = x86PowWrap;
@@ -2605,8 +2546,6 @@ void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 	EMIT_OP(ctx.ctx, o_cdq);
@@ -2634,8 +2573,6 @@ void GenCodeCmdMod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2665,8 +2602,6 @@ void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2696,8 +2631,6 @@ void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2727,8 +2660,6 @@ void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2758,8 +2689,6 @@ void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2789,8 +2718,6 @@ void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2820,8 +2747,6 @@ void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdShl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2849,8 +2774,6 @@ void GenCodeCmdShl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdShr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2878,8 +2801,6 @@ void GenCodeCmdShr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitAnd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2909,8 +2830,6 @@ void GenCodeCmdBitAnd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitOr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2940,8 +2859,6 @@ void GenCodeCmdBitOr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitXor(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -2971,8 +2888,6 @@ void GenCodeCmdBitXor(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdAddImml(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	if(cmd.rA == cmd.rB)
 	{
@@ -3024,8 +2939,6 @@ void GenCodeCmdAddImml(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdAddl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3058,8 +2971,6 @@ void GenCodeCmdAddl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdSubl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3107,7 +3018,6 @@ void x86MullWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdMull(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x86MullWrap = x86MullWrap;
 
@@ -3152,7 +3062,6 @@ void x86DivlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdDivl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x86DivlWrap = x86DivlWrap;
 
@@ -3196,7 +3105,6 @@ void x86PowlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x64PowlWrap = VmLongPow;
 	ctx.vmState->x86PowlWrap = x86PowlWrap;
@@ -3242,7 +3150,6 @@ void x86ModlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdModl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x86ModlWrap = x86ModlWrap;
 
@@ -3271,8 +3178,6 @@ void GenCodeCmdModl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLessl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load long lhs value
 
@@ -3305,8 +3210,6 @@ void GenCodeCmdLessl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGreaterl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load long lhs value
 
@@ -3339,8 +3242,6 @@ void GenCodeCmdGreaterl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load long lhs value
 
@@ -3373,8 +3274,6 @@ void GenCodeCmdLequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load long lhs value
 
@@ -3407,8 +3306,6 @@ void GenCodeCmdGequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdEquall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load long lhs value
 
@@ -3438,8 +3335,6 @@ void GenCodeCmdEquall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdNequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load long lhs value
 
@@ -3484,7 +3379,6 @@ void x86ShllWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdShll(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x86ShllWrap = x86ShllWrap;
 
@@ -3527,7 +3421,6 @@ void x86ShrlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdShrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x86ShrlWrap = x86ShrlWrap;
 
@@ -3555,8 +3448,6 @@ void GenCodeCmdShrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitAndl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3584,8 +3475,6 @@ void GenCodeCmdBitAndl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitOrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3613,8 +3502,6 @@ void GenCodeCmdBitOrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitXorl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3642,7 +3529,6 @@ void GenCodeCmdBitXorl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
@@ -3675,7 +3561,6 @@ void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
@@ -3708,7 +3593,6 @@ void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
@@ -3741,7 +3625,6 @@ void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
@@ -3774,8 +3657,6 @@ void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdAddf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 	x86XmmReg rhs = ctx.ctx.GetXmmReg();
@@ -3805,8 +3686,6 @@ void GenCodeCmdAddf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdSubf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 	x86XmmReg rhs = ctx.ctx.GetXmmReg();
@@ -3836,8 +3715,6 @@ void GenCodeCmdSubf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMulf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 	x86XmmReg rhs = ctx.ctx.GetXmmReg();
@@ -3867,8 +3744,6 @@ void GenCodeCmdMulf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDivf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 	x86XmmReg rhs = ctx.ctx.GetXmmReg();
@@ -3913,7 +3788,6 @@ void x86PowdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x64PowdWrap = pow;
 	ctx.vmState->x86PowdWrap = x86PowdWrap;
@@ -3959,7 +3833,6 @@ void x86ModdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->x64ModdWrap = fmod;
 	ctx.vmState->x86ModdWrap = x86ModdWrap;
@@ -3990,7 +3863,6 @@ void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLessd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
@@ -4009,7 +3881,6 @@ void GenCodeCmdLessd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGreaterd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
@@ -4028,7 +3899,6 @@ void GenCodeCmdGreaterd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
@@ -4047,7 +3917,6 @@ void GenCodeCmdLequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
@@ -4066,7 +3935,6 @@ void GenCodeCmdGequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdEquald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
@@ -4085,7 +3953,6 @@ void GenCodeCmdEquald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdNequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
@@ -4104,8 +3971,6 @@ void GenCodeCmdNequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdNeg(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -4129,8 +3994,6 @@ void GenCodeCmdNeg(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdNegl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -4161,8 +4024,6 @@ void GenCodeCmdNegl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdNegd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load double as a long bit pattern
 
@@ -4185,8 +4046,6 @@ void GenCodeCmdNegd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitNot(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -4210,8 +4069,6 @@ void GenCodeCmdBitNot(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdBitNotl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -4237,7 +4094,6 @@ void GenCodeCmdBitNotl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLogNot(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load int value
 
@@ -4252,8 +4108,6 @@ void GenCodeCmdLogNot(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLogNotl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
-
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load long value
 
@@ -4296,7 +4150,6 @@ void ConvertPtrWrap(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, un
 
 void GenCodeCmdConvertPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 	ctx.vmState->convertPtrWrap = ConvertPtrWrap;
 
