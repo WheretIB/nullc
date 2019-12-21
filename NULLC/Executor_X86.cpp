@@ -405,6 +405,8 @@ ExecutorX86::~ExecutorX86()
 	x86ResetLabels();
 }
 
+#define nullcOffsetOf(obj, field) unsigned(uintptr_t(&(obj)->field) - uintptr_t(obj))
+
 bool ExecutorX86::Initialize()
 {
 	using namespace NULLC;
@@ -524,15 +526,18 @@ bool ExecutorX86::Initialize()
 
 #ifndef __linux
 	pos += x64MOV(pos, rRBX, rRDX);
-	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
-	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
-	pos += x64MOV(pos, rR13, uintptr_t(&vmState));
-	pos += x86CALL(pos, rECX);
 #else
 	pos += x64MOV(pos, rRBX, rRSI);
-	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
-	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rRBX, rvrrConstants * 8);
+#endif
+
 	pos += x64MOV(pos, rR13, uintptr_t(&vmState));
+	//pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+	pos += x86MOV(pos, rR15, sQWORD, rNONE, 1, rR13, nullcOffsetOf(&vmState, dataStackTop));
+	pos += x86MOV(pos, rR14, sQWORD, rNONE, 1, rR13, nullcOffsetOf(&vmState, exRegVmConstants));
+
+#ifndef __linux
+	pos += x86CALL(pos, rECX);
+#else
 	pos += x86CALL(pos, rRDI);
 #endif
 
@@ -1139,8 +1144,6 @@ void ExecutorX86::ClearNative()
 	codeRunning = false;
 }
 
-#define nullcOffsetOf(obj, field) unsigned(uintptr_t(&(obj)->field) - uintptr_t(obj))
-
 bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
 	if(instList.size())
@@ -1165,6 +1168,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	codeGenCtx->vmState = &vmState;
 
 	vmState.ctx = codeGenCtx;
+	vmState.exRegVmConstants = exRegVmConstants.data;
 
 	codeGenCtx->ctx.SetLastInstruction(instList.data, instList.data);
 
@@ -1295,7 +1299,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
 
 				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rRBX, sQWORD, rR13, nullcOffsetOf(&vmState, regFileLastTop));
-				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rR15, sQWORD, rNONE, 1, rRBX, rvrrFrame * 8);
+				EMIT_OP_REG_RPTR(codeGenCtx->ctx, o_mov64, rR15, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop));
 
 				// Advance frame top
 				EMIT_OP_RPTR_NUM(codeGenCtx->ctx, o_add64, sQWORD, rR13, nullcOffsetOf(&vmState, dataStackTop), stackSize); // vmState->dataStackTop += stackSize;

@@ -52,6 +52,8 @@ struct CodeGenRegVmStateContext
 		instAddress = NULL;
 		functionAddress = NULL;
 
+		exRegVmConstants = NULL;
+
 		codeLaunchHeader = NULL;
 
 		x64PowWrap = NULL;
@@ -71,6 +73,8 @@ struct CodeGenRegVmStateContext
 		x86ShllWrap = NULL;
 		x86ShrlWrap = NULL;
 
+		pad = NULL;
+
 		vsAsmStyle = false;
 
 		instWrapperActive = false;
@@ -80,7 +84,7 @@ struct CodeGenRegVmStateContext
 
 	void (*callWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
 	void (*callPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
-	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, RegVmRegister *regFilePtr, unsigned typeId);
+	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, uintptr_t frameBase, unsigned typeId);
 	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
 
 	void (*errorOutOfBoundsWrap)(CodeGenRegVmStateContext *vmState);
@@ -107,6 +111,8 @@ struct CodeGenRegVmStateContext
 	unsigned char **instAddress;
 	unsigned char **functionAddress;
 
+	unsigned *exRegVmConstants;
+
 	unsigned char *codeLaunchHeader;
 
 	int (*x64PowWrap)(int lhs, int rhs);
@@ -126,6 +132,7 @@ struct CodeGenRegVmStateContext
 	void (*x86ShllWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ShrlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 
+	void *pad;
 	jmp_buf errorHandler;
 
 	bool vsAsmStyle;

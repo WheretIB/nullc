@@ -1484,12 +1484,30 @@ void GenCodeCmdSetRange(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMemCopy(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	assert(cmd.argument % 4 == 0);
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDI, sQWORD, rREG, cmd.rA * 8); // Load target pointer
+	// Load source pointer
+
+	if(cmd.rC == rvrrFrame)
+		EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rR15);
+	else if(cmd.rC == rvrrConstants)
+		EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rR14);
+	else if(cmd.rC == rvrrRegisters)
+		EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rRBX);
+	else
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, cmd.rC * 8);
+
+	// Load target pointer
+	if(cmd.rA == rvrrFrame)
+		EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRDI, rR15);
+	else if(cmd.rA == rvrrConstants)
+		EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRDI, rR14);
+	else if(cmd.rA == rvrrRegisters)
+		EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRDI, rRBX);
+	else
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDI, sQWORD, rREG, cmd.rA * 8);
+
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, cmd.argument >> 2);
 	EMIT_OP(ctx.ctx, o_rep_movsd);
 #else
@@ -1723,9 +1741,19 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 			tempStackPtrOffset += sizeof(int);
 			break;
 		case rvmiPushImmq:
-			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, *microcode++);
-			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rTempStack, tempStackPtrOffset, rRAX);
+		{
+			unsigned value = *microcode++;
+			if(value < 0x80000000)
+			{
+				EMIT_OP_RPTR_NUM(ctx.ctx, o_mov64, sQWORD, rTempStack, tempStackPtrOffset, value);
+			}
+			else
+			{
+				EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, value);
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rTempStack, tempStackPtrOffset, rRAX);
+			}
 			tempStackPtrOffset += sizeof(long long);
+		}
 			break;
 		case rvmiPushMem:
 		{
@@ -1733,7 +1761,15 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 			unsigned offset = *microcode++;
 			unsigned size = *microcode++;
 
-			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, reg * 8);
+			if(reg == rvrrFrame)
+				EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rR15);
+			else if(reg == rvrrConstants)
+				EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rR14);
+			else if(reg == rvrrRegisters)
+				EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rRBX);
+			else
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, reg * 8);
+
 			EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSI, offset);
 			EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRDI, sQWORD, rTempStack, tempStackPtrOffset);
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
@@ -1756,15 +1792,6 @@ unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos
 	//vmState->regFileLastTop[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRBX, rvrrGlobals * 8);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rRDX, rvrrGlobals * 8, rRAX);
-
-	//vmState->regFileLastTop[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackTop);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rRDX, rvrrFrame * 8, rTempStack);
-
-	//vmState->regFileLastTop[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rRDX, rvrrConstants * 8, rR14);
-
-	//vmState->regFileLastTop[rvrrRegisters].ptrValue = uintptr_t(vmState->regFileLastTop);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rRDX, rvrrRegisters * 8, rRDX);
 #else
 	x86Reg rTempStack = rEDX;
 
@@ -1898,7 +1925,16 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 			unsigned size = *microcode++;
 
 			EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRSI, sQWORD, rTempStack, tempStackPtrOffset);
-			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDI, sQWORD, rREG, reg * 8);
+
+			if(reg == rvrrFrame)
+				EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRDI, rR15);
+			else if(reg == rvrrConstants)
+				EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRDI, rR14);
+			else if(reg == rvrrRegisters)
+				EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRDI, rRBX);
+			else
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDI, sQWORD, rREG, reg * 8);
+
 			EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRDI, offset);
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
 			EMIT_OP(ctx.ctx, o_rep_movsd);
@@ -1975,7 +2011,6 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 
 void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	if(cmd.argument != ~0u && ctx.exFunctions[cmd.argument].builtinIndex == NULLC_BUILTIN_SQRT)
 	{
 		unsigned *microcode = ctx.exRegVmConstants + ((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC);
@@ -2096,11 +2131,10 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);
 }
 
-void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, RegVmRegister *regFilePtr, unsigned typeId)
+void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, uintptr_t frameBase, unsigned typeId)
 {
 	CodeGenRegVmContext &ctx = *vmState->ctx;
 
-	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
 	uintptr_t frameEnd = uintptr_t(vmState->dataStackEnd);
 
 	char *returnValuePtr = (char*)vmState->tempStackArrayBase;
@@ -2213,7 +2247,15 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 				unsigned offset = *microcode++;
 				unsigned size = *microcode++;
 
-				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, reg * 8);
+				if(reg == rvrrFrame)
+					EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rR15);
+				else if(reg == rvrrConstants)
+					EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rR14);
+				else if(reg == rvrrRegisters)
+					EMIT_OP_REG_REG(ctx.ctx, o_mov64, rRSI, rRBX);
+				else
+					EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, reg * 8);
+
 				EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSI, offset);
 				EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRDI, sQWORD, rTempStack, tempStackPtrOffset);
 				EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
@@ -2229,7 +2271,7 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		if(cmd.rC)
 		{
 			EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rArg1, uintptr_t(ctx.vmState));
-			EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg2, rRBX);
+			EMIT_OP_REG_REG(ctx.ctx, o_mov64, rArg2, rR15);
 			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rArg3, typeId);
 			EMIT_REG_READ(ctx.ctx, rArg2);
 			EMIT_REG_READ(ctx.ctx, rArg3);
@@ -2327,7 +2369,7 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		if(cmd.rC)
 		{
 			EMIT_OP_NUM(ctx.ctx, o_push, typeId);
-			EMIT_OP_NUM(ctx.ctx, o_push, rEBX);
+			EMIT_OP_NUM(ctx.ctx, o_push, rESI);
 			EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 			EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->checkedReturnWrap));
 			EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
