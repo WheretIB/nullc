@@ -1936,9 +1936,6 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			output.Print('\n');
 		}
 
-		if(inst.name == o_other)
-			continue;
-
 		inst.Decode(vmState, instBuf);
 
 		output.Print(instBuf);
