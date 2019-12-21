@@ -1694,19 +1694,6 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 	}
 }
 
-void CallPtrWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
-{
-	CodeGenRegVmContext &ctx = *vmState->ctx;
-
-	if(functionId == 0)
-	{
-		ctx.x86rvm->Stop("ERROR: invalid function pointer");
-		longjmp(vmState->errorHandler, 1);
-	}
-
-	CallWrap(vmState, functionId);
-}
-
 #define nullcOffsetOf(obj, field) unsigned(uintptr_t(&obj->field) - uintptr_t(obj))
 
 unsigned* GetCodeCmdCallPrologue(CodeGenRegVmContext &ctx, unsigned microcodePos)
@@ -2110,7 +2097,6 @@ void ErrorInvalidFunctionPointer(CodeGenRegVmStateContext *vmState)
 
 void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-	ctx.vmState->callPtrWrap = CallPtrWrap;
 	ctx.vmState->errorInvalidFunctionPointer = ErrorInvalidFunctionPointer;
 
 	unsigned *microcode = GetCodeCmdCallPrologue(ctx, cmd.argument);
@@ -2156,10 +2142,40 @@ void GenCodeCmdCallPtr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
 	ctx.labelCount++;
 #else
-	EMIT_OP_RPTR(ctx.ctx, o_push, sDWORD, rREG, cmd.rC * 8); // Get function id
+	// Get function id and check that it's valid
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8);
+	EMIT_OP_REG_NUM(ctx.ctx, o_cmp, rEDX, 0);
+	EMIT_OP_LABEL(ctx.ctx, o_jne, ctx.labelCount, false);
+
+	EMIT_OP_NUM(ctx.ctx, o_set_tracking, 0);
+
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, uintptr_t(&ctx.vmState->callInstructionPos), ctx.currInstructionPos);
 	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
-	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callPtrWrap));
+	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->errorInvalidFunctionPointer));
+
+	EMIT_OP_NUM(ctx.ctx, o_set_tracking, 1);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rEDX, 4, rNONE, (uintptr_t)ctx.vmState->functionAddress);
+	EMIT_OP_REG_NUM(ctx.ctx, o_cmp, rEAX, 0);
+
+	EMIT_OP_LABEL(ctx.ctx, o_je, ctx.labelCount, false);
+
+	EMIT_OP_REG(ctx.ctx, o_call, rEAX);
+	EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount + 1, false);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
+
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->callWrap));
 	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
+
+	EMIT_LABEL(ctx.ctx, ctx.labelCount, false);
+	ctx.labelCount++;
 #endif
 
 	GetCodeCmdCallEpilogue(ctx, microcode, resultReg, resultType);

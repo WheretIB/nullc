@@ -130,8 +130,6 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 			curr += sprintf(curr, "&ctx.regFileLastPtr");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callWrap))
 			curr += sprintf(curr, "&ctx.callWrap");
-		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callPtrWrap))
-			curr += sprintf(curr, "&ctx.callPtrWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.checkedReturnWrap))
 			curr += sprintf(curr, "&ctx.checkedReturnWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.convertPtrWrap))

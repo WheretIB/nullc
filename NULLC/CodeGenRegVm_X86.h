@@ -24,7 +24,6 @@ struct CodeGenRegVmStateContext
 		ctx = NULL;
 
 		callWrap = NULL;
-		callPtrWrap = NULL;
 		checkedReturnWrap = NULL;
 		convertPtrWrap = NULL;
 
@@ -79,10 +78,11 @@ struct CodeGenRegVmStateContext
 		instWrapperActive = false;
 	}
 
+	jmp_buf errorHandler;
+
 	CodeGenRegVmContext *ctx;
 
 	void (*callWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
-	void (*callPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned functionId);
 	void (*checkedReturnWrap)(CodeGenRegVmStateContext *vmState, uintptr_t frameBase, unsigned typeId);
 	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
 
@@ -131,8 +131,6 @@ struct CodeGenRegVmStateContext
 	void (*x86DtolWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ShllWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ShrlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-
-	jmp_buf errorHandler;
 
 	bool vsAsmStyle;
 
