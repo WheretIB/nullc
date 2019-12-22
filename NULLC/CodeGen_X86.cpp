@@ -77,6 +77,34 @@ void CodeGenGenericContext::MemRead(const x86Argument &address)
 
 void CodeGenGenericContext::MemWrite(const x86Argument &address, const x86Argument &value)
 {
+	MemInvalidate(address);
+
+	if(unsigned index = MemFind(address))
+	{
+		index--;
+
+		memCache[index].value = value;
+		memCache[index].location = unsigned(x86Op - x86Base);
+		memCache[index].read = false;
+	}
+	else
+	{
+		unsigned newIndex = 0;
+
+		if(memCacheFreeSlotCount)
+			newIndex = memCacheFreeSlots[--memCacheFreeSlotCount];
+		else
+			newIndex = memCacheNextSlot++ % memoryStateSize;
+
+		memCache[newIndex].address = address;
+		memCache[newIndex].value = value;
+		memCache[newIndex].location = unsigned(x86Op - x86Base);
+		memCache[newIndex].read = false;
+	}
+}
+
+void CodeGenGenericContext::MemInvalidate(const x86Argument &address)
+{
 	for(unsigned i = 0; i < memoryStateSize; i++)
 	{
 		MemCache &entry = memCache[i];
@@ -112,29 +140,6 @@ void CodeGenGenericContext::MemWrite(const x86Argument &address, const x86Argume
 
 		assert(memCacheFreeSlotCount < memoryStateSize);
 		memCacheFreeSlots[memCacheFreeSlotCount++] = i;
-	}
-
-	if(unsigned index = MemFind(address))
-	{
-		index--;
-
-		memCache[index].value = value;
-		memCache[index].location = unsigned(x86Op - x86Base);
-		memCache[index].read = false;
-	}
-	else
-	{
-		unsigned newIndex = 0;
-
-		if(memCacheFreeSlotCount)
-			newIndex = memCacheFreeSlots[--memCacheFreeSlotCount];
-		else
-			newIndex = memCacheNextSlot++ % memoryStateSize;
-
-		memCache[newIndex].address = address;
-		memCache[newIndex].value = value;
-		memCache[newIndex].location = unsigned(x86Op - x86Base);
-		memCache[newIndex].read = false;
 	}
 }
 

@@ -1017,17 +1017,23 @@ void GenCodeCmdStoreDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdCombinedd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load low value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8); // Load high value
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store to target
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
+
+#if defined(_M_X64)
+	// To avoid partial 'register' reads later
+	ctx.ctx.MemInvalidate(x86Argument(sDWORD, rREG, cmd.rA * 8));
+	ctx.ctx.InvalidateAddressValue(x86Argument(sDWORD, rREG, cmd.rA * 8));
+	ctx.ctx.MemInvalidate(x86Argument(sDWORD, rREG, cmd.rA * 8 + 4));
+	ctx.ctx.InvalidateAddressValue(x86Argument(sDWORD, rREG, cmd.rA * 8 + 4));
+#endif
 }
 
 void GenCodeCmdBreakupdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load low value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rC * 8 + 4); // Load high value
 
@@ -1037,7 +1043,6 @@ void GenCodeCmdBreakupdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	assert(cmd.rA != cmd.rC);
 
 #if defined(_M_X64)
@@ -1048,6 +1053,17 @@ void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, sourceReg); // Store to target
+		return;
+	}
+
+	// Maybe last write was of dword size
+	sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rC * 8, true);
+
+	if(sourceReg != rRegCount)
+	{
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, sourceReg); // Store to target
 		return;
 	}
 
@@ -1066,23 +1082,93 @@ void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	assert(cmd.rA != cmd.rC);
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	{
+		unsigned char rhs = cmd.rC;
+		unsigned char lhs = cmd.rA;
+		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+
+		if(sourceReg != rRegCount)
+		{
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+		}
+		else
+		{
+			// Maybe last write was of dword size
+			sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
+
+			if(sourceReg != rRegCount)
+			{
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
+			}
+			else
+			{
+				sourceReg = ctx.ctx.GetReg();
+
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, sourceReg, sQWORD, rREG, rhs * 8); // Load source
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+			}
+		}
+	}
 
 	if(((cmd.argument >> 16) & 0xff) != (cmd.argument >> 24))
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8); // Load source
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, (cmd.argument >> 24) * 8, rRAX); // Store to target
+		unsigned char rhs = ((cmd.argument >> 16) & 0xff);
+		unsigned char lhs = (cmd.argument >> 24);
+		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+
+		if(sourceReg != rRegCount)
+		{
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+		}
+		else
+		{
+			// Maybe last write was of dword size
+			sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
+
+			if(sourceReg != rRegCount)
+			{
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
+			}
+			else
+			{
+				sourceReg = ctx.ctx.GetReg();
+
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, sourceReg, sQWORD, rREG, rhs * 8); // Load source
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+			}
+		}
 	}
 
 	if((cmd.argument & 0xff) != ((cmd.argument >> 8) & 0xff))
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, (cmd.argument & 0xff) * 8); // Load source
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, ((cmd.argument >> 8) & 0xff) * 8, rRAX); // Store to target
+		unsigned char rhs = (cmd.argument & 0xff);
+		unsigned char lhs = ((cmd.argument >> 8) & 0xff);
+		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+
+		if(sourceReg != rRegCount)
+		{
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+		}
+		else
+		{
+			// Maybe last write was of dword size
+			sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
+
+			if(sourceReg != rRegCount)
+			{
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
+			}
+			else
+			{
+				sourceReg = ctx.ctx.GetReg();
+
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, sourceReg, sQWORD, rREG, rhs * 8); // Load source
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+			}
+		}
 	}
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source
@@ -1528,7 +1614,6 @@ void GenCodeCmdJmp(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdJmpz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rC * 8, true);
 
 	if(sourceReg == rRegCount)

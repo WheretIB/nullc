@@ -58,6 +58,7 @@ struct CodeGenGenericContext
 
 	void MemRead(const x86Argument &address);
 	void MemWrite(const x86Argument &address, const x86Argument &value);
+	void MemInvalidate(const x86Argument &address);
 	void MemKillDeadStore(const x86Argument &address);
 
 	void InvalidateState();
