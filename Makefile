@@ -66,8 +66,6 @@ LIB_SOURCES = \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
   NULLC/InstructionTreeVmGraph.cpp \
-  NULLC/InstructionTreeVmLower.cpp \
-  NULLC/InstructionTreeVmLowerGraph.cpp \
   NULLC/Instruction_X86.cpp \
   NULLC/Lexer.cpp \
   NULLC/Linker.cpp \
@@ -81,7 +79,6 @@ LIB_SOURCES = \
   NULLC/TypeTree.cpp
 
 LIB_SOURCES_VM = \
-  NULLC/Executor.cpp \
   NULLC/Executor_RegVm.cpp
 
 LIB_TARGETS = \
@@ -104,8 +101,6 @@ LIB_TARGETS = \
   temp/InstructionTreeVmCommon.o \
   temp/InstructionTreeVmEval.o \
   temp/InstructionTreeVmGraph.o \
-  temp/InstructionTreeVmLower.o \
-  temp/InstructionTreeVmLowerGraph.o \
   temp/Instruction_X86.o \
   temp/Lexer.o \
   temp/Linker.o \
@@ -119,7 +114,6 @@ LIB_TARGETS = \
   temp/TypeTree.o
 
 LIB_TARGETS_VM = \
-  temp/Executor.o \
   temp/Executor_RegVm.o
 
 PUGIXML_SOURCES = \
@@ -235,8 +229,6 @@ COMPILERLIB_SOURCES = \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
   NULLC/InstructionTreeVmGraph.cpp \
-  NULLC/InstructionTreeVmLower.cpp \
-  NULLC/InstructionTreeVmLowerGraph.cpp \
   NULLC/Lexer.cpp \
   NULLC/nullc.cpp \
   NULLC/ParseGraph.cpp \
@@ -261,8 +253,6 @@ COMPILERLIB_TARGETS = \
   temp/compiler/InstructionTreeVmCommon.o \
   temp/compiler/InstructionTreeVmEval.o \
   temp/compiler/InstructionTreeVmGraph.o \
-  temp/compiler/InstructionTreeVmLower.o \
-  temp/compiler/InstructionTreeVmLowerGraph.o \
   temp/compiler/Lexer.o \
   temp/compiler/nullc.o \
   temp/compiler/ParseGraph.o \
