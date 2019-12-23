@@ -1,0 +1,496 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Compiler">
+      <UniqueIdentifier>{631a22d5-1602-4192-9cb1-1458fe9a46af}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor">
+      <UniqueIdentifier>{cbc7842d-6f97-4c80-b4d1-c43958c5230b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor_X86">
+      <UniqueIdentifier>{47824343-18f9-486c-a7d7-37f45b0dccac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Linker">
+      <UniqueIdentifier>{54e627fc-de38-4a0b-977d-6089c88321c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules">
+      <UniqueIdentifier>{fd9dec7a-04d9-4348-a91c-c32e55ffdb90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\std">
+      <UniqueIdentifier>{19bb707a-c326-465b-a0e8-ebdf998b2f40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\win">
+      <UniqueIdentifier>{7ca2ee85-c886-40c4-9d35-c9c97b04c73b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\img">
+      <UniqueIdentifier>{c4cc95bc-63be-4533-bfcd-8a49011162be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\ext">
+      <UniqueIdentifier>{020b760e-555c-43ee-b032-745966304f6c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\ext\pugi">
+      <UniqueIdentifier>{9b280228-6b5c-4d7d-a40b-ba36d69cf7d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\old">
+      <UniqueIdentifier>{70f8b09d-ad83-431c-8b58-f2450d436076}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Executor_LLVM">
+      <UniqueIdentifier>{84d3adf5-d1bc-439a-8297-91f3957125f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{779b8c18-0cdc-4214-b690-8c2cad7de394}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\dyncall">
+      <UniqueIdentifier>{fa4e4a8c-0ba8-49fe-8eec-c8b20ee0e48d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="BinaryCache.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Bytecode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nullc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StrAlgo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Compiler.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="Lexer.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="StdLib.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_Common.cpp">
+      <Filter>Executor</Filter>
+    </ClCompile>
+    <ClCompile Include="CodeGen_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Translator_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Linker.cpp">
+      <Filter>Linker</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\dynamic.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\file.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\gc.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\io.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\map.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\math.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\random.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\string.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\time.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\typeinfo.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\window.cpp">
+      <Filter>Modules\win</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\canvas.cpp">
+      <Filter>Modules\img</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\pugi.cpp">
+      <Filter>Modules\ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\pugixml\pugixml.cpp">
+      <Filter>Modules\ext\pugi</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\list.cpp">
+      <Filter>Modules\old</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\vector.cpp">
+      <Filter>Modules\old</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_LLVM.cpp">
+      <Filter>Executor_LLVM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_api.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_callvm.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="ParseTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ExpressionTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ExpressionEval.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="TypeTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ParseGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ExpressionGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmEval.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmCommon.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ExpressionTranslate.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_vector.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_struct.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeLlvm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLower.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="CodeGenRegVm_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Instruction_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_RegVm.cpp">
+      <Filter>Executor</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Array.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BinaryCache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Bytecode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HashMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nullbind.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nullc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nullc_debug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nullc_remote.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nullcdef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Pool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StrAlgo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Compiler.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Lexer.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="StdLib.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_Common.h">
+      <Filter>Executor</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGen_X86.h">
+      <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_X86.h">
+      <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="Instruction_X86.h">
+      <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="Translator_X86.h">
+      <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="Linker.h">
+      <Filter>Linker</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\dynamic.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\file.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\gc.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\io.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\map.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\math.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\random.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\string.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\time.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\typeinfo.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\window.h">
+      <Filter>Modules\win</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\canvas.h">
+      <Filter>Modules\img</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\pugi.h">
+      <Filter>Modules\ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\pugixml\pugiconfig.hpp">
+      <Filter>Modules\ext\pugi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\pugixml\pugixml.hpp">
+      <Filter>Modules\ext\pugi</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\list.h">
+      <Filter>Modules\old</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\vector.h">
+      <Filter>Modules\old</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_LLVM.h">
+      <Filter>Executor_LLVM</Filter>
+    </ClInclude>
+    <ClInclude Include="Tree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall_callvm.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall_types.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="ParseTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="IntrusiveList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionEval.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="TypeTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ParseGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmEval.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmCommon.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionTranslate.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="DenseMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Output.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nullc_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeLlvm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLowerGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Trace.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGenRegVm_X86.h">
+      <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_RegVm.h">
+      <Filter>Executor</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Modules\std\algorithm.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\dynamic.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\file.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\gc.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\hashmap.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\io.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\list.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\map.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\math.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\random.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\range.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\string.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\time.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\typeinfo.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\vector.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\win\window.nc">
+      <Filter>Modules\win</Filter>
+    </None>
+    <None Include="..\Modules\win\window_ex.nc">
+      <Filter>Modules\win</Filter>
+    </None>
+    <None Include="..\Modules\img\canvas.nc">
+      <Filter>Modules\img</Filter>
+    </None>
+    <None Include="..\Modules\ext\pugixml.nc">
+      <Filter>Modules\ext</Filter>
+    </None>
+    <None Include="..\Modules\old\list.nc">
+      <Filter>Modules\old</Filter>
+    </None>
+    <None Include="..\Modules\old\vector.nc">
+      <Filter>Modules\old</Filter>
+    </None>
+    <None Include="..\Modules\std\event.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\stringio.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\nullc.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\external\dyncall\dyncall_call_x64_generic_masm.asm">
+      <Filter>external\dyncall</Filter>
+    </MASM>
+    <MASM Include="..\external\dyncall\dyncall_call_x86_generic_masm.asm">
+      <Filter>external\dyncall</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>
