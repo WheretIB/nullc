@@ -520,7 +520,7 @@ return 0;";
 		double tStart = myGetPreciseTime();
 		if(Tests::RunCode(testCompileSpeed2, testTarget[t], "0"))
 			testsPassed[t]++;
-		printf("%s finished in %f (single run is %f)\r\n", testTarget[t] == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
+		printf("%s finished in %f (single run is %f)\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
 	}
 
 #if defined(_MSC_VER)
