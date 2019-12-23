@@ -2043,15 +2043,18 @@ void VmFunction::MoveEntryBlockToStart()
 	}
 }
 
-void VmFunction::UpdateDominatorTree(VmModule *module)
+void VmFunction::UpdateDominatorTree(VmModule *module, bool clear)
 {
 	if(!firstBlock)
 		return;
 
 	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
 	{
-		curr->predecessors.clear();
-		curr->successors.clear();
+		if(clear)
+		{
+			curr->predecessors.clear();
+			curr->successors.clear();
+		}
 
 		curr->visited = false;
 		curr->idom = NULL;
@@ -5546,6 +5549,33 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 	stack.shrink(oldSize);
 }
 
+bool IsPhiUsed(VmInstruction *phi, unsigned searchMarker)
+{
+	assert(phi->cmd == VM_INST_PHI);
+
+	if(phi->regVmSearchMarker == searchMarker)
+		return false;
+
+	phi->regVmSearchMarker = searchMarker;
+
+	for(unsigned userPos = 0; userPos < phi->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(phi->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+		{
+			if(IsPhiUsed(instruction, searchMarker))
+				return true;
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -5559,7 +5589,7 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			return;
 
 		// Prepare dominator frontier data
-		function->UpdateDominatorTree(module);
+		function->UpdateDominatorTree(module, true);
 
 		ScopeData *scope = function->scope;
 
@@ -5599,9 +5629,12 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			// Initilize the worklist with a set of blocks that contain assignments to the variable
 			SmallArray<VmBlock*, 32> worklist(module->allocator);
 
-			// Value is either an argument that is implicitly initialized in the entry block or a local which is implicitly set to zero in the entry block
-			function->firstBlock->hasAssignmentForId = i + 1;
-			worklist.push_back(function->firstBlock);
+			// Argument is implicitly initialized in the entry block
+			if(IsArgumentVariable(function->function, variable))
+			{
+				function->firstBlock->hasAssignmentForId = i + 1;
+				worklist.push_back(function->firstBlock);
+			}
 
 			// Find all explicit assignments
 			for(unsigned varUserPos = 0; varUserPos < variable->users.size(); varUserPos++)
@@ -5658,6 +5691,8 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 						{
 							placeholder->arguments.push_back(NULL);
 							placeholder->arguments.push_back(dominator->predecessors[predecessorPos]);
+
+							dominator->predecessors[predecessorPos]->AddUse(placeholder);
 						}
 
 						placeholder->comment = variable->name->name;
@@ -5681,6 +5716,51 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			SmallArray<VmValue*, 32> stack(module->allocator);
 
 			RenameMemoryToRegister(ctx, module, function->firstBlock, stack, variable, phiNodes);
+
+			// Remove dead phi instructions (prune ssa)
+			SmallArray<VmInstruction*, 32> unusedPhiNodes(module->allocator);
+
+			for(unsigned k = 0; k < phiNodes.size(); k++)
+			{
+				VmInstruction *phi = phiNodes[k];
+
+				if(!IsPhiUsed(phi, function->nextSearchMarker++))
+					unusedPhiNodes.push_back(phi);
+			}
+
+			for(unsigned k = 0; k < unusedPhiNodes.size(); k++)
+			{
+				VmInstruction *phi = unusedPhiNodes[k];
+
+				phi->canBeRemoved = false;
+
+				for(unsigned userPos = 0; userPos < phi->users.size(); userPos++)
+				{
+					VmInstruction *user = getType<VmInstruction>(phi->users[userPos]);
+
+					assert(user->cmd == VM_INST_PHI);
+
+					for(unsigned argument = 0; argument < user->arguments.size(); argument += 2)
+					{
+						VmValue *option = user->arguments[argument];
+						VmValue *edge = user->arguments[argument + 1];
+
+						if(option == phi)
+						{
+							option->RemoveUse(user);
+							edge->RemoveUse(user);
+
+							user->arguments[argument] = user->arguments[user->arguments.size() - 2];
+							user->arguments[argument + 1] = user->arguments[user->arguments.size() - 1];
+
+							user->arguments.pop_back();
+							user->arguments.pop_back();
+						}
+					}
+				}
+
+				phi->canBeRemoved = true;
+			}
 
 			module->currentFunction = NULL;
 		}
@@ -5938,7 +6018,7 @@ void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
-		function->UpdateDominatorTree(module);
+		function->UpdateDominatorTree(module, true);
 		function->UpdateLiveSets(module);
 	}
 }
