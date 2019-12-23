@@ -28,7 +28,7 @@ void		nullcTerminate();
 /************************************************************************/
 /*				NULLC execution settings and environment				*/
 
-/*	Change current executor to either NULLC_VM/NULLC_X86/NULLC_LLVM/NULLC_REGVM	*/
+/*	Change current executor to either NULLC_X86/NULLC_LLVM/NULLC_REGVM	*/
 void		nullcSetExecutor(unsigned id);
 
 nullres		nullcSetExecutorStackSize(unsigned bytes);
