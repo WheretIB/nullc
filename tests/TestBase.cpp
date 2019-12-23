@@ -91,7 +91,7 @@ namespace Tests
 
 	bool	testFailureExecutor[TEST_TARGET_COUNT] = {
 		true,
-#if defined(NULLC_BUILD_X86_JIT)
+#if defined(NULLC_BUILD_X86_JIT) && (_MSC_VER != 1700) // Broken unwind in v110 toolset
 		true,
 #else
 		false,

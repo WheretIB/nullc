@@ -2,6 +2,18 @@
 
 #include "nullcdef.h"
 
+#if defined(NULLC_NO_EXECUTOR)
+#pragma detect_mismatch("NULLC_NO_EXECUTOR", "1")
+#else
+#pragma detect_mismatch("NULLC_NO_EXECUTOR", "0")
+#endif
+
+#if defined(NULLC_TIME_TRACE)
+#pragma detect_mismatch("NULLC_TIME_TRACE", "1")
+#else
+#pragma detect_mismatch("NULLC_TIME_TRACE", "0")
+#endif
+
 #if !defined(NULLC_NO_EXECUTOR) && defined(NULLC_TIME_TRACE)
 
 #include <assert.h>
