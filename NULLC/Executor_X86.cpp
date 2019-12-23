@@ -84,9 +84,16 @@ struct UNWIND_INFO_FUNCTION
 #endif
 #include <signal.h>
 
+#if _MSC_VER <= 1600
+typedef struct _RUNTIME_FUNCTION
+{
+} RUNTIME_FUNCTION;
+#else
 typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
 {
 } RUNTIME_FUNCTION;
+#endif
+
 
 #endif
 
