@@ -33,10 +33,8 @@ void		nullcSetExecutor(unsigned id);
 
 nullres		nullcSetExecutorStackSize(unsigned bytes);
 
-/*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload	*/
-#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+/*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload. Direct binding is not available if NULLC_NO_RAW_EXTERNAL_CALL is set	*/
 nullres		nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index);
-#endif
 
 nullres		nullcBindModuleFunctionWrapper(const char* module, void *func, void (*ptr)(void *func, char* retBuf, char* argBuf), const char* name, int index);
 

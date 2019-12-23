@@ -232,13 +232,12 @@ void nullcSetEnableTimeTrace(int enable)
 	NULLC::TraceSetEnabled(enable != 0);
 }
 
-#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	TRACE_SCOPE("nullc", "nullcBindModuleFunction");
 	TRACE_LABEL(module);
 
@@ -258,9 +257,10 @@ nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* n
 	allocator.Clear();
 
 	return true;
-}
-
+#else
+	return false;
 #endif
+}
 
 nullres nullcBindModuleFunctionWrapper(const char* module, void *func, void (*ptr)(void *func, char* retBuf, char* argBuf), const char* name, int index)
 {
