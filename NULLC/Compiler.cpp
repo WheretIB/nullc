@@ -697,101 +697,6 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_VM);
-
-	if(ctx.enableLogFiles)
-	{
-		TRACE_SCOPE("compiler", "Debug::inst_graph_legal");
-
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_legal.txt");
-
-		if(ctx.outputCtx.stream)
-		{
-			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
-
-			instGraphCtx.showUsers = false;
-			instGraphCtx.displayAsTree = false;
-			instGraphCtx.showFullTypes = false;
-			instGraphCtx.showSource = true;
-
-			PrintGraph(instGraphCtx, ctx.vmModule);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
-		}
-	}
-
-	ctx.vmLoweredModule = LowerModule(exprCtx, ctx.vmModule);
-
-	if(ctx.enableLogFiles)
-	{
-		TRACE_SCOPE("compiler", "Debug::inst_graph_low");
-
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low.txt");
-
-		if(ctx.outputCtx.stream)
-		{
-			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
-
-			instLowerGraphCtx.showSource = true;
-
-			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
-		}
-	}
-
-	OptimizeTemporaryRegisterSpills(ctx.vmLoweredModule);
-
-	if(ctx.enableLogFiles)
-	{
-		TRACE_SCOPE("compiler", "Debug::inst_graph_low_opt");
-
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low_opt.txt");
-
-		if(ctx.outputCtx.stream)
-		{
-			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
-
-			instLowerGraphCtx.showSource = true;
-
-			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
-		}
-	}
-
-	FinalizeRegisterSpills(ctx.exprCtx, ctx.vmLoweredModule);
-
-	InstructionVmFinalizeContext &instVmFinalizeCtx = ctx.instVmFinalizeCtx;
-
-	FinalizeModule(instVmFinalizeCtx, ctx.vmLoweredModule);
-
-	if(ctx.enableLogFiles)
-	{
-		TRACE_SCOPE("compiler", "Debug::inst_vm");
-
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_vm.txt");
-
-		if(ctx.outputCtx.stream)
-		{
-			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
-
-			instLowerGraphCtx.showSource = true;
-
-			PrintInstructions(instLowerGraphCtx, instVmFinalizeCtx, ctx.code);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
-		}
-	}
-
 	return true;
 }
 
@@ -1051,26 +956,10 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	unsigned offsetToNamespace = size;
 	size += ctx.exprCtx.namespaces.size() * sizeof(ExternNamespaceInfo);
 
-	unsigned offsetToVmCode = size;
-	size += ctx.instVmFinalizeCtx.cmds.size() * sizeof(VMCmd);
-
 	unsigned offsetToRegVmCode = size;
 	size += ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(RegVmCmd);
 
 	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
-
-	unsigned vmInfoCount = 0;
-
-	for(unsigned i = 0; i < ctx.instVmFinalizeCtx.locations.size(); i++)
-	{
-		SynBase *location = ctx.instVmFinalizeCtx.locations[i];
-
-		if(location && !location->isInternal)
-			vmInfoCount++;
-	}
-
-	unsigned offsetToVmInfo = size;
-	size += sizeof(ExternSourceInfo) * vmInfoCount;
 
 	unsigned regVmInfoCount = 0;
 
@@ -1140,9 +1029,6 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	code->offsetToLocals = offsetToFirstLocal;
 
 	code->closureListCount = 0;
-
-	code->vmCodeSize = ctx.instVmFinalizeCtx.cmds.size();
-	code->vmOffsetToCode = offsetToVmCode;
 
 	code->regVmCodeSize = ctx.instRegVmFinalizeCtx.cmds.size();
 	code->regVmOffsetToCode = offsetToRegVmCode;
@@ -1562,36 +1448,24 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		if(function->isPrototype && function->implementation)
 		{
-			funcInfo.vmAddress = function->implementation->vmFunction->vmAddress;
-			funcInfo.vmCodeSize = function->implementation->functionIndex | 0x80000000;
-
 			funcInfo.regVmAddress = function->implementation->vmFunction->regVmAddress;
 			funcInfo.regVmCodeSize = function->implementation->functionIndex | 0x80000000;
 			funcInfo.regVmRegisters = function->implementation->vmFunction->regVmRegisters;
 		}
 		else if(function->isPrototype)
 		{
-			funcInfo.vmAddress = 0;
-			funcInfo.vmCodeSize = 0;
-
 			funcInfo.regVmAddress = 0;
 			funcInfo.regVmCodeSize = 0;
 			funcInfo.regVmRegisters = 0;
 		}
 		else if(function->vmFunction)
 		{
-			funcInfo.vmAddress = function->vmFunction->vmAddress;
-			funcInfo.vmCodeSize = function->vmFunction->vmCodeSize;
-
 			funcInfo.regVmAddress = function->vmFunction->regVmAddress;
 			funcInfo.regVmCodeSize = function->vmFunction->regVmCodeSize;
 			funcInfo.regVmRegisters = function->vmFunction->regVmRegisters;
 		}
 		else
 		{
-			funcInfo.vmAddress = ~0u;
-			funcInfo.vmCodeSize = 0;
-
 			funcInfo.regVmAddress = ~0u;
 			funcInfo.regVmCodeSize = 0;
 			funcInfo.regVmRegisters = 0;
@@ -1712,7 +1586,6 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		{
 			TypeBase *returnType = function->type->returnType;
 
-			funcInfo.vmAddress = ~0u;
 			funcInfo.regVmAddress = ~0u;
 
 			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
@@ -1863,53 +1736,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		}
 	}
 
-	code->vmOffsetToInfo = offsetToVmInfo;
-	code->vmInfoSize = vmInfoCount;
-
 	code->regVmOffsetToInfo = offsetToRegVmInfo;
 	code->regVmInfoSize = regVmInfoCount;
-
-	VectorView<ExternSourceInfo> vmInfoArray(FindVmSourceInfo(code), vmInfoCount);
-
-	for(unsigned i = 0; i < ctx.instVmFinalizeCtx.locations.size(); i++)
-	{
-		SynBase *location = ctx.instVmFinalizeCtx.locations[i];
-
-		if(location && !location->isInternal)
-		{
-			ExternSourceInfo info;
-
-			info.instruction = i;
-
-			if(ModuleData *importModule = ctx.exprCtx.GetSourceOwner(location->begin))
-			{
-				const char *code = FindSource(importModule->bytecode);
-
-				assert(location->pos.begin >= code && location->pos.begin < code + importModule->bytecode->sourceSize);
-
-				info.definitionModule = importModule->dependencyIndex;
-				info.sourceOffset = unsigned(location->begin->pos - code);
-
-				vmInfoArray.push_back(info);
-			}
-			else
-			{
-				const char *code = ctx.code;
-
-				assert(location->pos.begin >= code && location->pos.begin < code + sourceLength);
-
-				info.definitionModule = 0;
-				info.sourceOffset = unsigned(location->begin->pos - code);
-
-				vmInfoArray.push_back(info);
-			}
-		}
-	}
-
-	code->vmGlobalCodeStart = ctx.vmModule->vmGlobalCodeStart;
-
-	if(ctx.instVmFinalizeCtx.cmds.size())
-		memcpy(FindVmCode(code), ctx.instVmFinalizeCtx.cmds.data, ctx.instVmFinalizeCtx.cmds.size() * sizeof(VMCmd));
 
 	VectorView<ExternSourceInfo> regVmInfoArray(FindRegVmSourceInfo(code), regVmInfoCount);
 
@@ -2055,7 +1883,6 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	assert(vInfo.count == externVariableInfoCount);
 	assert(fInfo.count == exportedFunctionCount);
 	assert(localInfo.count == localCount);
-	assert(vmInfoArray.count == vmInfoCount);
 	assert(regVmInfoArray.count == regVmInfoCount);
 	assert(namespaceList.count == ctx.exprCtx.namespaces.size());
 
@@ -2075,11 +1902,11 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 		return false;
 	}
 
-	InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+	InstructionRegVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
 
 	instLowerGraphCtx.showSource = true;
 
-	PrintInstructions(instLowerGraphCtx, ctx.instVmFinalizeCtx, ctx.code);
+	PrintGraph(instLowerGraphCtx, ctx.regVmLoweredModule);
 
 	ctx.outputCtx.closeStream(ctx.outputCtx.stream);
 	ctx.outputCtx.stream = NULL;
@@ -2259,7 +2086,6 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(
 		{
 			if(index == 0)
 			{
-				fInfo->vmAddress = -1;
 				fInfo->regVmAddress = -1;
 
 				fInfo->funcPtrRaw = ptrRaw;

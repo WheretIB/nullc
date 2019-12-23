@@ -20,7 +20,6 @@ double myGetPreciseTime();
 
 enum TestTypeIndex
 {
-	TEST_TYPE_VM,
 	TEST_TYPE_REGVM,
 	TEST_TYPE_X86,
 	TEST_TYPE_LLVM,
@@ -33,7 +32,7 @@ enum TestTypeIndex
 	TEST_TYPE_COUNT
 };
 
-#define TEST_TARGET_COUNT 4
+#define TEST_TARGET_COUNT 3
 
 struct TestQueue
 {
@@ -141,7 +140,7 @@ struct Test_##code : TestQueue {	\
 			}else{	\
 				RunTest();	\
 				if(lastFailed)	\
-					printf("%s failed\n", testTarget[t] == NULLC_VM ? "VM " : testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
+					printf("%s failed\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
 			}	\
 			if(!lastFailed)	\
 				testsPassed[t]++;	\
@@ -169,7 +168,7 @@ struct Test_##code : TestQueue {	\
 			}else{	\
 				RunTest();	\
 				if(lastFailed)	\
-					printf("%s failed\n", testTarget[t] == NULLC_VM ? "VM " : testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
+					printf("%s failed\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
 			}	\
 			if(!lastFailed)	\
 				testsPassed[t]++;	\

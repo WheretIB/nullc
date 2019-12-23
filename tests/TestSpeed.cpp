@@ -58,7 +58,7 @@ void	SpeedTestText(const char* name, const char* text)
 	nullcInitWindowModule();
 #endif
 
-	nullcSetExecutor(NULLC_VM);
+	nullcSetExecutor(NULLC_REG_VM);
 
 	unsigned int runs = 0;
 	double time = myGetPreciseTime();

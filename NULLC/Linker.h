@@ -6,7 +6,6 @@
 #include "Bytecode.h"
 #include "HashMap.h"
 
-struct VMCmd;
 struct RegVmCmd;
 
 struct OutputContext;
@@ -21,7 +20,6 @@ public:
 
 	void	CleanCode();
 	bool	LinkCode(const char *bytecode, const char *moduleName);
-	bool	SaveVmListing(OutputContext &output);
 	bool	SaveRegVmListing(OutputContext &output, bool withProfileInfo);
 
 	const char*	GetLinkError();
@@ -42,13 +40,6 @@ public:
 	FastVector<char>				exSource;
 	FastVector<unsigned int>		exDependencies;
 
-	FastVector<VMCmd>				exVmCode;
-	FastVector<ExternSourceInfo>	exVmSourceInfo;
-
-	unsigned int					vmOffsetToGlobalCode;
-
-	FastVector<unsigned int>		vmJumpTargets;
-
 	FastVector<RegVmCmd>			exRegVmCode;
 	FastVector<ExternSourceInfo>	exRegVmSourceInfo;
 	FastVector<unsigned int>		exRegVmExecCount;
@@ -57,6 +48,9 @@ public:
 	FastVector<unsigned char>		exRegVmRegKillInfo;
 
 	FastVector<unsigned int>		regVmJumpTargets;
+
+	FastVector<RegVmCmd*>			expiredRegVmCode;
+	FastVector<unsigned*>			expiredRegVmConstants;
 
 	unsigned int					globalVarSize;
 

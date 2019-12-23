@@ -1,8 +1,11 @@
 #include "handler.h"
 
+#pragma warning(disable: 4996)
+
 #include <algorithm>
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
@@ -668,7 +671,7 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 
 		std::string moduleSourcePath = ToString("%s%s", ctx.modulePath.c_str(), name.c_str());
 
-		if(FILE *fIn = fopen(moduleSourcePath.c_str(), "rb"))
+		if(FILE *fInModule = fopen(moduleSourcePath.c_str(), "rb"))
 		{
 			source.path = moduleSourcePath;
 
@@ -676,13 +679,13 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 
 			source.origin = "module path";
 
-			fclose(fIn);
+			fclose(fInModule);
 		}
 		else if(ctx.launchArgs.workspaceFolder)
 		{
 			std::string rootSourcePath = ToString("%s/%s", ctx.launchArgs.workspaceFolder->c_str(), name.c_str());
 
-			if(FILE *fIn = fopen(rootSourcePath.c_str(), "rb"))
+			if(FILE *fInRoot = fopen(rootSourcePath.c_str(), "rb"))
 			{
 				source.path = rootSourcePath;
 
@@ -690,7 +693,7 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 
 				source.origin = "workspace";
 
-				fclose(fIn);
+				fclose(fInRoot);
 			}
 			else
 			{
@@ -926,16 +929,16 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 			{
 				stackFrame.name += "(";
 
-				for(unsigned i = 0; i < function->paramCount + 1; i++)
+				for(unsigned k = 0; k < function->paramCount + 1; k++)
 				{
-					auto& localInfo = locals[function->offsetToFirstLocal + i];
+					auto& localInfo = locals[function->offsetToFirstLocal + k];
 
 					const char* name = symbols + localInfo.offsetToName;
 
 					if(*name == '$')
 						continue;
 
-					if(i != 0)
+					if(k != 0)
 						stackFrame.name += ", ";
 
 					if(args.format->parameterTypes && *args.format->parameterTypes)

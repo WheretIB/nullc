@@ -1191,7 +1191,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	{
 		ExternFuncInfo &target = exLinker->exFunctions[i];
 
-		if(target.regVmAddress != -1 && target.vmCodeSize != 0 && (codeJumpTargets[target.regVmAddress] >> 8) == 0)
+		if(target.regVmAddress != -1 && target.regVmCodeSize != 0 && (codeJumpTargets[target.regVmAddress] >> 8) == 0)
 			codeJumpTargets[target.regVmAddress] |= 2 + (i << 8);
 	}
 

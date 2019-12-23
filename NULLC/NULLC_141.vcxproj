@@ -224,8 +224,6 @@
     <ClCompile Include="InstructionTreeVmCommon.cpp" />
     <ClCompile Include="InstructionTreeVmEval.cpp" />
     <ClCompile Include="InstructionTreeVmGraph.cpp" />
-    <ClCompile Include="InstructionTreeVmLower.cpp" />
-    <ClCompile Include="InstructionTreeVmLowerGraph.cpp" />
     <ClCompile Include="Instruction_X86.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseGraph.cpp" />
@@ -235,7 +233,6 @@
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="Lexer.cpp" />
     <ClCompile Include="StdLib.cpp" />
-    <ClCompile Include="Executor.cpp" />
     <ClCompile Include="Executor_Common.cpp" />
     <ClCompile Include="CodeGen_X86.cpp" />
     <ClCompile Include="Executor_X86.cpp" />
@@ -276,7 +273,6 @@
     <ClInclude Include="ExpressionTree.h" />
     <ClInclude Include="ExpressionEval.h" />
     <ClInclude Include="HashMap.h" />
-    <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="InstructionTreeLlvm.h" />
     <ClInclude Include="InstructionTreeRegVm.h" />
     <ClInclude Include="InstructionTreeRegVmLower.h" />
@@ -285,8 +281,6 @@
     <ClInclude Include="InstructionTreeVmCommon.h" />
     <ClInclude Include="InstructionTreeVmEval.h" />
     <ClInclude Include="InstructionTreeVmGraph.h" />
-    <ClInclude Include="InstructionTreeVmLower.h" />
-    <ClInclude Include="InstructionTreeVmLowerGraph.h" />
     <ClInclude Include="IntrusiveList.h" />
     <ClInclude Include="nullbind.h" />
     <ClInclude Include="nullc.h" />
@@ -303,7 +297,6 @@
     <ClInclude Include="Compiler.h" />
     <ClInclude Include="Lexer.h" />
     <ClInclude Include="StdLib.h" />
-    <ClInclude Include="Executor.h" />
     <ClInclude Include="Executor_Common.h" />
     <ClInclude Include="CodeGen_X86.h" />
     <ClInclude Include="Executor_X86.h" />

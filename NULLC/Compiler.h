@@ -11,8 +11,6 @@
 #include "InstructionTreeVm.h"
 #include "InstructionTreeVmGraph.h"
 #include "InstructionTreeVmEval.h"
-#include "InstructionTreeVmLower.h"
-#include "InstructionTreeVmLowerGraph.h"
 #include "InstructionTreeRegVmLower.h"
 #include "InstructionTreeRegVmLowerGraph.h"
 #include "InstructionTreeLlvm.h"
@@ -20,7 +18,7 @@
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instVmFinalizeCtx(exprCtx, allocator), instRegVmFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
+	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instRegVmFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
 	{
 		code = 0;
 
@@ -35,8 +33,6 @@ struct CompilerContext
 		vmModule = 0;
 
 		llvmModule = 0;
-
-		vmLoweredModule = 0;
 
 		regVmLoweredModule = 0;
 
@@ -62,10 +58,6 @@ struct CompilerContext
 	VmModule *vmModule;
 
 	LlvmModule *llvmModule;
-
-	VmLoweredModule *vmLoweredModule;
-
-	InstructionVmFinalizeContext instVmFinalizeCtx;
 
 	RegVmLoweredModule *regVmLoweredModule;
 

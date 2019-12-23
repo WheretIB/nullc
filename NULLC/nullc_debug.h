@@ -3,7 +3,6 @@
 
 #include "nullcdef.h"
 #include "Bytecode.h"
-#include "InstructionSet.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -28,7 +27,6 @@ ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);
 char*				nullcDebugSymbols(unsigned int *count);
 char*				nullcDebugSource();
 ExternSourceInfo*	nullcDebugSourceInfo(unsigned int *count);
-VMCmd*				nullcDebugCode(unsigned int *count);
 ExternModuleInfo*	nullcDebugModuleInfo(unsigned int *count);
 
 void				nullcDebugBeginCallStack();

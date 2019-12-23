@@ -51,9 +51,6 @@
     <Filter Include="external\dyncall">
       <UniqueIdentifier>{fa4e4a8c-0ba8-49fe-8eec-c8b20ee0e48d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Executor_RegVm">
-      <UniqueIdentifier>{26fc8e81-66cb-4da2-b564-dbb09229eae4}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BinaryCache.cpp">
@@ -79,9 +76,6 @@
     </ClCompile>
     <ClCompile Include="StdLib.cpp">
       <Filter>Compiler</Filter>
-    </ClCompile>
-    <ClCompile Include="Executor.cpp">
-      <Filter>Executor</Filter>
     </ClCompile>
     <ClCompile Include="Executor_Common.cpp">
       <Filter>Executor</Filter>
@@ -182,9 +176,6 @@
     <ClCompile Include="InstructionTreeVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="InstructionTreeVmLower.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
     <ClCompile Include="InstructionTreeVmEval.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
@@ -192,9 +183,6 @@
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="ExpressionTranslate.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
-    <ClCompile Include="InstructionTreeVmLowerGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="..\external\dyncall\dyncall_vector.c">
@@ -212,9 +200,6 @@
     <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="Executor_RegVm.cpp">
-      <Filter>Executor_RegVm</Filter>
-    </ClCompile>
     <ClCompile Include="InstructionTreeRegVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
@@ -223,6 +208,9 @@
     </ClCompile>
     <ClCompile Include="Instruction_X86.cpp">
       <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_RegVm.cpp">
+      <Filter>Executor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -236,9 +224,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HashMap.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="InstructionSet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="nullbind.h">
@@ -273,9 +258,6 @@
     </ClInclude>
     <ClInclude Include="StdLib.h">
       <Filter>Compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="Executor.h">
-      <Filter>Executor</Filter>
     </ClInclude>
     <ClInclude Include="Executor_Common.h">
       <Filter>Executor</Filter>
@@ -391,9 +373,6 @@
     <ClInclude Include="Allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="InstructionTreeVmLower.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
     <ClInclude Include="InstructionTreeVmEval.h">
       <Filter>Compiler</Filter>
     </ClInclude>
@@ -401,9 +380,6 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="ExpressionTranslate.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="InstructionTreeVmLowerGraph.h">
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="DenseMap.h">
@@ -424,9 +400,6 @@
     <ClInclude Include="InstructionTreeRegVmLower.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="Executor_RegVm.h">
-      <Filter>Executor_RegVm</Filter>
-    </ClInclude>
     <ClInclude Include="InstructionTreeRegVm.h">
       <Filter>Compiler</Filter>
     </ClInclude>
@@ -435,6 +408,9 @@
     </ClInclude>
     <ClInclude Include="CodeGenRegVm_X86.h">
       <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_RegVm.h">
+      <Filter>Executor</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

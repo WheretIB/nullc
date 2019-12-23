@@ -45,16 +45,6 @@ ExternNamespaceInfo* FindFirstNamespace(ByteCode *code)
 	return (ExternNamespaceInfo*)((char*)code + code->offsetToNamespaces);
 }
 
-char* FindVmCode(ByteCode *code)
-{
-	return ((char*)(code) + code->vmOffsetToCode);
-}
-
-ExternSourceInfo* FindVmSourceInfo(ByteCode *code)
-{
-	return (ExternSourceInfo*)((char*)code + code->vmOffsetToInfo);
-}
-
 char* FindRegVmCode(ByteCode *code)
 {
 	return ((char*)(code)+code->regVmOffsetToCode);

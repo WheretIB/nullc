@@ -301,10 +301,16 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	queue.RunTests();
 
 	// Conclusion 
-	printf("VM passed %d of %d tests\n", testsPassed[TEST_TYPE_VM], testsCount[TEST_TYPE_VM]);
-
 	printf("Expr Evaluated %d of %d tests\n", testsPassed[TEST_TYPE_EXPR_EVALUATION], testsCount[TEST_TYPE_EXPR_EVALUATION]);
 	printf("Inst Evaluated %d of %d tests\n", testsPassed[TEST_TYPE_INST_EVALUATION], testsCount[TEST_TYPE_INST_EVALUATION]);
+
+	// Safety check that expression and instruction elimination doesn't just skip many tests
+	if(testsPassed[TEST_TYPE_REGVM] > 1000)
+	{
+		// 65% of tests
+		assert(testsCount[TEST_TYPE_EXPR_EVALUATION] >= (testsCount[TEST_TYPE_REGVM] * 4) * 0.65f);
+		assert(testsCount[TEST_TYPE_INST_EVALUATION] >= (testsCount[TEST_TYPE_REGVM] * 4) * 0.65f);
+	}
 
 #ifdef NULLC_BUILD_X86_JIT
 	printf("X86 passed %d of %d tests\n", testsPassed[TEST_TYPE_X86], testsCount[TEST_TYPE_X86]);

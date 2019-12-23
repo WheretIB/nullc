@@ -1335,7 +1335,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 
 	unsigned address = target.regVmAddress;
 
-	if(address == EXTERNAL_FUNCTION)
+	if(address == ~0u)
 	{
 		callStack.push_back(instruction + 1);
 
@@ -1408,11 +1408,12 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 	unsigned prevDataSize = dataStack.size();
 
 	unsigned argumentsSize = target.bytesToPop;
+	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-	// Data stack is always aligned to 16 bytes
 	assert(dataStack.size() % 16 == 0);
+	assert(argumentsSize <= stackSize);
 
-	if(dataStack.size() + argumentsSize >= dataStack.max)
+	if(dataStack.size() + stackSize >= dataStack.max)
 	{
 		codeRunning = false;
 		strcpy(execError, "ERROR: stack overflow");
@@ -1428,8 +1429,6 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 	// Copy function arguments to new stack frame
 	memcpy((char*)(dataStack.data + dataStack.size()), tempStackPtr, argumentsSize);
 
-	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
-
 	RegVmRegister *regFileTop = regFileLastTop;
 
 	regFileLastTop = regFileTop + target.regVmRegisters;
@@ -1442,19 +1441,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 		return false;
 	}
 
-	assert(dataStack.size() % 16 == 0);
-
-	if(dataStack.size() + stackSize >= dataStack.max)
-	{
-		codeRunning = false;
-		strcpy(execError, "ERROR: stack overflow");
-
-		return false;
-	}
-
 	dataStack.resize(dataStack.size() + stackSize);
-
-	assert(argumentsSize <= stackSize);
 
 	if(stackSize - argumentsSize)
 		memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
@@ -1828,15 +1815,6 @@ void ExecutorRegVm::UpdateInstructionPointer()
 {
 	if(!codeBase || !callStack.size() || codeBase == &exLinker->exRegVmCode[0])
 		return;
-
-	for(unsigned i = 0; i < callStack.size(); i++)
-	{
-		int currentPos = int(callStack[i] - codeBase);
-
-		assert(currentPos >= 0);
-
-		callStack[i] = &exLinker->exRegVmCode[0] + currentPos;
-	}
 
 	codeBase = &exLinker->exRegVmCode[0];
 }

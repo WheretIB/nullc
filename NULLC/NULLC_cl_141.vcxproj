@@ -204,8 +204,6 @@
     <ClCompile Include="InstructionTreeVmCommon.cpp" />
     <ClCompile Include="InstructionTreeVmEval.cpp" />
     <ClCompile Include="InstructionTreeVmGraph.cpp" />
-    <ClCompile Include="InstructionTreeVmLower.cpp" />
-    <ClCompile Include="InstructionTreeVmLowerGraph.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseGraph.cpp" />
     <ClCompile Include="ParseTree.cpp" />
@@ -226,7 +224,6 @@
     <ClInclude Include="ExpressionTranslate.h" />
     <ClInclude Include="ExpressionTree.h" />
     <ClInclude Include="HashMap.h" />
-    <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="InstructionTreeLlvm.h" />
     <ClInclude Include="InstructionTreeRegVm.h" />
     <ClInclude Include="InstructionTreeRegVmLower.h" />
@@ -235,8 +232,6 @@
     <ClInclude Include="InstructionTreeVmCommon.h" />
     <ClInclude Include="InstructionTreeVmEval.h" />
     <ClInclude Include="InstructionTreeVmGraph.h" />
-    <ClInclude Include="InstructionTreeVmLower.h" />
-    <ClInclude Include="InstructionTreeVmLowerGraph.h" />
     <ClInclude Include="nullc.h" />
     <ClInclude Include="nullc_debug.h" />
     <ClInclude Include="nullcdef.h" />

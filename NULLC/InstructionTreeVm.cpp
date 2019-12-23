@@ -6642,155 +6642,6 @@ void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* v
 	}
 }
 
-void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
-{
-	module->currentBlock = block;
-
-	// Replace non-trivial instructions that have multiple uses with stack variables
-	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
-	{
-		if(curr->cmd == VM_INST_CALL || IsLoad(curr))
-		{
-			// If call/load instuction has even a single user, store it's result in a temporary register so that the store will be lowered at the correct place
-			if(curr->users.empty())
-				continue;
-
-			if(curr->users.size() == 1)
-			{
-				if(VmInstruction *inst = getType<VmInstruction>(curr->users[0]))
-				{
-					if(curr->nextSibling == inst)
-					{
-						// But if the single user is the next instruction that itself will be lowered at the correct place, result can still be forwarded without a temporary
-						if(inst->type == VmType::Void)
-							continue;
-
-						if(inst->cmd == VM_INST_CALL)
-							continue;
-
-						if(IsLoad(inst))
-							continue;
-					}
-				}
-			}
-		}
-		else
-		{
-			if(curr->users.size() <= 1)
-				continue;
-		}
-
-		if(curr->type == VmType::Block)
-			continue;
-
-		if(curr->cmd == VM_INST_CONSTRUCT && (curr->type.type == VM_TYPE_FUNCTION_REF || curr->type.type == VM_TYPE_ARRAY_REF))
-			continue;
-
-		if(curr->cmd == VM_INST_FUNCTION_ADDRESS || curr->cmd == VM_INST_TYPE_ID)
-			continue;
-
-		TypeBase *type = GetBaseType(ctx, curr->type);
-
-		VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
-
-		address->container->isVmRegSpill = true;
-
-		block->insertPoint = curr;
-
-		curr->canBeRemoved = false;
-
-		VmValue *loadValue = CreateLoad(ctx, module, curr->source, type, address, 0);
-
-		ReplaceValueUsersWith(module, curr, loadValue, NULL);
-
-		curr->canBeRemoved = true;
-
-		block->insertPoint = curr;
-
-		VmValue *storeValue = CreateStore(ctx, module, curr->source, type, address, curr, 0);
-
-		block->insertPoint = block->lastInstruction;
-
-		// Skip generated load and store instructions
-		if (isType<VmInstruction>(loadValue))
-			curr = curr->nextSibling;
-
-		if(isType<VmInstruction>(storeValue))
-			curr = curr->nextSibling;
-	}
-
-	module->currentBlock = NULL;
-}
-
-void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
-{
-	if(!block->firstInstruction)
-		return;
-
-	// Find last phi instruction to process them in reverse order
-	VmInstruction *last = block->firstInstruction;
-
-	while(last->cmd == VM_INST_PHI)
-		last = last->nextSibling;
-
-	assert(last);
-
-	// Alias phi argument registers to the same storage
-	for(VmInstruction *curr = last->prevSibling; curr;)
-	{
-		VmInstruction *prev = curr->prevSibling;
-
-		if(curr->cmd != VM_INST_PHI)
-		{
-			curr = prev;
-			continue;
-		}
-
-		// Can't have any instructions before phi
-		assert(curr->prevSibling == NULL || curr->prevSibling->cmd == VM_INST_PHI);
-
-		TypeBase *type = GetBaseType(ctx, curr->type);
-
-		VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
-
-		address->container->isVmRegSpill = true;
-
-		for(unsigned i = 0; i < curr->arguments.size(); i += 2)
-		{
-			VmInstruction *value = getType<VmInstruction>(curr->arguments[i]);
-			VmBlock *edge = getType<VmBlock>(curr->arguments[i + 1]);
-
-			if(value->parent != edge)
-				edge = value->parent;
-
-			module->currentBlock = edge;
-
-			edge->insertPoint = value;
-
-			while(edge->insertPoint->nextSibling && edge->insertPoint->nextSibling->cmd == VM_INST_PHI)
-				edge->insertPoint = edge->insertPoint->nextSibling;
-
-			CreateStore(ctx, module, value->source, GetBaseType(ctx, value->type), address, value, 0);
-
-			edge->insertPoint = edge->lastInstruction;
-
-			module->currentBlock = NULL;
-		}
-
-		module->currentBlock = block;
-
-		block->insertPoint = curr;
-
-		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, type, address, 0), NULL);
-
-		block->insertPoint = block->lastInstruction;
-
-		module->currentBlock = NULL;
-
-		curr = prev;
-	}
-}
-
 void RunLegalizeArrayValues(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -6974,28 +6825,6 @@ void RunLegalizeExtracts(ExpressionContext &ctx, VmModule *module, VmValue* valu
 	}
 }
 
-void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
-{
-	if(VmFunction *function = getType<VmFunction>(value))
-	{
-		module->currentFunction = function;
-
-		// Legal code doesn't contain dead instructions
-		RunDeadCodeElimiation(ctx, module, function);
-
-		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
-			RunLegalizeVm(ctx, module, curr);
-
-		module->currentFunction = NULL;
-	}
-	else if(VmBlock *block = getType<VmBlock>(value))
-	{
-		LegalizeVmPhiStorage(ctx, module, block);
-
-		LegalizeVmRegisterUsage(ctx, module, block);
-	}
-}
-
 void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 {
 	TRACE_SCOPE("InstructionTreeVm", "RunVmPass");
@@ -7049,9 +6878,6 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 		break;
 	case VM_PASS_LEGALIZE_EXTRACTS:
 		TRACE_LABEL("VM_PASS_LEGALIZE_EXTRACTS");
-		break;
-	case VM_PASS_LEGALIZE_VM:
-		TRACE_LABEL("VM_PASS_LEGALIZE_VM");
 		break;
 	}
 
@@ -7109,9 +6935,6 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_LEGALIZE_EXTRACTS:
 			RunLegalizeExtracts(ctx, module, value);
-			break;
-		case VM_PASS_LEGALIZE_VM:
-			RunLegalizeVm(ctx, module, value);
 			break;
 		}
 

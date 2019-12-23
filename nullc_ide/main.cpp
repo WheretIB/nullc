@@ -29,6 +29,7 @@
 #include "../NULLC/nullc.h"
 #include "../NULLC/nullbind.h"
 #include "../NULLC/nullc_debug.h"
+#include "../NULLC/StrAlgo.h"
 
 #include "Colorer.h"
 

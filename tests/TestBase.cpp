@@ -29,9 +29,9 @@ double myGetPreciseTime()
 TestQueue* TestQueue::head = NULL;
 TestQueue* TestQueue::tail = NULL;
 
-int testsPassed[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
-int testsCount[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
-unsigned int testTarget[TEST_TARGET_COUNT] = { NULLC_VM, NULLC_REG_VM, NULLC_X86, NULLC_LLVM };
+int testsPassed[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+int testsCount[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+unsigned int testTarget[TEST_TARGET_COUNT] = { NULLC_REG_VM, NULLC_X86, NULLC_LLVM };
 
 namespace Tests
 {
@@ -71,7 +71,6 @@ namespace Tests
 
 	bool	testExecutor[TEST_TARGET_COUNT] = {
 		true,
-		true,
 #ifdef NULLC_BUILD_X86_JIT
 		true,
 #else
@@ -86,13 +85,11 @@ namespace Tests
 
 	bool	testVmExecutor[TEST_TARGET_COUNT] = {
 		true,
-		true,
 		false,
 		false,
 	};
 
 	bool	testFailureExecutor[TEST_TARGET_COUNT] = {
-		true,
 		true,
 #if defined(NULLC_BUILD_X86_JIT)
 		true,
@@ -103,7 +100,6 @@ namespace Tests
 	};
 
 	bool	testHardFailureExecutor[TEST_TARGET_COUNT] = {
-		true,
 		true,
 #if defined(NULLC_BUILD_X86_JIT) && defined(NDEBUG)
 		true,
@@ -400,13 +396,13 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 	lastMessage = message;
 
-	if(message && messageVerbose && executor == NULLC_VM)
-		printf("%4d/%4d %s %s\n", testsPassed[TEST_TYPE_VM], testsCount[TEST_TYPE_VM] - 1, message, variant);
+	if(message && messageVerbose && executor == NULLC_REG_VM)
+		printf("%4d/%4d %s %s\n", testsPassed[NULLC_REG_VM], testsCount[NULLC_REG_VM] - 1, message, variant);
 
 	nullcSetExecutor(executor);
 
 	char buf[256];
-	sprintf(buf, "%s", executor == NULLC_VM ? "VM " : executor == NULLC_X86 ? "X86" : (executor == NULLC_LLVM ? "LLVM" : "REGVM"));
+	sprintf(buf, "%s", executor == NULLC_X86 ? "X86" : (executor == NULLC_LLVM ? "LLVM" : "REGVM"));
 
 	double time = myGetPreciseTime();
 
@@ -446,7 +442,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		timeGetBytecode += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
 
-		if(executor == NULLC_VM && !execShouldFail && (doSaveTranslation || doTranslation))
+		if(executor == NULLC_REG_VM && !execShouldFail && (doSaveTranslation || doTranslation))
 		{
 			for(unsigned i = 0; i < translationDependencyCount; i++)
 				free(translationDependencies[i]);
@@ -468,7 +464,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		char exprEvalBuf[256];
 		bool exprCheckResult = false;
 
-		if(executor == NULLC_VM && !execShouldFail && doExprEvaluation)
+		if(executor == NULLC_REG_VM && !execShouldFail && doExprEvaluation)
 		{
 			exprCheckResult = nullcTestEvaluateExpressionTree(exprEvalBuf, 256) != 0;
 
@@ -482,7 +478,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		char instEvalBuf[256];
 		bool instCheckResult = false;
 
-		if(executor == NULLC_VM && !execShouldFail && doInstEvaluation)
+		if(executor == NULLC_REG_VM && !execShouldFail && doInstEvaluation)
 		{
 			instCheckResult = nullcTestEvaluateInstructionTree(instEvalBuf, 256) != 0;
 
@@ -605,7 +601,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	varInfo = nullcDebugVariableInfo(&variableCount);
 	symbols = nullcDebugSymbols(NULL);
 
-	if(executor == NULLC_VM && !execShouldFail && doTranslation)
+	if(executor == NULLC_REG_VM && !execShouldFail && doTranslation)
 	{
 		testsCount[TEST_TYPE_TRANSLATION]++;
 

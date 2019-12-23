@@ -4,7 +4,8 @@
 
 #include "Compiler.h"
 #include "Linker.h"
-#include "Executor.h"
+
+#include "Executor_Common.h"
 #ifdef NULLC_BUILD_X86_JIT
 	#include "Executor_X86.h"
 #endif
@@ -20,7 +21,6 @@
 #include "includes/typeinfo.h"
 #include "includes/dynamic.h"
 
-class Executor;
 class ExecutorX86;
 class ExecutorLLVM;
 class ExecutorRegVm;
@@ -31,7 +31,6 @@ namespace NULLC
 {
 	Linker*		linker;
 
-	Executor*		executor;
 	ExecutorX86*	executorX86;
 	ExecutorLLVM*	executorLLVM;
 	ExecutorRegVm*	executorRegVm;
@@ -103,7 +102,7 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 
 #ifndef NULLC_NO_EXECUTOR
 	linker = NULLC::construct<Linker>();
-	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);
+
 	NULLC::SetGlobalLimit(NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT);
 #endif
 
@@ -173,8 +172,6 @@ nullres nullcSetExecutorStackSize(unsigned bytes)
 	NULLC_CHECK_INITIALIZED(0);
 
 #ifndef NULLC_NO_EXECUTOR
-	if(!executor->SetStackSize(bytes))
-		return 0;
 
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86->SetStackSize(bytes))
@@ -613,7 +610,6 @@ void nullcClean()
 
 #ifndef NULLC_NO_EXECUTOR
 	linker->CleanCode();
-	executor->ClearBreakpoints();
 
 	#ifdef NULLC_BUILD_X86_JIT
 	executorX86->ClearNative();
@@ -660,16 +656,6 @@ nullres nullcLinkCode(const char *bytecode)
 
 	if(enableLogFiles)
 	{
-		outputCtx.stream = outputCtx.openStream("link_vm.txt");
-
-		if(outputCtx.stream)
-		{
-			linker->SaveVmListing(outputCtx);
-
-			outputCtx.closeStream(outputCtx.stream);
-			outputCtx.stream = NULL;
-		}
-
 		outputCtx.stream = outputCtx.openStream("link_reg_vm.txt");
 
 		if(outputCtx.stream)
@@ -683,11 +669,6 @@ nullres nullcLinkCode(const char *bytecode)
 #else
 	(void)bytecode;
 	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
-#endif
-
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		executor->UpdateInstructionPointer();
 #endif
 
 	if(currExec == NULLC_X86)
@@ -720,7 +701,7 @@ nullres nullcLinkCode(const char *bytecode)
 
 #ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_REG_VM)
-		executor->UpdateInstructionPointer();
+		executorRegVm->UpdateInstructionPointer();
 #endif
 
 #ifndef NULLC_NO_EXECUTOR
@@ -941,19 +922,7 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 
 	nullres good = true;
 
-	if(currExec == NULLC_VM)
-	{
-#ifndef NULLC_NO_EXECUTOR
-		executor->Run(functionID, argBuf);
-		const char* error = executor->GetExecError();
-		if(error[0] != '\0')
-		{
-			good = false;
-			nullcLastError = error;
-		}
-#endif
-	}
-	else if(currExec == NULLC_X86)
+	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(functionID, argBuf);
@@ -1051,11 +1020,7 @@ void nullcThrowError(const char* error, ...)
 
 	va_end(args);
 
-	if(currExec == NULLC_VM)
-	{
-		executor->Stop(buf);
-	}
-	else if(currExec == NULLC_X86)
+	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Stop(buf);
@@ -1084,12 +1049,7 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	if(!argBuf)
 		return false;
 	
-	if(currExec == NULLC_VM)
-	{
-		executor->Run(ptr.id, argBuf);
-		error = executor->GetExecError();
-	}
-	else if(currExec == NULLC_X86)
+	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(ptr.id, argBuf);
@@ -1267,9 +1227,6 @@ nullres nullcRedirectFunction(unsigned sourceId, unsigned targetId)
 	ExternFuncInfo &destFunc = linker->exFunctions[sourceId];
 	ExternFuncInfo &srcFunc = linker->exFunctions[targetId];
 
-	destFunc.vmAddress = srcFunc.vmAddress;
-	destFunc.vmCodeSize = srcFunc.vmCodeSize;
-
 	destFunc.regVmAddress = srcFunc.regVmAddress;
 	destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
 	destFunc.regVmRegisters = srcFunc.regVmRegisters;
@@ -1300,10 +1257,6 @@ const char* nullcGetResult()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED("");
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResult();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResult();
@@ -1325,10 +1278,6 @@ int nullcGetResultInt()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResultInt();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultInt();
@@ -1350,10 +1299,6 @@ double nullcGetResultDouble()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0.0);
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResultDouble();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultDouble();
@@ -1374,10 +1319,6 @@ long long nullcGetResultLong()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResultLong();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultLong();
@@ -1484,8 +1425,6 @@ void nullcTerminate()
 
 	NULLC::destruct(linker);
 	linker = NULL;
-	NULLC::destruct(executor);
-	executor = NULL;
 #endif
 #ifdef NULLC_BUILD_X86_JIT
 	NULLC::destruct(executorX86);
@@ -1554,13 +1493,7 @@ void* nullcGetVariableData(unsigned int *count)
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM)
-	{
-#ifndef NULLC_NO_EXECUTOR
-		return executor->GetVariableData(count);
-#endif
-	}
-	else if(currExec == NULLC_X86)
+	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
 		return executorX86->GetVariableData(count);
@@ -1589,7 +1522,7 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 
 #if !defined(NULLC_NO_EXECUTOR)
 	if(exec)
-		*exec = (currExec == NULLC_VM ? (void*)executor : (currExec == NULLC_X86 ? (void*)executorX86 : (currExec == NULLC_LLVM ? (void*)executorLLVM : (void*)executorRegVm)));
+		*exec = currExec == NULLC_X86 ? (void*)executorX86 : (currExec == NULLC_LLVM ? (void*)executorLLVM : (void*)executorRegVm);
 #else
 	*exec = NULL;
 #endif
@@ -1668,25 +1601,9 @@ ExternSourceInfo* nullcDebugSourceInfo(unsigned int *count)
 {
 	using namespace NULLC;
 
-	if(nullcGetCurrentExecutor(NULL) == NULLC_REG_VM || nullcGetCurrentExecutor(NULL) == NULLC_X86)
-	{
-		if(count && linker)
-			*count = linker->exRegVmSourceInfo.size();
-		return linker ? (ExternSourceInfo*)linker->exRegVmSourceInfo.data : NULL;
-	}
-
 	if(count && linker)
-		*count = linker->exVmSourceInfo.size();
-	return linker ? (ExternSourceInfo*)linker->exVmSourceInfo.data : NULL;
-}
-
-VMCmd* nullcDebugCode(unsigned int *count)
-{
-	using namespace NULLC;
-
-	if(count && linker)
-		*count = linker->exVmCode.size();
-	return linker ? (VMCmd*)linker->exVmCode.data : NULL;
+		*count = linker->exRegVmSourceInfo.size();
+	return linker ? (ExternSourceInfo*)linker->exRegVmSourceInfo.data : NULL;
 }
 
 ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
@@ -1703,13 +1620,7 @@ void nullcDebugBeginCallStack()
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM)
-	{
-#ifndef NULLC_NO_EXECUTOR
-		executor->BeginCallStack();
-#endif
-	}
-	else if(currExec == NULLC_X86)
+	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->BeginCallStack();
@@ -1728,14 +1639,9 @@ unsigned int nullcDebugGetStackFrame()
 	using namespace NULLC;
 
 	unsigned int address = 0;
+
 	// Get next address from call stack
-	if(currExec == NULLC_VM)
-	{
-#ifndef NULLC_NO_EXECUTOR
-		address = executor->GetNextAddress();
-#endif
-	}
-	else if(currExec == NULLC_X86)
+	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
 		address = executorX86->GetNextAddress();
@@ -1755,13 +1661,6 @@ unsigned int nullcDebugGetStackFrame()
 nullres nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))
 {
 	using namespace NULLC;
-
-	if(!executor)
-	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	executor->SetBreakFunction(context, callback);
 
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
@@ -1786,13 +1685,6 @@ nullres nullcDebugClearBreakpoints()
 {
 	using namespace NULLC;
 
-	if(!executor)
-	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	executor->ClearBreakpoints();
-
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
@@ -1815,21 +1707,6 @@ nullres nullcDebugClearBreakpoints()
 nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 {
 	using namespace NULLC;
-
-	if(currExec == NULLC_VM)
-	{
-		if(!executor)
-		{
-			nullcLastError = "ERROR: NULLC is not initialized";
-			return false;
-		}
-
-		if(!executor->AddBreakpoint(instruction, oneHit))
-		{
-			nullcLastError = executor->GetExecError();
-			return false;
-		}
-	}
 
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
@@ -1879,20 +1756,6 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM)
-	{
-		if(!executor)
-		{
-			nullcLastError = "ERROR: NULLC is not initialized";
-			return false;
-		}
-		if(!executor->RemoveBreakpoint(instruction))
-		{
-			nullcLastError = executor->GetExecError();
-			return false;
-		}
-	}
-
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 	{
@@ -1930,21 +1793,10 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM)
+	for(unsigned i = 0; i < functionCount; i++)
 	{
-		for(unsigned i = 0; i < functionCount; i++)
-		{
-			if(instruction >= codeFunctions[i].vmAddress && instruction < (codeFunctions[i].vmAddress + codeFunctions[i].vmCodeSize))
-				return &codeFunctions[i];
-		}
-	}
-	else if(currExec == NULLC_REG_VM || currExec == NULLC_X86)
-	{
-		for(unsigned i = 0; i < functionCount; i++)
-		{
-			if(instruction >= codeFunctions[i].regVmAddress && instruction < (codeFunctions[i].regVmAddress + codeFunctions[i].regVmCodeSize))
-				return &codeFunctions[i];
-		}
+		if(instruction >= codeFunctions[i].regVmAddress && instruction < (codeFunctions[i].regVmAddress + codeFunctions[i].regVmCodeSize))
+			return &codeFunctions[i];
 	}
 
 	return NULL;

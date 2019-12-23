@@ -102,9 +102,6 @@ struct ExternFuncInfo
 {
 	unsigned int	offsetToName;
 
-	int				vmAddress;
-	int				vmCodeSize;
-
 	int				regVmAddress;
 	int				regVmCodeSize;
 	int				regVmRegisters;
@@ -262,13 +259,6 @@ struct ByteCode
 
 	unsigned int	closureListCount;
 
-	unsigned int	vmInfoSize;
-	unsigned int	vmOffsetToInfo;
-
-	unsigned int	vmCodeSize;
-	unsigned int	vmOffsetToCode;
-	unsigned int	vmGlobalCodeStart;
-
 	unsigned int	regVmInfoSize;
 	unsigned int	regVmOffsetToInfo;
 
@@ -320,11 +310,7 @@ struct ByteCode
 
 //	ExternNamespaceInfo	namespaces[namespaceCount];
 
-//	char			vmCode[vmCodeSize];
-
 //	char			regVmCode[regVmCodeSize];
-
-//	ExternSourceInfo	vmSourceInfo[vmInfoSize];
 
 //	ExternSourceInfo	regVmSourceInfo[regVmInfoSize];
 
@@ -348,8 +334,6 @@ ExternFuncInfo*		FindFirstFunc(ByteCode *code);
 ExternLocalInfo*	FindFirstLocal(ByteCode *code);
 ExternTypedefInfo*	FindFirstTypedef(ByteCode *code);
 ExternNamespaceInfo*FindFirstNamespace(ByteCode *code);
-char*				FindVmCode(ByteCode *code);
-ExternSourceInfo*	FindVmSourceInfo(ByteCode *code);
 char*				FindRegVmCode(ByteCode *code);
 ExternSourceInfo*	FindRegVmSourceInfo(ByteCode *code);
 char*				FindSymbols(ByteCode *code);

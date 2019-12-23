@@ -31,114 +31,125 @@ void RunInterfaceTests()
 	const char *partA1 = "int a = 5;\r\nint c = 8;\r\nint test(int ref a, int b)\r\n{\r\n\treturn *a += b;\r\n}\r\ntest(&a, 4);\r\nint run(){ test(&a, 4); return c; }\r\n";
 	const char *partB1 = "int aa = 15;\r\nint testA(int ref a, int b)\r\n{\r\n\treturn *a += b + 1;\r\n}\r\ntestA(&aa, 5);\r\nvoid runA(){ testA(&aa, 5); }\r\nreturn aa;\r\n";
 
-	char *bytecodeA, *bytecodeB;
-	bytecodeA = NULL;
-	bytecodeB = NULL;
-
-	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
-		if(!Tests::testExecutor[t])
-			continue;
-		testsCount[t]++;
-		nullcSetExecutor(testTarget[t]);
+		char *bytecodeA, *bytecodeB;
+		bytecodeA = NULL;
+		bytecodeB = NULL;
 
-		nullres good = nullcCompile(partA1);
-		nullcSaveListing(FILE_PATH "asm.txt");
-		if(!good)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
-			if(!Tests::messageVerbose)
-				printf("Two bytecode merge test 1\r\n");
-			printf("Compilation failed: %s\r\n", nullcGetLastError());
-			continue;
-		}else{
-			nullcGetBytecode(&bytecodeA);
-		}
+			if(!Tests::testExecutor[t])
+				continue;
+			testsCount[t]++;
+			nullcSetExecutor(testTarget[t]);
 
-		good = nullcCompile(partB1);
-		nullcSaveListing(FILE_PATH "asm.txt");
-		if(!good)
-		{
-			if(!Tests::messageVerbose)
-				printf("Two bytecode merge test 1\r\n");
-			printf("Compilation failed: %s\r\n", nullcGetLastError());
-			continue;
-		}else{
-			nullcGetBytecode(&bytecodeB);
-		}
-
-		remove(FILE_PATH "asm.txt");
-
-		nullcClean();
-		if(!nullcLinkCode(bytecodeA))
-		{
-			if(!Tests::messageVerbose)
-				printf("Two bytecode merge test 1\r\n");
-			printf("Compilation failed: %s\r\n", nullcGetLastError());
-			continue;
-		}
-		if(!nullcLinkCode(bytecodeB))
-		{
-			if(!Tests::messageVerbose)
-				printf("Two bytecode merge test 1\r\n");
-			printf("Compilation failed: %s\r\n", nullcGetLastError());
-			break;
-		}
-		delete[] bytecodeA;
-		delete[] bytecodeB;
-
-		if(!nullcRunFunction(NULL))
-		{
-			if(!Tests::messageVerbose)
-				printf("Two bytecode merge test 1\r\n");
-			printf("Execution failed: %s\r\n", nullcGetLastError());
-		}else{
-			int* val = (int*)nullcGetGlobal("c");
-			if(*val != 8)
+			nullres good = nullcCompile(partA1);
+			nullcSaveListing(FILE_PATH "asm.txt");
+			if(!good)
 			{
 				if(!Tests::messageVerbose)
 					printf("Two bytecode merge test 1\r\n");
-				printf("nullcGetGlobal failed\r\n");
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
 				continue;
 			}
-			int n = 45;
-			nullcSetGlobal("c", &n);
-			if(!nullcRunFunction("run"))
+			else
+			{
+				nullcGetBytecode(&bytecodeA);
+			}
+
+			good = nullcCompile(partB1);
+			nullcSaveListing(FILE_PATH "asm.txt");
+			if(!good)
+			{
+				if(!Tests::messageVerbose)
+					printf("Two bytecode merge test 1\r\n");
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			else
+			{
+				nullcGetBytecode(&bytecodeB);
+			}
+
+			remove(FILE_PATH "asm.txt");
+
+			nullcClean();
+			if(!nullcLinkCode(bytecodeA))
+			{
+				if(!Tests::messageVerbose)
+					printf("Two bytecode merge test 1\r\n");
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				continue;
+			}
+			if(!nullcLinkCode(bytecodeB))
+			{
+				if(!Tests::messageVerbose)
+					printf("Two bytecode merge test 1\r\n");
+				printf("Compilation failed: %s\r\n", nullcGetLastError());
+				break;
+			}
+			delete[] bytecodeA;
+			delete[] bytecodeB;
+
+			if(!nullcRunFunction(NULL))
 			{
 				if(!Tests::messageVerbose)
 					printf("Two bytecode merge test 1\r\n");
 				printf("Execution failed: %s\r\n", nullcGetLastError());
-			}else{
-				if(nullcGetResultInt() != n)
+			}
+			else
+			{
+				int* val = (int*)nullcGetGlobal("c");
+				if(*val != 8)
 				{
 					if(!Tests::messageVerbose)
 						printf("Two bytecode merge test 1\r\n");
-					printf("nullcSetGlobal failed\r\n");
+					printf("nullcGetGlobal failed\r\n");
 					continue;
 				}
-				if(!nullcRunFunction("runA"))
+				int n = 45;
+				nullcSetGlobal("c", &n);
+				if(!nullcRunFunction("run"))
 				{
 					if(!Tests::messageVerbose)
 						printf("Two bytecode merge test 1\r\n");
 					printf("Execution failed: %s\r\n", nullcGetLastError());
-				}else{
-					Tests::varData = (char*)nullcGetVariableData(NULL);
-					Tests::varInfo = nullcDebugVariableInfo(&Tests::variableCount);
-					Tests::symbols = nullcDebugSymbols(NULL);
-
-					if(Tests::varInfo)
+				}
+				else
+				{
+					if(nullcGetResultInt() != n)
 					{
-						bool lastFailed = false;
-						CHECK_INT("a", 0, 13, lastFailed);
-						CHECK_INT("aa", 0, 27, lastFailed);
-						if(!lastFailed)
-							testsPassed[t]++;
+						if(!Tests::messageVerbose)
+							printf("Two bytecode merge test 1\r\n");
+						printf("nullcSetGlobal failed\r\n");
+						continue;
+					}
+					if(!nullcRunFunction("runA"))
+					{
+						if(!Tests::messageVerbose)
+							printf("Two bytecode merge test 1\r\n");
+						printf("Execution failed: %s\r\n", nullcGetLastError());
+					}
+					else
+					{
+						Tests::varData = (char*)nullcGetVariableData(NULL);
+						Tests::varInfo = nullcDebugVariableInfo(&Tests::variableCount);
+						Tests::symbols = nullcDebugSymbols(NULL);
+
+						if(Tests::varInfo)
+						{
+							bool lastFailed = false;
+							CHECK_INT("a", 0, 13, lastFailed);
+							CHECK_INT("aa", 0, 27, lastFailed);
+							if(!lastFailed)
+								testsPassed[t]++;
+						}
 					}
 				}
 			}
 		}
 	}
 
-//////////////////////////////////////////////////////////////////////////
 	{
 		if(Tests::messageVerbose)
 			printf("Function update test\r\n");
@@ -146,7 +157,7 @@ void RunInterfaceTests()
 		const char *partA = "int foo(){ return 15; }";
 		const char *partB = "import __last; import std.dynamic; int new_foo(){ return 25; } void foo_update(){ override(foo, new_foo); }\r\n";
 		
-		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
+		int regVmPassed = testsPassed[TEST_TYPE_REGVM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
 		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
@@ -222,8 +233,8 @@ void RunInterfaceTests()
 			}
 			testsPassed[t]++;
 		}
-		if(vmPassed + 1 != testsPassed[NULLC_VM])
-			printf("VM failed test: Function update test\r\n");
+		if(regVmPassed + 1 != testsPassed[NULLC_REG_VM])
+			printf("REGVM failed test: Function update test\r\n");
 		if(Tests::testExecutor[NULLC_X86] && x86Passed + 1 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Function update test\r\n");
 	}
@@ -235,7 +246,7 @@ void RunInterfaceTests()
 		const char *partA = "int foo(){ return 15; }";
 		const char *partB = "int new_foo(){ return 25; }\r\n";
 
-		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
+		int regVmPassed = testsPassed[TEST_TYPE_REGVM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
 		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
@@ -335,8 +346,8 @@ void RunInterfaceTests()
 			}
 			testsPassed[t]++;
 		}
-		if(vmPassed + 2 != testsPassed[NULLC_VM])
-			printf("VM failed test: Function update test 2\r\n");
+		if(regVmPassed + 2 != testsPassed[NULLC_REG_VM])
+			printf("REGVM failed test: Function update test 2\r\n");
 		if(Tests::testExecutor[NULLC_X86] && x86Passed + 2 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Function update test 2\r\n");
 	}
@@ -347,7 +358,7 @@ void RunInterfaceTests()
 
 		const char *code = "int Char(char x){ return -x*2; } int Short(short x){ return -x*3; } int Int(int x){ return -x*4; } int Long(long x){ return -x*5; } int Float(float x){ return -x*6; } int Double(double x){ return -x*7; } int Ptr(int ref x){ return -*x; }";
 
-		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
+		int regVmPassed = testsPassed[TEST_TYPE_REGVM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
 		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
@@ -378,8 +389,8 @@ void RunInterfaceTests()
 
 			testsPassed[t]++;
 		}
-		if(vmPassed + 1 != testsPassed[NULLC_VM])
-			printf("VM failed test: Value pass through nullcCallFunction\r\n");
+		if(regVmPassed + 1 != testsPassed[TEST_TYPE_REGVM])
+			printf("REGVM failed test: Value pass through nullcCallFunction\r\n");
 		if(Tests::testExecutor[NULLC_X86] && x86Passed + 1 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Value pass through nullcCallFunction\r\n");
 	}
@@ -389,7 +400,7 @@ void RunInterfaceTests()
 
 		const char *code = "int foo(int[] arr){ return arr[0] + arr.size; } int NULLCRef(auto ref x){ return -int(x); } int bar(){ return 127; } int NULLCFunc(int ref() x){ return x(); } int NULLCArray(auto[] arr){ return int(arr[0]); }";
 
-		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
+		int regVmPassed = testsPassed[TEST_TYPE_REGVM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
 		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
@@ -427,8 +438,8 @@ void RunInterfaceTests()
 			
 			testsPassed[t]++;
 		}
-		if(vmPassed + 1 != testsPassed[NULLC_VM])
-			printf("VM failed test: Structure pass through nullcCallFunction\r\n");
+		if(regVmPassed + 1 != testsPassed[TEST_TYPE_REGVM])
+			printf("REGVM failed test: Structure pass through nullcCallFunction\r\n");
 		if(Tests::testExecutor[NULLC_X86] && x86Passed + 1 != testsPassed[NULLC_X86])
 			printf("X86 failed test: Structure pass through nullcCallFunction\r\n");
 	}

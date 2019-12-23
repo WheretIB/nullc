@@ -213,7 +213,7 @@ struct Test_testMultipleTransitions : TestQueue
 					if(!Tests::messageVerbose)
 						printf("Call stack when there are various transitions between NULLC and C\r\n");
 
-					const char *targetName = testTarget[t] == NULLC_VM ? "VM " : testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM");
+					const char *targetName = testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM");
 
 					printf("%s failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", targetName, nullcGetLastError(), error);
 				}else{

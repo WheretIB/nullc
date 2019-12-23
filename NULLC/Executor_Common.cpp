@@ -3,7 +3,6 @@
 #include "StdLib.h"
 #include "nullc.h"
 #include "nullc_debug.h"
-#include "Executor.h"
 #include "Executor_X86.h"
 #include "Executor_LLVM.h"
 #include "Executor_RegVm.h"
@@ -135,27 +134,16 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
 	FastVector<ExternModuleInfo> &exModules = NULLC::commonLinker->exModules;
 
-	void *unknownExec = NULL;
-	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
-
-	ExternSourceInfo *exInfo = execID == NULLC_REG_VM || execID == NULLC_X86 ? &NULLC::commonLinker->exRegVmSourceInfo[0] : &NULLC::commonLinker->exVmSourceInfo[0];
-	unsigned int infoSize = execID == NULLC_REG_VM || execID == NULLC_X86 ? NULLC::commonLinker->exRegVmSourceInfo.size() : NULLC::commonLinker->exVmSourceInfo.size();
+	ExternSourceInfo *exInfo = &NULLC::commonLinker->exRegVmSourceInfo[0];
+	unsigned int infoSize = NULLC::commonLinker->exRegVmSourceInfo.size();
 
 	const char *source = &NULLC::commonLinker->exSource[0];
 
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
 	{
-		if(execID == NULLC_REG_VM || execID == NULLC_X86)
-		{
-			if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
-				funcID = i;
-		}
-		else
-		{
-			if(address >= exFunctions[i].vmAddress && address <= (exFunctions[i].vmAddress + exFunctions[i].vmCodeSize))
-				funcID = i;
-		}
+		if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
+			funcID = i;
 	}
 
 	if(funcID != -1)
@@ -836,13 +824,8 @@ namespace GC
 		const ExternFuncInfo &func = NULLC::commonLinker->exFunctions[fPtr->id];
 
 		// External functions shouldn't be checked
-		if(func.vmAddress == -1)
-		{
-			assert(func.regVmAddress == -1);
+		if(func.regVmAddress == -1)
 			return;
-		}
-
-		assert(func.regVmAddress != -1);
 
 		// If context is "this" pointer
 		if(func.contextType != ~0u)
@@ -945,12 +928,6 @@ void MarkUsedBlocks()
 	int offset = NULLC::commonLinker->globalVarSize;
 	
 	// Init stack trace
-	if(execID == NULLC_VM)
-	{
-		Executor *exec = (Executor*)unknownExec;
-		exec->BeginCallStack();
-	}
-	
 #ifdef NULLC_BUILD_X86_JIT
 	if(execID == NULLC_X86)
 	{
@@ -977,12 +954,8 @@ void MarkUsedBlocks()
 	while(true)
 	{
 		int address = 0;
+
 		// Get next address from call stack
-		if(execID == NULLC_VM)
-		{
-			Executor *exec = (Executor*)unknownExec;
-			address = exec->GetNextAddress();
-		}
 
 #ifdef NULLC_BUILD_X86_JIT
 		if(execID == NULLC_X86)
@@ -1020,16 +993,8 @@ void MarkUsedBlocks()
 		}else{
 			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
-				if(execID == NULLC_REG_VM || execID == NULLC_X86)
-				{
-					if(address >= functions[i].regVmAddress && address < (functions[i].regVmAddress + functions[i].regVmCodeSize))
-						funcID = i;
-				}
-				else
-				{
-					if(address >= functions[i].vmAddress && address < (functions[i].vmAddress + functions[i].vmCodeSize))
-						funcID = i;
-				}
+				if(address >= functions[i].regVmAddress && address < (functions[i].regVmAddress + functions[i].regVmCodeSize))
+					funcID = i;
 			}
 
 			GC::functionIDs.insert(address, funcID);
@@ -1069,13 +1034,6 @@ void MarkUsedBlocks()
 
 	// Check for pointers in stack
 	char *tempStackBase = NULL, *tempStackTop = NULL;
-
-	if(execID == NULLC_VM)
-	{
-		Executor *exec = (Executor*)unknownExec;
-		tempStackBase = (char*)exec->GetStackStart();
-		tempStackTop = (char*)exec->GetStackEnd();
-	}
 
 #ifdef NULLC_BUILD_X86_JIT
 	if(execID == NULLC_X86)
