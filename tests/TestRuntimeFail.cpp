@@ -244,7 +244,7 @@ struct Test_testDepthOverflow : TestQueue
 	virtual void Run()
 	{
 		nullcClean();
-		nullcSetExecutorStackSize(32 * 1024);
+		nullcSetExecutorStackSize(16 * 1024);
 
 		if(Tests::messageVerbose)
 			printf("Call depth test\r\n");
