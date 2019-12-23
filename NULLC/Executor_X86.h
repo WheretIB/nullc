@@ -8,7 +8,11 @@
 typedef struct DCCallVM_ DCCallVM;
 #endif
 
+#if _MSC_VER <= 1600
+typedef struct _RUNTIME_FUNCTION RUNTIME_FUNCTION;
+#else
 typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY RUNTIME_FUNCTION;
+#endif
 
 class Linker;
 

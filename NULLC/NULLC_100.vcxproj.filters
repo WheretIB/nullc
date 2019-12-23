@@ -77,9 +77,6 @@
     <ClCompile Include="StdLib.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="Executor.cpp">
-      <Filter>Executor</Filter>
-    </ClCompile>
     <ClCompile Include="Executor_Common.cpp">
       <Filter>Executor</Filter>
     </ClCompile>
@@ -176,12 +173,6 @@
     <ClCompile Include="InstructionTreeVmGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="InstructionTreeVmLower.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
-    <ClCompile Include="InstructionTreeVmLowerGraph.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
     <ClCompile Include="TypeTree.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
@@ -202,6 +193,24 @@
     </ClCompile>
     <ClCompile Include="InstructionTreeLlvm.cpp">
       <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="CodeGenRegVm_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Instruction_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLower.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_RegVm.cpp">
+      <Filter>Executor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -255,9 +264,6 @@
     </ClInclude>
     <ClInclude Include="StdLib.h">
       <Filter>Compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="Executor.h">
-      <Filter>Executor</Filter>
     </ClInclude>
     <ClInclude Include="Executor_Common.h">
       <Filter>Executor</Filter>
@@ -373,15 +379,6 @@
     <ClInclude Include="InstructionTreeVmEval.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="InstructionTreeVmGraph.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="InstructionTreeVmLower.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="InstructionTreeVmLowerGraph.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
     <ClInclude Include="Output.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -399,6 +396,21 @@
     </ClInclude>
     <ClInclude Include="InstructionTreeLlvm.h">
       <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGenRegVm_X86.h">
+      <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLowerGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_RegVm.h">
+      <Filter>Executor</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -59,12 +59,6 @@
     <ClCompile Include="InstructionTreeVmGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="InstructionTreeVmLower.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
-    <ClCompile Include="InstructionTreeVmLowerGraph.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
     <ClCompile Include="ParseGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
@@ -75,6 +69,15 @@
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="InstructionTreeLlvm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLower.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
   </ItemGroup>
@@ -139,9 +142,6 @@
     <ClInclude Include="ExpressionTranslate.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="InstructionTreeVmLowerGraph.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
     <ClInclude Include="InstructionTreeVm.h">
       <Filter>Compiler</Filter>
     </ClInclude>
@@ -154,9 +154,6 @@
     <ClInclude Include="InstructionTreeVmGraph.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="InstructionTreeVmLower.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
     <ClInclude Include="ParseTree.h">
       <Filter>Compiler</Filter>
     </ClInclude>
@@ -167,6 +164,15 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="InstructionTreeLlvm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLowerGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVm.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>
