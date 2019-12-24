@@ -171,19 +171,6 @@ x86Reg GenCodeLoadInt32FromPointerIntoRegister(CodeGenRegVmContext &ctx, unsigne
 	return targetReg;
 }
 
-void GenCodeStoreInt32ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rR15, offset, sourceReg); // Store int value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void GenCodeLoadInt64FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrRegisters)
@@ -255,19 +242,6 @@ x86Reg GenCodeLoadInt64FromPointerIntoRegister(CodeGenRegVmContext &ctx, unsigne
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, targetReg, sQWORD, targetReg, offset); // Load long value
 
 	return targetReg;
-}
-
-void GenCodeStoreInt64ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rR15, offset, sourceReg); // Store long value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
 }
 
 void GenCodeLoadFloatFromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86XmmReg targetReg, unsigned char reg, unsigned offset)
@@ -960,9 +934,36 @@ void GenCodeCmdStoreWord(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdStoreDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
+	x86Reg temp = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rA * 8, true);
 
-	GenCodeStoreInt32ToPointer(ctx, rRAX, rEDX, cmd.rC, cmd.argument);
+	if(temp == rRegCount)
+	{
+		temp = ctx.ctx.GetReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, temp, sDWORD, rREG, cmd.rA * 8); // Load value
+	}
+	else
+	{
+		ctx.ctx.LockReg(temp);
+	}
+
+	if(cmd.rC == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rR15, cmd.argument, temp); // Store int value
+	}
+	else
+	{
+		x86Reg address = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rC * 8, true);
+
+		if(address == rRegCount)
+		{
+			address = ctx.ctx.GetReg();
+
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, address, sQWORD, rREG, cmd.rC * 8); // Load target pointer
+		}
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, address, cmd.argument, temp); // Store value to target with an offset
+	}
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
 
@@ -973,9 +974,36 @@ void GenCodeCmdStoreDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdStoreLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rA * 8); // Load value
+	x86Reg temp = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rA * 8, true);
 
-	GenCodeStoreInt64ToPointer(ctx, rRAX, rRDX, cmd.rC, cmd.argument);
+	if(temp == rRegCount)
+	{
+		temp = ctx.ctx.GetReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, temp, sQWORD, rREG, cmd.rA * 8); // Load value
+	}
+	else
+	{
+		ctx.ctx.LockReg(temp);
+	}
+
+	if(cmd.rC == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rR15, cmd.argument, temp); // Store long value
+	}
+	else
+	{
+		x86Reg address = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rC * 8, true);
+
+		if(address == rRegCount)
+		{
+			address = ctx.ctx.GetReg();
+
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, address, sQWORD, rREG, cmd.rC * 8); // Load target pointer
+		}
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, address, cmd.argument, temp); // Store value to target with an offset
+	}
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rA * 8); // Load value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8 + 4);
@@ -1975,19 +2003,25 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempStack, sQWORD, rR13, nullcOffsetOf(ctx.vmState, tempStackArrayBase));
 
+	x86Reg rTempReg = rRegCount;
+	x86XmmReg rTempXmm = rXmmRegCount;
+
 	switch(resultType)
 	{
 	case rvrDouble:
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rTempStack, 0);
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, resultReg * 8, rRAX);
+		rTempXmm = ctx.ctx.GetXmmReg();
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rTempXmm, sQWORD, rTempStack, 0);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, resultReg * 8, rTempXmm);
 		break;
 	case rvrLong:
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rTempStack, 0);
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, resultReg * 8, rRAX);
+		rTempReg = ctx.ctx.GetReg();
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempReg, sQWORD, rTempStack, 0);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, resultReg * 8, rTempReg);
 		break;
 	case rvrInt:
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rTempStack, 0);
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, resultReg * 8, rEAX);
+		rTempReg = ctx.ctx.GetReg();
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rTempReg, sDWORD, rTempStack, 0);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, resultReg * 8, rTempReg);
 		break;
 	default:
 		break;
@@ -2000,13 +2034,15 @@ void GetCodeCmdCallEpilogue(CodeGenRegVmContext &ctx, unsigned *microcode, unsig
 		switch(*microcode++)
 		{
 		case rvmiPop:
-			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rTempStack, tempStackPtrOffset);
-			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, *microcode++ * 8, rEAX);
+			rTempReg = ctx.ctx.GetReg();
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rTempReg, sDWORD, rTempStack, tempStackPtrOffset);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, *microcode++ * 8, rTempReg);
 			tempStackPtrOffset += sizeof(int);
 			break;
 		case rvmiPopq:
-			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rTempStack, tempStackPtrOffset);
-			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, *microcode++ * 8, rRAX);
+			rTempReg = ctx.ctx.GetReg();
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempReg, sQWORD, rTempStack, tempStackPtrOffset);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, *microcode++ * 8, rTempReg);
 			tempStackPtrOffset += sizeof(long long);
 			break;
 		case rvmiPopMem:
