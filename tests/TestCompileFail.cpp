@@ -889,6 +889,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ int bar(); int bar(int x); yield bar; }", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ auto a = 2; class T{ int b = a; } }", "ERROR: can't initialize member variable inside class definition");
 	TEST_FOR_FAIL("fuzzing test crash", "auto(@e x=){}", "ERROR: default argument value not found after '='");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ for(a in foo){} }", "ERROR: function 'foo' type is unresolved at this point");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

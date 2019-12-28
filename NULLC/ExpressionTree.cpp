@@ -10286,7 +10286,16 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			// Create definition
 			if(!type || type == ctx.typeAuto)
+			{
+				if(functionType->returnType == ctx.typeAuto)
+				{
+					Report(ctx, curr, "ERROR: function type is unresolved at this point");
+
+					continue;
+				}
+
 				type = functionType->returnType;
+			}
 
 			CheckVariableConflict(ctx, curr, curr->name->name);
 
