@@ -2115,7 +2115,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 	// When function is used as value, hide its visibility immediately after use
 	if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(value))
-		return CreateFunctionPointer(ctx, source, definition, true);
+		return CreateCast(ctx, source, CreateFunctionPointer(ctx, source, definition, true), type, isFunctionArgument);
 
 	if(value->type == type)
 	{
