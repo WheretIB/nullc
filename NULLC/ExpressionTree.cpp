@@ -12044,6 +12044,9 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 
 				ExprBase *value = argument.value;
 
+				if(isType<TypeError>(value->type))
+					continue;
+
 				if(isType<TypeFunctionSet>(value->type))
 					value = CreateCast(ctx, argument.source, argument.value, argument.type, true);
 
