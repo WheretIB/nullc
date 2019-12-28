@@ -892,6 +892,12 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ for(a in foo){} }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("fuzzing test crash", "switch(auto(@n x){}){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("fuzzing test crash", "long x = auto r(){};", "ERROR: cannot convert 'void ref()' to 'long'");
+	TEST_FOR_FAIL("fuzzing test crash", "(.target", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.first", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.last", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.return", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.size", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.arraySize", "ERROR: expression not found after '('");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

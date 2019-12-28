@@ -4380,6 +4380,9 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(member->name == InplaceStr("arraySize"))
 	{
+		if(isType<TypeError>(type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		if(TypeArray *arrType = getType<TypeArray>(type))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, arrType->length);
 
@@ -4391,6 +4394,9 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(member->name == InplaceStr("size"))
 	{
+		if(isType<TypeError>(type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, argumentsType->types.size());
 
@@ -4399,6 +4405,9 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(member->name == InplaceStr("argument"))
 	{
+		if(isType<TypeError>(type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		if(TypeFunction *functionType = getType<TypeFunction>(type))
 			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, new (ctx.get<TypeArgumentSet>()) TypeArgumentSet(GetArgumentSetTypeName(ctx, functionType->arguments), functionType->arguments));
 
@@ -4407,6 +4416,9 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(member->name == InplaceStr("return"))
 	{
+		if(isType<TypeError>(type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		if(TypeFunction *functionType = getType<TypeFunction>(type))
 			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, functionType->returnType);
 
@@ -4415,6 +4427,9 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(member->name == InplaceStr("target"))
 	{
+		if(isType<TypeError>(type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		if(TypeRef *refType = getType<TypeRef>(type))
 			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, refType->subType);
 
@@ -4429,6 +4444,9 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(member->name == InplaceStr("first"))
 	{
+		if(isType<TypeError>(type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 		{
 			if(argumentsType->types.empty())
@@ -4446,6 +4464,9 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(member->name == InplaceStr("last"))
 	{
+		if(isType<TypeError>(type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 		{
 			if(argumentsType->types.empty())
