@@ -156,7 +156,6 @@ struct ExpressionContext
 	ScopeData* NamespaceScopeFrom(ScopeData *scope);
 	ScopeData* GlobalScopeFrom(ScopeData *scope);
 
-	unsigned GetGenericClassInstantiationDepth();
 	bool IsGenericInstance(FunctionData *function);
 
 	void AddType(TypeBase *type);
@@ -236,7 +235,8 @@ struct ExpressionContext
 	SmallArray<NamespaceData*, 2> globalNamespaces;
 	IntrusiveList<CloseUpvaluesData> globalCloseUpvalues;
 
-	unsigned instanceDepth;
+	unsigned functionInstanceDepth;
+	unsigned classInstanceDepth;
 
 	// Error info
 	bool errorHandlerActive;

@@ -296,6 +296,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function which accepts a 
 	TEST_FOR_FAIL("buffer overrun prevention", "int foo(generic a){ return -; /* %s %s %s %s %s %s %s %s %s %s %s %s %s %s */ } return foo(1);", "ERROR: expression not found after '-'");
 	TEST_FOR_FAIL("Infinite instantiation recursion", "auto foo(generic a){ typeof(a) ref x; return foo(x); } return foo(1);", "ERROR: reached maximum generic function instance depth (64)");
 	TEST_FOR_FAIL("Infinite instantiation recursion 2", "auto foo(generic a){ typeof(a) ref(typeof(a) ref, typeof(a) ref, typeof(a) ref) x; return foo(x); } return foo(1);", "ERROR: generated function type name exceeds maximum type length '8192'");
+	TEST_FOR_FAIL("Infinite instantiation recursion 3", "class Foo<T>: Foo<T ref>{} Foo<int> a;", "ERROR: reached maximum generic type instance depth (64)");
 	TEST_FOR_FAIL("auto resolved to void", "void foo(){} auto x = foo();", "ERROR: r-value type is 'void'");
 	TEST_FOR_FAIL("unclear decision at return", "int foo(int x){ return -x; } int foo(float x){ return x * 2.0f; } auto bar(){ return foo; }", "ERROR: ambiguity, there is more than one overloaded function available:");
 

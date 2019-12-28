@@ -899,7 +899,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 
 	globalScope = NULL;
 
-	instanceDepth = 0;
+	functionInstanceDepth = 0;
+	classInstanceDepth = 0;
 
 	genericTypeMap.init();
 
@@ -1284,22 +1285,6 @@ ScopeData* ExpressionContext::GlobalScopeFrom(ScopeData *scopeData)
 		return GlobalScopeFrom(scopeData->scope);
 
 	return scopeData;
-}
-
-unsigned ExpressionContext::GetGenericClassInstantiationDepth()
-{
-	unsigned depth = 0;
-
-	for(ScopeData *curr = scope; curr; curr = curr->scope)
-	{
-		if(TypeClass *type = getType<TypeClass>(curr->ownerType))
-		{
-			if(!type->generics.empty())
-				depth++;
-		}
-	}
-
-	return depth;
 }
 
 bool ExpressionContext::IsGenericInstance(FunctionData *function)
@@ -2986,6 +2971,11 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
+	ctx.classInstanceDepth++;
+
+	if(ctx.classInstanceDepth > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
+		Stop(ctx, source, "ERROR: reached maximum generic type instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
+
 	unsigned traceDepth = NULLC::TraceGetDepth();
 
 	if(!setjmp(ctx.errorHandler))
@@ -2995,6 +2985,8 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	else
 	{
 		NULLC::TraceLeaveTo(traceDepth);
+
+		ctx.classInstanceDepth--;
 
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, NULL);
@@ -3031,6 +3023,8 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 
 		longjmp(ctx.errorHandler, 1);
 	}
+
+	ctx.classInstanceDepth--;
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(scope, NULL);
@@ -6378,9 +6372,9 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	ctx.SwitchToScopeAtPoint(function->scope, function->source);
 
-	ctx.instanceDepth++;
+	ctx.functionInstanceDepth++;
 
-	if(ctx.instanceDepth > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
+	if(ctx.functionInstanceDepth > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
 		Stop(ctx, source, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
 
 	jmp_buf prevErrorHandler;
@@ -6406,7 +6400,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	{
 		NULLC::TraceLeaveTo(traceDepth);
 
-		ctx.instanceDepth--;
+		ctx.functionInstanceDepth--;
 
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, NULL);
@@ -6460,7 +6454,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		longjmp(ctx.errorHandler, 1);
 	}
 
-	ctx.instanceDepth--;
+	ctx.functionInstanceDepth--;
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(scope, NULL);
@@ -9596,9 +9590,6 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	{
 		// Check if type already exists
 		assert(ctx.genericTypeMap.find(className.hash()) == NULL);
-
-		if(ctx.GetGenericClassInstantiationDepth() > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
-			Stop(ctx, syntax, "ERROR: reached maximum generic type instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
 	}
 
 	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
