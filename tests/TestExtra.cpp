@@ -755,6 +755,13 @@ i ^= !16150l;\r\n\
 return i;";
 TEST_RESULT("Fuzzing crash result 6", testFuzzingCrash6, "1");
 
+const char	*testFuzzingCrash7 =
+"{ class vec2 extendable{ int x, y; } class vec3 : vec2{ int z; } }\r\n\
+class vec3{ float x, y, z; }\r\n\
+vec3 a;\r\n\
+return 1;";
+TEST_RESULT("Fuzzing crash result 7 (incorrect constructor call)", testFuzzingCrash7, "1");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");

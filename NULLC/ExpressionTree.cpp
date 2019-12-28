@@ -8980,6 +8980,9 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 		if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
 			continue;
 
+		if(node->value->scope->ownerType != type)
+			continue;
+
 		if(!ContainsSameOverload(functions, node->value))
 			functions.push_back(node->value);
 	}
@@ -9006,6 +9009,9 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
 	{
 		if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+			continue;
+
+		if(node->value->scope->ownerType != type)
 			continue;
 
 		if(!ContainsSameOverload(functions, node->value))
