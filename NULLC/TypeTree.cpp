@@ -124,7 +124,9 @@ InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 	unsigned nameLength = unsigned(typeNameLength + 4);
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
-	memcpy(name, type->name.begin, typeNameLength);
+	if(typeNameLength)
+		memcpy(name, type->name.begin, typeNameLength);
+
 	memcpy(name + typeNameLength, " ref", 5);
 
 	return InplaceStr(name);
@@ -416,8 +418,11 @@ InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceS
 	pos -= 1;
 	*pos = 0;
 
-	pos -= str.length();
-	memcpy(pos, str.begin, str.length());
+	if(unsigned strLength = str.length())
+	{
+		pos -= strLength;
+		memcpy(pos, str.begin, strLength);
+	}
 
 	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
