@@ -886,8 +886,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{ T x; }Foo a = Foo<int>((;a.x = 6;int foo(Foo a){return a.x;}foo(a);", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "int auto.c(){ return 0; }", "ERROR: cannot add accessor to type 'auto'");
 	TEST_FOR_FAIL("fuzzing test crash", "int auto:c(){ return 0; }", "ERROR: cannot add member function to type 'auto'");
-
-
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ int bar(); int bar(int x); yield bar; }", "ERROR: ambiguity, there is more than one overloaded function available:");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

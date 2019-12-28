@@ -7551,6 +7551,12 @@ ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 		// If return type is auto, set it to type that is being returned
 		if(returnType == ctx.typeAuto)
 		{
+			if(result->type->isGeneric)
+			{
+				if(!AssertValueExpression(ctx, syntax, result))
+					return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
+			}
+
 			returnType = result->type;
 
 			function->type = ctx.GetFunctionType(syntax, returnType, function->type->arguments);
