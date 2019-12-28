@@ -7670,6 +7670,9 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	if(syntax->name->name == InplaceStr("this"))
 		Stop(ctx, syntax, "ERROR: 'this' is a reserved keyword");
 
+	if(ctx.scope->type == SCOPE_TYPE && syntax->initializer)
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: can't initialize member variable inside class definition");
+
 	if(isType<TypeError>(type))
 	{
 		if(syntax->initializer)
