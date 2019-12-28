@@ -58,7 +58,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	code[size] = 0;
 
 	if(!testInit)
-		nullcInit("Modules/");
+	{
+		nullcInit();
+		nullcAddImportPath("Modules/");
+	}
 
 	if(nullcCompile(code))
 	{
