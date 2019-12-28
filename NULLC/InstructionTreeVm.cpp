@@ -4579,10 +4579,103 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 	}
 }
 
+void MarkReachableBlocks(VmBlock *block)
+{
+	if(block->visited)
+		return;
+
+	block->visited = true;
+
+	for(unsigned i = 0; i < block->successors.size(); i++)
+		MarkReachableBlocks(block->successors[i]);
+}
+
 void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
+		if(!function->firstBlock)
+			return;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		{
+			curr->predecessors.clear();
+			curr->successors.clear();
+		}
+
+		// Get block predecessors and successors
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		{
+			for(unsigned i = 0; i < curr->users.size(); i++)
+			{
+				VmValue *user = curr->users[i];
+
+				if(VmInstruction *inst = getType<VmInstruction>(user))
+				{
+					if(inst->cmd != VM_INST_PHI)
+					{
+						curr->predecessors.push_back(inst->parent);
+						inst->parent->successors.push_back(curr);
+					}
+				}
+			}
+		}
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			curr->visited = false;
+
+		MarkReachableBlocks(function->firstBlock);
+
+		// Remove blocks that are unreachable from entry
+		for(VmBlock *curr = function->firstBlock->nextSibling; curr;)
+		{
+			VmBlock *next = curr->nextSibling;
+
+			if(!curr->visited)
+			{
+				while(!curr->users.empty())
+				{
+					VmInstruction *inst = getType<VmInstruction>(curr->users.back());
+
+					if(inst->cmd == VM_INST_JUMP)
+					{
+						inst->parent->RemoveInstruction(inst);
+					}
+					else if(inst->cmd == VM_INST_JUMP_NZ || inst->cmd == VM_INST_JUMP_Z)
+					{
+						if(inst->arguments[1] == curr)
+							ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[2], NULL, NULL, NULL, NULL, NULL);
+						else
+							ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[1], NULL, NULL, NULL, NULL, NULL);
+					}
+					else if(inst->cmd == VM_INST_PHI)
+					{
+						for(unsigned i = 0; i < inst->arguments.size(); i += 2)
+						{
+							VmValue *option = inst->arguments[i];
+							VmValue *edge = inst->arguments[i + 1];
+
+							if(edge == curr)
+							{
+								option->RemoveUse(inst);
+								edge->RemoveUse(inst);
+
+								inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
+								inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
+
+								inst->arguments.pop_back();
+								inst->arguments.pop_back();
+
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			curr = next;
+		}
+
 		VmBlock *curr = function->firstBlock;
 
 		while(curr)
@@ -4590,6 +4683,14 @@ void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* va
 			VmBlock *next = curr->nextSibling;
 			RunDeadCodeElimiation(ctx, module, curr);
 			curr = next;
+		}
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		{
+			// Check that only reachable blocks remain
+			assert(curr->visited);
+
+			curr->visited = false;
 		}
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
