@@ -884,6 +884,10 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "Auto int:toString(){}", "ERROR: 'Auto' is not a known type name");
 	TEST_FOR_FAIL("fuzzing test crash", "int a = 4;@if(typeof(a) !=)tn i{f;}ora;", "ERROR: expression not found after binary operation");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{ T x; }Foo a = Foo<int>((;a.x = 6;int foo(Foo a){return a.x;}foo(a);", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "int auto.c(){ return 0; }", "ERROR: cannot add accessor to type 'auto'");
+	TEST_FOR_FAIL("fuzzing test crash", "int auto:c(){ return 0; }", "ERROR: cannot add member function to type 'auto'");
+
+
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

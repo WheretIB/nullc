@@ -8030,6 +8030,14 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		}
 	}
 
+	if(parentType && (isType<TypeGeneric>(parentType) || isType<TypeGenericAlias>(parentType) || isType<TypeAuto>(parentType) || isType<TypeVoid>(parentType)))
+	{
+		if(syntax->accessor)
+			return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot add accessor to type '%.*s'", FMT_ISTR(parentType->name));
+
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot add member function to type '%.*s'", FMT_ISTR(parentType->name));
+	}
+
 	TypeBase *returnType = AnalyzeType(ctx, syntax->returnType);
 
 	if(returnType->isGeneric)
