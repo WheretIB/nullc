@@ -10440,7 +10440,10 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 	
 	if(!isType<TypeError>(condition->type))
 	{
-		conditionVariable = AllocateTemporary(ctx, ctx.MakeInternal(syntax), condition->type);
+		if(!AssertValueExpression(ctx, syntax->condition, condition))
+			conditionVariable = AllocateTemporary(ctx, ctx.MakeInternal(syntax), ctx.GetErrorType());
+		else
+			conditionVariable = AllocateTemporary(ctx, ctx.MakeInternal(syntax), condition->type);
 
 		ExprBase *access = CreateVariableAccess(ctx, ctx.MakeInternal(syntax), conditionVariable, false);
 
