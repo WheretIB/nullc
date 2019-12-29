@@ -766,6 +766,11 @@ const char	*testFuzzingCrash8 =
 "auto foo(){ for(;8;){break;for(int z;z;){}} } return 1;";
 TEST_RESULT("Fuzzing crash result 8 (unreachable CFG nodes)", testFuzzingCrash8, "1");
 
+const char	*testFuzzingCrash9 =
+"auto ref x = { 1, 2, 3 };\r\n\
+return int[3](x)[1];";
+TEST_RESULT("Fuzzing crash result 9 (array boxing to auto ref)", testFuzzingCrash9, "2");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");

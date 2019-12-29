@@ -2302,27 +2302,29 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		if(isType<TypeRef>(value->type))
 			return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_PTR_TO_AUTO_PTR);
 
-		if(isFunctionArgument)
+		ExprTypeCast *typeCast = NULL;
+
+		// type to auto ref conversion
+		if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
 		{
-			// type to auto ref conversion
-			if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
-			{
-				ExprBase *address = new (ctx.get<ExprGetAddress>()) ExprGetAddress(source, ctx.GetReferenceType(value->type), new (ctx.get<VariableHandle>()) VariableHandle(node->source, node->variable));
+			ExprBase *address = new (ctx.get<ExprGetAddress>()) ExprGetAddress(source, ctx.GetReferenceType(value->type), new (ctx.get<VariableHandle>()) VariableHandle(node->source, node->variable));
 
-				return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, address, EXPR_CAST_PTR_TO_AUTO_PTR);
-			}
-			else if(ExprDereference *node = getType<ExprDereference>(value))
-			{
-				return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, node->value, EXPR_CAST_PTR_TO_AUTO_PTR);
-			}
-
-			return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, CreateCast(ctx, source, value, ctx.GetReferenceType(value->type), true), EXPR_CAST_PTR_TO_AUTO_PTR);
+			typeCast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, address, EXPR_CAST_PTR_TO_AUTO_PTR);
+		}
+		else if(ExprDereference *node = getType<ExprDereference>(value))
+		{
+			typeCast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, node->value, EXPR_CAST_PTR_TO_AUTO_PTR);
 		}
 		else
 		{
-			// type to auto ref conversion (boxing)
-			return CreateFunctionCall1(ctx, source, InplaceStr("duplicate"), value, false, false, true);
+			typeCast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, CreateCast(ctx, source, value, ctx.GetReferenceType(value->type), true), EXPR_CAST_PTR_TO_AUTO_PTR);
 		}
+
+		if(isFunctionArgument)
+			return typeCast;
+
+		// type to auto ref conversion (boxing)
+		return CreateFunctionCall1(ctx, source, InplaceStr("duplicate"), typeCast, false, false, true);
 	}
 
 	if(type == ctx.typeAutoArray)
