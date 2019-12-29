@@ -793,7 +793,7 @@ namespace
 		return CreateInstruction(module, source, type, VM_INST_BITCAST, value, NULL, NULL, NULL);
 	}
 
-	VmValue* CreateMov(VmModule *module, SynBase *source, VmType type, VmValue *value)
+	VmInstruction* CreateMov(VmModule *module, SynBase *source, VmType type, VmValue *value)
 	{
 		return CreateInstruction(module, source, type, VM_INST_MOV, value, NULL, NULL, NULL);
 	}
@@ -4817,9 +4817,11 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 						curr->lastInstruction->nextSibling = next->firstInstruction;
 
 					if(next->firstInstruction)
+					{
 						next->firstInstruction->prevSibling = curr->lastInstruction;
 
-					curr->lastInstruction = next->lastInstruction;
+						curr->lastInstruction = next->lastInstruction;
+					}
 
 					next->firstInstruction = next->lastInstruction = NULL;
 
@@ -5536,6 +5538,8 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 			{
 				hadUpdate = true;
 
+				inst->comment = variable->name->name;
+
 				stack.push_back(getType<VmInstruction>(inst));
 			}
 			else if(VmConstant *constant = getType<VmConstant>(instruction->arguments[2]))
@@ -6128,6 +6132,33 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 {
 	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
 	{
+		if(!block->firstInstruction)
+			continue;
+
+		// Insert empty parallel copy at the end of a block (before terminator)
+		module->currentBlock = block;
+		block->insertPoint = block->lastInstruction->prevSibling;
+
+		block->exitPc = CreateInstruction(module, NULL, VmType::Void, VM_INST_PARALLEL_COPY, NULL, NULL, NULL, NULL);
+
+		// Insert empty parallel copy at the start of a block (after phi instructions)
+		block->insertPoint = block->firstInstruction;
+
+		while(block->insertPoint && block->insertPoint->cmd == VM_INST_PHI)
+			block->insertPoint = block->insertPoint->nextSibling;
+
+		assert(block->insertPoint);
+
+		block->insertPoint = block->insertPoint->prevSibling;
+
+		block->entryPc = CreateInstruction(module, NULL, VmType::Void, VM_INST_PARALLEL_COPY, NULL, NULL, NULL, NULL);
+
+		block->insertPoint = block->lastInstruction;
+		module->currentBlock = NULL;
+	}
+
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
 		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
 		{
 			// For each phi node
@@ -6165,20 +6196,22 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 					module->currentBlock = edge;
 					edge->insertPoint = edge->lastInstruction->prevSibling;
 
-					// Create a copy for instruction value
-					VmValue *movInst = CreateMov(module, instruction->source, instruction->type, instruction);
+					edge->insertPoint = edge->exitPc->prevSibling;
 
-					movInst->comment = instruction->comment;
+					VmInstruction *def = CreateInstruction(module, NULL, instruction->type, VM_INST_DEF, NULL, NULL, NULL, NULL);
 
-					movInst->AddUse(inst);
+					def->comment = instruction->comment;
+
+					edge->exitPc->AddArgument(def);
+					edge->exitPc->AddArgument(instruction);
+
+					def->AddUse(inst);
 					inst->arguments[argument]->RemoveUse(inst);
 
-					inst->arguments[argument] = movInst;
+					inst->arguments[argument] = def;
 
 					edge->insertPoint = edge->lastInstruction;
 					module->currentBlock = NULL;
-
-					copyInstructions.push_back(getType<VmInstruction>(movInst));
 				}
 
 				// In general case if optimization passes create multiple incoming edges from a single block, it won't be valid to insert a copy
@@ -6194,16 +6227,19 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 
 				block->insertPoint = block->insertPoint->prevSibling;
 
+				block->insertPoint = block->entryPc->prevSibling;
+
+				VmInstruction *def = CreateInstruction(module, inst->source, inst->type, VM_INST_DEF, NULL, NULL, NULL, NULL);
+
+				def->comment = inst->comment;
+
+				block->entryPc->AddArgument(def);
+
 				inst->canBeRemoved = false;
 
-				// Create a copy for phi value
-				VmInstruction *movInst = getType<VmInstruction>(CreateMov(module, inst->source, inst->type, NULL));
+				ReplaceValueUsersWith(module, inst, def, NULL);
 
-				movInst->comment = inst->comment;
-
-				ReplaceValueUsersWith(module, inst, movInst, NULL);
-
-				movInst->AddArgument(inst);
+				block->entryPc->AddArgument(inst);
 
 				inst->canBeRemoved = true;
 
@@ -6279,6 +6315,29 @@ void ColorPhiWeb(VmInstruction *inst, unsigned color)
 		ColorPhiWeb(instruction, color);
 	}
 
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+						ColorPhiWeb(source, color);
+				}
+			}
+		}
+	}
+
 	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
 	{
 		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
@@ -6288,6 +6347,21 @@ void ColorPhiWeb(VmInstruction *inst, unsigned color)
 
 		if(instruction->cmd == VM_INST_MOV)
 			ColorPhiWeb(instruction, color);
+
+		if(instruction->cmd == VM_INST_PARALLEL_COPY)
+		{
+			for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+				VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+				assert(destination);
+				assert(source);
+
+				if(inst == source)
+					ColorPhiWeb(destination, color);
+			}
+		}
 	}
 }
 
@@ -6436,6 +6510,13 @@ bool Intersect(VmInstruction *a, VmInstruction *b)
 	if(a == b)
 		return true;
 
+	// 'def' pseudo-instruction definition locations is at following parallel copy instruction
+	if(b->cmd == VM_INST_DEF)
+	{
+		while(b->cmd != VM_INST_PARALLEL_COPY)
+			b = b->nextSibling;
+	}
+
 	// a dominates b and a is live just after the definition of b
 	if(IsLiveAt(a, b->nextSibling))
 		return true;
@@ -6473,6 +6554,29 @@ void CollectMergedSet(VmInstruction *inst, unsigned marker, SmallArray<VmInstruc
 		CollectMergedSet(instruction, marker, mergedSet);
 	}
 
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+						CollectMergedSet(source, marker, mergedSet);
+				}
+			}
+		}
+	}
+
 	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
 	{
 		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
@@ -6482,6 +6586,21 @@ void CollectMergedSet(VmInstruction *inst, unsigned marker, SmallArray<VmInstruc
 
 		if(instruction->cmd == VM_INST_MOV)
 			CollectMergedSet(instruction, marker, mergedSet);
+
+		if(instruction->cmd == VM_INST_PARALLEL_COPY)
+		{
+			for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+				VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+				assert(destination);
+				assert(source);
+
+				if(inst == source)
+					CollectMergedSet(destination, marker, mergedSet);
+			}
+		}
 	}
 }
 
@@ -6506,8 +6625,36 @@ unsigned GetSplitCopyCount(VmInstruction *inst, unsigned marker)
 
 	if(inst->cmd == VM_INST_MOV)
 	{
-		if(inst->color != 0 && inst->color == getType<VmInstruction>(inst->arguments[0])->color)
+		VmInstruction *instruction = getType<VmInstruction>(inst->arguments[0]);
+
+		if(inst->color != 0 && inst->color == instruction->color)
 			count++;
+	}
+
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+					{
+						if(inst->color != 0 && inst->color == source->color)
+							count++;
+					}
+				}
+			}
+		}
 	}
 
 	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
@@ -6523,6 +6670,24 @@ unsigned GetSplitCopyCount(VmInstruction *inst, unsigned marker)
 
 			if(instruction->color != 0 && instruction->color == inst->color)
 				count++;
+		}
+
+		if(instruction->cmd == VM_INST_PARALLEL_COPY)
+		{
+			for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+				VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+				assert(destination);
+				assert(source);
+
+				if(inst == source)
+				{
+					if(instruction->color != 0 && instruction->color == destination->color)
+						count++;
+				}
+			}
 		}
 	}
 
@@ -6575,26 +6740,53 @@ int SortByDominancePreOrder(const void* a, const void* b)
 
 bool Colored(VmInstruction *inst)
 {
+	assert(inst->cmd != VM_INST_PARALLEL_COPY);
+
 	return inst->color != 0;
 }
 
 bool Uncolored(VmInstruction *inst)
 {
+	assert(inst->cmd != VM_INST_PARALLEL_COPY);
+
 	return inst->color == 0;
 }
 
-VmInstruction* UnderlyingValue(VmInstruction *instruction)
+VmInstruction* UnderlyingValue(VmInstruction *inst)
 {
-	if(instruction->cmd == VM_INST_MOV)
+	if(inst->cmd == VM_INST_MOV)
 	{
-		VmInstruction *argument = getType<VmInstruction>(instruction->arguments[0]);
+		VmInstruction *argument = getType<VmInstruction>(inst->arguments[0]);
 
 		assert(argument);
 
 		return UnderlyingValue(argument);
 	}
 
-	return instruction;
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+						return UnderlyingValue(source);
+				}
+			}
+		}
+	}
+
+	return inst;
 }
 
 void DeCoalesce(VmInstruction *variable, VmFunction* function, VmInstruction *currIdom)
@@ -6647,8 +6839,10 @@ void DecoalesceMergedSets(ExpressionContext &ctx, VmFunction* function)
 {
 	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
 	{
-		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
+		for(VmInstruction *inst = block->firstInstruction; inst;)
 		{
+			VmInstruction *next = inst->nextSibling;
+
 			if(inst->cmd == VM_INST_PHI && inst->marker == 0)
 			{
 				SmallArray<VmInstruction*, 32> mergedSet(ctx.allocator);
@@ -6668,32 +6862,209 @@ void DecoalesceMergedSets(ExpressionContext &ctx, VmFunction* function)
 
 					currImmediateDominator = variable;
 				}
+
+				// Clear markers of uncolored variables
+				for(unsigned i = 0; i < mergedSet.size(); i++)
+				{
+					VmInstruction *variable = mergedSet[i];
+
+					if(variable->color == 0)
+						variable->marker = 0;
+				}
+
+				// If current phi was uncolored, retry iteration
+				if(inst->color == 0)
+					next = inst;
+
+				// Assign new colors to uncolored phi webs
+				for(unsigned i = 0; i < mergedSet.size(); i++)
+				{
+					VmInstruction *variable = mergedSet[i];
+
+					if(variable->cmd == VM_INST_PHI && variable->color == 0)
+						ColorPhiWeb(variable, ++function->nextColor);
+				}
+			}
+
+			inst = next;
+		}
+	}
+}
+
+unsigned ParallelCopyIndexOf(VmInstruction *p, VmInstruction *arg)
+{
+	for(unsigned argumentPos = 0; argumentPos < p->arguments.size(); argumentPos++)
+	{
+		if(p->arguments[argumentPos] == arg)
+			return argumentPos;
+	}
+
+	return p->arguments.size();
+}
+
+void SequentializeParallelCopy(VmModule *module, VmInstruction *p)
+{
+	while(!p->arguments.empty())
+	{
+		bool changed = false;
+
+		// Handle leaf nodes
+		for(unsigned argumentPos = 0; argumentPos < p->arguments.size();)
+		{
+			VmInstruction *b = getType<VmInstruction>(p->arguments[argumentPos]);
+			VmInstruction *a = getType<VmInstruction>(p->arguments[argumentPos + 1]);
+
+			bool remove = false;
+
+			// If the colors are the same, no need to move
+			if(a->color != 0 && a->color == b->color)
+			{
+				ReplaceValueUsersWith(module, b, a, NULL);
+
+				remove = true;
+			}
+
+			// If the target has no fixed register, extract as a move
+			if(!remove && b->color == 0)
+			{
+				VmInstruction *copy = CreateMov(module, NULL, a->type, a);
+
+				copy->comment = b->comment;
+
+				ReplaceValueUsersWith(module, b, copy, NULL);
+
+				remove = true;
+			}
+
+			// If the target fixed register value is not read by other copies, we can extract is as move
+			if(!remove && b->color != 0)
+			{
+				bool isRead = false;
+
+				for(unsigned k = 0; k < p->arguments.size(); k += 2)
+				{
+					VmInstruction *read = getType<VmInstruction>(p->arguments[k + 1]);
+
+					if(read->color == b->color)
+					{
+						isRead = true;
+						break;
+					}
+				}
+
+				if(!isRead)
+				{
+					VmInstruction *copy = CreateMov(module, NULL, a->type, a);
+
+					copy->color = b->color;
+					copy->comment = b->comment;
+
+					ReplaceValueUsersWith(module, b, copy, NULL);
+
+					remove = true;
+				}
+			}
+
+			if(remove)
+			{
+				p->arguments[argumentPos]->RemoveUse(p);
+				p->arguments[argumentPos + 1]->RemoveUse(p);
+
+				p->arguments[argumentPos + 1] = p->arguments.back();
+				p->arguments.pop_back();
+
+				p->arguments[argumentPos] = p->arguments.back();
+				p->arguments.pop_back();
+
+				changed = true;
+			}
+			else
+			{
+				argumentPos += 2;
+			}
+		}
+
+		if(!changed)
+		{
+			// Take the first copy to break the loop
+			unsigned argumentPos = 0;
+
+			VmInstruction *b = getType<VmInstruction>(p->arguments[argumentPos]);
+			VmInstruction *a = getType<VmInstruction>(p->arguments[argumentPos + 1]);
+
+			// Find current destination user
+			VmInstruction *user = NULL;
+
+			for(unsigned k = 0; k < p->arguments.size(); k += 2)
+			{
+				VmInstruction *a2 = getType<VmInstruction>(p->arguments[k + 1]);
+
+				if(a2->color == b->color)
+				{
+					user = a2;
+					break;
+				}
+			}
+
+			// Create a new location for A (uncolored!)
+			VmInstruction *backup = CreateMov(module, NULL, user->type, user);
+
+			backup->comment = user->comment;
+
+			// Create a copy
+			VmInstruction *copy = CreateMov(module, NULL, a->type, a);
+
+			copy->color = b->color;
+			copy->comment = b->comment;
+
+			ReplaceValueUsersWith(module, b, copy, NULL);
+
+			// Remove argument
+			p->arguments[argumentPos]->RemoveUse(p);
+			p->arguments[argumentPos + 1]->RemoveUse(p);
+
+			p->arguments[argumentPos + 1] = p->arguments.back();
+			p->arguments.pop_back();
+
+			p->arguments[argumentPos] = p->arguments.back();
+			p->arguments.pop_back();
+
+			// Replace all uses of original color with a copy
+			for(unsigned k = 0; k < p->arguments.size(); k += 2)
+			{
+				VmInstruction *a2 = getType<VmInstruction>(p->arguments[k + 1]);
+
+				if(a2->color == b->color)
+				{
+					p->arguments[k + 1] = backup;
+
+					a2->RemoveUse(p);
+					backup->AddUse(p);
+				}
 			}
 		}
 	}
 }
 
-void CoalesceTrivialCopies(ExpressionContext &ctx, VmModule *module, VmFunction* function)
+void SequentializeParallelCopies(ExpressionContext &ctx, VmModule *module, VmFunction* function)
 {
-	// Remove move instructions between same colors (aka coalesce)
 	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
 	{
-		SmallArray<VmInstruction*, 32> moves(ctx.allocator);
-
-		for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
 		{
-			if(curr->cmd == VM_INST_MOV)
-				moves.push_back(curr);
+			if(inst->cmd == VM_INST_PARALLEL_COPY)
+			{
+				module->currentBlock = block;
+				block->insertPoint = inst;
+
+				SequentializeParallelCopy(module, inst);
+
+				module->currentBlock = NULL;
+				block->insertPoint = block->lastInstruction;
+			}
 		}
 
-		for(unsigned i = 0; i < moves.size(); i++)
-		{
-			VmInstruction *dst = moves[i];
-			VmInstruction *src = getType<VmInstruction>(dst->arguments[0]);
-
-			if(dst->color != 0 && dst->color == src->color)
-				ReplaceValueUsersWith(module, dst, src, NULL);
-		}
+		RunDeadCodeElimiation(ctx, module, block);
 	}
 }
 
@@ -6714,8 +7085,7 @@ void RunPrepareSsaExit(ExpressionContext &ctx, VmModule *module, VmValue* value)
 		// Remove colors from registers that introduce interferences between registers
 		DecoalesceMergedSets(ctx, function);
 
-		// Remove copies between registers that still have the same color (no interference)
-		CoalesceTrivialCopies(ctx, module, function);
+		SequentializeParallelCopies(ctx, module, function);
 
 		function->UpdateLiveSets(module);
 

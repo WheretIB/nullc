@@ -137,6 +137,8 @@ enum VmInstructionType
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
 	VM_INST_BITCAST, // Pseudo instruction to transform value type
 	VM_INST_MOV, // Pseudo instruction to create a separate value copy
+	VM_INST_DEF, // Pseudo instruction to create a value for parallel move (used for temporary representation during SSA exit)
+	VM_INST_PARALLEL_COPY, // Pseudo instruction to move between multiple values simultaneously (used for temporary representation during SSA exit)
 };
 
 enum VmPassType
@@ -385,6 +387,9 @@ struct VmBlock: VmValue
 
 		hasAssignmentForId = 0;
 		hasPhiNodeForId = 0;
+
+		entryPc = NULL;
+		exitPc = NULL;
 	}
 
 	void AddInstruction(VmInstruction* instruction);
@@ -429,6 +434,9 @@ struct VmBlock: VmValue
 
 	SmallArray<VmInstruction*, 4> liveIn;
 	SmallArray<VmInstruction*, 4> liveOut;
+
+	VmInstruction *entryPc;
+	VmInstruction *exitPc;
 
 	static const unsigned myTypeID = __LINE__;
 };

@@ -3351,8 +3351,8 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 
 			lowFunction->registerUsers[reg]++;
 
-			assert(!lowBlock->reservedRegisters.contains(reg));
-			lowBlock->reservedRegisters.push_back(reg);
+			if(!lowBlock->reservedRegisters.contains(reg))
+				lowBlock->reservedRegisters.push_back(reg);
 		}
 	}
 

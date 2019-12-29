@@ -515,6 +515,10 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "bitcast";
 	case VM_INST_MOV:
 		return "mov";
+	case VM_INST_DEF:
+		return "def";
+	case VM_INST_PARALLEL_COPY:
+		return "parallel_copy";
 	default:
 		assert(!"unknown instruction");
 	}
