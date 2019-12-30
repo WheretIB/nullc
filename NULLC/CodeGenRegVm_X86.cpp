@@ -113,6 +113,24 @@ void GenCodeLoadInt32FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Re
 	}
 }
 
+x86Reg GenCodeLoadInt32FromRegister(CodeGenRegVmContext &ctx, unsigned char reg)
+{
+	x86Reg lhsReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, reg * 8, true);
+
+	if(lhsReg != rRegCount && ctx.ctx.IsLastRegVmRegisterUse(reg, ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset))
+	{
+		ctx.ctx.LockReg(lhsReg);
+	}
+	else
+	{
+		lhsReg = ctx.ctx.GetReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, reg * 8); // Load lhs
+	}
+
+	return lhsReg;
+}
+
 x86Reg GenCodeLoadInt32FromPointerIntoRegister(CodeGenRegVmContext &ctx, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrRegisters)
@@ -2618,19 +2636,7 @@ void GenCodeCmdAddImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdAdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	x86Reg lhsReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rB * 8, true);
-
-	if(lhsReg != rRegCount && ctx.ctx.IsLastRegVmRegisterUse(cmd.rB, ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset))
-	{
-		ctx.ctx.LockReg(lhsReg);
-	}
-	else
-	{
-		lhsReg = ctx.ctx.GetReg();
-
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	}
-
+	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
 	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
@@ -2656,19 +2662,7 @@ void GenCodeCmdAdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdSub(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	x86Reg lhsReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rB * 8, true);
-
-	if(lhsReg != rRegCount && ctx.ctx.IsLastRegVmRegisterUse(cmd.rB, ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset))
-	{
-		ctx.ctx.LockReg(lhsReg);
-	}
-	else
-	{
-		lhsReg = ctx.ctx.GetReg();
-
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	}
-
+	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
 	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
@@ -2694,19 +2688,7 @@ void GenCodeCmdSub(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdMul(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	x86Reg lhsReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rB * 8, true);
-
-	if(lhsReg != rRegCount && ctx.ctx.IsLastRegVmRegisterUse(cmd.rB, ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset))
-	{
-		ctx.ctx.LockReg(lhsReg);
-	}
-	else
-	{
-		lhsReg = ctx.ctx.GetReg();
-
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	}
-
+	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
 	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
@@ -2771,7 +2753,6 @@ void x86PowWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned 
 
 void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x64PowWrap = VmIntPow;
 	ctx.vmState->x86PowWrap = x86PowWrap;
 
@@ -3057,19 +3038,7 @@ void GenCodeCmdShr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdBitAnd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	x86Reg lhsReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rB * 8, true);
-
-	if(lhsReg != rRegCount && ctx.ctx.IsLastRegVmRegisterUse(cmd.rB, ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset))
-	{
-		ctx.ctx.LockReg(lhsReg);
-	}
-	else
-	{
-		lhsReg = ctx.ctx.GetReg();
-
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	}
-
+	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
 	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
@@ -3095,19 +3064,7 @@ void GenCodeCmdBitAnd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdBitOr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	x86Reg lhsReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rB * 8, true);
-
-	if(lhsReg != rRegCount && ctx.ctx.IsLastRegVmRegisterUse(cmd.rB, ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset))
-	{
-		ctx.ctx.LockReg(lhsReg);
-	}
-	else
-	{
-		lhsReg = ctx.ctx.GetReg();
-
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	}
-
+	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
 	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
@@ -3133,19 +3090,7 @@ void GenCodeCmdBitOr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdBitXor(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	x86Reg lhsReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rB * 8, true);
-
-	if(lhsReg != rRegCount && ctx.ctx.IsLastRegVmRegisterUse(cmd.rB, ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset))
-	{
-		ctx.ctx.LockReg(lhsReg);
-	}
-	else
-	{
-		lhsReg = ctx.ctx.GetReg();
-
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, lhsReg, sDWORD, rREG, cmd.rB * 8); // Load lhs
-	}
-
+	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
 
 	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
