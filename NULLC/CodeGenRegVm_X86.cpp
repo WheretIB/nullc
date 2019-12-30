@@ -1615,7 +1615,7 @@ void GenCodeCmdSetRange(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 		EMIT_LABEL(ctx.ctx, ctx.labelCount);
 		EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEDI, rECX);
-		EMIT_OP_LABEL(ctx.ctx, o_je, ctx.labelCount + 1);
+		EMIT_OP_LABEL(ctx.ctx, o_je, ctx.labelCount + 1, true);
 
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rEDI, 0, rEAX);
 		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rEDI, 4, rEDX);
@@ -1623,7 +1623,7 @@ void GenCodeCmdSetRange(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		EMIT_OP_REG_NUM(ctx.ctx, o_add, rEDI, 8);
 		EMIT_REG_READ(ctx.ctx, rEDI); // Mark that register is used (by next iteration)
 
-		EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount);
+		EMIT_OP_LABEL(ctx.ctx, o_jmp, ctx.labelCount, true);
 		EMIT_LABEL(ctx.ctx, ctx.labelCount + 1);
 
 		ctx.labelCount += 2;
