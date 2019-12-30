@@ -47,19 +47,6 @@ void GenCodeLoadInt8FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg
 	}
 }
 
-void GenCodeStoreInt8ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, rR15, offset, sourceReg); // Store byte value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, tempReg, offset, sourceReg); // Store value to target with an offset
-	}
-}
-
 void GenCodeLoadInt16FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg targetReg, unsigned char reg, unsigned offset)
 {
 	if(reg == rvrrFrame)
@@ -70,19 +57,6 @@ void GenCodeLoadInt16FromPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Re
 	{
 		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load source pointer
 		EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, targetReg, sWORD, tempReg, offset); // Load short value with sign extension
-	}
-}
-
-void GenCodeStoreInt16ToPointer(CodeGenRegVmContext &ctx, x86Reg tempReg, x86Reg sourceReg, unsigned char reg, unsigned offset)
-{
-	if(reg == rvrrFrame)
-	{
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, rR15, offset, sourceReg); // Store short value
-	}
-	else
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, tempReg, sQWORD, rREG, reg * 8); // Load target pointer
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, tempReg, offset, sourceReg); // Store value to target with an offset
 	}
 }
 
@@ -926,9 +900,36 @@ void GenCodeCmdLoadImmDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdStoreByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
+	x86Reg temp = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rA * 8, true);
 
-	GenCodeStoreInt8ToPointer(ctx, rRAX, rEDX, cmd.rC, cmd.argument);
+	if(temp == rRegCount)
+	{
+		temp = ctx.ctx.GetReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, temp, sDWORD, rREG, cmd.rA * 8); // Load value
+	}
+	else
+	{
+		ctx.ctx.LockReg(temp);
+	}
+
+	if(cmd.rC == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, rR15, cmd.argument, temp); // Store byte value
+	}
+	else
+	{
+		x86Reg address = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rC * 8, true);
+
+		if(address == rRegCount)
+		{
+			address = ctx.ctx.GetReg();
+
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, address, sQWORD, rREG, cmd.rC * 8); // Load target pointer
+		}
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sBYTE, address, cmd.argument, temp); // Store value to target with an offset
+	}
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
 
@@ -939,9 +940,36 @@ void GenCodeCmdStoreByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdStoreWord(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
+	x86Reg temp = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rA * 8, true);
 
-	GenCodeStoreInt16ToPointer(ctx, rRAX, rEDX, cmd.rC, cmd.argument);
+	if(temp == rRegCount)
+	{
+		temp = ctx.ctx.GetReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, temp, sDWORD, rREG, cmd.rA * 8); // Load value
+	}
+	else
+	{
+		ctx.ctx.LockReg(temp);
+	}
+
+	if(cmd.rC == rvrrFrame)
+	{
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, rR15, cmd.argument, temp); // Store short value
+	}
+	else
+	{
+		x86Reg address = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rC * 8, true);
+
+		if(address == rRegCount)
+		{
+			address = ctx.ctx.GetReg();
+
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, address, sQWORD, rREG, cmd.rC * 8); // Load target pointer
+		}
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sWORD, address, cmd.argument, temp); // Store value to target with an offset
+	}
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load value
 
@@ -1672,7 +1700,6 @@ void GenCodeCmdMemCopy(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdJmp(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	EMIT_OP_LABEL(ctx.ctx, o_jmp, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 }
 
@@ -3753,7 +3780,6 @@ void GenCodeCmdBitXorl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
 	if(lhs == rXmmRegCount)
@@ -3785,7 +3811,6 @@ void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
 	if(lhs == rXmmRegCount)
@@ -3817,7 +3842,6 @@ void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
 	if(lhs == rXmmRegCount)
@@ -3849,7 +3873,6 @@ void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rB * 8, true);
 
 	if(lhs == rXmmRegCount)

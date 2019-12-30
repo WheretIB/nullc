@@ -830,8 +830,6 @@ void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, 
 	case o_jp:
 	case o_jge:
 	case o_jle:
-		// TODO: setcc followed by test and jump can be optimized
-
 		if(invalidate)
 		{
 			if(longJump)

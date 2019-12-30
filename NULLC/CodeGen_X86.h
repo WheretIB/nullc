@@ -151,7 +151,7 @@ void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text);
 void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned labelID, int invalidate = true);
 
 void EMIT_OP(CodeGenGenericContext &ctx, x86Command op);
-void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, int invalidate = true, int longJump = false);
+void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned labelID, int invalidate, int longJump = false);
 void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1);
 void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1);
 void EMIT_OP_NUM(CodeGenGenericContext &ctx, x86Command op, unsigned num);
