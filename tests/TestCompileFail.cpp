@@ -898,6 +898,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "(.return", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "(.size", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "(.arraySize", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "auto bar<@T,@U>(){ return 1; } return bar with<int,int>() + bar with<>();", "ERROR: type name is expected after 'with'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

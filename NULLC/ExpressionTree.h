@@ -46,12 +46,18 @@ struct GenericFunctionInstanceTypeRequest
 
 		for(TypeHandle *leftArg = arguments.head, *rightArg = rhs.arguments.head; leftArg || rightArg; leftArg = leftArg->next, rightArg = rightArg->next)
 		{
+			if(!leftArg || !rightArg)
+				return false;
+
 			if(leftArg->type != rightArg->type)
 				return false;
 		}
 
 		for(MatchData *leftAlias = aliases.head, *rightAlias = rhs.aliases.head; leftAlias || rightAlias; leftAlias = leftAlias->next, rightAlias = rightAlias->next)
 		{
+			if(!leftAlias || !rightAlias)
+				return false;
+
 			if(leftAlias->name != rightAlias->name || leftAlias->type != rightAlias->type)
 				return false;
 		}
