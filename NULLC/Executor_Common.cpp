@@ -256,7 +256,7 @@ void nullcPrintBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 
 	if(type.subCat == ExternTypeInfo::CAT_POINTER)
 	{
-		printf("0x%x", *(int*)ptr);
+		printf("%p", *(void**)ptr);
 		return;
 	}
 
@@ -317,6 +317,7 @@ void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
 	printf("typeid type = %d (%s)\n", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
 	nullcPrintDepthIndent(indentDepth);
 	printf("%s[] data = %p\n", codeSymbols + codeTypes[arr->typeID].offsetToName, (void*)arr->ptr);
+	printf("int len = %d\n", arr->len);
 }
 
 void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth);
@@ -454,7 +455,7 @@ void nullcDumpStackData()
 
 		if(func)
 		{
-			ExternFuncInfo	&function = *func;
+			ExternFuncInfo &function = *func;
 
 			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
@@ -468,9 +469,11 @@ void nullcDumpStackData()
 				if(arg != function.paramCount - 1)
 					printf(", ");
 			}
-			printf(")\n");
 
-			unsigned offsetToNextFrame = function.bytesToPop;
+			unsigned argumentsSize = function.bytesToPop;
+			unsigned stackSize = (function.stackSize + 0xf) & ~0xf;
+
+			printf(") argument size %d, stack size %d\n", argumentsSize, stackSize);
 
 			for(unsigned i = 0; i < function.localCount; i++)
 			{
@@ -495,9 +498,6 @@ void nullcDumpStackData()
 					printf("\n");
 					nullcPrintVariableInfo(localType, data + offset + lInfo.offset, indent + 1);
 				}
-
-				if(lInfo.offset + lInfo.size > offsetToNextFrame)
-					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
 
 			if(function.parentType != ~0u)
@@ -516,7 +516,7 @@ void nullcDumpStackData()
 				printf("%p: %s %s = %p\n", (void*)ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(void**)ptr);
 			}
 
-			offset += offsetToNextFrame;
+			offset += stackSize;
 		}
 		else
 		{
@@ -990,8 +990,10 @@ void MarkUsedBlocks()
 		if(cachedFuncID)
 		{
 			funcID = *cachedFuncID;
-		}else{
-			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
+		}
+		else
+		{
+			for(unsigned i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
 				if(address >= functions[i].regVmAddress && address < (functions[i].regVmAddress + functions[i].regVmCodeSize))
 					funcID = i;
@@ -1003,32 +1005,36 @@ void MarkUsedBlocks()
 		// If we are not in global scope
 		if(funcID != -1)
 		{
+			ExternFuncInfo &function = functions[funcID];
+
 			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
 			offset += alignOffset;
-			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + functions[funcID].offsetToName, alignOffset);
+			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + function.offsetToName, alignOffset);
 
-			unsigned int offsetToNextFrame = functions[funcID].bytesToPop;
+			unsigned stackSize = (function.stackSize + 0xf) & ~0xf;
+
 			// Check every function local
-			for(unsigned int i = 0; i < functions[funcID].localCount; i++)
+			for(unsigned i = 0; i < function.localCount; i++)
 			{
 				// Get information about local
-				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + i];
+				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[function.offsetToFirstLocal + i];
 
-				GC_DEBUG_PRINT("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
+				GC_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				// Check it
 				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);
-				if(lInfo.offset + lInfo.size > offsetToNextFrame)
-					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
-			if(functions[funcID].contextType != ~0u)
+
+			if(function.contextType != ~0u)
 			{
-				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[functions[funcID].contextType].offsetToName, offset, functions[funcID].bytesToPop - NULLC_PTR_SIZE);
-				char *ptr = GC::unmanageableBase + offset + functions[funcID].bytesToPop - NULLC_PTR_SIZE;
-				GC::MarkPointer(ptr, types[functions[funcID].contextType], false);
+				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[function.contextType].offsetToName, offset, function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = GC::unmanageableBase + offset + function.bytesToPop - NULLC_PTR_SIZE;
+				GC::MarkPointer(ptr, types[function.contextType], false);
 			}
-			offset += offsetToNextFrame;
-			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
+
+			offset += stackSize;
+
+			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", stackSize);
 		}
 	}
 
