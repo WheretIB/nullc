@@ -1185,6 +1185,7 @@ void GetCodeCmdMovHelper(CodeGenRegVmContext &ctx, unsigned char lhs, unsigned c
 		return;
 	}
 
+#if defined(_M_X64)
 	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
 
 	if(sourceReg != rRegCount)
@@ -1213,27 +1214,26 @@ void GetCodeCmdMovHelper(CodeGenRegVmContext &ctx, unsigned char lhs, unsigned c
 	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+#else
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, rhs * 8); // Load source
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, rEAX); // Store to target
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, rhs * 8 + 4); // Load source
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8 + 4, rEAX); // Store to target
+#endif
 }
 
 void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	assert(cmd.rA != cmd.rC);
 
-#if defined(_M_X64)
 	GetCodeCmdMovHelper(ctx, cmd.rA, cmd.rC, RegVmCopyType(cmd.rB));
-#else
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store to target
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8 + 4); // Load source
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEAX); // Store to target
-#endif
 }
 
 void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	assert(cmd.rA != cmd.rC);
 
-#if defined(_M_X64)
 	{
 		unsigned char rhs = cmd.rC;
 		unsigned char lhs = cmd.rA;
@@ -1259,28 +1259,6 @@ void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 		GetCodeCmdMovHelper(ctx, lhs, rhs, copyType);
 	}
-#else
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store to target
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8 + 4); // Load source
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEAX); // Store to target
-
-	if(((cmd.argument >> 16) & 0xff) != (cmd.argument >> 24))
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8); // Load source
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, (cmd.argument >> 24) * 8, rEAX); // Store to target
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, ((cmd.argument >> 16) & 0xff) * 8 + 4); // Load source
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, (cmd.argument >> 24) * 8 + 4, rEAX); // Store to target
-	}
-
-	if((cmd.argument & 0xff) != ((cmd.argument >> 8) & 0xff))
-	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, (cmd.argument & 0xff) * 8); // Load source
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, ((cmd.argument >> 8) & 0xff) * 8, rEAX); // Store to target
-		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, (cmd.argument & 0xff) * 8 + 4); // Load source
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, ((cmd.argument >> 8) & 0xff) * 8 + 4, rEAX); // Store to target
-	}
-#endif
 }
 
 void GenCodeCmdDtoi(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -3630,7 +3608,6 @@ void x86ShllWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdShll(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x86ShllWrap = x86ShllWrap;
 
 #if defined(_M_X64)
@@ -3672,7 +3649,6 @@ void x86ShrlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdShrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x86ShrlWrap = x86ShrlWrap;
 
 #if defined(_M_X64)
@@ -4035,7 +4011,6 @@ void x86PowdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x64PowdWrap = pow;
 	ctx.vmState->x86PowdWrap = x86PowdWrap;
 
@@ -4080,7 +4055,6 @@ void x86ModdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x64ModdWrap = fmod;
 	ctx.vmState->x86ModdWrap = x86ModdWrap;
 
@@ -4110,7 +4084,6 @@ void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLessd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
@@ -4128,7 +4101,6 @@ void GenCodeCmdLessd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGreaterd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
@@ -4146,7 +4118,6 @@ void GenCodeCmdGreaterd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
@@ -4164,7 +4135,6 @@ void GenCodeCmdLequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdGequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
@@ -4182,7 +4152,6 @@ void GenCodeCmdGequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdEquald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
@@ -4200,7 +4169,6 @@ void GenCodeCmdEquald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdNequald(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg lhs = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, lhs, sQWORD, rREG, cmd.rB * 8); // Load double value
