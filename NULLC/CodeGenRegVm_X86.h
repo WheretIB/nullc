@@ -75,7 +75,7 @@ struct CodeGenRegVmStateContext
 
 		vsAsmStyle = false;
 
-		instWrapperActive = false;
+		jitCodeActive = false;
 	}
 
 	jmp_buf errorHandler;
@@ -123,18 +123,18 @@ struct CodeGenRegVmStateContext
 	void (*x86PowWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86PowdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86ModdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86MullWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86DivlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86PowlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86ModlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	long long (*x86MullWrap)(long long lhs, long long rhs);
+	long long (*x86DivlWrap)(long long lhs, long long rhs);
+	long long (*x86PowlWrap)(long long lhs, long long rhs);
+	long long (*x86ModlWrap)(long long lhs, long long rhs);
 	void (*x86LtodWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
 	void (*x86DtolWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86ShllWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86ShrlWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	long long (*x86ShllWrap)(long long lhs, long long rhs);
+	long long (*x86ShrlWrap)(long long lhs, long long rhs);
 
 	bool vsAsmStyle;
 
-	bool instWrapperActive;
+	bool jitCodeActive;
 };
 
 class ExecutorX86;

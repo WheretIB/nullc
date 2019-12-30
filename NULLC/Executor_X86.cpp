@@ -154,7 +154,7 @@ namespace NULLC
 			}
 		}
 
-		if(currExecutor->vmState.instWrapperActive)
+		if(currExecutor->vmState.jitCodeActive)
 			isInternal = true;
 
 		if(!isInternal)
@@ -258,7 +258,7 @@ namespace NULLC
 			}
 		}
 
-		if(currExecutor->vmState.instWrapperActive)
+		if(currExecutor->vmState.jitCodeActive)
 			isInternal = true;
 
 		if(!isInternal)
@@ -912,6 +912,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	if(instructionPos != ~0u)
 	{
+		vmState.jitCodeActive = true;
+
 #ifdef __linux
 		struct sigaction sa;
 		struct sigaction sigFPE;
@@ -994,6 +996,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			resultType = rvrError;
 		}
 #endif
+
+		vmState.jitCodeActive = false;
 	}
 
 	vmState.regFileLastPtr = prevRegFilePtr;

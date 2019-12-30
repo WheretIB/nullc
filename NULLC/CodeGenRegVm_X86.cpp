@@ -1263,7 +1263,6 @@ void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDtoi(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvttsd2si, rEAX, sQWORD, rREG, cmd.rC * 8); // Load double as int
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store value
 }
@@ -1281,7 +1280,6 @@ void x86DtolWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 void GenCodeCmdDtol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x86DtolWrap = x86DtolWrap;
 
 #if defined(_M_X64)
@@ -1301,7 +1299,6 @@ void GenCodeCmdDtol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdDtof(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg temp = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtsd2ss, temp, sQWORD, rREG, cmd.rC * 8); // Load double as float
@@ -1310,7 +1307,6 @@ void GenCodeCmdDtof(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdItod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	x86XmmReg temp = ctx.ctx.GetXmmReg();
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtsi2sd, temp, sDWORD, rREG, cmd.rC * 8); // Load int as double
@@ -1365,7 +1361,6 @@ void GenCodeCmdItol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void GenCodeCmdLtoi(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load lower int part of a long number
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store value
 }
@@ -1822,6 +1817,8 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 	if(target.regVmAddress == -1)
 	{
+		vmState->jitCodeActive = false;
+
 		if(target.funcPtrWrap)
 		{
 			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)vmState->tempStackArrayBase, (char*)vmState->dataStackTop);
@@ -1834,6 +1831,8 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 			ctx.x86rvm->Stop("ERROR: external raw function calls are disabled");
 #endif
 		}
+
+		vmState->jitCodeActive = true;
 
 		if(!ctx.x86rvm->callContinue)
 			longjmp(vmState->errorHandler, 1);
@@ -2734,8 +2733,6 @@ void GenCodeCmdDiv(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86PowWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
-	vmState->instWrapperActive = true;
-
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -2743,8 +2740,6 @@ void x86PowWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned 
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].intValue = VmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
-
-	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdPow(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -3230,24 +3225,13 @@ void GenCodeCmdSubl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #endif
 }
 
-void x86MullWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
+long long x86MullWrap(long long lhs, long long rhs)
 {
-	vmState->instWrapperActive = true;
-
-	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
-
-	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
-	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
-
-	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue * *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
-
-	vmState->instWrapperActive = false;
+	return lhs * rhs;
 }
 
 void GenCodeCmdMull(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x86MullWrap = x86MullWrap;
 
 #if defined(_M_X64)
@@ -3263,35 +3247,35 @@ void GenCodeCmdMull(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, lhsReg); // Store long to target
 #else
-	unsigned cmdValue[2];
-	memcpy(cmdValue, &cmd, sizeof(cmdValue));
+	// Load long RHS value into EAX:EDX
+	x86GenCodeLoadInt64FromPointer(ctx, rEDX, rEAX, rEDX, cmd.rC, cmd.argument);
 
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[1]);
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[0]);
-	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
+	// Load long LHS value into EAX:EDX
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
+
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->x86MullWrap));
-	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 16);
+
+	// Send long in EAX:EDX
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
 #endif
 }
 
-void x86DivlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
+long long x86DivlWrap(long long lhs, long long rhs)
 {
-	vmState->instWrapperActive = true;
-
-	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
-
-	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
-	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
-
-	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue / *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
-
-	vmState->instWrapperActive = false;
+	return lhs / rhs;
 }
 
 void GenCodeCmdDivl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x86DivlWrap = x86DivlWrap;
 
 #if defined(_M_X64)
@@ -3306,37 +3290,32 @@ void GenCodeCmdDivl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long to target
 #else
-	unsigned cmdValue[2];
-	memcpy(cmdValue, &cmd, sizeof(cmdValue));
+	// Load long RHS value into EAX:EDX
+	x86GenCodeLoadInt64FromPointer(ctx, rEDX, rEAX, rEDX, cmd.rC, cmd.argument);
 
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[1]);
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[0]);
-	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
+	// Load long LHS value into EAX:EDX
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
+
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->x86DivlWrap));
-	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 16);
+
+	// Send long in EAX:EDX
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
 #endif
-}
-
-void x86PowlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
-{
-	vmState->instWrapperActive = true;
-
-	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
-
-	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
-	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
-
-	regFilePtr[cmd.rA].longValue = VmLongPow(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].longValue);
-
-	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x64PowlWrap = VmLongPow;
-	ctx.vmState->x86PowlWrap = x86PowlWrap;
+	ctx.vmState->x86PowlWrap = VmLongPow;
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rArg2, sQWORD, rREG, cmd.rB * 8); // Load lhs
@@ -3351,35 +3330,35 @@ void GenCodeCmdPowl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long to target
 #else
-	unsigned cmdValue[2];
-	memcpy(cmdValue, &cmd, sizeof(cmdValue));
+	// Load long LHS value into EAX:EDX
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
 
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[1]);
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[0]);
-	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
+	// Load long RHS value into EAX:EDX
+	x86GenCodeLoadInt64FromPointer(ctx, rEDX, rEAX, rEDX, cmd.rC, cmd.argument);
+
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->x86PowlWrap));
-	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 16);
+
+	// Send long in EAX:EDX
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
 #endif
 }
 
-void x86ModlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
+long long x86ModlWrap(long long lhs, long long rhs)
 {
-	vmState->instWrapperActive = true;
-
-	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
-
-	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
-	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
-
-	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue % *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
-
-	vmState->instWrapperActive = false;
+	return lhs % rhs;
 }
 
 void GenCodeCmdModl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
-
 	ctx.vmState->x86ModlWrap = x86ModlWrap;
 
 #if defined(_M_X64)
@@ -3394,14 +3373,25 @@ void GenCodeCmdModl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRDX); // Store long to target
 #else
-	unsigned cmdValue[2];
-	memcpy(cmdValue, &cmd, sizeof(cmdValue));
+	// Load long RHS value into EAX:EDX
+	x86GenCodeLoadInt64FromPointer(ctx, rEDX, rEAX, rEDX, cmd.rC, cmd.argument);
 
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[1]);
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[0]);
-	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
+	// Load long LHS value into EAX:EDX
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
+
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->x86ModlWrap));
-	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 16);
+
+	// Send long in EAX:EDX
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
 #endif
 }
 
@@ -3591,19 +3581,9 @@ void GenCodeCmdNequall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #endif
 }
 
-void x86ShllWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
+long long x86ShllWrap(long long lhs, long long rhs)
 {
-	vmState->instWrapperActive = true;
-
-	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
-
-	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
-	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
-
-	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue << *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
-
-	vmState->instWrapperActive = false;
+	return lhs << rhs;
 }
 
 void GenCodeCmdShll(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -3621,30 +3601,31 @@ void GenCodeCmdShll(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long to target
 #else
-	unsigned cmdValue[2];
-	memcpy(cmdValue, &cmd, sizeof(cmdValue));
+	// Load long RHS value into EAX:EDX
+	x86GenCodeLoadInt64FromPointer(ctx, rEDX, rEAX, rEDX, cmd.rC, cmd.argument);
 
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[1]);
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[0]);
-	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
+	// Load long LHS value into EAX:EDX
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
+
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->x86ShllWrap));
-	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 16);
+
+	// Send long in EAX:EDX
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
 #endif
 }
 
-void x86ShrlWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
+long long x86ShrlWrap(long long lhs, long long rhs)
 {
-	vmState->instWrapperActive = true;
-
-	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
-
-	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
-	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
-
-	regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue >> *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
-
-	vmState->instWrapperActive = false;
+	return lhs >> rhs;
 }
 
 void GenCodeCmdShrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -3662,14 +3643,25 @@ void GenCodeCmdShrl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long to target
 #else
-	unsigned cmdValue[2];
-	memcpy(cmdValue, &cmd, sizeof(cmdValue));
+	// Load long RHS value into EAX:EDX
+	x86GenCodeLoadInt64FromPointer(ctx, rEDX, rEAX, rEDX, cmd.rC, cmd.argument);
 
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[1]);
-	EMIT_OP_NUM(ctx.ctx, o_push, cmdValue[0]);
-	EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
+	// Load long LHS value into EAX:EDX
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rB * 8 + 4);
+
+	EMIT_OP_REG(ctx.ctx, o_push, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_push, rEAX);
+
 	EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->x86ShrlWrap));
-	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 16);
+
+	// Send long in EAX:EDX
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, rEDX);
 #endif
 }
 
@@ -3996,8 +3988,6 @@ void GenCodeCmdDivf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86PowdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
-	vmState->instWrapperActive = true;
-
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -4005,8 +3995,6 @@ void x86PowdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = pow(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
-
-	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
@@ -4040,8 +4028,6 @@ void GenCodeCmdPowd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 void x86ModdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB)
 {
-	vmState->instWrapperActive = true;
-
 	RegVmRegister *regFilePtr = vmState->regFileLastPtr;
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
@@ -4049,8 +4035,6 @@ void x86ModdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 	memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = fmod(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
-
-	vmState->instWrapperActive = false;
 }
 
 void GenCodeCmdModd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
