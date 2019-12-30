@@ -250,13 +250,60 @@ void nullcPrintDepthIndent(unsigned indentDepth)
 		printf("  ");
 }
 
+void nullcPrintPointerMarkerInfo(markerType marker)
+{
+	char *codeSymbols = nullcDebugSymbols(NULL);
+	unsigned codeTypeCount = 0;
+	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(&codeTypeCount);
+
+	const uintptr_t OBJECT_VISIBLE = 1 << 0;
+	const uintptr_t OBJECT_FREED = 1 << 1;
+	const uintptr_t OBJECT_FINALIZABLE = 1 << 2;
+	const uintptr_t OBJECT_FINALIZED = 1 << 3;
+	const uintptr_t OBJECT_ARRAY = 1 << 4;
+
+	if(marker & OBJECT_VISIBLE)
+		printf("visible");
+	else
+		printf("unmarked");
+
+	if(marker & OBJECT_FREED)
+	{
+		printf(" freed");
+		return;
+	}
+
+	if(marker & OBJECT_FINALIZABLE)
+		printf(" finalizable");
+	if(marker & OBJECT_FINALIZED)
+		printf(" finalized");
+	if(marker & OBJECT_ARRAY)
+		printf(" array");
+
+	unsigned type = unsigned(marker >> 8);
+
+	printf(" type '%s' #%d", codeSymbols + codeTypes[type].offsetToName, type);
+}
+
 void nullcPrintBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 {
 	char *codeSymbols = nullcDebugSymbols(NULL);
 
 	if(type.subCat == ExternTypeInfo::CAT_POINTER)
 	{
-		printf("%p", *(void**)ptr);
+		if(void *base = NULLC::GetBasePointer(*(void**)ptr))
+		{
+			markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+			printf("%p [base %p, ", *(void**)ptr, base);
+			nullcPrintPointerMarkerInfo(*marker);
+			printf("]");
+		}
+		else
+		{
+			printf("%p", *(void**)ptr);
+		}
+
 		return;
 	}
 
@@ -317,10 +364,27 @@ void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
 	printf("typeid type = %d (%s)\n", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
 	nullcPrintDepthIndent(indentDepth);
 	printf("%s[] data = %p\n", codeSymbols + codeTypes[arr->typeID].offsetToName, (void*)arr->ptr);
+	nullcPrintDepthIndent(indentDepth);
 	printf("int len = %d\n", arr->len);
 }
 
 void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth);
+
+void nullcPrintArrayVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth)
+{
+	char *codeSymbols = nullcDebugSymbols(NULL);
+	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(NULL);
+
+	if(type.arrSize == ~0u)
+	{
+		NULLCArray *arr = (NULLCArray*)ptr;
+
+		nullcPrintDepthIndent(indentDepth);
+		printf("%s[] data = %p\n", codeSymbols + codeTypes[type.subType].offsetToName, (void*)arr->ptr);
+		nullcPrintDepthIndent(indentDepth);
+		printf("len %d", arr->len);
+	}
+}
 
 void nullcPrintFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth)
 {
@@ -409,7 +473,7 @@ void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned inde
 	case ExternTypeInfo::CAT_NONE:
 		break;
 	case ExternTypeInfo::CAT_ARRAY:
-		//nullcPrintArrayVariableInfo(type, ptr);
+		nullcPrintArrayVariableInfo(type, ptr, indentDepth);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
 		break;
@@ -629,13 +693,10 @@ namespace GC
 			if(!basePtr)
 				return;
 
-			if(type.subType == 0)
-				return;
-
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
 			// Marker is before the block
-			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
+			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
 			PrintMarker(*marker);
 
 			// If block is unmarked
@@ -646,9 +707,14 @@ namespace GC
 
 				GC_DEBUG_PRINT("\tMarked as used\r\n");
 
+				unsigned targetSubType = type.subType;
+
+				if(takeSubtype && targetSubType == 0)
+					targetSubType = unsigned(*marker >> 8);
+
 				// And if type is not simple, check memory to which pointer points to
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
-					next->push_back(RootInfo(target, takeSubtype ? &NULLC::commonLinker->exTypes[type.subType] : &type));
+					next->push_back(RootInfo(target, takeSubtype ? &NULLC::commonLinker->exTypes[targetSubType] : &type));
 			}
 		}
 	}
@@ -1110,11 +1176,11 @@ void MarkUsedBlocks()
 		tempStackBase += 4;
 	}
 
-	GC_DEBUG_PRINT("Checking new roots\r\n");
-
 	while(GC::next->size())
 	{
-		FastVector<GC::RootInfo>	*tmp = GC::curr;
+		GC_DEBUG_PRINT("Checking new roots\r\n");
+
+		FastVector<GC::RootInfo> *tmp = GC::curr;
 		GC::curr = GC::next;
 		GC::next = tmp;
 
@@ -1127,6 +1193,8 @@ void MarkUsedBlocks()
 
 		GC::curr->clear();
 	}
+
+	GC_DEBUG_PRINT("\r\n");
 }
 
 void ResetGC()

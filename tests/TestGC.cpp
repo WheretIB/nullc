@@ -412,7 +412,10 @@ auto foo(int x)\r\n\
 	GC.CollectMemory();\r\n\
 	return m;\r\n\
 }\r\n\
-return foo(5)() + k();";
+int res = foo(5)();\r\n\
+GC.CollectMemory();\r\n\
+res += k();\r\n\
+return res;";
 TEST_RESULT("Unused upvalues GC test", testUnusedUpvaluesGC, "25");
 
 const char	*testUnusedUpvaluesGC2 =
@@ -432,29 +435,9 @@ auto foo(int x)\r\n\
 	return m;\r\n\
 }\r\n\
 foo(5)() + k();\r\n\
-return GC.UsedMemory() - start;";
-TEST_RESULT_SIMPLE("Unused upvalues GC test 2", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "256" : "128");
-
-const char	*testDoubleMemoryRemovalGC =
-"import std.gc;\r\n\
-int start = GC.UsedMemory();\r\n\
-int ref() k;\r\n\
-auto foo(int x)\r\n\
-{\r\n\
-	int a; int ref() m;\r\n\
-	for(int y = 0; y < 10; y++)\r\n\
-	{\r\n\
-		m = auto(){ return y + x + a; };\r\n\
-		if(y == 6)\r\n\
-			k = m;\r\n\
-	}\r\n\
-	GC.CollectMemory();\r\n\
-	return m;\r\n\
-}\r\n\
-foo(5)() + k();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT_SIMPLE("Prevention of double memory removal", testDoubleMemoryRemovalGC, sizeof(void*) == 8 ? "128" : "64");
+TEST_RESULT_SIMPLE("Unused upvalues GC test 2", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "128" : "64");
 
 const char	*testDoubleMemoryRemovalGC2 =
 "import std.gc;\r\n\
