@@ -598,12 +598,20 @@ x86Reg CodeGenGenericContext::GetReg()
 
 void CodeGenGenericContext::LockReg(x86Reg reg)
 {
+	assert(reg != lockedRegA);
+	assert(reg != lockedRegB);
+
 	if(lockedRegA == rRegCount)
 		lockedRegA = reg;
 	else if(lockedRegB == rRegCount)
 		lockedRegB = reg;
 	else
 		assert(!"too many register locks");
+}
+
+bool CodeGenGenericContext::IsRegLocked(x86Reg reg)
+{
+	return reg == lockedRegA || reg == lockedRegB;
 }
 
 x86XmmReg CodeGenGenericContext::GetXmmReg()
@@ -634,12 +642,20 @@ x86XmmReg CodeGenGenericContext::GetXmmReg()
 
 void CodeGenGenericContext::LockXmmReg(x86XmmReg reg)
 {
+	assert(reg != lockedXmmRegA);
+	assert(reg != lockedXmmRegB);
+
 	if(lockedXmmRegA == rXmmRegCount)
 		lockedXmmRegA = reg;
 	else if(lockedXmmRegB == rXmmRegCount)
 		lockedXmmRegB = reg;
 	else
 		assert(!"too many register locks");
+}
+
+bool CodeGenGenericContext::IsXmmRegLocked(x86XmmReg reg)
+{
+	return reg == lockedXmmRegA || reg == lockedXmmRegB;
 }
 
 void CodeGenGenericContext::UnlockRegisters()
