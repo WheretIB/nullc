@@ -3070,25 +3070,41 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(copyReg != sourceRegs[k])
 			{
+				assert(inst->type == inst->arguments[0]->type);
+
+				VmValueType vmType = inst->type.type;
+				RegVmCopyType copyType = rvcFull;
+
+				if(vmType == VM_TYPE_INT || (vmType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+					copyType = rvcInt;
+				else if(vmType == VM_TYPE_DOUBLE)
+					copyType = rvcDouble;
+				else if(vmType == VM_TYPE_LONG || (vmType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
+					copyType = rvcLong;
+				else
+					assert(!"unknown type");
+
 				if(RegVmLoweredInstruction *last = lowBlock->lastInstruction)
 				{
 					if(last->code == rviMov)
 					{
 						last->code = rviMovMult;
+						last->rB |= copyType << 2;
 						last->argument = CreateConstantInt(ctx.allocator, NULL, (copyReg << 24) | (sourceRegs[k] << 16));
 					}
 					else if(last->code == rviMovMult && (last->argument->iValue & 0xffff) == 0)
 					{
+						last->rB |= copyType << 4;
 						last->argument->iValue |= (copyReg << 8) | sourceRegs[k];
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[k]);
+						lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, (unsigned char)copyType, sourceRegs[k]);
 					}
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[k]);
+					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, (unsigned char)copyType, sourceRegs[k]);
 				}
 			}
 		}

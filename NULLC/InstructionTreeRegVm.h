@@ -150,6 +150,14 @@ enum RegVmSetRangeType
 	rvsrChar,
 };
 
+enum RegVmCopyType
+{
+	rvcFull,
+	rvcInt,
+	rvcDouble,
+	rvcLong,
+};
+
 enum RegVmReturnType
 {
 	rvrVoid,

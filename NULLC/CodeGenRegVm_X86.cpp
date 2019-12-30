@@ -1111,37 +1111,84 @@ void GenCodeCmdBreakupdd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEDX);
 }
 
+void GetCodeCmdMovHelper(CodeGenRegVmContext &ctx, unsigned char lhs, unsigned char rhs, RegVmCopyType copyType)
+{
+	if(copyType == rvcInt)
+	{
+		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
+
+		if(sourceReg != rRegCount)
+		{
+			ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
+			return;
+		}
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rRCX, sDWORD, rREG, rhs * 8); // Load source
+
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, rRCX); // Store to target
+		return;
+	}
+
+	if(copyType == rvcDouble)
+	{
+		x86XmmReg sourceReg = ctx.ctx.FindXmmRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+
+		if(sourceReg != rXmmRegCount)
+		{
+			ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+			EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+			return;
+		}
+
+		sourceReg = ctx.ctx.GetXmmReg();
+
+		EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, sourceReg, sQWORD, rREG, rhs * 8); // Load source
+
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+		return;
+	}
+
+	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+
+	if(sourceReg != rRegCount)
+	{
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
+		return;
+	}
+
+	// Maybe last write was of dword size
+	sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
+
+	if(sourceReg != rRegCount)
+	{
+		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
+		return;
+	}
+
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRCX, sQWORD, rREG, rhs * 8); // Load source
+
+	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, rRCX); // Store to target
+}
+
 void GenCodeCmdMov(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	assert(cmd.rA != cmd.rC);
 
 #if defined(_M_X64)
-	x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, cmd.rC * 8, true);
-
-	if(sourceReg != rRegCount)
-	{
-		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
-
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, sourceReg); // Store to target
-		return;
-	}
-
-	// Maybe last write was of dword size
-	sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, cmd.rC * 8, true);
-
-	if(sourceReg != rRegCount)
-	{
-		ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
-
-		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, sourceReg); // Store to target
-		return;
-	}
-
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source
-
-	ctx.ctx.KillEarlyUnreadRegVmRegisters(ctx.exRegVmRegKillInfo + ctx.currInstructionRegKillOffset);
-
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	GetCodeCmdMovHelper(ctx, cmd.rA, cmd.rC, RegVmCopyType(cmd.rB));
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store to target
@@ -1158,87 +1205,27 @@ void GenCodeCmdMovMult(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	{
 		unsigned char rhs = cmd.rC;
 		unsigned char lhs = cmd.rA;
-		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+		RegVmCopyType copyType = RegVmCopyType(cmd.rB & 0x3);
 
-		if(sourceReg != rRegCount)
-		{
-			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
-		}
-		else
-		{
-			// Maybe last write was of dword size
-			sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
-
-			if(sourceReg != rRegCount)
-			{
-				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
-			}
-			else
-			{
-				sourceReg = ctx.ctx.GetReg();
-
-				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, sourceReg, sQWORD, rREG, rhs * 8); // Load source
-				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
-			}
-		}
+		GetCodeCmdMovHelper(ctx, lhs, rhs, copyType);
 	}
 
 	if(((cmd.argument >> 16) & 0xff) != (cmd.argument >> 24))
 	{
 		unsigned char rhs = ((cmd.argument >> 16) & 0xff);
 		unsigned char lhs = (cmd.argument >> 24);
-		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+		RegVmCopyType copyType = RegVmCopyType((cmd.rB >> 2) & 0x3);
 
-		if(sourceReg != rRegCount)
-		{
-			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
-		}
-		else
-		{
-			// Maybe last write was of dword size
-			sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
-
-			if(sourceReg != rRegCount)
-			{
-				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
-			}
-			else
-			{
-				sourceReg = ctx.ctx.GetReg();
-
-				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, sourceReg, sQWORD, rREG, rhs * 8); // Load source
-				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
-			}
-		}
+		GetCodeCmdMovHelper(ctx, lhs, rhs, copyType);
 	}
 
 	if((cmd.argument & 0xff) != ((cmd.argument >> 8) & 0xff))
 	{
 		unsigned char rhs = (cmd.argument & 0xff);
 		unsigned char lhs = ((cmd.argument >> 8) & 0xff);
-		x86Reg sourceReg = ctx.ctx.FindRegAtMemory(sQWORD, rNONE, 1, rREG, rhs * 8, true);
+		RegVmCopyType copyType = RegVmCopyType((cmd.rB >> 4) & 0x3);
 
-		if(sourceReg != rRegCount)
-		{
-			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
-		}
-		else
-		{
-			// Maybe last write was of dword size
-			sourceReg = ctx.ctx.FindRegAtMemory(sDWORD, rNONE, 1, rREG, rhs * 8, true);
-
-			if(sourceReg != rRegCount)
-			{
-				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, lhs * 8, sourceReg); // Store to target
-			}
-			else
-			{
-				sourceReg = ctx.ctx.GetReg();
-
-				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, sourceReg, sQWORD, rREG, rhs * 8); // Load source
-				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, lhs * 8, sourceReg); // Store to target
-			}
-		}
+		GetCodeCmdMovHelper(ctx, lhs, rhs, copyType);
 	}
 #else
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load source

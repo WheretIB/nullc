@@ -355,11 +355,47 @@ void PrintInstruction(OutputContext &ctx, char *constantData, ExternFuncInfo *fu
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rC);
+
+		switch(rB)
+		{
+		case rvcFull:
+			Print(ctx, " (full)");
+			break;
+		case rvcInt:
+			Print(ctx, " (int)");
+			break;
+		case rvcDouble:
+			Print(ctx, " (double)");
+			break;
+		case rvcLong:
+			Print(ctx, " (long)");
+			break;
+		default:
+			assert(!"unknown type");
+		}
 		break;
 	case rviMovMult:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rC);
+
+		switch(rB & 0x3)
+		{
+		case rvcFull:
+			Print(ctx, " (full)");
+			break;
+		case rvcInt:
+			Print(ctx, " (int)");
+			break;
+		case rvcDouble:
+			Print(ctx, " (double)");
+			break;
+		case rvcLong:
+			Print(ctx, " (long)");
+			break;
+		default:
+			assert(!"unknown type");
+		}
 
 		if(argument >> 24)
 		{
@@ -367,6 +403,24 @@ void PrintInstruction(OutputContext &ctx, char *constantData, ExternFuncInfo *fu
 			PrintRegister(ctx, argument >> 24);
 			Print(ctx, ", ");
 			PrintRegister(ctx, (argument >> 16) & 0xff);
+
+			switch((rB >> 2) & 0x3)
+			{
+			case rvcFull:
+				Print(ctx, " (full)");
+				break;
+			case rvcInt:
+				Print(ctx, " (int)");
+				break;
+			case rvcDouble:
+				Print(ctx, " (double)");
+				break;
+			case rvcLong:
+				Print(ctx, " (long)");
+				break;
+			default:
+				assert(!"unknown type");
+			}
 		}
 
 		if((argument >> 8) & 0xff)
@@ -375,6 +429,24 @@ void PrintInstruction(OutputContext &ctx, char *constantData, ExternFuncInfo *fu
 			PrintRegister(ctx, (argument >> 8) & 0xff);
 			Print(ctx, ", ");
 			PrintRegister(ctx, argument & 0xff);
+
+			switch((rB >> 4) & 0x3)
+			{
+			case rvcFull:
+				Print(ctx, " (full)");
+				break;
+			case rvcInt:
+				Print(ctx, " (int)");
+				break;
+			case rvcDouble:
+				Print(ctx, " (double)");
+				break;
+			case rvcLong:
+				Print(ctx, " (long)");
+				break;
+			default:
+				assert(!"unknown type");
+			}
 		}
 		break;
 	case rviDtoi:
