@@ -470,6 +470,10 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 
 	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
+		// Temporary scope is not evaluated
+		if(curr->type == SCOPE_TEMPORARY)
+			return str;
+
 		// Function scope, just use the name
 		if(curr->ownerFunction && !foundNamespace)
 			return str;

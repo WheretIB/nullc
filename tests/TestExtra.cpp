@@ -1145,3 +1145,12 @@ TEST_RESULT("Conditional with a complex value 1", testComplexConditional1, "0");
 
 const char	*testComplexConditional2 = "auto y = new int(1); auto x = *y ? \"aaa\" : \"bbb\"; return x[0] - 'a';";
 TEST_RESULT("Conditional with a complex value 2", testComplexConditional2, "0");
+
+const char	*testFunctionDefinitionInTemporaryScope =
+"class Foo\r\n\
+{\r\n\
+	auto foo(typeof(int bar(){ return 1; }) f){ return f(); }\r\n\
+}\r\n\
+Foo f;\r\n\
+return f.foo(<>{ 2; });";
+TEST_RESULT("Function definition inside a temporary scope", testFunctionDefinitionInTemporaryScope, "2");
