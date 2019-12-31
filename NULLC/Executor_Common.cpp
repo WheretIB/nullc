@@ -17,6 +17,15 @@
 
 typedef uintptr_t markerType;
 
+namespace
+{
+	const uintptr_t OBJECT_VISIBLE = 1 << 0;
+	const uintptr_t OBJECT_FREED = 1 << 1;
+	const uintptr_t OBJECT_FINALIZABLE = 1 << 2;
+	const uintptr_t OBJECT_FINALIZED = 1 << 3;
+	const uintptr_t OBJECT_ARRAY = 1 << 4;
+}
+
 namespace NULLC
 {
 	Linker *commonLinker = NULL;
@@ -255,12 +264,6 @@ void nullcPrintPointerMarkerInfo(markerType marker)
 	char *codeSymbols = nullcDebugSymbols(NULL);
 	unsigned codeTypeCount = 0;
 	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(&codeTypeCount);
-
-	const uintptr_t OBJECT_VISIBLE = 1 << 0;
-	const uintptr_t OBJECT_FREED = 1 << 1;
-	const uintptr_t OBJECT_FINALIZABLE = 1 << 2;
-	const uintptr_t OBJECT_FINALIZED = 1 << 3;
-	const uintptr_t OBJECT_ARRAY = 1 << 4;
 
 	if(marker & OBJECT_VISIBLE)
 		printf("visible");
@@ -644,12 +647,6 @@ namespace GC
 	{
 		GC_DEBUG_PRINT("\tMarker is 0x%2x [", unsigned(marker));
 
-		const uintptr_t OBJECT_VISIBLE		= 1 << 0;
-		const uintptr_t OBJECT_FREED		= 1 << 1;
-		const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
-		const uintptr_t OBJECT_FINALIZED	= 1 << 3;
-		const uintptr_t OBJECT_ARRAY		= 1 << 4;
-
 		if(marker & OBJECT_VISIBLE)
 			GC_DEBUG_PRINT("visible");
 		else
@@ -700,10 +697,10 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If block is unmarked
-			if(!(*marker & 1))
+			if(!(*marker & OBJECT_VISIBLE))
 			{
 				// Mark block as used
-				*marker |= 1;
+				*marker |= OBJECT_VISIBLE;
 
 				GC_DEBUG_PRINT("\tMarked as used\r\n");
 
@@ -719,11 +716,40 @@ namespace GC
 		}
 	}
 
+	void CheckArrayElements(char* ptr, unsigned size, const ExternTypeInfo& elementType)
+	{
+		if(!elementType.pointerCount)
+			return;
+
+		// Check every array element is it's either array, pointer of class
+		switch(elementType.subCat)
+		{
+		case ExternTypeInfo::CAT_NONE:
+			break;
+		case ExternTypeInfo::CAT_ARRAY:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				CheckArray(ptr, elementType);
+			break;
+		case ExternTypeInfo::CAT_POINTER:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				MarkPointer(ptr, elementType, true);
+			break;
+		case ExternTypeInfo::CAT_FUNCTION:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				CheckFunction(ptr);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				CheckClass(ptr, elementType);
+			break;
+		}
+	}
+
 	// Function that checks arrays for pointers
 	void CheckArray(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get array element type
-		ExternTypeInfo *subType = type.nameHash == autoArrayName ? NULL : &NULLC::commonLinker->exTypes[type.subType];
+		ExternTypeInfo *subType = &NULLC::commonLinker->exTypes[type.subType];
 
 		// Real array size (changed for unsized arrays)
 		unsigned int size = type.arrSize;
@@ -756,11 +782,11 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If there is no base pointer or memory already marked, exit
-			if((*marker & 1))
+			if((*marker & OBJECT_VISIBLE))
 				return;
 
 			// Mark memory as used
-			*marker |= 1;
+			*marker |= OBJECT_VISIBLE;
 
 			GC_DEBUG_PRINT("\tMarked as used\r\n");
 		}
@@ -785,31 +811,7 @@ namespace GC
 			size = data->len;
 		}
 
-		if(!subType->pointerCount)
-			return;
-
-		// Otherwise, check every array element is it's either array, pointer of class
-		switch(subType->subCat)
-		{
-		case ExternTypeInfo::CAT_NONE:
-			break;
-		case ExternTypeInfo::CAT_ARRAY:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckArray(ptr, *subType);
-			break;
-		case ExternTypeInfo::CAT_POINTER:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				MarkPointer(ptr, *subType, true);
-			break;
-		case ExternTypeInfo::CAT_FUNCTION:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckFunction(ptr);
-			break;
-		case ExternTypeInfo::CAT_CLASS:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckClass(ptr, *subType);
-			break;
-		}
+		CheckArrayElements(ptr, size, *subType);
 	}
 
 	// Function that checks classes for pointers
@@ -843,11 +845,11 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If there is no base pointer or memory already marked, exit
-			if((*marker & 1))
+			if((*marker & OBJECT_VISIBLE))
 				return;
 
 			// Mark memory as used
-			*marker |= 1;
+			*marker |= OBJECT_VISIBLE;
 
 			GC_DEBUG_PRINT("\tMarked as used\r\n");
 
@@ -1158,18 +1160,32 @@ void MarkUsedBlocks()
 				GC::PrintMarker(*marker);
 
 				// If block is unmarked, mark it as used
-				if(!(*marker & 1))
+				if(!(*marker & OBJECT_VISIBLE))
 				{
 					unsigned typeID = unsigned(*marker >> 8);
 					ExternTypeInfo &type = types[typeID];
 
-					*marker |= 1;
+					*marker |= OBJECT_VISIBLE;
 
 					GC_DEBUG_PRINT("\tMarked as used\r\n");
 
-					// And if type is not simple, check memory to which pointer points to
-					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						GC::CheckVariable((char*)basePtr, type);
+					if(*marker & OBJECT_ARRAY)
+					{
+						unsigned arrayPadding = type.defaultAlign > 4 ? type.defaultAlign : 4;
+
+						char *elements = (char*)basePtr + arrayPadding;
+
+						unsigned size;
+						memcpy(&size, elements - sizeof(unsigned), sizeof(unsigned));
+
+						GC::CheckArrayElements(elements, size, type);
+					}
+					else
+					{
+						// And if type is not simple, check memory to which pointer points to
+						if(type.subCat != ExternTypeInfo::CAT_NONE)
+							GC::CheckVariable((char*)basePtr, type);
+					}
 				}
 			}
 		}
