@@ -385,7 +385,7 @@ void nullcPrintArrayVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned
 		nullcPrintDepthIndent(indentDepth);
 		printf("%s[] data = %p\n", codeSymbols + codeTypes[type.subType].offsetToName, (void*)arr->ptr);
 		nullcPrintDepthIndent(indentDepth);
-		printf("len %d", arr->len);
+		printf("len %d\n", arr->len);
 	}
 }
 

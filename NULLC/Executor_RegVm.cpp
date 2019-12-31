@@ -1617,6 +1617,9 @@ void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const reg
 
 	if(uintptr_t(ptr) >= frameBase && uintptr_t(ptr) <= frameEnd)
 	{
+		// Don't want to trigger GC at this point
+		NULLC::SetCollectMemory(false);
+
 		if(type.arrSize == ~0u)
 		{
 			unsigned length = *(int*)(returnValuePtr + sizeof(void*));
@@ -1633,6 +1636,8 @@ void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const reg
 			memcpy(copy, ptr, objSize);
 			vmStorePointer(returnValuePtr, copy);
 		}
+
+		NULLC::SetCollectMemory(true);
 	}
 }
 

@@ -58,6 +58,7 @@ namespace NULLC
 	bool		IsBasePointer(void* ptr);
 	void*		GetBasePointer(void* ptr);
 
+	void		SetCollectMemory(bool enabled);
 	void		CollectMemory();
 	unsigned int	UsedMemory();
 	double		MarkTime();

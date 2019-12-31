@@ -2373,6 +2373,9 @@ void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, uintptr_t frameBase, u
 
 	if(uintptr_t(ptr) >= frameBase && uintptr_t(ptr) <= frameEnd)
 	{
+		// Don't want to trigger GC at this point
+		NULLC::SetCollectMemory(false);
+
 		ExternTypeInfo &type = ctx.exTypes[typeId];
 
 		if(type.arrSize == ~0u)
@@ -2391,6 +2394,8 @@ void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, uintptr_t frameBase, u
 			memcpy(copy, ptr, objSize);
 			memcpy(returnValuePtr, &copy, sizeof(copy));
 		}
+
+		NULLC::SetCollectMemory(false);
 	}
 }
 

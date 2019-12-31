@@ -257,6 +257,8 @@ namespace NULLC
 {
 	const unsigned int poolBlockSize = 64 * 1024;
 
+	bool collectionEnabled = true;
+
 	unsigned int usedMemory = 0;
 
 	unsigned int collectableMinimum = 1024 * 1024;
@@ -333,14 +335,18 @@ void* NULLC::AllocObject(int size, unsigned type)
 	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 	{
 		CollectMemory();
+
 		if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 		{
 			nullcThrowError("ERROR: reached global memory maximum");
 			return NULL;
 		}
-	}else if((unsigned int)(usedMemory + size) > collectableMinimum){
+	}
+	else if((unsigned int)(usedMemory + size) > collectableMinimum)
+	{
 		CollectMemory();
 	}
+
 	unsigned int realSize = size;
 	if(size <= 64)
 	{
@@ -559,8 +565,16 @@ void NULLC::CollectBlock(Range& curr)
 	}
 }
 
+void NULLC::SetCollectMemory(bool enabled)
+{
+	collectionEnabled = enabled;
+}
+
 void NULLC::CollectMemory()
 {
+	if(!collectionEnabled)
+		return;
+
 //	printf("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
 
 	double time = (double(clock()) / CLOCKS_PER_SEC);
@@ -666,6 +680,8 @@ void NULLC::ClearBlock(Range& curr)
 
 void NULLC::ClearMemory()
 {
+	collectionEnabled = true;
+
 	usedMemory = 0;
 
 	pool8.Reset();
