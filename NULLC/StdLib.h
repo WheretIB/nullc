@@ -44,8 +44,8 @@ namespace NULLC
 	double		StrToDouble(NULLCArray str);
 	NULLCArray	DoubleToStr(int precision, bool exponent, double* r);
 	
-	void*		AllocObject(int size, unsigned type = 0);
-	NULLCArray	AllocArray(unsigned size, unsigned count, unsigned type = 0);
+	void*		AllocObject(int size, unsigned type);
+	NULLCArray	AllocArray(unsigned size, unsigned count, unsigned type);
 	NULLCRef	CopyObject(NULLCRef ptr);
 	void		CopyArray(NULLCAutoArray* dst, NULLCAutoArray src);
 	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);

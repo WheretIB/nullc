@@ -1624,7 +1624,7 @@ void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const reg
 		{
 			unsigned length = *(int*)(returnValuePtr + sizeof(void*));
 
-			char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length);
+			char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length, type.subType);
 			memcpy(copy, ptr, unsigned(exLinker->exTypes[type.subType].size * length));
 			vmStorePointer(returnValuePtr, copy);
 		}
@@ -1632,7 +1632,7 @@ void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const reg
 		{
 			unsigned objSize = type.size;
 
-			char *copy = (char*)NULLC::AllocObject(objSize);
+			char *copy = (char*)NULLC::AllocObject(objSize, typeId);
 			memcpy(copy, ptr, objSize);
 			vmStorePointer(returnValuePtr, copy);
 		}

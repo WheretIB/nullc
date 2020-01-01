@@ -1358,7 +1358,7 @@ void* nullcAllocate(unsigned size)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
-	return NULLC::AllocObject(size);
+	return NULLC::AllocObject(size, 0);
 }
 
 void* nullcAllocateTyped(unsigned typeID)

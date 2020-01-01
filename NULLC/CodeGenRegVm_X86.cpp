@@ -2382,7 +2382,7 @@ void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, uintptr_t frameBase, u
 		{
 			unsigned length = *(int*)(returnValuePtr + sizeof(void*));
 
-			char *copy = (char*)NULLC::AllocObject(ctx.exTypes[type.subType].size * length);
+			char *copy = (char*)NULLC::AllocObject(ctx.exTypes[type.subType].size * length, type.subType);
 			memcpy(copy, ptr, unsigned(ctx.exTypes[type.subType].size * length));
 			memcpy(returnValuePtr, &copy, sizeof(copy));
 		}
@@ -2390,7 +2390,7 @@ void CheckedReturnWrap(CodeGenRegVmStateContext *vmState, uintptr_t frameBase, u
 		{
 			unsigned objSize = type.size;
 
-			char *copy = (char*)NULLC::AllocObject(objSize);
+			char *copy = (char*)NULLC::AllocObject(objSize, typeId);
 			memcpy(copy, ptr, objSize);
 			memcpy(returnValuePtr, &copy, sizeof(copy));
 		}
