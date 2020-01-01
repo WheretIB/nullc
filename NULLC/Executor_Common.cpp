@@ -350,10 +350,25 @@ void nullcPrintAutoInfo(char* ptr, unsigned indentDepth)
 	char *codeSymbols = nullcDebugSymbols(NULL);
 	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(NULL);
 
+	void *target = *(void**)(ptr + 4);
+
 	nullcPrintDepthIndent(indentDepth);
 	printf("typeid type = %d (%s)\n", *(int*)ptr, codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
 	nullcPrintDepthIndent(indentDepth);
-	printf("%s ref ptr = 0x%x\n", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName, *(int*)(ptr + 4));
+	printf("%s ref ptr = ", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
+
+	if(void *base = NULLC::GetBasePointer(target))
+	{
+		markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+		printf("%p [base %p, ", target, base);
+		nullcPrintPointerMarkerInfo(*marker);
+		printf("]\n");
+	}
+	else
+	{
+		printf("%p\n", target);
+	}
 }
 
 void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
@@ -363,10 +378,27 @@ void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
 
 	NULLCAutoArray *arr = (NULLCAutoArray*)ptr;
 
+	void *target = *(void**)arr->ptr;
+
 	nullcPrintDepthIndent(indentDepth);
 	printf("typeid type = %d (%s)\n", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
+
 	nullcPrintDepthIndent(indentDepth);
-	printf("%s[] data = %p\n", codeSymbols + codeTypes[arr->typeID].offsetToName, (void*)arr->ptr);
+	printf("%s[] data = ", codeSymbols + codeTypes[arr->typeID].offsetToName);
+
+	if(void *base = NULLC::GetBasePointer(target))
+	{
+		markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+		printf("%p [base %p, ", target, base);
+		nullcPrintPointerMarkerInfo(*marker);
+		printf("]\n");
+	}
+	else
+	{
+		printf("%p\n", target);
+	}
+
 	nullcPrintDepthIndent(indentDepth);
 	printf("int len = %d\n", arr->len);
 }
@@ -378,14 +410,63 @@ void nullcPrintArrayVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned
 	char *codeSymbols = nullcDebugSymbols(NULL);
 	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(NULL);
 
+	char *target = ptr;
+	unsigned size = type.arrSize;
+
 	if(type.arrSize == ~0u)
 	{
 		NULLCArray *arr = (NULLCArray*)ptr;
 
+		target = arr->ptr;
+		size = arr->len;
+
 		nullcPrintDepthIndent(indentDepth);
-		printf("%s[] data = %p\n", codeSymbols + codeTypes[type.subType].offsetToName, (void*)arr->ptr);
+		printf("%s[] data = ", codeSymbols + codeTypes[type.subType].offsetToName);
+
+		if(void *base = NULLC::GetBasePointer(target))
+		{
+			markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+			printf("%p [base %p, ", target, base);
+			nullcPrintPointerMarkerInfo(*marker);
+			printf("]\n");
+		}
+		else
+		{
+			printf("%p\n", target);
+		}
+
 		nullcPrintDepthIndent(indentDepth);
 		printf("len %d\n", arr->len);
+	}
+
+	if(type.pointerCount)
+	{
+		ExternTypeInfo &elementType = codeTypes[type.subType];
+
+		for(unsigned i = 0; i < size && i < 32; i++)
+		{
+			nullcPrintDepthIndent(indentDepth);
+			printf("[%d]", i);
+
+			if(elementType.subCat == ExternTypeInfo::CAT_NONE || elementType.subCat == ExternTypeInfo::CAT_POINTER)
+			{
+				printf(" = ");
+				nullcPrintBasicVariableInfo(elementType, target);
+				printf("\n");
+			}
+			else if(strcmp(codeSymbols + elementType.offsetToName, "typeid") == 0)
+			{
+				printf(" = %s\n", codeSymbols + codeTypes[*(int*)(target)].offsetToName);
+			}
+			else
+			{
+				printf("\n");
+				nullcPrintVariableInfo(elementType, target, indentDepth + 1);
+			}
+
+			target += elementType.size;
+		}
 	}
 }
 
@@ -648,16 +729,28 @@ namespace GC
 		GC_DEBUG_PRINT("\tMarker is 0x%2x [", unsigned(marker));
 
 		if(marker & OBJECT_VISIBLE)
+		{
 			GC_DEBUG_PRINT("visible");
+		}
 		else
+		{
 			GC_DEBUG_PRINT("unmarked");
+		}
 
 		if(marker & OBJECT_FREED)
-			GC_DEBUG_PRINT(" freed");
+		{
+			GC_DEBUG_PRINT(" freed]\r\n");
+
+			assert(!"reached a freed pointer");
+			return;
+		}
+
 		if(marker & OBJECT_FINALIZABLE)
 			GC_DEBUG_PRINT(" finalizable");
+
 		if(marker & OBJECT_FINALIZED)
 			GC_DEBUG_PRINT(" finalized");
+
 		if(marker & OBJECT_ARRAY)
 			GC_DEBUG_PRINT(" array");
 
@@ -711,7 +804,11 @@ namespace GC
 
 				// And if type is not simple, check memory to which pointer points to
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
+				{
+					GC_DEBUG_PRINT("\tPointer %p scheduled on next loop\r\n", target);
+
 					next->push_back(RootInfo(target, takeSubtype ? &NULLC::commonLinker->exTypes[targetSubType] : &type));
+				}
 			}
 		}
 	}
@@ -765,7 +862,12 @@ namespace GC
 
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
+			{
+				if(ptr > (char*)0x00010000)
+					GC_DEBUG_PRINT("\tSkipping stack pointer [array] %p\r\n", ptr);
+
 				return;
+			}
 
 			GC_DEBUG_PRINT("\tGlobal pointer [array] %p\r\n", ptr);
 
@@ -828,7 +930,12 @@ namespace GC
 
 			// If uninitialized or points to stack memory, return
 			if(!target || target <= (char*)0x00010000 || (target >= unmanageableBase && target <= unmanageableTop))
+			{
+				if(target > (char*)0x00010000)
+					GC_DEBUG_PRINT("\tSkipping stack pointer [class] %p\r\n", target);
+
 				return;
+			}
 
 			GC_DEBUG_PRINT("\tGlobal pointer [class] %p\r\n", target);
 
@@ -851,7 +958,7 @@ namespace GC
 			// Mark memory as used
 			*marker |= OBJECT_VISIBLE;
 
-			GC_DEBUG_PRINT("\tMarked as used\r\n");
+			GC_DEBUG_PRINT("\tMarked as used, fixing up target\r\n");
 
 			// Fixup target
 			CheckVariable(target, *realType);
@@ -1157,6 +1264,14 @@ void MarkUsedBlocks()
 				GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
 				markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
+				// Might step on a left-over pointer in stale registers
+				if(*marker & OBJECT_FREED)
+				{
+					tempStackBase += 4;
+					continue;
+				}
+
 				GC::PrintMarker(*marker);
 
 				// If block is unmarked, mark it as used
@@ -1167,7 +1282,7 @@ void MarkUsedBlocks()
 
 					*marker |= OBJECT_VISIBLE;
 
-					GC_DEBUG_PRINT("\tMarked as used\r\n");
+					GC_DEBUG_PRINT("\tMarked as used, checking content\r\n");
 
 					if(*marker & OBJECT_ARRAY)
 					{
