@@ -616,6 +616,12 @@ namespace ColorerGrammar
 									(chP('<')[ColorText] >> typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP('>')[ColorText] >> chP(':')[ColorBold])
 								) >>
 								(idP[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >>
+								!(
+									chP('<')[ColorText] >>
+									(chP('@') >> idP[ColorRWord][StartType]) >>
+									*(chP(',')[ColorText] >> chP('@')[ColorText] >> idP[ColorRWord][StartType]) >>
+									chP('>')[ColorText]
+								) >>
 								chP('(')[ColorBold]
 							) |
 							(
