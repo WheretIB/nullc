@@ -10221,10 +10221,13 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 		condition = AnalyzeExpression(ctx, syntax->condition);
 	}
 
-	condition = CreateConditionCast(ctx, condition->source, condition);
-
 	if(syntax->staticIf)
 	{
+		if(isType<TypeError>(condition->type))
+			return new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
+
+		condition = CreateConditionCast(ctx, condition->source, condition);
+
 		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, syntax, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 		{
 			if(number->value)
@@ -10247,6 +10250,8 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 		Report(ctx, syntax, "ERROR: couldn't evaluate condition at compilation time");
 	}
+
+	condition = CreateConditionCast(ctx, condition->source, condition);
 
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 
