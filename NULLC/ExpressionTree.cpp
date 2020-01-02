@@ -10761,7 +10761,8 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 		if(node->rawLiteral)
 		{
-			length = node->value.length() - 2;
+			if(node->value.length() >= 2)
+				length = node->value.length() - 2;
 		}
 		else
 		{

@@ -904,6 +904,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}typeid Foo:foo(typeof(T(= }Foo<void>test3; test3.foo(4", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "auto foo(generic x){}coroutine auto f(){auto x = foo;}", "ERROR: cannot instantiate generic function, because target type is not known");
 	TEST_FOR_FAIL("fuzzing test crash", "@if{", "ERROR: '(' not found after 'if'");
+	TEST_FOR_FAIL("fuzzing test crash", "@\"", "ERROR: unclosed string constant");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
