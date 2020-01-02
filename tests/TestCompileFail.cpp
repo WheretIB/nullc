@@ -330,7 +330,7 @@ return bar(foo);",
   at line 4: 'return bar(foo);'\n\
                         ^\n");
 
-	TEST_FOR_FAIL("generic function instance type unknown", "auto y = auto(generic y){ return -y; };", "ERROR: cannot instance generic function, because target type is not known");
+	TEST_FOR_FAIL("generic function instance type unknown", "auto y = auto(generic y){ return -y; };", "ERROR: cannot instantiate generic function, because target type is not known");
 
 	TEST_FOR_FAIL_FULL("cannot instance function in argument list", "int foo(int f){ return f; }\r\nreturn foo(auto(generic y){ return -y; });",
 "ERROR: can't find function 'foo' with following arguments:\n\
@@ -782,8 +782,8 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("generic function misuse 1", "return 2 + auto(@T x){};", "ERROR: can't find function '+' with following arguments:");
 	TEST_FOR_FAIL("generic function misuse 2", "auto x = { auto(@T x){} };", "ERROR: ambiguity, the expression is a generic function");
-	TEST_FOR_FAIL("generic function misuse 3", "return sizeof((auto(@T x){}));", "ERROR: cannot instance generic function, because target type is not known");
-	TEST_FOR_FAIL("generic function misuse 4", "return typeof(auto(@T x){});", "ERROR: cannot instance generic function, because target type is not known");
+	TEST_FOR_FAIL("generic function misuse 3", "return sizeof((auto(@T x){}));", "ERROR: cannot instantiate generic function, because target type is not known");
+	TEST_FOR_FAIL("generic function misuse 4", "return typeof(auto(@T x){});", "ERROR: cannot instantiate generic function, because target type is not known");
 	TEST_FOR_FAIL("generic function misuse 5", "if(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 6", "for(; auto(@T x){}; ){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 7", "while(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
@@ -902,6 +902,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "auto bar<@T,@U>(){ return 1; } return bar with<int,int>() + bar with<>();", "ERROR: type name is expected after 'with'");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}d Foo : o(typeof(Foo<auto ref>o(", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}typeid Foo:foo(typeof(T(= }Foo<void>test3; test3.foo(4", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("fuzzing test crash", "auto foo(generic x){}coroutine auto f(){auto x = foo;}", "ERROR: cannot instantiate generic function, because target type is not known");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

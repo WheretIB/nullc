@@ -7809,8 +7809,8 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 		}
 	}
 
-	if(isType<ExprGenericFunctionPrototype>(initializer))
-		Stop(ctx, source, "ERROR: cannot instance generic function, because target type is not known");
+	if(isType<ExprGenericFunctionPrototype>(initializer) || initializer->type->isGeneric)
+		Stop(ctx, source, "ERROR: cannot instantiate generic function, because target type is not known");
 
 	return initializer;
 }
