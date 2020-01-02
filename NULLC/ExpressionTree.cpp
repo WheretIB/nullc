@@ -9606,6 +9606,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 			if(originalDefinition)
 				Stop(ctx, syntax, "ERROR: type '%.*s' was forward declared as a non-generic type", FMT_ISTR(typeName));
+			else
+				Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(typeName));
 		}
 
 		TypeGenericClassProto *genericProtoType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(SynIdentifier(syntax->name, typeName), syntax, ctx.scope, syntax);

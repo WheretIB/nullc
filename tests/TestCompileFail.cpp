@@ -581,6 +581,7 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("No constructor", "auto std() { return 1; } auto main() { return typeof(std)(1.0f); }", "ERROR: cannot convert 'float' to 'int ref()'");
 	TEST_FOR_FAIL("Prototype is redeclared as generic", "class Foo; Foo ref a; class Foo<T, U>{ T x; U y; }", "ERROR: type 'Foo' was forward declared as a non-generic type");
+	TEST_FOR_FAIL("Generic type redefinition", "class Foo<T>{} class Foo<T>{} return 1;", "ERROR: 'Foo' is being redefined");
 
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } int a = x.y;", "ERROR: cannot convert 'x' to 'int'");
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x b = 67;", "ERROR: cannot convert 'int' to 'x'");
