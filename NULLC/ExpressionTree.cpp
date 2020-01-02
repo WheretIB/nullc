@@ -1919,7 +1919,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool standalone);
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
 void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, const char *messageStart, ArrayView<FunctionValue> functions);
-void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, const char *messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo);
+void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, const char *messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo);
 ExprBase* CreateFunctionCall0(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure, bool allowInternal, bool allowFastLookup);
 ExprBase* CreateFunctionCall1(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure, bool allowInternal, bool allowFastLookup);
 ExprBase* CreateFunctionCall2(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure, bool allowInternal, bool allowFastLookup);
@@ -4509,6 +4509,20 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		if(function->nameHash != hash)
 			continue;
 
+		// Can't specify generic function arguments for call through 'auto ref'
+		if(!function->generics.empty())
+			continue;
+
+		// Ignore generic types if they don't have a single instance
+		if(function->scope->ownerType->isGeneric)
+		{
+			if(TypeGenericClassProto *proto = getType<TypeGenericClassProto>(function->scope->ownerType))
+			{
+				if(proto->instances.empty())
+					continue;
+			}
+		}
+
 		if(preferredParent && !IsDerivedFrom(preferredParent, getType<TypeClass>(parentType)))
 			continue;
 
@@ -5930,13 +5944,14 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, const char *messageStart, ArrayView<FunctionValue> functions)
 {
+	IntrusiveList<TypeHandle> generics;
 	ArrayView<ArgumentData> arguments;
 	ArrayView<unsigned> ratings;
 
-	ReportOnFunctionSelectError(ctx, source, errorBuf, errorBufSize, messageStart, InplaceStr(), functions, arguments, ratings, 0, false);
+	ReportOnFunctionSelectError(ctx, source, errorBuf, errorBufSize, messageStart, InplaceStr(), functions, generics, arguments, ratings, 0, false);
 }
 
-void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, const char *messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo)
+void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, const char *messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo)
 {
 	assert(errorBuf);
 
@@ -5944,7 +5959,23 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 
 	if(!functionName.empty())
 	{
-		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s(", FMT_ISTR(functionName));
+		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s", FMT_ISTR(functionName));
+
+		if(!generics.empty())
+		{
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "<");
+
+			for(TypeHandle *el = generics.head; el; el = el->next)
+			{
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", el != generics.head ? ", " : "", FMT_ISTR(el->type->name));
+			}
+
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ">(");
+		}
+		else
+		{
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "(");
+		}
 
 		for(unsigned i = 0; i < arguments.size(); i++)
 			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
@@ -5993,7 +6024,7 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 
 			if(functions[i].context->type == ctx.typeAutoRef)
 			{
-				assert(function->scope->ownerType && !function->scope->ownerType->isGeneric);
+				assert(function->scope->ownerType);
 				parentType = function->scope->ownerType;
 			}
 			else if(function->scope->ownerType)
@@ -6005,7 +6036,7 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 			SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
 			// Handle named argument order, default argument values and variadic functions
-			if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, NULL, false))
+			if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, NULL, false) || (functions[i].context->type == ctx.typeAutoRef && !generics.empty()))
 			{
 				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");
 			}
@@ -6177,7 +6208,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 
 			if(value.context->type == ctx.typeAutoRef)
 			{
-				assert(function->scope->ownerType && !function->scope->ownerType->isGeneric);
+				assert(function->scope->ownerType);
 				parentType = function->scope->ownerType;
 			}
 			else if(function->scope->ownerType)
@@ -6298,7 +6329,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 
 			if(ctx.IsGenericFunction(function))
 			{
-				if(bestRating != ~0u && ratings.data[i] == bestRating && functions.data[i].context->type == ctx.typeAutoRef)
+				if(bestRating != ~0u && ratings.data[i] == bestRating && functions.data[i].context->type == ctx.typeAutoRef && !function->scope->ownerType->isGeneric)
 					CreateGenericFunctionInstance(ctx, source, functions.data[i], generics, arguments, true);
 
 				ratings.data[i] = ~0u;
@@ -6549,6 +6580,8 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 
 ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData *function)
 {
+	assert(!isType<TypeAuto>(function->type->returnType));
+
 	InplaceStr vtableName = GetFunctionTableName(ctx, function);
 
 	if(VariableData **variable = ctx.vtableMap.find(vtableName))
@@ -6669,6 +6702,7 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 
 	if(!allowFailure)
 	{
+		IntrusiveList<TypeHandle> generics;
 		ArrayView<FunctionValue> functions;
 		ArrayView<unsigned> ratings;
 
@@ -6686,7 +6720,7 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, name, functions, arguments, ratings, ~0u, true);
+			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, name, functions, generics, arguments, ratings, ~0u, true);
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 		}
@@ -6891,7 +6925,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions[0].function->name->name, functions, arguments, ratings, ~0u, true);
+				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions[0].function->name->name, functions, generics, arguments, ratings, ~0u, true);
 
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 			}
@@ -6926,6 +6960,28 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		{
 			if(functions[i].function != bestOverload.function && ratings[i] == bestRating)
 			{
+				// For a function call through 'auto ref' it is ok to have the same function signature in different types
+				if(isType<TypeAutoRef>(bestOverload.context->type) && ctx.IsGenericFunction(functions[i].function) && ctx.IsGenericFunction(bestOverload.function))
+				{
+					TypeFunction *instanceA = NULL;
+					IntrusiveList<MatchData> aliasesA;
+					SmallArray<CallArgumentData, 16> resultA(ctx.allocator);
+
+					// Handle named argument order, default argument values and variadic functions
+					if(PrepareArgumentsForFunctionCall(ctx, source, functions[i].function->arguments, arguments, resultA, NULL, false))
+						instanceA = GetGenericFunctionInstanceType(ctx, source, functions[i].function->scope->ownerType, functions[i].function, resultA, aliasesA);
+
+					TypeFunction *instanceB = NULL;
+					IntrusiveList<MatchData> aliasesB;
+					SmallArray<CallArgumentData, 16> resultB(ctx.allocator);
+
+					if(PrepareArgumentsForFunctionCall(ctx, source, bestOverload.function->arguments, arguments, resultB, NULL, false))
+						instanceB = GetGenericFunctionInstanceType(ctx, source, bestOverload.function->scope->ownerType, bestOverload.function, resultB, aliasesB);
+
+					if(instanceA && instanceB && instanceA == instanceB)
+						continue;
+				}
+
 				if(ctx.errorBuf && ctx.errorBufSize)
 				{
 					if(ctx.errorCount == 0)
@@ -6940,7 +6996,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-					ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions[0].function->name->name, functions, arguments, ratings, bestRating, true);
+					ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions[0].function->name->name, functions, generics, arguments, ratings, bestRating, true);
 
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 				}
@@ -6966,6 +7022,73 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		FunctionData *function = bestOverload.function;
 
 		type = getType<TypeFunction>(function->type);
+
+		if(isType<TypeAutoRef>(bestOverload.context->type))
+		{
+			InplaceStr baseName = bestOverload.function->name->name;
+
+			if(bestOverload.function->scope->ownerType)
+			{
+				if(const char *pos = strstr(baseName.begin, "::"))
+					baseName = InplaceStr(pos + 2);
+			}
+
+			// For function call through 'auto ref', we have to instantiate all matching member functions of generic types
+			for(unsigned i = 0; i < ctx.functions.size(); i++)
+			{
+				FunctionData *el = ctx.functions[i];
+
+				if(!el->scope->ownerType)
+					continue;
+
+				if(!el->scope->ownerType->isGeneric && !el->type->isGeneric)
+					continue;
+
+				unsigned hash = NULLC::StringHashContinue(el->scope->ownerType->nameHash, "::");
+
+				hash = NULLC::StringHashContinue(hash, baseName.begin, baseName.end);
+
+				if(el->nameHash != hash)
+					continue;
+
+				if(el->generics.size() != generics.size())
+					continue;
+
+				if(el->type->arguments.size() != bestOverload.function->type->arguments.size())
+					continue;
+
+				if(TypeGenericClassProto *proto = getType<TypeGenericClassProto>(el->scope->ownerType))
+				{
+					for(unsigned k = 0; k < proto->instances.size(); k++)
+					{
+						ExprClassDefinition *definition = getType<ExprClassDefinition>(proto->instances[k]);
+
+						ExprBase *emptyContext = new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, ctx.GetReferenceType(definition->classType));
+
+						if(bestOverload.function->scope->ownerType->isGeneric)
+						{
+							FunctionValue instance = CreateGenericFunctionInstance(ctx, source, FunctionValue(source, el, emptyContext), generics, arguments, false);
+
+							bestOverload.function = instance.function;
+
+							function = instance.function;
+
+							type = getType<TypeFunction>(function->type);
+						}
+						else
+						{
+							CreateGenericFunctionInstance(ctx, source, FunctionValue(source, el, emptyContext), generics, arguments, true);
+						}
+					}
+				}
+				else
+				{
+					ExprBase *emptyContext = new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, ctx.GetReferenceType(el->scope->ownerType));
+
+					CreateGenericFunctionInstance(ctx, source, FunctionValue(source, el, emptyContext), generics, arguments, true);
+				}
+			}
+		}
 
 		if(ctx.IsGenericFunction(function))
 		{
@@ -12145,6 +12268,9 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 		TypeBase *parentType = function->scope->ownerType;
 
 		if(!parentType)
+			continue;
+
+		if(parentType->isGeneric)
 			continue;
 
 		// If both type and table are imported, then it should have been filled up inside the module for that type

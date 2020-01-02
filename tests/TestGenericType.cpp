@@ -823,6 +823,23 @@ sum += i.boo(4);\r\n\
 return sum;";
 TEST_RESULT("generic type member function call through 'auto ref'", testGenericType58, "18");
 
+const char *testGenericType58b =
+"class Foo<T>\r\n\
+{\r\n\
+	T y;\r\n\
+}\r\n\
+int Foo:boo(int x){ return x * y; }\r\n\
+void Foo:Foo(T n){ y = n; }\r\n\
+auto ref[2] arr;\r\n\
+arr[0] = new Foo<int>(3);\r\n\
+arr[1] = new Foo<double>(1.5);\r\n\
+\r\n\
+int sum = 0;\r\n\
+for(i in arr)\r\n\
+sum += i.boo(4);\r\n\
+return sum;";
+TEST_RESULT("generic type member function call through 'auto ref' 2", testGenericType58b, "18");
+
 const char *testGenericType59 =
 "class Foo<T>\r\n\
 {\r\n\
@@ -885,6 +902,15 @@ const char *testGenericType62 =
 auto ref x = new Foo<int>;\r\n\
 return x.boo(1, 2, 3) + x.boo(1, 2);";
 TEST_RESULT("Function call through 'auto ref' for generic type, selection of a variable argument function", testGenericType62, "5");
+
+const char *testGenericType62b =
+"class Foo<T>\r\n\
+{\r\n\
+}\r\n\
+int Foo:boo(auto ref[] x){ return x.size; }\r\n\
+auto ref x = new Foo<int>;\r\n\
+return x.boo(1, 2, 3) + x.boo(1, 2);";
+TEST_RESULT("Function call through 'auto ref' for generic type, selection of a variable argument function 2", testGenericType62b, "5");
 
 //////////////////////////////////////////////////////////////////////////
 LOAD_MODULE(test_generic_type63, "test.generic_type63",
@@ -1727,6 +1753,23 @@ sum += i.boo(4);\r\n\
 return sum;";
 TEST_RESULT("generic type member function call through 'auto ref'", testGenericType114, "18");
 
+LOAD_MODULE(test_generic_type114b, "test.generic_type114b",
+"class Foo<T>{ T y; }\r\n\
+int Foo:boo(int x){ return x * y; }\r\n\
+void Foo:Foo(T n){ y = n; }");
+const char *testGenericType114b =
+"import test.generic_type114b;\r\n\
+\r\n\
+auto ref[2] arr;\r\n\
+arr[0] = new Foo<int>(3);\r\n\
+arr[1] = new Foo<double>(1.5);\r\n\
+\r\n\
+int sum = 0;\r\n\
+for(i in arr)\r\n\
+sum += i.boo(4);\r\n\
+return sum;";
+TEST_RESULT("generic type member function call through 'auto ref' 2", testGenericType114b, "18");
+
 LOAD_MODULE(test_generic_type115, "test.generic_type115",
 "class Foo<T>\r\n\
 {\r\n\
@@ -1798,6 +1841,16 @@ const char *testGenericType118 =
 auto ref x = new Foo<int>;\r\n\
 return x.boo(1, 2, 3) + x.boo(1, 2);";
 TEST_RESULT("Function call through 'auto ref' for generic type, selection of a variable argument function", testGenericType118, "5");
+
+LOAD_MODULE(test_generic_type118b, "test.generic_type118b",
+"class Foo<T>{}\r\n\
+int Foo:boo(auto ref[] x){ return x.size; }");
+const char *testGenericType118b =
+"import test.generic_type118b;\r\n\
+\r\n\
+auto ref x = new Foo<int>;\r\n\
+return x.boo(1, 2, 3) + x.boo(1, 2);";
+TEST_RESULT("Function call through 'auto ref' for generic type, selection of a variable argument function 2", testGenericType118b, "5");
 
 const char *testGenericType119 =
 "class Foo<T>{ T x; }\r\n\
@@ -2391,3 +2444,59 @@ F<int> a;\r\n\
 int operator+(int a, int ref() b){ return a + b(); }\r\n\
 return 1 + a.f;";
 TEST_RESULT("Generic class function pointer access performs instantiation", testGenericType149, "3");
+
+const char *testGenericType150 =
+"class Foo<T>{}\r\n\
+auto Foo:foo(){ return sizeof(T); }\r\n\
+\r\n\
+Foo<int> a;\r\n\
+Foo<char> b;\r\n\
+\r\n\
+auto ref x = a;\r\n\
+auto ref y = b;\r\n\
+\r\n\
+return x.foo() + y.foo();";
+TEST_RESULT("Generic class external function definition and auto ref calls", testGenericType150, "5");
+
+const char *testGenericType151 =
+"class Foo<T>{}\r\n\
+auto Foo:foo(){ return sizeof(T); }\r\n\
+auto Foo:foo(int x){ return sizeof(T) + x; }\r\n\
+\r\n\
+Foo<int> a;\r\n\
+Foo<char> b;\r\n\
+\r\n\
+auto ref x = a;\r\n\
+auto ref y = b;\r\n\
+\r\n\
+return x.foo() + y.foo(5) + x.foo(10) + y.foo();";
+TEST_RESULT("Generic class external function definition and auto ref calls (overloads)", testGenericType151, "25");
+
+const char *testGenericType152 =
+"class Foo<T>{}\r\n\
+auto Foo:foo(generic x){ return sizeof(T) * 10 + sizeof(x); }\r\n\
+\r\n\
+Foo<int> a;\r\n\
+Foo<char> b;\r\n\
+\r\n\
+auto ref x = a;\r\n\
+auto ref y = b;\r\n\
+\r\n\
+return x.foo('a') + y.foo(2l);";
+TEST_RESULT("Generic class external function definition and auto ref calls (generic function)", testGenericType152, "59");
+
+const char *testGenericType153 =
+"class Foo<T>{}\r\n\
+auto Foo:foo(generic x){ return sizeof(T) * 10 + sizeof(x); }\r\n\
+\r\n\
+class Bar{}\r\n\
+auto Bar:foo(generic x){ return 100; }\r\n\
+\r\n\
+Foo<int> a;\r\n\
+Bar b;\r\n\
+\r\n\
+auto ref x = a;\r\n\
+auto ref y = b;\r\n\
+\r\n\
+return x.foo('a') + y.foo(2l);";
+TEST_RESULT("Generic class external function definition and auto ref calls (generic function, multiple instances)", testGenericType153, "141");
