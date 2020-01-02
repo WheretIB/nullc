@@ -900,6 +900,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "(.size", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "(.arraySize", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "auto bar<@T,@U>(){ return 1; } return bar with<int,int>() + bar with<>();", "ERROR: type name is expected after 'with'");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}d Foo : o(typeof(Foo<auto ref>o(", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}typeid Foo:foo(typeof(T(= }Foo<void>test3; test3.foo(4", "ERROR: '>' expected after generic type alias list");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

@@ -3216,6 +3216,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			ctx.errorBufSize = 0;
 		}
 
+		// Remember current scope
+		ScopeData *scope = ctx.scope;
+
 		unsigned traceDepth = NULLC::TraceGetDepth();
 
 		if(!setjmp(ctx.errorHandler))
@@ -3250,6 +3253,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		else
 		{
 			NULLC::TraceLeaveTo(traceDepth);
+
+			// Restore original scope
+			if(ctx.scope != scope)
+				ctx.SwitchToScopeAtPoint(scope, NULL);
 
 			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 			ctx.errorHandlerNested = prevErrorHandlerNested;
@@ -5849,7 +5856,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 				TypeBase *type = expectedType == ctx.typeAuto ? actualArgument.type : MatchArgumentType(ctx, argument, expectedType, actualArgument.type, actualArgument.value, aliases);
 
-				if(!type)
+				if(!type || isType<TypeError>(type))
 					break;
 
 				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++), true);
@@ -5875,7 +5882,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 				TypeBase *type = MatchArgumentType(ctx, funtionArgument.source, funtionArgument.type, actualArgument.type, actualArgument.value, aliases);
 
-				if(!type)
+				if(!type || isType<TypeError>(type))
 				{
 					ctx.genericFunctionInstanceTypeMap.insert(request, GenericFunctionInstanceTypeResponse(NULL, aliases));
 
