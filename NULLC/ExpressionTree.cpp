@@ -466,25 +466,39 @@ namespace
 		return NULL;
 	}
 
-	void CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
+	bool CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
 		if(ctx.typeMap.find(name.hash()))
+		{
 			Report(ctx, source, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(name));
+			return true;
+		}
 
 		if(VariableData **variable = ctx.variableMap.find(name.hash()))
 		{
 			if((*variable)->scope == ctx.scope)
+			{
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
+				return true;
+			}
 		}
 
 		if(FunctionData **functions = ctx.functionMap.find(name.hash()))
 		{
 			if((*functions)->scope == ctx.scope)
+			{
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(name));
+				return true;
+			}
 		}
 
 		if(FindNamespaceInCurrentScope(ctx, name))
+		{
 			Report(ctx, source, "ERROR: name '%.*s' is already taken for a namespace", FMT_ISTR(name));
+			return true;
+		}
+
+		return false;
 	}
 
 	void CheckFunctionConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
@@ -7839,14 +7853,15 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 
 	InplaceStr fullName = GetVariableNameInScope(ctx, ctx.scope, syntax->name->name);
 
-	CheckVariableConflict(ctx, syntax, fullName);
+	bool conflict = CheckVariableConflict(ctx, syntax, fullName);
 
 	VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, type, new (ctx.get<SynIdentifier>()) SynIdentifier(syntax->name, fullName), 0, ctx.uniqueVariableId++);
 
 	if (IsLookupOnlyVariable(ctx, variable))
 		variable->lookupOnly = true;
 
-	ctx.AddVariable(variable, true);
+	if(!conflict)
+		ctx.AddVariable(variable, true);
 
 	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
 
@@ -7856,7 +7871,8 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 
 		if(isType<TypeError>(initializer->type))
 		{
-			ctx.variableMap.remove(variable->nameHash, variable);
+			if(!conflict)
+				ctx.variableMap.remove(variable->nameHash, variable);
 
 			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
 		}
@@ -7867,7 +7883,8 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	{
 		if(isType<TypeError>(initializer->type))
 		{
-			ctx.variableMap.remove(variable->nameHash, variable);
+			if(!conflict)
+				ctx.variableMap.remove(variable->nameHash, variable);
 
 			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
 		}
@@ -8149,7 +8166,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 
 		assert(!argument.type->isGeneric);
 
-		CheckVariableConflict(ctx, argument.source, argument.name->name);
+		bool conflict = CheckVariableConflict(ctx, argument.source, argument.name->name);
 
 		unsigned offset = AllocateArgumentInScope(ctx, source, 4, argument.type);
 		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
@@ -8160,7 +8177,8 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 				Stop(ctx, argument.source, "ERROR: cannot create '%.*s' that implements 'finalize' on stack", FMT_ISTR(classType->name));
 		}
 
-		ctx.AddVariable(variable, true);
+		if(!conflict)
+			ctx.AddVariable(variable, true);
 
 		variables.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(argument.source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(argument.name, variable), NULL));
 
@@ -8785,7 +8803,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	// Create casts of arguments with a wrong type
 	for(MatchData *el = argCasts.head; el; el = el->next)
 	{
-		CheckVariableConflict(ctx, syntax, el->name->name);
+		bool conflict = CheckVariableConflict(ctx, syntax, el->name->name);
 
 		if(isType<TypeError>(el->type))
 			continue;
@@ -8796,7 +8814,8 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		if (IsLookupOnlyVariable(ctx, variable))
 			variable->lookupOnly = true;
 
-		ctx.AddVariable(variable, true);
+		if(!conflict)
+			ctx.AddVariable(variable, true);
 
 		char *name = (char*)ctx.allocator->alloc(el->name->name.length() + 2);
 
@@ -9876,7 +9895,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			if(el->variable->name->name == InplaceStr("$typeid"))
 				continue;
 
-			CheckVariableConflict(ctx, syntax, el->variable->name->name);
+			bool conflict = CheckVariableConflict(ctx, syntax, el->variable->name->name);
 
 			unsigned offset = AllocateVariableInScope(ctx, syntax, el->variable->alignment, el->variable->type);
 
@@ -9884,7 +9903,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 			VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, el->variable->alignment, el->variable->type, el->variable->name, offset, ctx.uniqueVariableId++);
 
-			ctx.AddVariable(member, true);
+			if(!conflict)
+				ctx.AddVariable(member, true);
 
 			classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(el->variable->source, member));
 		}
