@@ -9562,7 +9562,7 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 
 			value = EvaluateExpression(ctx, source, CreateCast(ctx, constant, value, type, false));
 		}
-		else if(ctx.IsIntegerType(type) && constant != constants.head)
+		else if(ctx.IsIntegerType(type) && !target.empty())
 		{
 			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, type, 1)), type, false)));
 		}
