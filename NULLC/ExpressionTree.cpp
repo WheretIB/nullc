@@ -4157,6 +4157,9 @@ ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 
 	if(TypeRef *type = getType<TypeRef>(value->type))
 	{
+		if(isType<TypeVoid>(type->subType))
+			Stop(ctx, syntax, "ERROR: cannot dereference type '%.*s'", FMT_ISTR(value->type->name));
+
 		return new (ctx.get<ExprDereference>()) ExprDereference(syntax, type->subType, value);
 	}
 
