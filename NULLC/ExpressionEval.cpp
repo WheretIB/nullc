@@ -1227,6 +1227,9 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 		{
 			ExprTypeLiteral *typeLiteral = getType<ExprTypeLiteral>(value);
 
+			if(isType<TypeError>(typeLiteral->value))
+				return NULL;
+
 			unsigned index = ctx.ctx.GetTypeIndex(typeLiteral->value);
 
 			return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, index));

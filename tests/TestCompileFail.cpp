@@ -907,6 +907,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "@if{", "ERROR: '(' not found after 'if'");
 	TEST_FOR_FAIL("fuzzing test crash", "@\"", "ERROR: unclosed string constant");
 	TEST_FOR_FAIL("fuzzing test crash", "class const int,", "ERROR: class name expected");
+	TEST_FOR_FAIL("fuzzing test crash", "@if new", "ERROR: '(' not found after 'if'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
