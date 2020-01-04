@@ -910,6 +910,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "@if new", "ERROR: '(' not found after 'if'");
 	TEST_FOR_FAIL("fuzzing test crash", " generic  double = typeof  in  typeid[] ", "ERROR: typeof must be followed by '('");
 	TEST_FOR_FAIL("fuzzing test crash", "void foo(); (void ref a(){})() += foo();", "ERROR: function must return a value of type 'void ref'");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo{ const auto a = { for(; 1;) yield 1; }; }", "ERROR: member function can't be called without a class instance");
 	TEST_FOR_FAIL("fuzzing test crash", "new short[] >>= void();", "ERROR: second operand type is 'void'");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");

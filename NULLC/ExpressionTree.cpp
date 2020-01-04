@@ -8943,7 +8943,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	ExprBase *access = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(syntax, function->type, function, CreateFunctionContextAccess(ctx, syntax, function));
 
-	return CreateFunctionCall1(ctx, syntax, InplaceStr("__gen_list"), CreateSequence(ctx, syntax, contextVariableDefinition, access), false, true, true);
+	return CreateFunctionCall1(ctx, syntax, InplaceStr("__gen_list"), contextVariableDefinition ? CreateSequence(ctx, syntax, contextVariableDefinition, access) : access, false, true, true);
 }
 
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, ArrayView<ArgumentData> currArguments, IntrusiveList<MatchData> aliases)
