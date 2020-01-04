@@ -913,6 +913,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo{ const auto a = { for(; 1;) yield 1; }; }", "ERROR: member function can't be called without a class instance");
 	TEST_FOR_FAIL("fuzzing test crash", "new short[] >>= void();", "ERROR: second operand type is 'void'");
 	TEST_FOR_FAIL("fuzzing test crash", "void foo(){} typeof(foo())[] x;", "ERROR: cannot define an array of 'void'");
+	TEST_FOR_FAIL("fuzzing test crash", " generic ref  b = b += b; ", "ERROR: variable 'b' is being used while its type is unknown");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
