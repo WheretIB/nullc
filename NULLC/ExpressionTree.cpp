@@ -3110,6 +3110,13 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(!onlyType && !type)
 			return NULL;
 
+		if(isType<TypeVoid>(type))
+		{
+			Report(ctx, syntax, "ERROR: cannot define an array of 'void'");
+
+			return ctx.GetErrorType();
+		}
+
 		if(isType<TypeAuto>(type))
 		{
 			if(!node->arguments.empty())
