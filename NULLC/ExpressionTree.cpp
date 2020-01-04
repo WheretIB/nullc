@@ -470,7 +470,7 @@ namespace
 	{
 		if(ctx.typeMap.find(name.hash()))
 		{
-			Report(ctx, source, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(name));
+			Report(ctx, source, "ERROR: name '%.*s' is already taken for a type", FMT_ISTR(name));
 			return true;
 		}
 
@@ -525,7 +525,7 @@ namespace
 	void CheckNamespaceConflict(ExpressionContext &ctx, SynBase *source, NamespaceData *ns)
 	{
 		if(ctx.typeMap.find(ns->fullNameHash))
-			Report(ctx, source, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(ns->name.name));
+			Report(ctx, source, "ERROR: name '%.*s' is already taken for a type", FMT_ISTR(ns->name.name));
 
 		if(VariableData **variable = ctx.variableMap.find(ns->nameHash))
 		{
@@ -10067,7 +10067,12 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, TypeBase *type, IntrusiveList<
 
 ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *syntax)
 {
+	CheckTypeConflict(ctx, syntax, syntax->name->name);
+
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
+
+	if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+		Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name->name));
 
 	TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(SynIdentifier(syntax->name, typeName), syntax, ctx.scope);
 

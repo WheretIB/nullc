@@ -242,7 +242,7 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("number constant overflow (oct)", "return 02777777777777777777777;", "ERROR: overflow in octal constant");
 	TEST_FOR_FAIL("number constant overflow (bin)", "return 011111111111111111111111111111111111111111111111111111111111111111b;", "ERROR: overflow in binary constant");
 
-	TEST_FOR_FAIL("variable with class name", "class Test{} int Test = 5; return Test;", "ERROR: name 'Test' is already taken for a class");
+	TEST_FOR_FAIL("variable with class name", "class Test{} int Test = 5; return Test;", "ERROR: name 'Test' is already taken for a type");
 
 	TEST_FOR_FAIL("List comprehension of void type", "auto fail = { for(;0;){ yield; } };", "ERROR: cannot generate an array of 'void' element type");
 	TEST_FOR_FAIL("List comprehension of unknown type", "auto fail = { for(;0;){} };", "ERROR: not a single element is generated, and an array element type is unknown");
@@ -595,13 +595,17 @@ return int(y() + z());",
 	TEST_FOR_FAIL("test for bug in function call", "int foo(void ref() f, char[] x = \"x\", int a = 2){ return 5; } return foo(\"f\");", "ERROR: can't find function 'foo' with following arguments:");
 
 	TEST_FOR_FAIL("namespace error", "namespace Test{} class Test{}", "ERROR: name 'Test' is already taken for a namespace");
-	TEST_FOR_FAIL("namespace error", "class Test{} namespace Test{}", "ERROR: name 'Test' is already taken for a class");
+	TEST_FOR_FAIL("namespace error", "class Test{} namespace Test{}", "ERROR: name 'Test' is already taken for a type");
 	TEST_FOR_FAIL("namespace error", "namespace Test{} class Test;", "ERROR: name 'Test' is already taken for a namespace");
-	TEST_FOR_FAIL("namespace error", "class Test; namespace Test{}", "ERROR: name 'Test' is already taken for a class");
+	TEST_FOR_FAIL("namespace error", "class Test; namespace Test{}", "ERROR: name 'Test' is already taken for a type");
 	TEST_FOR_FAIL("namespace error", "namespace Test{} int Test;", "ERROR: name 'Test' is already taken for a namespace");
 	TEST_FOR_FAIL("namespace error", "int Test; namespace Test{}", "ERROR: name 'Test' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ int foo(){ return 12; } } return foo();", "ERROR: unknown identifier 'foo'");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested.x;", "ERROR: unknown identifier 'Nested'");
+
+	TEST_FOR_FAIL("enum error", "namespace Test{} enum Test{ A }", "ERROR: name 'Test' is already taken for a namespace");
+	TEST_FOR_FAIL("enum error", "enum Test{ A } namespace Test{}", "ERROR: name 'Test' is already taken for a type");
+	TEST_FOR_FAIL("enum error", "enum bool{ True, False }", "ERROR: 'bool' is being redefined");
 
 	TEST_FOR_FAIL("no biggy", "int[1024 * 1024 * 1024] f; f[3] = 0;", "ERROR: variable size limit exceeded");
 
