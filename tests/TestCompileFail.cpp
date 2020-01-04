@@ -910,6 +910,10 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "@if new", "ERROR: '(' not found after 'if'");
 	TEST_FOR_FAIL("fuzzing test crash", " generic  double = typeof  in  typeid[] ", "ERROR: typeof must be followed by '('");
 	TEST_FOR_FAIL("fuzzing test crash", "void foo(); (void ref a(){})() += foo();", "ERROR: function must return a value of type 'void ref'");
+
+	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[float(float)] arr;", "ERROR: can't find function 'float::float' with following arguments:");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

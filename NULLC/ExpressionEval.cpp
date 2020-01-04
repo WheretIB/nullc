@@ -74,6 +74,9 @@ bool AddInstruction(ExpressionEvalContext &ctx)
 
 ExprPointerLiteral* AllocateTypeStorage(ExpressionEvalContext &ctx, SynBase *source, TypeBase *type)
 {
+	if(isType<TypeError>(type))
+		return NULL;
+
 	for(unsigned i = 0; i < ctx.abandonedMemory.size(); i++)
 	{
 		ExprPointerLiteral *ptr = ctx.abandonedMemory[i];
@@ -2616,6 +2619,9 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 	}
 
 	ExprFunctionLiteral *ptr = getType<ExprFunctionLiteral>(function);
+
+	if(!ptr)
+		return NULL;
 
 	if(!ptr->data)
 		return Report(ctx, "ERROR: null function pointer call");
