@@ -3139,7 +3139,7 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 		return EvaluateFunctionAccess(ctx, expr);
 
 	if(isType<ExprFunctionOverloadSet>(expression))
-		assert(!"miscompiled tree");
+		return NULL;
 
 	if(ExprFunctionCall *expr = getType<ExprFunctionCall>(expression))
 		return EvaluateFunctionCall(ctx, expr);
