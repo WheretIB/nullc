@@ -2841,10 +2841,10 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	}
 
 	if(lhs->type == ctx.typeVoid)
-		return ReportExpected(ctx, source, rhs->type, "ERROR: first operand type is 'void'");
+		return ReportExpected(ctx, source, ctx.GetErrorType(), "ERROR: first operand type is 'void'");
 
 	if(rhs->type == ctx.typeVoid)
-		return ReportExpected(ctx, source, lhs->type, "ERROR: second operand type is 'void'");
+		return ReportExpected(ctx, source, ctx.GetErrorType(), "ERROR: second operand type is 'void'");
 
 	bool hasBuiltIn = false;
 
@@ -4338,12 +4338,6 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 
 	if(isType<TypeError>(result->type))
 		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
-
-	if(TypeRef *type = getType<TypeRef>(result->type))
-	{
-		if(isType<TypeVoid>(type->subType))
-			Stop(ctx, syntax, "ERROR: cannot dereference type '%.*s'", FMT_ISTR(result->type->name));
-	}
 
 	return CreateSequence(ctx, syntax, definition, CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, lhs->type, CreateVariableAccess(ctx, syntax, storage, false)), result));
 }
