@@ -4295,7 +4295,7 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 		// Will try to transform 'get' accessor to 'set'
 		if(ExprFunctionAccess *access = getType<ExprFunctionAccess>(node->function))
 		{
-			if(access->function)
+			if(access->function && access->function->accessor)
 			{
 				ExprBase *result = CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs);
 
