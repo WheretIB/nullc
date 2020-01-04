@@ -740,7 +740,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				symbolStorageSize += curr->name->name.length() + 1;
 			}
 
-			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			{
 				if(curr->variable->type->hasPointers)
 					allMemberCount++;
@@ -762,7 +762,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		}
 		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(curr->variable->type->hasPointers)
 					allMemberCount++;
@@ -1219,7 +1219,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			target.memberCount = 0;
 			target.memberOffset = memberList.count;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -1263,7 +1263,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			// Export type pointer members for GC
 			target.pointerCount = 0;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(curr->variable->type->hasPointers)
 				{

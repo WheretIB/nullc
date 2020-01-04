@@ -1429,7 +1429,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 				symbol.selectionRange = Range(Position(nameBegin->line, nameBegin->column), Position(nameEnd->line, nameEnd->column + nameEnd->length));
 
 				auto hasMember = [](TypeClass *type, VariableData *member) -> bool {
-					for(VariableHandle *curr = type->members.head; curr; curr = curr->next)
+					for(MemberHandle *curr = type->members.head; curr; curr = curr->next)
 					{
 						if(curr->variable->name == member->name)
 							return true;
@@ -1438,7 +1438,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 					return false;
 				};
 
-				for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+				for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 				{
 					if(!curr->source)
 						continue;
@@ -1819,7 +1819,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 					if(TypeStruct *structType = getType<TypeStruct>(type))
 					{
-						for(VariableHandle *curr = structType->members.head; curr; curr = curr->next)
+						for(MemberHandle *curr = structType->members.head; curr; curr = curr->next)
 						{
 							CompletionItem item;
 

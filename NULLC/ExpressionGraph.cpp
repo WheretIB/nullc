@@ -777,7 +777,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintEnterBlock(ctx, InplaceStr("variables"), 0);
 
-		for(VariableHandle *value = node->classType->members.head; value; value = value->next)
+		for(MemberHandle *value = node->classType->members.head; value; value = value->next)
 			PrintIndented(ctx, InplaceStr(), value->variable->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(value->variable->name->name), value->variable->uniqueId, value->variable->offset);
 
 		PrintLeaveBlock(ctx);

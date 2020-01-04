@@ -613,7 +613,7 @@ namespace
 		unsigned maximumAlignment = 0;
 
 		// Additional padding may apply to preserve the alignment of members
-		for(VariableHandle *curr = type->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = type->members.head; curr; curr = curr->next)
 		{
 			maximumAlignment = maximumAlignment > curr->variable->alignment ? maximumAlignment : curr->variable->alignment;
 
@@ -1624,7 +1624,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 
 	result->typeScope = scope;
 
-	result->members.push_back(new (get<VariableHandle>()) VariableHandle(NULL, new (get<VariableData>()) VariableData(allocator, NULL, scope, 4, typeInt, new (get<SynIdentifier>()) SynIdentifier(InplaceStr("size")), NULLC_PTR_SIZE, uniqueVariableId++)));
+	result->members.push_back(new (get<MemberHandle>()) MemberHandle(NULL, new (get<VariableData>()) VariableData(allocator, NULL, scope, 4, typeInt, new (get<SynIdentifier>()) SynIdentifier(InplaceStr("size")), NULLC_PTR_SIZE, uniqueVariableId++), NULL));
 	result->members.tail->variable->isReadonly = true;
 
 	result->alignment = 4;
@@ -1913,7 +1913,7 @@ InplaceStr GetTypeConstructorName(TypeClass *classType);
 bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool noArguments, SmallArray<FunctionData*, 32> &functions);
 ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, ArrayView<FunctionData*> functions, ExprBase *context);
 ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, bool noArguments, ExprBase *context);
-bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *type);
+bool HasDefaultConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *type);
 ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *pointer);
 void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeClass *classType, IntrusiveList<ExprBase> &expressions);
 
@@ -3748,17 +3748,17 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 	// Pointer to target variable
 	VariableData *target = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("target"), index), true, ctx.uniqueVariableId++);
 
-	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, target));
+	classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, target, NULL));
 
 	// Pointer to next upvalue
 	VariableData *nextUpvalue = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(ctx.typeVoid), GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("nextUpvalue"), index), true, ctx.uniqueVariableId++);
 
-	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, nextUpvalue));
+	classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, nextUpvalue, NULL));
 
 	// Copy of the data
 	VariableData *copy = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("copy"), index), true, ctx.uniqueVariableId++);
 
-	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, copy));
+	classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, copy, NULL));
 
 	ctx.scope = currScope;
 
@@ -3799,7 +3799,7 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 	// Copy of the data
 	VariableData *storage = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("storage"), index), true, ctx.uniqueVariableId++);
 
-	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage));
+	classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, storage, NULL));
 
 	ctx.scope = currScope;
 
@@ -4364,7 +4364,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(TypeStruct *structType = getType<TypeStruct>(type))
 	{
-		for(VariableHandle *curr = structType->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = structType->members.head; curr; curr = curr->next)
 		{
 			if(curr->variable->name->name == member->name)
 				return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, curr->variable->type);
@@ -4656,7 +4656,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		if(TypeStruct *node = getType<TypeStruct>(value->type))
 		{
 			// Search for a member variable
-			for(VariableHandle *el = node->members.head; el; el = el->next)
+			for(MemberHandle *el = node->members.head; el; el = el->next)
 			{
 				if(el->variable->name->name == member->name)
 				{
@@ -7377,7 +7377,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 				{
 					if(name->path.empty())
 					{
-						for(VariableHandle *curr = memberSet->type->members.head; curr; curr = curr->next)
+						for(MemberHandle *curr = memberSet->type->members.head; curr; curr = curr->next)
 						{
 							if(curr->variable->name->name == name->name)
 								return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(syntax, ctx.typeBool, true);
@@ -7536,7 +7536,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *alloc = CreateArrayAllocation(ctx, syntaxInternal, type, count);
 
-		if(HasDefautConstructor(ctx, syntax, type))
+		if(HasDefaultConstructor(ctx, syntax, type))
 		{
 			VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
@@ -7840,9 +7840,6 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	if(syntax->name->name == InplaceStr("this"))
 		Stop(ctx, syntax, "ERROR: 'this' is a reserved keyword");
 
-	if(ctx.scope->type == SCOPE_TYPE && syntax->initializer)
-		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: can't initialize member variable inside class definition");
-
 	if(isType<TypeError>(type))
 	{
 		if(syntax->initializer)
@@ -7863,10 +7860,13 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	if(!conflict)
 		ctx.AddVariable(variable, true);
 
-	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
+	ExprBase *initializer = syntax->initializer && !variable->scope->ownerType ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
 
 	if(type == ctx.typeAuto)
 	{
+		if(variable->scope->ownerType)
+			return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: member variable type cannot be 'auto'");
+
 		initializer = ResolveInitializerValue(ctx, syntax, initializer);
 
 		if(isType<TypeError>(initializer->type))
@@ -7900,6 +7900,9 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	}
 	else if(type->isGeneric)
 	{
+		if(variable->scope->ownerType)
+			return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: member variable type cannot be '%.*s'", FMT_ISTR(type->name));
+
 		Stop(ctx, syntax, "ERROR: initializer is required to resolve generic type '%.*s'", FMT_ISTR(type->name));
 	}
 
@@ -7925,6 +7928,9 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		if(classType->hasFinalizer)
 			Stop(ctx, syntax, "ERROR: cannot create '%.*s' that implements 'finalize' on stack", FMT_ISTR(classType->name));
 	}
+
+	if(variable->scope->ownerType)
+		return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(syntax->name, variable), NULL);
 
 	if(initializer)
 	{
@@ -7952,15 +7958,12 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 			initializer = CreateAssignment(ctx, syntax->initializer, access, initializer);
 		}
 	}
-	else if(!variable->scope->ownerType)
+	else if(HasDefaultConstructor(ctx, syntax, variable->type))
 	{
-		if(HasDefautConstructor(ctx, syntax, variable->type))
-		{
-			ExprBase *access = CreateVariableAccess(ctx, syntax->name, variable, true);
+		ExprBase *access = CreateVariableAccess(ctx, syntax->name, variable, true);
 
-			if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateGetAddress(ctx, syntax, access)))
-				initializer = call;
-		}
+		if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateGetAddress(ctx, syntax, access)))
+			initializer = call;
 	}
 
 	return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(syntax->name, variable), initializer);
@@ -8141,7 +8144,7 @@ bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *p
 			for(MatchData *el = classType->aliases.head; el; el = el->next)
 				ctx.AddAlias(new (ctx.get<AliasData>()) AliasData(source, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
 
-			for(VariableHandle *el = classType->members.head; el; el = el->next)
+			for(MemberHandle *el = classType->members.head; el; el = el->next)
 				ctx.AddVariable(el->variable, true);
 		}
 		else if(TypeGenericClassProto *genericProto = getType<TypeGenericClassProto>(parentType))
@@ -9248,7 +9251,7 @@ ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, TypeB
 	return NULL;
 }
 
-bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *type)
+bool HasDefaultConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *type)
 {
 	// Find array element type
 	while(TypeArray *arrType = getType<TypeArray>(type))
@@ -9290,7 +9293,7 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 		else if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
 			type = arrType->subType;
 
-		if(HasDefautConstructor(ctx, source, type))
+		if(HasDefaultConstructor(ctx, source, type))
 		{
 			if(TypeRef *typeRef = getType<TypeRef>(pointer->type))
 				return CreateFunctionCall1(ctx, source, InplaceStr("__init_array"), new (ctx.get<ExprDereference>()) ExprDereference(source, typeRef->subType, pointer), false, true, true);
@@ -9316,19 +9319,59 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 
 void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeClass *classType, IntrusiveList<ExprBase> &expressions)
 {
-	for(VariableHandle *el = classType->members.head; el; el = el->next)
+	for(MemberHandle *el = classType->members.head; el; el = el->next)
 	{
 		VariableData *variable = el->variable;
 
-		ExprBase *member = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, variable, true));
+		ExprBase *access = CreateVariableAccess(ctx, source, variable, true);
+
+		ExprBase *member = CreateGetAddress(ctx, source, access);
 
 		if(variable->name->name == InplaceStr("$typeid"))
 		{
+			if(classType->baseClass)
+			{
+				assert(HasDefaultConstructor(ctx, source, classType->baseClass));
+
+				ExprBase *thisAccess = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"), false);
+
+				if(!thisAccess)
+					Stop(ctx, source, "ERROR: 'this' variable is not available");
+
+				ExprBase *cast = CreateCast(ctx, source, thisAccess, ctx.GetReferenceType(classType->baseClass), true);
+
+				if(ExprBase *call = CreateDefaultConstructorCall(ctx, source, classType->baseClass, cast))
+					expressions.push_back(call);
+			}
+
 			expressions.push_back(CreateAssignment(ctx, source, member, new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, classType)));
 			continue;
 		}
 
-		if(HasDefautConstructor(ctx, source, variable->type))
+		if(el->initializer)
+		{
+			ExprBase *initializer = ResolveInitializerValue(ctx, el->initializer, AnalyzeExpression(ctx, el->initializer));
+
+			TypeArray *arrType = getType<TypeArray>(variable->type);
+
+			// Single-level array might be set with a single element at the point of definition
+			if(arrType && !isType<TypeArray>(initializer->type) && initializer->type != ctx.typeAutoArray)
+			{
+				initializer = CreateCast(ctx, initializer->source, initializer, arrType->subType, false);
+
+				if(ExprVariableAccess *node = getType<ExprVariableAccess>(access))
+					access = new (ctx.get<ExprGetAddress>()) ExprGetAddress(access->source, ctx.GetReferenceType(access->type), new (ctx.get<VariableHandle>()) VariableHandle(node->source, node->variable));
+				else if(ExprDereference *node = getType<ExprDereference>(access))
+					access = node->value;
+
+				expressions.push_back(new (ctx.get<ExprArraySetup>()) ExprArraySetup(initializer->source, ctx.typeVoid, access, initializer));
+			}
+			else
+			{
+				expressions.push_back(CreateAssignment(ctx, initializer->source, access, initializer));
+			}
+		}
+		else if(HasDefaultConstructor(ctx, source, variable->type))
 		{
 			if(ExprBase *call = CreateDefaultConstructorCall(ctx, source, variable->type, member))
 				expressions.push_back(call);
@@ -9349,7 +9392,7 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 	}
 	else
 	{
-		for(VariableHandle *el = classType->members.head; el; el = el->next)
+		for(MemberHandle *el = classType->members.head; el; el = el->next)
 		{
 			TypeBase *base = el->variable->type;
 
@@ -9357,7 +9400,13 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 			while(TypeArray *arrType = getType<TypeArray>(base))
 				base = arrType->subType;
 
-			if(HasDefautConstructor(ctx, source, base))
+			if(el->initializer)
+			{
+				customConstructor = true;
+				break;
+			}
+
+			if(HasDefaultConstructor(ctx, source, base))
 			{
 				customConstructor = true;
 				break;
@@ -9393,7 +9442,7 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 		CreateDefaultConstructorCode(ctx, source, classType, expressions);
 
-		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(source, ctx.typeVoid), NULL, NULL));
+		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(source, ctx.typeVoid), NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(source), function, ctx.scope)));
 
 		ClosePendingUpvalues(ctx, function);
 
@@ -9418,7 +9467,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 	IntrusiveList<VariableHandle> customAssignMembers;
 
-	for(VariableHandle *curr = classType->members.head; curr; curr = curr->next)
+	for(MemberHandle *curr = classType->members.head; curr; curr = curr->next)
 	{
 		TypeBase *type = curr->variable->type;
 
@@ -9640,10 +9689,9 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 				assert(variableDefinition);
 
-				if(variableDefinition->initializer)
-					Report(ctx, syntax, "ERROR: member can't have an initializer");
+				SynVariableDefinition *sourceDefinition = getType<SynVariableDefinition>(definition->source);
 
-				classDefinition->classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(variableDefinition->variable->source, variableDefinition->variable->variable));
+				classDefinition->classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(variableDefinition->variable->source, variableDefinition->variable->variable, sourceDefinition ? sourceDefinition->initializer : NULL));
 			}
 		}
 	}
@@ -9874,7 +9922,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		ctx.AddVariable(member, false);
 
-		classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, member));
+		classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, member, NULL));
 	}
 
 	if(baseClass)
@@ -9890,7 +9938,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			classType->aliases.push_back(new (ctx.get<MatchData>()) MatchData(el->name, el->type));
 		}
 
-		for(VariableHandle *el = baseClass->members.head; el; el = el->next)
+		for(MemberHandle *el = baseClass->members.head; el; el = el->next)
 		{
 			if(el->variable->name->name == InplaceStr("$typeid"))
 				continue;
@@ -9906,7 +9954,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			if(!conflict)
 				ctx.AddVariable(member, true);
 
-			classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(el->variable->source, member));
+			classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(el->variable->source, member, NULL));
 		}
 
 		for(ConstantData *el = baseClass->constants.head; el; el = el->next)
@@ -11678,7 +11726,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, memberType, memberNameIdentifier, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
-						structType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(source, member));
+						structType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(source, member, NULL));
 					}
 
 					ExternConstantInfo *constantInfo = delayedType.constants;
@@ -12458,17 +12506,17 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 	ctx.AddType(ctx.typeAutoRef = new (ctx.get<TypeAutoRef>()) TypeAutoRef(InplaceStr("auto ref")));
 	ctx.PushScope(ctx.typeAutoRef);
 	ctx.typeAutoRef->typeScope = ctx.scope;
-	ctx.typeAutoRef->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
-	ctx.typeAutoRef->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoRef->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++), NULL));
 	FinalizeAlignment(ctx.typeAutoRef);
 	ctx.PopScope(SCOPE_TYPE);
 
 	ctx.AddType(ctx.typeAutoArray = new (ctx.get<TypeAutoArray>()) TypeAutoArray(InplaceStr("auto[]")));
 	ctx.PushScope(ctx.typeAutoArray);
 	ctx.typeAutoArray->typeScope = ctx.scope;
-	ctx.typeAutoArray->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeInt, InplaceStr("size"), true, ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeInt, InplaceStr("size"), true, ctx.uniqueVariableId++), NULL));
 	FinalizeAlignment(ctx.typeAutoArray);
 	ctx.PopScope(SCOPE_TYPE);
 

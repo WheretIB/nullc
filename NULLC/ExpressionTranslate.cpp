@@ -266,7 +266,7 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
-		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			TranslateTypeDefinition(ctx, curr->variable->type);
 
 		Print(ctx, "struct ");
@@ -279,7 +279,7 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 		unsigned offset = 0;
 		unsigned index = 0;
 
-		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 		{
 			if(curr->variable->offset > offset)
 				PrintIndentedLine(ctx, "char pad_%d[%d];", index, int(curr->variable->offset - offset));
@@ -2189,7 +2189,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 		{
 			unsigned count = 0;
 
-			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -2215,7 +2215,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 		{
 			unsigned count = 0;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -2265,7 +2265,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 		{
 			unsigned count = 0;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -2276,7 +2276,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 			PrintIndent(ctx);
 			Print(ctx, "__nullcRegisterMembers(__nullcTR[%d], %d", i, count);
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;

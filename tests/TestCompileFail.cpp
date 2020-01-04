@@ -113,7 +113,7 @@ void RunCompileFailTests()
 
 	TEST_FOR_FAIL("class wrong alignment", "align(13) class test{int a;} return 1;", "ERROR: alignment must be power of two");
 	TEST_FOR_FAIL("class wrong alignment", "align(32) class test{int a;} return 1;", "ERROR: alignment must be less than 16 bytes");
-	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;", "ERROR: auto variable must be initialized in place of definition");
+	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;", "ERROR: member variable type cannot be 'auto'");
 	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;", "ERROR: class size cannot exceed 65535 bytes");
 
 	TEST_FOR_FAIL("array size not const", "import std.math; int[cos(12) * 16] a; return a[0];", "ERROR: array size cannot be evaluated");
@@ -889,7 +889,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "int auto.c(){ return 0; }", "ERROR: cannot add accessor to type 'auto'");
 	TEST_FOR_FAIL("fuzzing test crash", "int auto:c(){ return 0; }", "ERROR: cannot add member function to type 'auto'");
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ int bar(); int bar(int x); yield bar; }", "ERROR: ambiguity, there is more than one overloaded function available:");
-	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ auto a = 2; class T{ int b = a; } }", "ERROR: can't initialize member variable inside class definition");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ auto a = 2; class T{ int b = a; } }", "ERROR: member function 'T::T$' cannot access external variable 'a'");
 	TEST_FOR_FAIL("fuzzing test crash", "auto(@e x=){}", "ERROR: default argument value not found after '='");
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ for(a in foo){} }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("fuzzing test crash", "switch(auto(@n x){}){}", "ERROR: ambiguity, the expression is a generic function");

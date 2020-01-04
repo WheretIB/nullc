@@ -519,9 +519,11 @@ namespace ColorerGrammar
 							(chP('}')[ColorText] | epsP[LogError("ERROR: '}' is expected after property")])
 						) | (
 							((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after type")]) >>
+							((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: initializer not found after '='")])) | epsP) >>
 							*(
 								chP(',')[ColorText] >>
-								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
+								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")]) >>
+								((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: initializer not found after '='")])) | epsP)
 							)
 						)
 					) >>

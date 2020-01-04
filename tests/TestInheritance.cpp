@@ -564,4 +564,53 @@ class int3 : int2{ int z; void int3(){ x = 1; y = 2; z = 3; } }\r\n\
 int2 ref a = new int3;\r\n\
 int3 ref b = int3 ref(a);\r\n\
 return b.z;";
-TEST_RESULT("Inheritance test 44 - manual type casts", testInheritance45, "3");
+TEST_RESULT("Inheritance test 45 - manual type casts", testInheritance45, "3");
+
+const char	*testInheritance46 =
+"class Test extendable\r\n\
+{\r\n\
+	int a;\r\n\
+	int b;\r\n\
+	int c;\r\n\
+}\r\n\
+\r\n\
+void Test:Test()\r\n\
+{\r\n\
+	a = 1;\r\n\
+	b = 2;\r\n\
+	c = 3;\r\n\
+}\r\n\
+\r\n\
+class Test2 : Test\r\n\
+{\r\n\
+	int d;\r\n\
+}\r\n\
+\r\n\
+void Test2 : Test2()\r\n\
+{\r\n\
+	d = 10;\r\n\
+}\r\n\
+\r\n\
+Test2 t;\r\n\
+\r\n\
+return t.a + t.b + t.c + t.d;";
+TEST_RESULT("Inheritance test 46 - base class default constructors", testInheritance46, "16");
+
+const char	*testInheritance47 =
+"class Test extendable\r\n\
+{\r\n\
+	int a = 1;\r\n\
+	int b = 2;\r\n\
+	int c = 3;\r\n\
+}\r\n\
+\r\n\
+class Test2 : Test\r\n\
+{\r\n\
+	int d = 10;\r\n\
+}\r\n\
+\r\n\
+Test2 t;\r\n\
+\r\n\
+return t.a + t.b + t.c + t.d;";
+TEST_RESULT("Inheritance test 47 - member initializers", testInheritance47, "16");
+

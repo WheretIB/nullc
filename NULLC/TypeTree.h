@@ -73,6 +73,22 @@ struct TypeHandle
 	bool listed;
 };
 
+struct MemberHandle
+{
+	MemberHandle(SynBase *source, VariableData *variable, SynBase *initializer) : source(source), variable(variable), initializer(initializer), next(0), listed(false)
+	{
+	}
+
+	SynBase *source;
+
+	VariableData *variable;
+
+	SynBase *initializer;
+
+	MemberHandle *next;
+	bool listed;
+};
+
 struct ModuleData
 {
 	ModuleData(SynBase *source, InplaceStr name): source(source), name(name)
@@ -830,7 +846,7 @@ struct TypeStruct: TypeBase
 	// Scope where class members reside
 	ScopeData *typeScope;
 
-	IntrusiveList<VariableHandle> members;
+	IntrusiveList<MemberHandle> members;
 
 	IntrusiveList<ConstantData> constants;
 };

@@ -435,7 +435,7 @@ LLVMTypeRef CompileLlvmType(LlvmCompilationContext &ctx, TypeBase *type)
 
 		SmallArray<LLVMTypeRef, 32> members(ctx.allocator);
 
-		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			members.push_back(CompileLlvmType(ctx, curr->variable->type));
 
 		// TODO: create packed type with custom padding
@@ -1405,7 +1405,7 @@ LLVMValueRef CompileLlvmMemberAccess(LlvmCompilationContext &ctx, ExprMemberAcce
 	if(isType<TypeUnsizedArray>(typeStruct))
 		currMember++;
 
-	for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+	for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 	{
 		if(curr->variable == node->member->variable)
 		{
