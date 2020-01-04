@@ -3828,6 +3828,9 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	if(variable->type->isGeneric)
 		Stop(ctx, source, "ERROR: variable '%.*s' is being used while its type is unknown", FMT_ISTR(variable->name->name));
 
+	if(isType<TypeError>(variable->type))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 	// Is this is a class member access
 	if(variable->scope->ownerType)
 	{

@@ -919,6 +919,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "void foo(){} typeof(foo())[] x;", "ERROR: cannot define an array of 'void'");
 	TEST_FOR_FAIL("fuzzing test crash", " generic ref  b = b += b; ", "ERROR: variable 'b' is being used while its type is unknown");
 	TEST_FOR_FAIL("fuzzing test crash", "while  bool  bool((bool(+= bool (", "ERROR: '(' not found after 'while'");
+	TEST_FOR_FAIL("fuzzing test crash", "yield{ for(switch  generic[]", "ERROR: ';' not found after initializer in 'for'");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
