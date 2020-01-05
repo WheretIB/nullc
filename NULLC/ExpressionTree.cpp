@@ -8477,6 +8477,12 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			if(prototype)
 				Stop(ctx, errorLocation, "ERROR: function is already defined");
 
+			if(coroutine && !functionPrototype->coroutine)
+				Stop(ctx, errorLocation, "ERROR: function prototype was not a coroutine");
+
+			if(!coroutine && functionPrototype->coroutine)
+				Stop(ctx, errorLocation, "ERROR: function prototype was a coroutine");
+
 			function->contextType = functionPrototype->contextType;
 
 			implementedPrototype = functionPrototype;

@@ -287,6 +287,8 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function which accepts a 
 
 	TEST_FOR_FAIL("multiple function prototypes", "int foo(); int foo(); int foo(){ return 1; } return 1;", "ERROR: function is already defined");
 	TEST_FOR_FAIL("function prototype after definition", "int foo(){ return 1; } int foo(); return 1;", "ERROR: function 'foo' is being defined with the same set of arguments");
+	TEST_FOR_FAIL("function prototype coroutine mismatch", "int foo(); coroutine int foo(){ return 2; } return foo();", "ERROR: function prototype was not a coroutine");
+	TEST_FOR_FAIL("function prototype coroutine mismatch", "coroutine int foo(); int foo(){ return 2; } return foo();", "ERROR: function prototype was a coroutine");
 
 	TEST_FOR_FAIL("unimplemented local function", "int foo(){ int bar(); return bar(); } return foo();", "ERROR: local function 'bar' went out of scope unimplemented");
 
