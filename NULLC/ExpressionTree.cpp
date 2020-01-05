@@ -7862,7 +7862,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 
 	if(isType<TypeError>(type))
 	{
-		if(syntax->initializer)
+		if(syntax->initializer && !ctx.scope->ownerType)
 			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), AnalyzeExpression(ctx, syntax->initializer));
 
 		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());

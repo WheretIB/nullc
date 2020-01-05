@@ -925,6 +925,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "while  bool  bool((bool(+= bool (", "ERROR: '(' not found after 'while'");
 	TEST_FOR_FAIL("fuzzing test crash", "yield{ for(switch  generic[]", "ERROR: ';' not found after initializer in 'for'");
 	TEST_FOR_FAIL("fuzzing test crash", "@?{{?@=@=", "ERROR: name expected after '@'");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto({auto a=2class T i b=a", "ERROR: ')' not found after function variable list");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
