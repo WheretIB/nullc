@@ -4,6 +4,7 @@
 #include "IntrusiveList.h"
 #include "Allocator.h"
 #include "Array.h"
+#include "DenseMap.h"
 
 struct CompilerContext;
 
@@ -161,6 +162,8 @@ struct ParseContext
 	char *errorBufLocation;
 
 	SmallArray<ErrorInfo*, 4> errorInfo;
+
+	SmallDenseMap<unsigned, bool, SmallDenseMapUnsignedHasher, 128> nonTypeLocations;
 
 	// Memory pool
 	Allocator *allocator;

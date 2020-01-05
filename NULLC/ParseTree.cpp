@@ -315,7 +315,7 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), optimizationLevel(optimizationLevel), activeImports(allocator), errorInfo(allocator), allocator(allocator)
+ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), optimizationLevel(optimizationLevel), activeImports(allocator), errorInfo(allocator), nonTypeLocations(allocator), allocator(allocator)
 {
 	code = NULL;
 
@@ -662,6 +662,9 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 {
 	Lexeme *start = ctx.currentLexeme;
 
+	if(ctx.nonTypeLocations.find(unsigned(start - ctx.firstLexeme) + 1))
+		return NULL;
+
 	bool shrBorrowTerminal = shrBorrow ? *shrBorrow : false;
 
 	SynBase *base = ParseTerminalType(ctx, shrBorrowTerminal);
@@ -675,6 +678,7 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
+			ctx.nonTypeLocations.insert(unsigned(start - ctx.firstLexeme) + 1, true);
 
 			return NULL;
 		}
@@ -703,6 +707,7 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 
 					// Backtrack
 					ctx.currentLexeme = start;
+					ctx.nonTypeLocations.insert(unsigned(start - ctx.firstLexeme) + 1, true);
 
 					return NULL;
 				}

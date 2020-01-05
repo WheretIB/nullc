@@ -313,3 +313,11 @@ private:
 	SmallDenseSet(const SmallDenseSet&);
 	SmallDenseSet& operator=(const SmallDenseSet&);
 };
+
+struct SmallDenseMapUnsignedHasher
+{
+	unsigned operator()(unsigned value) const
+	{
+		return value * 2654435769u;
+	}
+};

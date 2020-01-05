@@ -198,14 +198,6 @@ void LLVMAddAttributeAtIndex(LLVMValueRef, LLVMAttributeIndex, LLVMAttributeRef)
 #include "ExpressionTree.h"
 #include "DenseMap.h"
 
-struct UnsignedHasher
-{
-	unsigned operator()(unsigned value) const
-	{
-		return value * 2654435769u;
-	}
-};
-
 struct LlvmCompilationContext
 {
 	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), types(ctx.allocator), functions(ctx.allocator), allocator(ctx.allocator)
@@ -244,7 +236,7 @@ struct LlvmCompilationContext
 	SmallArray<LLVMTypeRef, 128> types;
 	SmallArray<LLVMValueRef, 128> functions;
 
-	SmallDenseMap<unsigned, LLVMValueRef, UnsignedHasher, 128> variables;
+	SmallDenseMap<unsigned, LLVMValueRef, SmallDenseMapUnsignedHasher, 128> variables;
 
 	bool skipFunctionDefinitions;
 
