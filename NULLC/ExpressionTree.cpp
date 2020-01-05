@@ -7533,15 +7533,18 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
 		if(!typeClass->completed)
-			Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
+			Stop(ctx, syntax->type, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
 	}
 
 	SynBase *syntaxInternal = ctx.MakeInternal(syntax);
 
 	if(syntax->count)
 	{
-		assert(syntax->arguments.empty());
-		assert(syntax->constructor.empty());
+		if(!syntax->arguments.empty())
+			Report(ctx, syntax->arguments.head, "ERROR: can't provide constructor arguments to array allocation");
+
+		if(!syntax->constructor.empty())
+			Report(ctx, syntax->constructor.head, "ERROR: can't provide custom construction code for array allocation");
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 

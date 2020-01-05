@@ -191,6 +191,8 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("new auto;", "auto a = new auto;", "ERROR: can't allocate objects of type 'auto'");
 	TEST_FOR_FAIL("new void;", "auto a = new void;", "ERROR: can't allocate objects of type 'void'");
 	TEST_FOR_FAIL("new void[];", "auto a = new void[8];", "ERROR: can't allocate objects of type 'void'");
+	TEST_FOR_FAIL("new array", "int a = 10; new (typeof(1)[a])(1);", "ERROR: can't provide constructor arguments to array allocation");
+	TEST_FOR_FAIL("new array", "int a = 10; new (typeof(1)[a]){ *this = 1; };", "ERROR: can't provide custom construction code for array allocation");
 
 	TEST_FOR_FAIL("Array underflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][-1000000];", "ERROR: array index cannot be negative");
 	TEST_FOR_FAIL("Array overflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][1000000];", "ERROR: array index out of bounds");
