@@ -4204,10 +4204,18 @@ ExprBase* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
+	AssertValueExpression(ctx, syntax, condition);
+
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 	ExprBase *falseBlock = AnalyzeStatement(ctx, syntax->falseBlock);
 
 	if(isType<TypeError>(condition->type) || isType<TypeError>(trueBlock->type) || isType<TypeError>(falseBlock->type))
+		return new (ctx.get<ExprConditional>()) ExprConditional(syntax, ctx.GetErrorType(), condition, trueBlock, falseBlock);
+
+	if(!AssertValueExpression(ctx, syntax, trueBlock))
+		return new (ctx.get<ExprConditional>()) ExprConditional(syntax, ctx.GetErrorType(), condition, trueBlock, falseBlock);
+
+	if(!AssertValueExpression(ctx, syntax, falseBlock))
 		return new (ctx.get<ExprConditional>()) ExprConditional(syntax, ctx.GetErrorType(), condition, trueBlock, falseBlock);
 
 	// Handle null pointer promotion
@@ -4252,8 +4260,6 @@ ExprBase* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 			resultType = ctx.GetErrorType();
 		}
 	}
-
-	AssertValueExpression(ctx, syntax, condition);
 
 	return new (ctx.get<ExprConditional>()) ExprConditional(syntax, resultType, condition, trueBlock, falseBlock);
 }
