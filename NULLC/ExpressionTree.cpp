@@ -1906,6 +1906,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 
 ExprBase* CreateReturn(ExpressionContext &ctx, SynBase *source, ExprBase *result);
 
+bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *type);
 bool AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 bool AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 
@@ -3266,7 +3267,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			if(type)
 			{
-				assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+				if(!AssertResolvableType(ctx, node->value, type))
+					return ctx.GetErrorType();
 
 				return type;
 			}
@@ -9001,31 +9003,36 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
 }
 
+bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *type)
+{
+	if(isType<TypeArgumentSet>(type))
+	{
+		Report(ctx, source, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+
+		return false;
+	}
+
+	if(isType<TypeMemberSet>(type))
+	{
+		Report(ctx, source, "ERROR: expected '(' after 'hasMember'");
+
+		return false;
+	}
+
+	if(type->isGeneric)
+	{
+		Report(ctx, source, "ERROR: cannot take typeid from generic type");
+
+		return false;
+	}
+
+	return true;
+}
+
 bool AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
 {
 	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
-	{
-		if(isType<TypeArgumentSet>(node->value))
-		{
-			Report(ctx, source, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
-
-			return false;
-		}
-
-		if(isType<TypeMemberSet>(node->value))
-		{
-			Report(ctx, source, "ERROR: expected '(' after 'hasMember'");
-
-			return false;
-		}
-
-		if(node->value->isGeneric)
-		{
-			Report(ctx, source, "ERROR: cannot take typeid from generic type");
-
-			return false;
-		}
-	}
+		return AssertResolvableType(ctx, source, node->value);
 
 	return true;
 }

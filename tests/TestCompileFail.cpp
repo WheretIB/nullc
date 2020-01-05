@@ -839,6 +839,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("invalid generic type use 13", "generic foo(); return foo();", "ERROR: return type can't be generic");
 
 	TEST_FOR_FAIL("non-value argument", "int f(typeid x){ return 1; } assert(typeof(f).argument);", "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+	TEST_FOR_FAIL("unresolved type", "typeof(int ref(int, int).argument) a;", "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
 
 	TEST_FOR_FAIL("duplicate enum member name", "enum Bar{ A, A, C, D }", "ERROR: name 'A' is already taken");
 
