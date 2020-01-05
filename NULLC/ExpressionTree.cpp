@@ -6911,7 +6911,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 		for(TypeHandle *curr = generics.head; curr; curr = curr->next)
 		{
-			if(isType<TypeError>(curr->type))
+			if(isType<TypeError>(curr->type) || !AssertResolvableType(ctx, source, curr->type))
 				isErrorCall = true;
 		}
 	}
