@@ -10500,6 +10500,12 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			continue;
 		}
 
+		if(!AssertValueExpression(ctx, curr, value))
+		{
+			initializers.push_back(value);
+			continue;
+		}
+
 		TypeFunction *functionType = getType<TypeFunction>(value->type);
 		ExprBase *startCall = NULL;
 		

@@ -793,6 +793,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("generic function misuse 6", "for(; auto(@T x){}; ){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 7", "while(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 8", "do{}while(auto(@T x){});", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 9", "for(i in auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
 
 	TEST_FOR_FAIL("fuzzy test 1", "typedef auto Foo;", "ERROR: can't alias 'auto' type");
 	TEST_FOR_FAIL("fuzzy test 2", "\"test\"[];", "ERROR: can't find function '[]' with following arguments:");
