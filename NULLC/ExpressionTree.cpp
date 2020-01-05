@@ -8707,11 +8707,21 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	if(isType<TypeError>(actual))
 		return;
 
-	// If return type is auto, set it to type that is being returned
-	if(function->type->returnType == ctx.typeAuto)
-		function->type = ctx.GetFunctionType(source, actual, function->type->arguments);
+	ExprBase *result = expressions.tail;
 
-	ExprBase *result = expected == ctx.typeAuto || isType<TypeError>(actual) ? expressions.tail : CreateCast(ctx, source, expressions.tail, expected, false);
+	// If return type is auto, set it to type that is being returned
+	if(expected == ctx.typeAuto)
+	{
+		if(result && !AssertValueExpression(ctx, result->source, result))
+			return;
+
+		function->type = ctx.GetFunctionType(source, actual, function->type->arguments);
+	}
+	else
+	{
+		result = CreateCast(ctx, source, expressions.tail, expected, false);
+	}
+
 	result = new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(source), function, ctx.scope));
 
 	if(expressions.head == expressions.tail)
