@@ -171,6 +171,9 @@ bool CreateStore(ExpressionEvalContext &ctx, ExprBase *target, ExprBase *value)
 
 	if(ExprTypeLiteral *expr = getType<ExprTypeLiteral>(value))
 	{
+		if(isType<TypeError>(expr->value))
+			return false;
+
 		unsigned index = ctx.ctx.GetTypeIndex(expr->value);
 		memcpy(ptr->ptr, &index, unsigned(value->type->size));
 		return true;
@@ -892,7 +895,9 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 
 ExprBase* CheckType(ExprBase* expression, ExprBase *value)
 {
-	(void)expression;
+	if(isType<TypeError>(expression->type))
+		return NULL;
+
 	assert(expression->type == value->type);
 
 	return value;
@@ -927,7 +932,8 @@ ExprBase* EvaluateArray(ExpressionEvalContext &ctx, ExprArray *expression)
 
 		ExprPointerLiteral *target = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
 
-		CreateStore(ctx, target, element);
+		if(!CreateStore(ctx, target, element))
+			return NULL;
 
 		offset += unsigned(arrayType->subType->size);
 	}
@@ -1324,6 +1330,9 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, expression->type, result));
 			case SYN_UNARY_OP_NEGATE:
 				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, expression->type, -result));
+			case SYN_UNARY_OP_BIT_NOT:
+			case SYN_UNARY_OP_LOGICAL_NOT:
+				return NULL;
 			default:
 				assert(!"unknown unary operation");
 			}
@@ -2289,7 +2298,8 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 		if(!ptrPtrLoad)
 			return NULL;
 
-		CreateStore(ctx, resultPtr, ptrPtrLoad);
+		if(!CreateStore(ctx, resultPtr, ptrPtrLoad))
+			return NULL;
 
 		return CheckType(expression, result);
 	}
@@ -2332,7 +2342,8 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 		if(!ptrPtrLoad)
 			return NULL;
 
-		CreateStore(ctx, resultPtr, ptrPtrLoad);
+		if(!CreateStore(ctx, resultPtr, ptrPtrLoad))
+			return NULL;
 
 		return CheckType(expression, result);
 	}
@@ -2585,7 +2596,8 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 			upvalue = next;
 		}
 
-		CreateStore(ctx, upvalueListLocation, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), (unsigned char*)upvalue, (unsigned char*)upvalue + NULLC_PTR_SIZE));
+		if(!CreateStore(ctx, upvalueListLocation, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), (unsigned char*)upvalue, (unsigned char*)upvalue + NULLC_PTR_SIZE)))
+			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
@@ -2643,6 +2655,9 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 	ExprFunctionDefinition *declaration = getType<ExprFunctionDefinition>(ptr->data->declaration);
 
 	assert(declaration);
+
+	if(declaration->arguments.size() != arguments.size())
+		return NULL;
 
 	ExprBase *call = EvaluateFunction(ctx, declaration, ptr->context, arguments);
 
@@ -2703,6 +2718,9 @@ ExprBase* EvaluateFor(ExpressionEvalContext &ctx, ExprFor *expression)
 
 		if(!frame->targetYield)
 		{
+			if(!expression->condition)
+				return NULL;
+
 			ExprBase *condition = Evaluate(ctx, expression->condition);
 
 			if(!condition)
@@ -3039,6 +3057,9 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 	if(isType<ExprError>(expression) || isType<ExprErrorTypeMemberAccess>(expression))
 		return Report(ctx, "ERROR: invalid expression");
 
+	if(isType<TypeError>(expression->type))
+		return NULL;
+
 	if(ExprVoid *expr = getType<ExprVoid>(expression))
 		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, expr->type);
 
@@ -3230,6 +3251,9 @@ bool EvaluateToBuffer(ExpressionEvalContext &ctx, ExprBase *expression, char *re
 
 bool TestEvaluation(ExpressionContext &ctx, ExprBase *expression, char *resultBuf, unsigned resultBufSize, char *errorBuf, unsigned errorBufSize)
 {
+	if(!expression)
+		return false;
+
 	ExpressionEvalContext evalCtx(ctx, ctx.allocator);
 
 	evalCtx.errorBuf = errorBuf;

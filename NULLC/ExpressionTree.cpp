@@ -784,10 +784,6 @@ namespace
 
 	ExprBase* EvaluateExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expression)
 	{
-		// Don't perform evaluations in an ill-formed program
-		if(ctx.errorCount != 0)
-			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
-
 		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
 
 		if(ctx.errorBuf && ctx.errorBufSize)
@@ -807,7 +803,7 @@ namespace
 			{
 				if(ctx.errorCount == 0)
 				{
-					ctx.errorPos = expression->source->pos.begin;
+					ctx.errorPos = source->pos.begin;
 					ctx.errorBufLocation = ctx.errorBuf;
 				}
 
@@ -817,7 +813,7 @@ namespace
 
 				const char *messageEnd = ctx.errorBufLocation;
 
-				ctx.errorInfo.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, expression->source->begin, expression->source->end, ctx.errorPos));
+				ctx.errorInfo.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, ctx.errorPos));
 
 				if(const char *code = FindModuleCodeWithSourceLocation(ctx, ctx.errorPos))
 				{

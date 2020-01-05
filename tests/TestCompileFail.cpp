@@ -794,7 +794,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("generic function misuse 7", "while(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 8", "do{}while(auto(@T x){});", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 9", "for(i in auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
-
+	
 	TEST_FOR_FAIL("fuzzy test 1", "typedef auto Foo;", "ERROR: can't alias 'auto' type");
 	TEST_FOR_FAIL("fuzzy test 2", "\"test\"[];", "ERROR: can't find function '[]' with following arguments:");
 	TEST_FOR_FAIL("fuzzy test 3", "auto[sizeof(4)];", "ERROR: cannot specify array size for auto");
@@ -841,7 +841,7 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("non-value argument", "int f(typeid x){ return 1; } assert(typeof(f).argument);", "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
 	TEST_FOR_FAIL("unresolved type", "typeof(int ref(int, int).argument) a;", "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
-
+	
 	TEST_FOR_FAIL("duplicate enum member name", "enum Bar{ A, A, C, D }", "ERROR: name 'A' is already taken");
 
 	TEST_FOR_FAIL("invalid cast", "int ref(bool ref) x = int f(bool ref x){ return *x; }; return x(2);", "ERROR: cannot convert 'int' to 'bool ref'");
@@ -927,6 +927,12 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[float(float)] arr;", "ERROR: can't find function 'float::float' with following arguments:");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "@ if(@=", "ERROR: closing ')' not found after 'if' condition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "@if(  double({ typeof(", "ERROR: expression not found after typeof(");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "sizeof  typeof  sizeof[1 ? sizeof", "ERROR: sizeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "sizeof  typeof  sizeof[(auto (float  with", "ERROR: sizeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "sizeof  typeof  sizeof[!float  with", "ERROR: sizeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "void  argument  argument .", "ERROR: ';' not found after variable definition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "typeof @ for(b  in  1  1", "ERROR: typeof must be followed by '('");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
