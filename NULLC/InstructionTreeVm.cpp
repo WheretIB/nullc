@@ -3309,6 +3309,9 @@ VmValue* CompileVmVariableDefinitions(ExpressionContext &ctx, VmModule *module, 
 
 VmValue* CompileVmVariableAccess(ExpressionContext &ctx, VmModule *module, ExprVariableAccess *node)
 {
+	if(isType<TypeVoid>(node->variable->type))
+		return CheckType(ctx, node, CreateVoid(module));
+
 	VmValue *address = CreateVariableAddress(module, node->source, node->variable, ctx.GetReferenceType(node->variable->type));
 
 	VmValue *value = CreateLoad(ctx, module, node->source, node->variable->type, address, 0);

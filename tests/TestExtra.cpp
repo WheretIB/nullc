@@ -771,6 +771,10 @@ const char	*testFuzzingCrash9 =
 return int[3](x)[1];";
 TEST_RESULT("Fuzzing crash result 9 (array boxing to auto ref)", testFuzzingCrash9, "2");
 
+const char	*testFuzzingCrash10 =
+"void foo(){ return void(); } foo(); return 1;";
+TEST_RESULT("Fuzzing crash result 10 (void 'value')", testFuzzingCrash10, "1");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");
