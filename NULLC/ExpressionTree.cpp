@@ -1882,6 +1882,8 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
 ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax);
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
+void AnalyzeClassBaseElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
+void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal, bool checkParent);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType);
@@ -9622,7 +9624,7 @@ void CreateDefaultClassMembers(ExpressionContext &ctx, SynBase *source, ExprClas
 	CreateDefaultClassAssignment(ctx, ctx.MakeInternal(source), classDefinition);
 }
 
-void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
+void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax, bool baseElements)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
@@ -9631,9 +9633,19 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, syntax, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 	{
 		if(number->value)
-			AnalyzeClassElements(ctx, classDefinition, syntax->trueBlock);
+		{
+			if(baseElements)
+				AnalyzeClassBaseElements(ctx, classDefinition, syntax->trueBlock);
+			else
+				AnalyzeClassFunctionElements(ctx, classDefinition, syntax->trueBlock);
+		}
 		else if(syntax->falseBlock)
-			AnalyzeClassElements(ctx, classDefinition, syntax->falseBlock);
+		{
+			if(baseElements)
+				AnalyzeClassBaseElements(ctx, classDefinition, syntax->falseBlock);
+			else
+				AnalyzeClassFunctionElements(ctx, classDefinition, syntax->falseBlock);
+		}
 	}
 	else
 	{
@@ -9695,7 +9707,7 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 	}
 }
 
-void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
+void AnalyzeClassBaseElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
 {
 	for(SynTypedef *typeDef = syntax->typedefs.head; typeDef; typeDef = getType<SynTypedef>(typeDef->next))
 	{
@@ -9725,15 +9737,6 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 		}
 	}
 
-	FinalizeAlignment(classDefinition->classType);
-
-	classDefinition->classType->completed = true;
-
-	if(classDefinition->classType->size >= 64 * 1024)
-		Stop(ctx, syntax, "ERROR: class size cannot exceed 65535 bytes");
-
-	CreateDefaultClassMembers(ctx, syntax, classDefinition);
-
 	for(SynConstantSet *constantSet = syntax->constantSets.head; constantSet; constantSet = getType<SynConstantSet>(constantSet->next))
 	{
 		TypeBase *type = AnalyzeType(ctx, constantSet->type);
@@ -9741,6 +9744,14 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 		AnalyzeClassConstants(ctx, constantSet, type, constantSet->constants, classDefinition->classType->constants);
 	}
 
+	// TODO: The way SynClassElements is made, it could allow member re-ordering! class should contain in-order members and static if's
+	// TODO: We should be able to analyze all static if typedefs before members and constants and analyze them before functions
+	for(SynClassStaticIf *staticIf = syntax->staticIfs.head; staticIf; staticIf = getType<SynClassStaticIf>(staticIf->next))
+		AnalyzeClassStaticIf(ctx, classDefinition, staticIf, true);
+}
+
+void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
+{
 	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
 		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>(), false, false, true));
 
@@ -9756,7 +9767,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			IntrusiveList<SynFunctionArgument> arguments;
 
 			IntrusiveList<SynBase> expressions;
-			
+
 			if(SynBlock *block = getType<SynBlock>(accessor->getBlock))
 				expressions = block->expressions;
 			else
@@ -9805,10 +9816,26 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 		}
 	}
 
-	// TODO: The way SynClassElements is made, it could allow member re-ordering! class should contain in-order members and static if's
-	// TODO: We should be able to analyze all static if typedefs before members and constants and analyze them before functions
 	for(SynClassStaticIf *staticIf = syntax->staticIfs.head; staticIf; staticIf = getType<SynClassStaticIf>(staticIf->next))
-		AnalyzeClassStaticIf(ctx, classDefinition, staticIf);
+		AnalyzeClassStaticIf(ctx, classDefinition, staticIf, false);
+}
+
+void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
+{
+	AnalyzeClassBaseElements(ctx, classDefinition, syntax);
+
+	FinalizeAlignment(classDefinition->classType);
+
+	assert(!classDefinition->classType->completed);
+
+	classDefinition->classType->completed = true;
+
+	if(classDefinition->classType->size >= 64 * 1024)
+		Stop(ctx, syntax, "ERROR: class size cannot exceed 65535 bytes");
+
+	CreateDefaultClassMembers(ctx, syntax, classDefinition);
+
+	AnalyzeClassFunctionElements(ctx, classDefinition, syntax);
 }
 
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)

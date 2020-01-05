@@ -1277,3 +1277,49 @@ Test t;\r\n\
 \r\n\
 return t.a[2] + t.b[8];";
 TEST_RESULT("Class member initializers 6", testClassMemberInitializers6, "12");
+
+const char	*testClassStaticIf1 =
+"class Test\r\n\
+{\r\n\
+	@if(1)\r\n\
+	{\r\n\
+		int x = 1, y = 2;\r\n\
+	}\r\n\
+\r\n\
+	int s()\r\n\
+	{\r\n\
+		return x + y;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+return t.s();";
+TEST_RESULT("Class static if 1", testClassStaticIf1, "3");
+
+const char	*testClassStaticIf2 =
+"class Test\r\n\
+{\r\n\
+	int a = 1, b = 2;\r\n\
+\r\n\
+	@if(1){ int c, d; }\r\n\
+}\r\n\
+\r\n\
+Test a;\r\n\
+\r\n\
+return sizeof(Test) + a.c;";
+TEST_RESULT("Class static if 2", testClassStaticIf2, "16");
+
+const char	*testClassConstantVisibility =
+"class Test\r\n\
+{\r\n\
+	const int a = 1, b = 2;\r\n\
+\r\n\
+	int s()\r\n\
+	{\r\n\
+		return a + b;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+return t.s();";
+TEST_RESULT("Class constant visibility", testClassConstantVisibility, "3");
