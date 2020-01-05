@@ -929,6 +929,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "@?{{?@=@=", "ERROR: name expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto({auto a=2class T i b=a", "ERROR: ')' not found after function variable list");
 	TEST_FOR_FAIL("fuzzing test crash", "auto f<@T>(){} f with<@U>();", "ERROR: cannot take typeid from generic type");
+	TEST_FOR_FAIL("fuzzing test crash", "auto o(@T ref, i}o(&, <", "ERROR: variable name not found after type in function variable list");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");

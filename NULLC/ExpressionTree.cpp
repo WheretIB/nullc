@@ -5592,6 +5592,9 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 			}
 		}
 
+		if(isType<TypeError>(argType))
+			return NULL;
+
 		aliases.push_back(new (ctx.get<MatchData>()) MatchData(lhs->baseName, argType));
 
 		return argType;
