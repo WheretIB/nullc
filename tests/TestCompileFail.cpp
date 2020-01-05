@@ -931,7 +931,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "auto f<@T>(){} f with<@U>();", "ERROR: cannot take typeid from generic type");
 	TEST_FOR_FAIL("fuzzing test crash", "auto o(@T ref, i}o(&, <", "ERROR: variable name not found after type in function variable list");
 	TEST_FOR_FAIL("fuzzing test crash", "int foo(@T ref(int) f){ return f(5); } foo(<x>{ auto(@t t){} });", "ERROR: ambiguity, the expression is a generic function");
-
+	TEST_FOR_FAIL("fuzzing test crash", "auto o(generic ref, r}o(k, <", "ERROR: variable name not found after type in function variable list");
+	
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[float(float)] arr;", "ERROR: can't find function 'float::float' with following arguments:");

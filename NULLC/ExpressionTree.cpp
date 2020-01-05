@@ -5566,6 +5566,9 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 				argType = ctx.GetUnsizedArrayType(rhs->subType);
 		}
 
+		if(isType<TypeError>(argType))
+			return NULL;
+
 		return argType;
 	}
 
