@@ -9488,6 +9488,8 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
 {
+	ctx.PopScope(SCOPE_TYPE);
+
 	TypeClass *classType = classDefinition->classType;
 
 	IntrusiveList<VariableHandle> customAssignMembers;
@@ -9609,6 +9611,8 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 		classDefinition->functions.push_back(function->declaration);
 	}
+
+	RestoreParentTypeScope(ctx, source, classDefinition->classType);
 }
 
 void CreateDefaultClassMembers(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
@@ -9724,6 +9728,11 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	FinalizeAlignment(classDefinition->classType);
 
 	classDefinition->classType->completed = true;
+
+	if(classDefinition->classType->size >= 64 * 1024)
+		Stop(ctx, syntax, "ERROR: class size cannot exceed 65535 bytes");
+
+	CreateDefaultClassMembers(ctx, syntax, classDefinition);
 
 	for(SynConstantSet *constantSet = syntax->constantSets.head; constantSet; constantSet = getType<SynConstantSet>(constantSet->next))
 	{
@@ -9996,11 +10005,6 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	AnalyzeClassElements(ctx, classDefinition, syntax->elements);
 
 	ctx.PopScope(SCOPE_TYPE);
-
-	if(classType->size >= 64 * 1024)
-		Stop(ctx, syntax, "ERROR: class size cannot exceed 65535 bytes");
-
-	CreateDefaultClassMembers(ctx, syntax, classDefinition);
 
 	return classDefinition;
 }

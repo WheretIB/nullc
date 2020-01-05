@@ -614,3 +614,42 @@ Test2 t;\r\n\
 return t.a + t.b + t.c + t.d;";
 TEST_RESULT("Inheritance test 47 - member initializers", testInheritance47, "16");
 
+const char	*testInheritance48 =
+"class Test\r\n\
+{\r\n\
+	int a = 1;\r\n\
+	int b = 2;\r\n\
+\r\n\
+	int foo()\r\n\
+	{\r\n\
+		Test x;\r\n\
+\r\n\
+		return x.a + x.b;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+return t.foo();";
+TEST_RESULT("Inheritance test 48 - constructor availability", testInheritance48, "3");
+
+const char	*testInheritance49 =
+"class vec2 extendable\r\n\
+{\r\n\
+	int x = 1, y = 2;\r\n\
+}\r\n\
+\r\n\
+class vec3 : vec2\r\n\
+{\r\n\
+	vec3 f()\r\n\
+	{\r\n\
+		vec3 x;\r\n\
+		return x;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+vec3 a;\r\n\
+a = a.f();\r\n\
+auto ref x = a;\r\n\
+vec3 b = x;\r\n\
+return b.x;";
+TEST_RESULT("Inheritance test 49 - constructor availability", testInheritance49, "1");
