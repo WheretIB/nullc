@@ -1904,7 +1904,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 
 ExprBase* CreateReturn(ExpressionContext &ctx, SynBase *source, ExprBase *result);
 
-bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *type);
+bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *type, bool allowGeneric);
 bool AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 bool AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 
@@ -2957,6 +2957,9 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 		if(type->size >= 64 * 1024)
 			Stop(ctx, size, "ERROR: array element size cannot exceed 65535 bytes");
 
+		if(!AssertResolvableType(ctx, size, type, true))
+			return ctx.GetErrorType();
+
 		return ctx.GetArrayType(type, number->value);
 	}
 
@@ -3086,6 +3089,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(isType<TypeError>(type))
 			return ctx.GetErrorType();
 
+		if(!AssertResolvableType(ctx, syntax, type, true))
+			return ctx.GetErrorType();
+
 		return ctx.GetReferenceType(type);
 	}
 
@@ -3132,6 +3138,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			if(type->size >= 64 * 1024)
 				Stop(ctx, syntax, "ERROR: array element size cannot exceed 65535 bytes");
 
+			if(!AssertResolvableType(ctx, syntax, type, true))
+				return ctx.GetErrorType();
+
 			return ctx.GetUnsizedArrayType(type);
 		}
 
@@ -3173,6 +3182,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			if(type->size >= 64 * 1024)
 				Stop(ctx, syntax, "ERROR: array element size cannot exceed 65535 bytes");
 
+			if(!AssertResolvableType(ctx, syntax, type, true))
+				return ctx.GetErrorType();
+
 			return ctx.GetArrayType(type, number->value);
 		}
 
@@ -3192,6 +3204,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(isType<TypeError>(returnType))
 			return ctx.GetErrorType();
 
+		if(!AssertResolvableType(ctx, syntax, returnType, true))
+			return ctx.GetErrorType();
+
 		if(returnType == ctx.typeAuto)
 			Stop(ctx, syntax, "ERROR: return type of a function type cannot be auto");
 
@@ -3205,6 +3220,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				return NULL;
 
 			if(isType<TypeError>(argType))
+				return ctx.GetErrorType();
+
+			if(!AssertResolvableType(ctx, syntax, argType, true))
 				return ctx.GetErrorType();
 
 			if(argType == ctx.typeAuto)
@@ -3265,7 +3283,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			if(type)
 			{
-				if(!AssertResolvableType(ctx, node->value, type))
+				if(!AssertResolvableType(ctx, node->value, type, false))
 					return ctx.GetErrorType();
 
 				return type;
@@ -6917,7 +6935,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 		for(TypeHandle *curr = generics.head; curr; curr = curr->next)
 		{
-			if(isType<TypeError>(curr->type) || !AssertResolvableType(ctx, source, curr->type))
+			if(isType<TypeError>(curr->type) || !AssertResolvableType(ctx, source, curr->type, false))
 				isErrorCall = true;
 		}
 	}
@@ -9032,7 +9050,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
 }
 
-bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *type)
+bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *type, bool allowGeneric)
 {
 	if(isType<TypeArgumentSet>(type))
 	{
@@ -9048,7 +9066,7 @@ bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 		return false;
 	}
 
-	if(type->isGeneric)
+	if(type->isGeneric && !allowGeneric)
 	{
 		Report(ctx, source, "ERROR: cannot take typeid from generic type");
 
@@ -9061,7 +9079,7 @@ bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 bool AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
 {
 	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
-		return AssertResolvableType(ctx, source, node->value);
+		return AssertResolvableType(ctx, source, node->value, false);
 
 	return true;
 }
