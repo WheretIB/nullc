@@ -2435,13 +2435,15 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		assert(arr);
 
-		// Load auto[] array members
-		ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
+		// Check index
 		ExprIntegerLiteral *arrLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void*), ctx.ctx.typeInt));
-		ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
 
 		if(unsigned(indexArg->value) >= arrLen->value)
 			return Report(ctx, "ERROR: array index out of bounds");
+
+		// Load auto[] array type and pointer members
+		ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
+		ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
 
 		// Create storage for result
 		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
