@@ -396,6 +396,8 @@ struct VmBlock: VmValue
 	void DetachInstruction(VmInstruction* instruction);
 	void RemoveInstruction(VmInstruction* instruction);
 
+	bool HasExternalInstructionUsers();
+
 	InplaceStr name;
 
 	unsigned uniqueId;

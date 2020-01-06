@@ -1841,9 +1841,12 @@ void VmValue::RemoveUse(VmValue* user)
 		}
 		else if(VmBlock *block = getType<VmBlock>(this))
 		{
-			// Remove all block instructions
-			while(block->lastInstruction)
-				block->RemoveInstruction(block->lastInstruction);
+			if(!block->HasExternalInstructionUsers())
+			{
+				// Remove all block instructions
+				while(block->lastInstruction)
+					block->RemoveInstruction(block->lastInstruction);
+			}
 		}
 		else if(isType<VmFunction>(this))
 		{
@@ -1943,6 +1946,23 @@ void VmBlock::RemoveInstruction(VmInstruction* instruction)
 
 	for(unsigned i = 0; i < instruction->arguments.size(); i++)
 		instruction->arguments[i]->RemoveUse(instruction);
+}
+
+bool VmBlock::HasExternalInstructionUsers()
+{
+	for(VmInstruction *curr = firstInstruction; curr; curr = curr = curr->nextSibling)
+	{
+		for(unsigned i = 0; i < curr->users.size(); i++)
+		{
+			if(VmInstruction *instUser = getType<VmInstruction>(curr->users[i]))
+			{
+				if(instUser->parent != this)
+					return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 void VmFunction::AddBlock(VmBlock* block)
@@ -4947,7 +4967,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
 			}
 
-			if(curr->users.empty())
+			if(curr->users.empty() && !curr->HasExternalInstructionUsers())
 			{
 				// Remove unused blocks
 				function->RemoveBlock(curr);
