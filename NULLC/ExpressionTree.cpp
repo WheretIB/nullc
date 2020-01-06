@@ -9913,8 +9913,17 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	{
 		originalDefinition = getType<TypeClass>(*type);
 
-		if(!originalDefinition || originalDefinition->completed)
+		if(!originalDefinition)
 			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
+
+		if(originalDefinition->completed)
+			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
+
+		for(ScopeData *scope = ctx.scope; scope; scope = scope->scope)
+		{
+			if(scope->ownerType == originalDefinition)
+				Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
+		}
 	}
 
 	if(!generics.empty())
