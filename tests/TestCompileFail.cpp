@@ -934,6 +934,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "auto o(generic ref, r}o(k, <", "ERROR: variable name not found after type in function variable list");
 	TEST_FOR_FAIL("fuzzing test crash", "an[n[n[n[n[n[n[a[n[nn[n[a[n[n[n<", "ERROR: expression not found after binary operation");
 	TEST_FOR_FAIL("fuzzing test crash", "int(new int{ class a{ int R{get} } };", "ERROR: function body expected after 'get'");
+	TEST_FOR_FAIL("fuzzing test crash", "auto foo(generic i, j){}foo(i:2);", "ERROR: can't find function 'foo' with following arguments:");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");

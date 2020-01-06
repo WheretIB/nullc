@@ -5262,7 +5262,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, Ar
 		}
 
 		// All arguments must be set
-		for(unsigned i = unnamedCount; i < arguments.count; i++)
+		for(unsigned i = unnamedCount; i < functionArguments.count; i++)
 		{
 			if(result[i].type == NULL)
 				return false;
