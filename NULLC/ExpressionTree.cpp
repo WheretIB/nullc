@@ -9792,8 +9792,8 @@ void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *c
 
 			if(SynBlock *block = getType<SynBlock>(accessor->getBlock))
 				expressions = block->expressions;
-			else
-				expressions.push_back(accessor->getBlock);
+			else if(SynError *error = getType<SynError>(accessor->getBlock))
+				expressions.push_back(new (ctx.get<SynError>()) SynError(error->begin, error->end));
 
 			SynFunctionDefinition *function = new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(accessor->begin, accessor->end, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
 
@@ -9824,8 +9824,8 @@ void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *c
 
 			if(SynBlock *block = getType<SynBlock>(accessor->setBlock))
 				expressions = block->expressions;
-			else
-				expressions.push_back(accessor->setBlock);
+			else if(SynError *error = getType<SynError>(accessor->setBlock))
+				expressions.push_back(new (ctx.get<SynError>()) SynError(error->begin, error->end));
 
 			SynFunctionDefinition *function = new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(accessor->begin, accessor->end, false, false, parentType, true, new (ctx.get<SynTypeAuto>()) SynTypeAuto(accessor->begin, accessor->end), false, accessor->name, aliases, arguments, expressions);
 
