@@ -951,6 +951,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "void  argument  argument .", "ERROR: ';' not found after variable definition");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "typeof @ for(b  in  1  1", "ERROR: typeof must be followed by '('");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "auto []r r[2", "ERROR: ';' not found after variable definition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "int x coroutine void bar1(({x yield}int[2]arr for(i in arr)bar1(", "ERROR: ';' not found after variable definition");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

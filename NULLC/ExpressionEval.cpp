@@ -905,6 +905,9 @@ ExprBase* CheckType(ExprBase* expression, ExprBase *value)
 
 ExprBase* EvaluateArray(ExpressionEvalContext &ctx, ExprArray *expression)
 {
+	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
+
 	if(!AddInstruction(ctx))
 		return NULL;
 
