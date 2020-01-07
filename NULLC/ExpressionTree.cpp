@@ -2440,6 +2440,9 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 
 	if(isType<ExprUnboxing>(lhs))
 	{
+		if(!AssertValueExpression(ctx, source, rhs))
+			return new (ctx.get<ExprAssignment>()) ExprAssignment(source, ctx.GetErrorType(), lhs, rhs);
+
 		lhs = CreateCast(ctx, source, lhs, ctx.GetReferenceType(rhs->type), false);
 		lhs = new (ctx.get<ExprDereference>()) ExprDereference(source, rhs->type, lhs);
 	}
