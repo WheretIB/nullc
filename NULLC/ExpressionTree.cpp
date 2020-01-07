@@ -2141,6 +2141,9 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	{
 		if(FunctionValue function = GetFunctionForType(ctx, source, value, target))
 		{
+			if(isType<TypeAutoRef>(function.context->type))
+				Stop(ctx, source, "ERROR: can't convert dynamic function set to '%.*s'", FMT_ISTR(type->name));
+
 			ExprBase *access = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(function.source, type, function.function, function.context);
 
 			if(isType<ExprFunctionDefinition>(value) || isType<ExprGenericFunctionPrototype>(value))
