@@ -7428,6 +7428,21 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
 	{
+		if(TypeClass *typeClass = getType<TypeClass>(type->value))
+		{
+			if(!typeClass->completed)
+			{
+				Report(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(typeClass->name));
+
+				IntrusiveList<ExprBase> arguments;
+
+				for(SynCallArgument *el = syntax->arguments.head; el; el = getType<SynCallArgument>(el->next))
+					arguments.push_back(AnalyzeExpression(ctx, el->value));
+
+				return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(syntax, ctx.GetErrorType(), function, arguments);
+			}
+		}
+
 		if(isType<TypeError>(type->value))
 		{
 			IntrusiveList<ExprBase> arguments;
