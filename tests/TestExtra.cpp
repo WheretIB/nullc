@@ -864,6 +864,10 @@ bool foo(Test x){ return x.b == 2.0; }\r\n\
 Test t; t.b = 2.0; return foo(t);";
 TEST_RESULT("Instruction evaluation comparison load type error", testEvaluationTypeError, "1");
 
+const char	*testEvaluationPointerLogicalNot =
+"int x=2;auto a=x?&x:nullptr;return!a;";
+TEST_RESULT("Instruction evaluation pointer logical not error", testEvaluationPointerLogicalNot, "0");
+
 const char	*testLargeValues1 =
 "class Large{ int x, y, z, w; int[16] pad; }\r\n\
 class Big{ Large a, b; }\r\n\

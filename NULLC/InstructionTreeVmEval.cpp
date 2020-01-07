@@ -1456,7 +1456,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			return CreateConstantInt(ctx.allocator, NULL, !arguments[0]->lValue);
 
 		if(arguments[0]->type.type == VM_TYPE_POINTER)
-			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue == 0);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue == 0 && arguments[0]->container == NULL);
 		break;
 	case VM_INST_CONVERT_POINTER:
 		{
