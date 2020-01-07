@@ -939,7 +939,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "double fo(do typeof(fo).argument[.", "ERROR: ')' not found after function variable list");
 	TEST_FOR_FAIL("fuzzing test crash", "class X{} int X:foo(){ return 1; } auto ref y; int ref() z = y.foo;", "ERROR: can't convert dynamic function set to 'int ref()'");
 	TEST_FOR_FAIL("fuzzing test crash", "auto ref x; *x = assert;", "ERROR: ambiguity, there is more than one overloaded function available:");
-	
+	TEST_FOR_FAIL("fuzzing test crash", "int(new{ class auto ref x = Foo; void Foo(", "ERROR: type name expected after 'new'");
+
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[float(float)] arr;", "ERROR: can't find function 'float::float' with following arguments:");

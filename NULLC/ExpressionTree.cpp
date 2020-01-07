@@ -751,7 +751,7 @@ namespace
 				continue;
 			}
 
-			if(SameGenerics(curr->value->generics, function->generics) && curr->value->type == function->type)
+			if(SameGenerics(curr->value->generics, function->generics) && curr->value->type == function->type && curr->value->scope->ownerType == function->scope->ownerType)
 				return curr->value;
 
 			curr = ctx.functionMap.next(curr);
@@ -1095,7 +1095,28 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 		TypeBase *type = scope->types[i];
 
 		if(typeMap.find(type->nameHash, type))
+		{
+			if(!keepFunctions)
+			{
+				if(TypeClass *typeClass = getType<TypeClass>(type))
+				{
+					for(unsigned k = 0; k < functions.size(); k++)
+					{
+						FunctionData *function = functions[k];
+
+						if(function->scope->ownerType == type && functionMap.find(function->nameHash, function))
+						{
+							functionMap.remove(function->nameHash, function);
+
+							if(function->isOperator)
+								noAssignmentOperatorForTypePair.clear();
+						}
+					}
+				}
+			}
+
 			typeMap.remove(type->nameHash, type);
+		}
 	}
 
 	for(int i = int(scope->aliases.count) - 1; i >= 0; i--)
