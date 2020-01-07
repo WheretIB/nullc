@@ -953,6 +953,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "typeof @ for(b  in  1  1", "ERROR: typeof must be followed by '('");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "auto []r r[2", "ERROR: ';' not found after variable definition");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int x coroutine void bar1(({x yield}int[2]arr for(i in arr)bar1(", "ERROR: ';' not found after variable definition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "auto a(){ a; } a();", "ERROR: function 'a' type is unresolved at this point");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

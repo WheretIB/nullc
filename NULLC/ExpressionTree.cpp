@@ -11365,7 +11365,8 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 	ExprBase *expression = AnalyzeExpression(ctx, syntax);
 
-	AssertValueExpression(ctx, syntax, expression);
+	if(!AssertValueExpression(ctx, syntax, expression))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), expression);
 
 	return expression;
 }
