@@ -135,6 +135,14 @@ struct TypePairHasher
 	}
 };
 
+struct SyntaxNodeHasher
+{
+	unsigned operator()(SynBase* key)
+	{
+		return unsigned((uintptr_t(key) >> 16) + uintptr_t(key));
+	}
+};
+
 struct ExpressionContext
 {
 	ExpressionContext(Allocator *allocator, int optimizationLevel);
@@ -227,6 +235,8 @@ struct ExpressionContext
 	SmallDenseMap<GenericFunctionInstanceTypeRequest, GenericFunctionInstanceTypeResponse, GenericFunctionInstanceTypeRequestHasher, 32> genericFunctionInstanceTypeMap;
 
 	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
+
+	SmallDenseMap<SynBase*, ExprBase*, SyntaxNodeHasher, 32> newConstructorFunctions;
 
 	unsigned baseModuleFunctionCount;
 

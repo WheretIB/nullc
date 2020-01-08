@@ -7697,12 +7697,22 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		ExprBase *initializer = CreateAssignment(ctx, syntaxInternal, CreateVariableAccess(ctx, syntaxInternal, variable, false), alloc);
 		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntaxInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), initializer);
 
-		// Create a member function with the constructor body
-		InplaceStr name = GetTemporaryFunctionName(ctx);
+		ExprBase *function = NULL;
 
-		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(name);
+		if(ExprBase **it = ctx.newConstructorFunctions.find(syntax))
+			function = *it;
 
-		ExprBase *function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, nameIdentifier, IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, IntrusiveList<MatchData>());
+		if(!function)
+		{
+			// Create a member function with the constructor body
+			InplaceStr name = GetTemporaryFunctionName(ctx);
+
+			SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(name);
+
+			function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, nameIdentifier, IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, IntrusiveList<MatchData>());
+
+			ctx.newConstructorFunctions.insert(syntax, function);
+		}
 
 		ExprFunctionDefinition *functionDefinition = getType<ExprFunctionDefinition>(function);
 

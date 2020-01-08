@@ -777,7 +777,21 @@ TEST_RESULT("Fuzzing crash result 10 (void 'value')", testFuzzingCrash10, "1");
 
 const char	*testFuzzingCrash11 =
 "1||1&&1^^1&&1; return 1;";
-TEST_RESULT("Fuzzing crash result 11", testFuzzingCrash11, "1");
+TEST_RESULT("Fuzzing crash result 11 (removal of unused block that defines instructions that are used in other blocks)", testFuzzingCrash11, "1");
+
+const char	*testFuzzingCrash12 =
+"class Foo{ int a, b, c; }\r\n\
+void int:int(Foo x){ *this = sizeof(Foo); }\r\n\
+return int(*new Foo{int(*new Foo{\r\n\
+int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
+int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
+int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
+int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
+int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
+int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
+int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
+});});});});});});});});});});});});});});});});});});});});});});});";
+TEST_RESULT("Fuzzing crash result 12 (analyzer backtracking creating exponential number of functions)", testFuzzingCrash12, "12");
 
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
