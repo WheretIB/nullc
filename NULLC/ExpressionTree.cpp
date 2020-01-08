@@ -2303,7 +2303,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		{
 			return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_AUTO_PTR_TO_PTR);
 		}
-		else if(isFunctionArgument)
+		else if(isFunctionArgument && value->type == target->subType)
 		{
 			// type to type ref conversion
 			if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
