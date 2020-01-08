@@ -2107,7 +2107,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		assert(target->size == size);
 
-		if(target->size * count > ctx.variableMemoryLimit)
+		if(target->size * unsigned(count) > ctx.variableMemoryLimit)
 			return Report(ctx, "ERROR: single variable memory limit");
 
 		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(target, count));
