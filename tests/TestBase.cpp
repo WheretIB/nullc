@@ -772,7 +772,6 @@ void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 
 		buf[1023] = 0;
 
-
 		if(char *lineEnd = strchr(buf, '\n'))
 			*lineEnd = 0;
 
@@ -782,6 +781,10 @@ void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 		}
 		else
 		{
+			// Check that evaluation is ok on an ill-formed program
+			char exprResult[256];
+			nullcTestEvaluateExpressionTree(exprResult, 256);
+
 			testsPassed[TEST_TYPE_FAILURE]++;
 		}
 	}

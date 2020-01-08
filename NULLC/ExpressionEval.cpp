@@ -2488,6 +2488,9 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
 
+		if(!function->data)
+			return Report(ctx, "ERROR: function is not a coroutine'");
+
 		if(!function->data->coroutine)
 			return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name->name));
 
