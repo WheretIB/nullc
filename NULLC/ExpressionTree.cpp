@@ -4730,7 +4730,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 					ExprBase *memberValue = new (ctx.get<ExprDereference>()) ExprDereference(source, el->variable->type, shift);
 
 					if(el->variable->isReadonly)
-						return new (ctx.get<ExprPassthrough>()) ExprPassthrough(el->variable->source, el->variable->type, memberValue);
+						return new (ctx.get<ExprPassthrough>()) ExprPassthrough(memberValue->source, memberValue->type, memberValue);
 
 					return memberValue;
 				}

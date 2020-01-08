@@ -793,6 +793,10 @@ int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
 });});});});});});});});});});});});});});});});});});});});});});});";
 TEST_RESULT("Fuzzing crash result 12 (analyzer backtracking creating exponential number of functions)", testFuzzingCrash12, "12");
 
+const char	*testFuzzingCrash13 =
+"class A{ int b = (\"hi\" + \"me\").size; } return A().b;";
+TEST_RESULT("Fuzzing crash result 13 (missing passthrough node source)", testFuzzingCrash13, "5");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");
