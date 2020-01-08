@@ -174,6 +174,9 @@ bool CreateStore(ExpressionEvalContext &ctx, ExprBase *target, ExprBase *value)
 		if(isType<TypeError>(expr->value))
 			return false;
 
+		if(isType<TypeArgumentSet>(expr->value) || isType<TypeMemberSet>(expr->value))
+			return NULL;
+
 		unsigned index = ctx.ctx.GetTypeIndex(expr->value);
 		memcpy(ptr->ptr, &index, unsigned(value->type->size));
 		return true;
@@ -1240,6 +1243,9 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 			ExprTypeLiteral *typeLiteral = getType<ExprTypeLiteral>(value);
 
 			if(isType<TypeError>(typeLiteral->value))
+				return NULL;
+
+			if(isType<TypeArgumentSet>(typeLiteral->value) || isType<TypeMemberSet>(typeLiteral->value))
 				return NULL;
 
 			unsigned index = ctx.ctx.GetTypeIndex(typeLiteral->value);
