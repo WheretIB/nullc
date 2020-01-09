@@ -164,6 +164,7 @@ struct ParseContext
 	SmallArray<ErrorInfo*, 4> errorInfo;
 
 	SmallDenseMap<unsigned, bool, SmallDenseMapUnsignedHasher, 128> nonTypeLocations;
+	SmallDenseMap<unsigned, bool, SmallDenseMapUnsignedHasher, 128> nonFunctionDefinitionLocations;
 
 	// Memory pool
 	Allocator *allocator;

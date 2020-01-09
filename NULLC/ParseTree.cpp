@@ -315,7 +315,7 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), optimizationLevel(optimizationLevel), activeImports(allocator), errorInfo(allocator), nonTypeLocations(allocator), allocator(allocator)
+ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), optimizationLevel(optimizationLevel), activeImports(allocator), errorInfo(allocator), nonTypeLocations(allocator), nonFunctionDefinitionLocations(allocator), allocator(allocator)
 {
 	code = NULL;
 
@@ -2671,6 +2671,9 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 {
 	Lexeme *start = ctx.currentLexeme;
 
+	if(ctx.nonFunctionDefinitionLocations.find(unsigned(start - ctx.firstLexeme) + 1))
+		return NULL;
+
 	bool coroutine = ctx.Consume(lex_coroutine);
 
 	if(SynBase *returnType = ParseType(ctx))
@@ -2775,6 +2778,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
+			ctx.nonFunctionDefinitionLocations.insert(unsigned(start - ctx.firstLexeme) + 1, true);
 
 			return NULL;
 		}

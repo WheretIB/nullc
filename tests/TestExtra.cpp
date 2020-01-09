@@ -797,6 +797,10 @@ const char	*testFuzzingCrash13 =
 "class A{ int b = (\"hi\" + \"me\").size; } return A().b;";
 TEST_RESULT("Fuzzing crash result 13 (missing passthrough node source)", testFuzzingCrash13, "5");
 
+const char	*testFuzzingCrash14 =
+"int[4] n = 1; return n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[n[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]];";
+TEST_RESULT("Fuzzing crash result 14 (parser backtracking taking exponential time)", testFuzzingCrash14, "1");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");
