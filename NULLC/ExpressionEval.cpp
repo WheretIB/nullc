@@ -671,7 +671,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 					if(rhsValueInt < 0)
 						return ReportCritical(ctx, "ERROR: negative power on integer number in exponentiation during constant folding");
 
-					long long result, power;
+					int result, power;
 
 					result = 1;
 					power = rhsValueInt;
