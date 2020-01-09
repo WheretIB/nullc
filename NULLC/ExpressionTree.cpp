@@ -6890,12 +6890,16 @@ void AnalyzeFunctionArgumentsFinal(ExpressionContext &ctx, SynBase *source, Expr
 
 					FunctionData *function = functions[i].function;
 
-					TypeBase *parentType = function->scope->ownerType ? getType<TypeRef>(functions[i].context->type)->subType : NULL;
-
-					if(TypeClass *classType = getType<TypeClass>(parentType))
+					if(TypeBase *parentType = function->scope->ownerType)
 					{
-						for(MatchData *el = classType->generics.head; el; el = el->next)
-							aliases.push_back(new (ctx.get<MatchData>()) MatchData(el->name, el->type));
+						if(TypeRef *contextType = getType<TypeRef>(functions[i].context->type))
+						{
+							if(TypeClass *classType = getType<TypeClass>(contextType->subType))
+							{
+								for(MatchData *el = classType->generics.head; el; el = el->next)
+									aliases.push_back(new (ctx.get<MatchData>()) MatchData(el->name, el->type));
+							}
+						}
 					}
 
 					if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, function->type, ArrayView<ArgumentData>(resultArguments, pos), aliases))

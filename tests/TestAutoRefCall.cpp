@@ -237,3 +237,15 @@ auto bar()\r\n\
 \r\n\
 return bar();";
 TEST_RESULT("Getting function call through 'auto ref' issue", testAutorefCallIssue3, "123");
+
+const char	*testAutorefCallIssue4 =
+"class F\r\n\
+{\r\n\
+	int f(int ref() x)\r\n\
+	{\r\n\
+		return -x();\r\n\
+	}\r\n\
+}\r\n\
+auto ref x = F();\r\n\
+return x.f(<>{ 2; });";
+TEST_RESULT("Short inline function in 'auto ref' call", testAutorefCallIssue4, "-2");
