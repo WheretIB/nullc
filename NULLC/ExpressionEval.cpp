@@ -175,7 +175,7 @@ bool CreateStore(ExpressionEvalContext &ctx, ExprBase *target, ExprBase *value)
 			return false;
 
 		if(isType<TypeArgumentSet>(expr->value) || isType<TypeMemberSet>(expr->value))
-			return NULL;
+			return false;
 
 		unsigned index = ctx.ctx.GetTypeIndex(expr->value);
 		memcpy(ptr->ptr, &index, unsigned(value->type->size));
