@@ -2737,6 +2737,9 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 
 ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, SynBase *synValue, ExprBase *exprValue, InplaceStr functionName)
 {
+	if(!AssertValueExpression(ctx, source, exprValue))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType(), exprValue);
+
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
 	TypeBase *contextRefType = NULL;
