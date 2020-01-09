@@ -467,6 +467,15 @@ public:
 	}
 
 	template<unsigned N>
+	ArrayView(SmallArray<T, N> &rhs, unsigned size)
+	{
+		assert(size <= rhs.size());
+
+		data = rhs.data;
+		count = size;
+	}
+
+	template<unsigned N>
 	ArrayView(T (&rhs)[N])
 	{
 		data = rhs;

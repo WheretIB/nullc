@@ -942,6 +942,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "int(new{ class auto ref x = Foo; void Foo(", "ERROR: type name expected after 'new'");
 	TEST_FOR_FAIL("fuzzing test crash", "class a; a(); class a{}", "ERROR: type 'a' is not fully defined");
 	TEST_FOR_FAIL("fuzzing test crash", "int foo(int ref a){ return *a; } auto bar = foo; class Foo{ float x = 1.0f; } Foo a; bar(a);", "ERROR: cannot convert 'Foo' to 'int ref'");
+	TEST_FOR_FAIL("fuzzing test crash", "enum f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(int o(\"\"[@=@=", "ERROR: '{' not found after enum name");
 	
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");

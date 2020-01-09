@@ -6847,17 +6847,31 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 	return CreateFunctionCallOverloaded(ctx, source, value, functions, generics, argumentHead, allowFailure);
 }
 
-ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure)
+void AnalyzeFunctionArgumentsEarly(ExpressionContext &ctx, SynCallArgument *argumentHead, SmallArray<ArgumentData, 16> &resultArguments)
 {
-	// Analyze arguments
-	SmallArray<ArgumentData, 16> arguments(ctx.allocator);
-	
+	for(SynCallArgument *el = argumentHead; el; el = getType<SynCallArgument>(el->next))
+	{
+		if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(el->value))
+		{
+			resultArguments.push_back(ArgumentData());
+		}
+		else
+		{
+			ExprBase *argument = AnalyzeExpression(ctx, el->value);
+
+			resultArguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
+		}
+	}
+}
+
+void AnalyzeFunctionArgumentsFinal(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, SynCallArgument *argumentHead, SmallArray<ArgumentData, 16> &resultArguments)
+{
+	unsigned pos = 0;
+
 	for(SynCallArgument *el = argumentHead; el; el = getType<SynCallArgument>(el->next))
 	{
 		if(functions.empty() && el->name)
 			Stop(ctx, source, "ERROR: function argument names are unknown at this point");
-
-		ExprBase *argument = NULL;
 
 		if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(el->value))
 		{
@@ -6865,7 +6879,7 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 
 			if(functions.empty())
 			{
-				if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, value->type, arguments, IntrusiveList<MatchData>()))
+				if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, value->type, ArrayView<ArgumentData>(resultArguments, pos), IntrusiveList<MatchData>()))
 					options.push_back(option);
 			}
 			else
@@ -6884,7 +6898,7 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 							aliases.push_back(new (ctx.get<MatchData>()) MatchData(el->name, el->type));
 					}
 
-					if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, function->type, arguments, aliases))
+					if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, function->type, ArrayView<ArgumentData>(resultArguments, pos), aliases))
 					{
 						bool found = false;
 
@@ -6900,9 +6914,11 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 				}
 			}
 
+			ExprBase *argument = NULL;
+
 			if(options.empty())
 			{
-				Report(ctx, source, "ERROR: cannot find function which accepts a function with %d argument(s) as an argument #%d", node->arguments.size(), arguments.size() + 1);
+				Report(ctx, source, "ERROR: cannot find function which accepts a function with %d argument(s) as an argument #%d", node->arguments.size(), pos + 1);
 
 				argument = new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
 			}
@@ -6933,14 +6949,22 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 
 				argument = new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, overloads, NULL);
 			}
+
+			resultArguments[pos++] = ArgumentData(el, false, el->name, argument->type, argument);
 		}
 		else
 		{
-			argument = AnalyzeExpression(ctx, el->value);
+			pos++;
 		}
-
-		arguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
 	}
+}
+
+ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure)
+{
+	SmallArray<ArgumentData, 16> arguments(ctx.allocator);
+	
+	AnalyzeFunctionArgumentsEarly(ctx, argumentHead, arguments);
+	AnalyzeFunctionArgumentsFinal(ctx, source, value, functions, argumentHead, arguments);
 
 	return CreateFunctionCallFinal(ctx, source, value, functions, generics, arguments, allowFailure);
 }
@@ -7426,6 +7450,10 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 		generics.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
 	}
 
+	// Collect a set of available functions
+	SmallArray<FunctionValue, 32> functions(ctx.allocator);
+	SmallArray<ArgumentData, 16> arguments(ctx.allocator);
+
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
 	{
 		if(TypeClass *typeClass = getType<TypeClass>(type->value))
@@ -7491,8 +7519,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 		if(regular)
 		{
 			// Collect a set of available functions
-			SmallArray<FunctionValue, 32> functions(ctx.allocator);
-
+			functions.clear();
 			GetNodeFunctions(ctx, syntax, regular, functions);
 
 			// If only constructors are available, do not call as a regular function
@@ -7509,7 +7536,12 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			if(hasReturnValue)
 			{
-				ExprBase *call = CreateFunctionCallOverloaded(ctx, syntax, function, functions, generics, syntax->arguments.head, true);
+				if(arguments.empty())
+					AnalyzeFunctionArgumentsEarly(ctx, syntax->arguments.head, arguments);
+
+				AnalyzeFunctionArgumentsFinal(ctx, syntax, function, functions, syntax->arguments.head, arguments);
+
+				ExprBase *call = CreateFunctionCallFinal(ctx, syntax, function, functions, generics, arguments, true);
 
 				if(call)
 					return call;
@@ -7539,11 +7571,15 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 			if(constructor)
 			{
 				// Collect a set of available functions
-				SmallArray<FunctionValue, 32> functions(ctx.allocator);
-
+				functions.clear();
 				GetNodeFunctions(ctx, syntax, constructor, functions);
 
-				ExprBase *call = CreateFunctionCallOverloaded(ctx, syntax, function, functions, generics, syntax->arguments.head, false);
+				if(arguments.empty())
+					AnalyzeFunctionArgumentsEarly(ctx, syntax->arguments.head, arguments);
+
+				AnalyzeFunctionArgumentsFinal(ctx, syntax, function, functions, syntax->arguments.head, arguments);
+
+				ExprBase *call = CreateFunctionCallFinal(ctx, syntax, function, functions, generics, arguments, false);
 
 				IntrusiveList<ExprBase> expressions;
 
@@ -7556,7 +7592,16 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 		}
 	}
 
-	return CreateFunctionCall(ctx, syntax, function, generics, syntax->arguments.head, false);
+	// Collect a set of available functions
+	functions.clear();
+	GetNodeFunctions(ctx, syntax, function, functions);
+
+	if(arguments.empty())
+		AnalyzeFunctionArgumentsEarly(ctx, syntax->arguments.head, arguments);
+
+	AnalyzeFunctionArgumentsFinal(ctx, syntax, function, functions, syntax->arguments.head, arguments);
+
+	return CreateFunctionCallFinal(ctx, syntax, function, functions, generics, arguments, false);
 }
 
 ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
@@ -8369,7 +8414,7 @@ void CheckOperatorName(ExpressionContext &ctx, SynBase *source, InplaceStr name,
 	}
 }
 
-void AnalyzeFunctionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionArgument> arguments, TypeBase *parentType, TypeFunction *instance, SmallArray<ArgumentData, 8> &argData)
+void AnalyzeFunctionDefinitionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionArgument> arguments, TypeBase *parentType, TypeFunction *instance, SmallArray<ArgumentData, 8> &argData)
 {
 	TypeHandle *instanceArg = instance ? instance->arguments.head : NULL;
 
@@ -8477,7 +8522,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	SmallArray<ArgumentData, 8> argData(ctx.allocator);
 
-	AnalyzeFunctionArguments(ctx, arguments, parentType, instance, argData);
+	AnalyzeFunctionDefinitionArguments(ctx, arguments, parentType, instance, argData);
 
 	// Check required operator properties
 	if(isOperator)
