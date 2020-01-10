@@ -5885,6 +5885,23 @@ TypeBase* MatchArgumentType(ExpressionContext &ctx, SynBase *source, TypeBase *e
 	return MatchGenericType(ctx, source, expectedType, actualType, aliases, !actualValue);
 }
 
+SynFunctionDefinition* GetGenericFunctionDefinition(ExpressionContext &ctx, SynBase *source, FunctionData *function)
+{
+	if(!function->definition && function->delayedDefinition)
+	{
+		ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ctx.optimizationLevel, ArrayView<InplaceStr>());
+
+		parser->currentLexeme = function->delayedDefinition;
+
+		function->definition = ParseFunctionDefinition(*parser);
+
+		if(!function->definition)
+			Stop(ctx, source, "ERROR: failed to import generic function '%.*s' body", FMT_ISTR(function->name->name));
+	}
+
+	return function->definition;
+}
+
 TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *source, TypeBase *parentType, FunctionData *function, ArrayView<CallArgumentData> arguments, IntrusiveList<MatchData> &aliases)
 {
 	assert(function->arguments.size() == arguments.size());
@@ -5925,7 +5942,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 	if(!setjmp(ctx.errorHandler))
 	{
-		if(SynFunctionDefinition *syntax = function->definition)
+		if(SynFunctionDefinition *syntax = GetGenericFunctionDefinition(ctx, source, function))
 		{
 			bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
@@ -6540,7 +6557,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	if(!setjmp(ctx.errorHandler))
 	{
-		if(SynFunctionDefinition *syntax = function->definition)
+		if(SynFunctionDefinition *syntax = GetGenericFunctionDefinition(ctx, source, function))
 			expr = AnalyzeFunctionDefinition(ctx, syntax, instance, parentType, aliases, false, false, false);
 		else if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(function->declaration->source))
 			expr = AnalyzeShortFunctionDefinition(ctx, node, instance);
@@ -12321,18 +12338,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(function.funcType == 0 || functionType->isGeneric || hasGenericExplicitType || (parentType && parentType->isGeneric))
 		{
 			assert(function.genericOffsetStart < data->importModule->lexStreamSize);
-			Lexeme *start = function.genericOffsetStart + data->importModule->lexStream;
 
-			ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ctx.optimizationLevel, ArrayView<InplaceStr>());
-
-			parser->currentLexeme = start;
-
-			SynFunctionDefinition *definition = ParseFunctionDefinition(*parser);
-
-			if(!definition)
-				Stop(ctx, source, "ERROR: failed to import generic functions body");
-
-			data->definition = definition;
+			data->delayedDefinition = function.genericOffsetStart + data->importModule->lexStream;
 
 			TypeBase *returnType = ctx.typeAuto;
 

@@ -356,6 +356,7 @@ struct FunctionData
 		isGenericInstance = false;
 
 		definition = NULL;
+		delayedDefinition = NULL;
 
 		declaration = NULL;
 
@@ -420,6 +421,7 @@ struct FunctionData
 	SmallArray<FunctionData*, 8> instances;
 
 	SynFunctionDefinition *definition;
+	Lexeme *delayedDefinition;
 
 	ExprBase *declaration;
 
