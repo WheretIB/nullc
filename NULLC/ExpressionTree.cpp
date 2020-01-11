@@ -10567,7 +10567,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 {
-	ctx.PushLoopScope(true, true);
+	ctx.PushLoopScope(false, false);
 
 	ExprBase *initializer = NULL;
 
@@ -10579,10 +10579,14 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 		initializer = new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
 
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
-	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
-	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
+
+	ctx.scope->breakDepth++;
+	ctx.scope->contiueDepth++;
+
+	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
+	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
 
 	IntrusiveList<ExprBase> iteration;
 

@@ -944,6 +944,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "int foo(int ref a){ return *a; } auto bar = foo; class Foo{ float x = 1.0f; } Foo a; bar(a);", "ERROR: cannot convert 'Foo' to 'int ref'");
 	TEST_FOR_FAIL("fuzzing test crash", "enum f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(int o(\"\"[@=@=", "ERROR: '{' not found after enum name");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo(Foo(&&duplicate", "ERROR: '{' not found after class name");
+	TEST_FOR_FAIL("fuzzing test crash", "for({ int i; break; }; i < 5; i++){}", "ERROR: break level is greater that loop depth");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
