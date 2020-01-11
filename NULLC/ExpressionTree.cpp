@@ -12530,6 +12530,9 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 
 				ExprBase *access = CreateValueFunctionWrapper(ctx, argument.source, NULL, value, functionName);
 
+				if(isType<ExprError>(access))
+					continue;
+
 				assert(isType<ExprFunctionAccess>(access));
 
 				if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(access))
