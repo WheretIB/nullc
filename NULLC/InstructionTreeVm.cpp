@@ -4718,7 +4718,7 @@ void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* va
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
-		if(block->users.empty())
+		if(block->users.empty() && !block->HasExternalInstructionUsers())
 		{
 			module->deadCodeEliminations++;
 
