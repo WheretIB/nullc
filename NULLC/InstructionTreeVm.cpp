@@ -4128,12 +4128,10 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 				ReplaceValueUsersWith(module, inst, inst->arguments[0], &module->peepholeOptimizations);
 			break;
 		case VM_INST_MUL:
-			if(IsConstantZero(inst->arguments[0]) || IsConstantZero(inst->arguments[1])) // 0 * x or x * 0, all types
+			if(IsConstantZero(inst->arguments[0]) || IsConstantZero(inst->arguments[1])) // 0 * x or x * 0, all integer types (double can be NaN)
 			{
 				if(inst->type == VmType::Int)
 					ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, 0), &module->peepholeOptimizations);
-				else if(inst->type == VmType::Double)
-					ReplaceValueUsersWith(module, inst, CreateConstantDouble(module->allocator, inst->source, 0), &module->peepholeOptimizations);
 				else if(inst->type == VmType::Long)
 					ReplaceValueUsersWith(module, inst, CreateConstantLong(module->allocator, inst->source, 0), &module->peepholeOptimizations);
 			}
