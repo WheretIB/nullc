@@ -1076,6 +1076,9 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		break;
 	case VM_INST_NOT_EQUAL:
+		if(arguments[0]->type.type == VM_TYPE_FUNCTION && arguments[1]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue != arguments[1]->iValue);
+
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
