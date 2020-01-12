@@ -7014,18 +7014,18 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 	{
 		if(isType<TypeError>(value->type))
 			isErrorCall = true;
+	}
 
-		for(unsigned i = 0; i < arguments.size(); i++)
-		{
-			if(isType<TypeError>(arguments[i].value->type) || !AssertResolvableTypeLiteral(ctx, source, arguments[i].value))
-				isErrorCall = true;
-		}
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		if(isType<TypeError>(arguments[i].value->type) || !AssertResolvableTypeLiteral(ctx, source, arguments[i].value))
+			isErrorCall = true;
+	}
 
-		for(TypeHandle *curr = generics.head; curr; curr = curr->next)
-		{
-			if(isType<TypeError>(curr->type) || !AssertResolvableType(ctx, source, curr->type, false))
-				isErrorCall = true;
-		}
+	for(TypeHandle *curr = generics.head; curr; curr = curr->next)
+	{
+		if(isType<TypeError>(curr->type) || !AssertResolvableType(ctx, source, curr->type, false))
+			isErrorCall = true;
 	}
 
 	if(isErrorCall)
@@ -7257,6 +7257,13 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 			type = getType<TypeFunction>(function->type);
 		}
 
+		if(type->returnType == ctx.typeAuto)
+		{
+			Report(ctx, source, "ERROR: function type is unresolved at this point");
+
+			return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
+		}
+
 		if(IsVirtualFunctionCall(ctx, function, bestOverload.context->type))
 		{
 			ExprBase *table = GetFunctionTable(ctx, source, bestOverload.function);
@@ -7279,6 +7286,13 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 	}
 	else if(type)
 	{
+		if(type->returnType == ctx.typeAuto)
+		{
+			Report(ctx, source, "ERROR: function type is unresolved at this point");
+
+			return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
+		}
+
 		SmallArray<ArgumentData, 8> functionArguments(ctx.allocator);
 
 		for(TypeHandle *argType = type->arguments.head; argType; argType = argType->next)
@@ -7403,13 +7417,6 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 	if(type->isGeneric)
 		Stop(ctx, source, "ERROR: generic function call is not supported");
-
-	if(type->returnType == ctx.typeAuto)
-	{
-		Report(ctx, source, "ERROR: function type is unresolved at this point");
-
-		return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
-	}
 
 	assert(actualArguments.size() == type->arguments.size());
 
