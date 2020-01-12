@@ -7842,11 +7842,8 @@ ExprBase* CreateReturn(ExpressionContext &ctx, SynBase *source, ExprBase *result
 		// If return type is auto, set it to type that is being returned
 		if(returnType == ctx.typeAuto)
 		{
-			if(result->type->isGeneric)
-			{
-				if(!AssertValueExpression(ctx, source, result))
-					return new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
-			}
+			if(!AssertValueExpression(ctx, source, result))
+				return new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
 
 			returnType = result->type;
 
@@ -7908,11 +7905,8 @@ ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 		// If return type is auto, set it to type that is being returned
 		if(returnType == ctx.typeAuto)
 		{
-			if(result->type->isGeneric)
-			{
-				if(!AssertValueExpression(ctx, syntax, result))
-					return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
-			}
+			if(!AssertValueExpression(ctx, syntax, result))
+				return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
 
 			returnType = result->type;
 
