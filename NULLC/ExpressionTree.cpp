@@ -7962,6 +7962,13 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 		{
 			FunctionData *function = node->functions.head->function;
 
+			if(function->type->returnType == ctx.typeAuto)
+			{
+				Report(ctx, source, "ERROR: function type is unresolved at this point");
+
+				return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+			}
+
 			if(IsVirtualFunctionCall(ctx, function, node->context->type))
 			{
 				ExprBase *table = GetFunctionTable(ctx, source, function);
