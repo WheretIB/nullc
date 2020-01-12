@@ -1192,3 +1192,7 @@ const char	*testFunctionDefinitionInTemporaryScope =
 Foo f;\r\n\
 return f.foo(<>{ 2; });";
 TEST_RESULT("Function definition inside a temporary scope", testFunctionDefinitionInTemporaryScope, "2");
+
+const char	*testVariableShadowingByHiddenFunction =
+"int r = 2; { typeof(void r(){}) x; return r; } return 1;";
+TEST_RESULT("Variable shadowed by a function is restored by function getting hidden", testVariableShadowingByHiddenFunction, "2");

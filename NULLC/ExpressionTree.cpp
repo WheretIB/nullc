@@ -1443,6 +1443,19 @@ void ExpressionContext::HideFunction(FunctionData *function)
 	{
 		functionMap.remove(function->nameHash, function);
 
+		for(unsigned i = 0; i < scope->shadowedVariables.size(); i++)
+		{
+			if(scope->shadowedVariables[i]->nameHash == function->nameHash)
+			{
+				VariableData *variable = scope->shadowedVariables[i];
+
+				variableMap.insert(variable->nameHash, variable);
+
+				scope->shadowedVariables[i] = scope->shadowedVariables.back();
+				scope->shadowedVariables.pop_back();
+			}
+		}
+
 		if(function->isOperator)
 			noAssignmentOperatorForTypePair.clear();
 	}
