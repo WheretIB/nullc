@@ -948,6 +948,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "auto(@c=auto(@c", "ERROR: variable name not found after type in function variable list");
 	TEST_FOR_FAIL("fuzzing test crash", "long ro;{typeof(typeof(void o(){ enum X{ A } }).............|void ro(){})............}", "ERROR: member name expected after '.'");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo extendable{ auto f(){ f(); } }", "ERROR: function type is unresolved at this point");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto(){ int i; class X{ const int A = i; } }", "ERROR: expression didn't evaluate to a constant number");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");

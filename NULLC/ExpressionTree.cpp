@@ -452,7 +452,7 @@ namespace
 	{
 		ArrayView<NamespaceData*> namespaces;
 
-		if(NamespaceData *ns = ctx.GetCurrentNamespace())
+		if(NamespaceData *ns = ctx.GetCurrentNamespace(ctx.scope))
 			namespaces = ns->children;
 		else
 			namespaces = ctx.globalNamespaces;
@@ -556,7 +556,7 @@ namespace
 
 	bool IsLookupOnlyVariable(ExpressionContext &ctx, VariableData *variable)
 	{
-		FunctionData *currentFunction = ctx.GetCurrentFunction();
+		FunctionData *currentFunction = ctx.GetCurrentFunction(ctx.scope);
 		FunctionData *variableFunctionOwner = ctx.GetFunctionOwner(variable->scope);
 
 		if(currentFunction && variableFunctionOwner)
@@ -1229,10 +1229,10 @@ void ExpressionContext::SwitchToScopeAtPoint(ScopeData *target, SynBase *targetL
 	RestoreScopesAtPoint(target, targetLocation);
 }
 
-NamespaceData* ExpressionContext::GetCurrentNamespace()
+NamespaceData* ExpressionContext::GetCurrentNamespace(ScopeData *scopeData)
 {
 	// Simply walk up the scopes and find the current one
-	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	for(ScopeData *curr = scopeData; curr; curr = curr->scope)
 	{
 		if(NamespaceData *ns = curr->ownerNamespace)
 			return ns;
@@ -1241,10 +1241,10 @@ NamespaceData* ExpressionContext::GetCurrentNamespace()
 	return NULL;
 }
 
-FunctionData* ExpressionContext::GetCurrentFunction()
+FunctionData* ExpressionContext::GetCurrentFunction(ScopeData *scopeData)
 {
 	// Walk up, but if we reach a type owner, stop - we're not in a context of a function
-	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	for(ScopeData *curr = scopeData; curr; curr = curr->scope)
 	{
 		if(curr->ownerType)
 			return NULL;
@@ -1256,10 +1256,10 @@ FunctionData* ExpressionContext::GetCurrentFunction()
 	return NULL;
 }
 
-TypeBase* ExpressionContext::GetCurrentType()
+TypeBase* ExpressionContext::GetCurrentType(ScopeData *scopeData)
 {
 	// Simply walk up the scopes and find the current one
-	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	for(ScopeData *curr = scopeData; curr; curr = curr->scope)
 	{
 		if(TypeBase *type = curr->ownerType)
 			return type;
@@ -2666,7 +2666,7 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 {
 	IntrusiveList<CloseUpvaluesData> &closeUpvalues = function ? function->closeUpvalues : ctx.globalCloseUpvalues;
 
-	assert(function == ctx.GetCurrentFunction());
+	assert(function == ctx.GetCurrentFunction(ctx.scope));
 
 	for(CloseUpvaluesData *curr = closeUpvalues.head; curr; curr = curr->next)
 	{
@@ -3908,7 +3908,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 
 	ExprBase *access = NULL;
 
-	FunctionData *currentFunction = ctx.GetCurrentFunction();
+	FunctionData *currentFunction = ctx.GetCurrentFunction(ctx.scope->ownerType ? ctx.scope->scope : ctx.scope);
 
 	FunctionData *variableFunctionOwner = ctx.GetFunctionOwner(variable->scope);
 
@@ -4008,7 +4008,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 	{
 		// Try a class constant or an alias
-		if(TypeStruct *structType = getType<TypeStruct>(ctx.GetCurrentType()))
+		if(TypeStruct *structType = getType<TypeStruct>(ctx.GetCurrentType(ctx.scope)))
 		{
 			for(ConstantData *curr = structType->constants.head; curr; curr = curr->next)
 			{
@@ -7829,13 +7829,13 @@ ExprBase* CreateReturn(ExpressionContext &ctx, SynBase *source, ExprBase *result
 {
 	if(isType<TypeError>(result->type))
 	{
-		if(FunctionData *function = ctx.GetCurrentFunction())
+		if(FunctionData *function = ctx.GetCurrentFunction(ctx.scope))
 			function->hasExplicitReturn = true;
 
 		return new (ctx.get<ExprReturn>()) ExprReturn(source, result->type, result, NULL, NULL);
 	}
 
-	if(FunctionData *function = ctx.GetCurrentFunction())
+	if(FunctionData *function = ctx.GetCurrentFunction(ctx.scope))
 	{
 		TypeBase *returnType = function->type->returnType;
 
@@ -7892,13 +7892,13 @@ ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 
 	if(isType<TypeError>(result->type))
 	{
-		if(FunctionData *function = ctx.GetCurrentFunction())
+		if(FunctionData *function = ctx.GetCurrentFunction(ctx.scope))
 			function->hasExplicitReturn = true;
 
 		return new (ctx.get<ExprYield>()) ExprYield(syntax, result->type, result, NULL, NULL, 0);
 	}
 
-	if(FunctionData *function = ctx.GetCurrentFunction())
+	if(FunctionData *function = ctx.GetCurrentFunction(ctx.scope))
 	{
 		if(!function->coroutine)
 			Stop(ctx, syntax, "ERROR: yield can only be used inside a coroutine");
@@ -8393,7 +8393,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 		if(parentType && checkParent)
 		{
-			if(TypeBase *currentType = ctx.GetCurrentType())
+			if(TypeBase *currentType = ctx.GetCurrentType(ctx.scope))
 			{
 				if(parentType == currentType)
 					Stop(ctx, syntax->parentType, "ERROR: class name repeated inside the definition of class");
@@ -10471,7 +10471,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 	{
-		NamespaceData *parent = ctx.GetCurrentNamespace();
+		NamespaceData *parent = ctx.GetCurrentNamespace(ctx.scope);
 
 		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, syntax, ctx.scope, parent, *name, ctx.uniqueNamespaceId++);
 
@@ -10610,7 +10610,7 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 	IntrusiveList<ExprBase> iteration;
 
-	if(ExprBase *closures = CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope))
+	if(ExprBase *closures = CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(ctx.scope), ctx.scope))
 		iteration.push_back(closures);
 
 	iteration.push_back(increment);
@@ -10878,7 +10878,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 	if(syntax->body)
 		definitions.push_back(AnalyzeStatement(ctx, syntax->body));
 
-	ExprBase *body = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, definitions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope));
+	ExprBase *body = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, definitions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(ctx.scope), ctx.scope));
 
 	ctx.PopScope(SCOPE_LOOP);
 
@@ -10912,7 +10912,7 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	ExprBase *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope));
+	ExprBase *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(ctx.scope), ctx.scope));
 
 	ctx.PopScope(SCOPE_LOOP);
 
@@ -11014,7 +11014,7 @@ ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 	if(ctx.scope->breakDepth < depth)
 		Stop(ctx, syntax, "ERROR: break level is greater that loop depth");
 
-	return new (ctx.get<ExprBreak>()) ExprBreak(syntax, ctx.typeVoid, depth, CreateBreakUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
+	return new (ctx.get<ExprBreak>()) ExprBreak(syntax, ctx.typeVoid, depth, CreateBreakUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(ctx.scope), ctx.scope, depth));
 }
 
 ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
@@ -11041,7 +11041,7 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 	if(ctx.scope->contiueDepth < depth)
 		Stop(ctx, syntax, "ERROR: continue level is greater that loop depth");
 
-	return new (ctx.get<ExprContinue>()) ExprContinue(syntax, ctx.typeVoid, depth, CreateContinueUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
+	return new (ctx.get<ExprContinue>()) ExprContinue(syntax, ctx.typeVoid, depth, CreateContinueUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(ctx.scope), ctx.scope, depth));
 }
 
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
@@ -11055,7 +11055,7 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 		for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
 			expressions.push_back(AnalyzeStatement(ctx, expression));
 
-		ExprBlock *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope));
+		ExprBlock *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(ctx.scope), ctx.scope));
 
 		ctx.PopScope(SCOPE_EXPLICIT);
 

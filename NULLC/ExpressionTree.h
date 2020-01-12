@@ -161,9 +161,9 @@ struct ExpressionContext
 	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation);
 
-	NamespaceData* GetCurrentNamespace();
-	FunctionData* GetCurrentFunction();
-	TypeBase* GetCurrentType();
+	NamespaceData* GetCurrentNamespace(ScopeData *scopeData);
+	FunctionData* GetCurrentFunction(ScopeData *scopeData);
+	TypeBase* GetCurrentType(ScopeData *scopeData);
 
 	FunctionData* GetFunctionOwner(ScopeData *scope);
 
