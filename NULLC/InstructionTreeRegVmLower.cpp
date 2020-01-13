@@ -633,11 +633,22 @@ void GetArgumentRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunct
 	lowFunction->GetRegisters(result, value);
 }
 
+VmConstant* GetAddressInContainer(VmValue *address)
+{
+	if(VmConstant *constant = getType<VmConstant>(address))
+	{
+		if(constant->container)
+			return constant;
+	}
+
+	return NULL;
+}
+
 VmConstant* GetLoadRegisterAndOffset(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmValue *address, VmValue *offset, unsigned char &addressReg)
 {
 	VmConstant *constantOffset = getType<VmConstant>(offset);
 
-	if(VmConstant *constant = getType<VmConstant>(address))
+	if(VmConstant *constant = GetAddressInContainer(address))
 	{
 		assert(constantOffset->iValue == 0);
 
@@ -771,7 +782,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	}
 		break;
 	case VM_INST_LOAD_STRUCT:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
@@ -1050,7 +1061,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		break;
 	case VM_INST_STORE_BYTE:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
@@ -1073,7 +1084,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		break;
 	case VM_INST_STORE_SHORT:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
@@ -1096,7 +1107,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		break;
 	case VM_INST_STORE_INT:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
@@ -1119,7 +1130,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		break;
 	case VM_INST_STORE_FLOAT:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
@@ -1142,7 +1153,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		break;
 	case VM_INST_STORE_LONG:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
@@ -1165,7 +1176,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		break;
 	case VM_INST_STORE_DOUBLE:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
@@ -1188,7 +1199,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		break;
 	case VM_INST_STORE_STRUCT:
-		if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
+		if(VmConstant *constant = GetAddressInContainer(inst->arguments[0]))
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 

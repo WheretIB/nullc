@@ -809,6 +809,11 @@ const char	*testFuzzingCrash16 =
 "auto f=coroutine auto(){int[]x;yield x;};return f&&f();";
 TEST_RESULT("Fuzzing crash result 16 (missing __function comparison in instruction evaluation)", testFuzzingCrash16, "0");
 
+const char	*testFuzzingCrash17 =
+"auto f1(){ __nullptr t; int ref a = t; return *a; }\r\n\
+class Foo{ float a, b, c; } auto f2(){ __nullptr t; Foo ref a=t; return *a; } return 1;";
+TEST_RESULT("Fuzzing crash result 17 (null pointer optimizations and lowering)", testFuzzingCrash17, "1");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");
