@@ -453,7 +453,7 @@ bool IsStructReturnType(TypeBase *type)
 
 	if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 	{
-		for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 		{
 			if(IsStructReturnType(curr->variable->type))
 				return true;
