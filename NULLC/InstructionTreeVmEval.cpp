@@ -1079,6 +1079,20 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 		if(arguments[0]->type.type == VM_TYPE_FUNCTION && arguments[1]->type == VmType::Int)
 			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue != arguments[1]->iValue);
 
+		if(arguments[0]->type == VmType::Int && arguments[1]->type.type == VM_TYPE_POINTER)
+		{
+			assert(arguments[0]->iValue == 0);
+
+			return CreateConstantInt(ctx.allocator, NULL, arguments[1]->iValue || arguments[1]->container);
+		}
+
+		if(arguments[0]->type == VmType::Long && arguments[1]->type.type == VM_TYPE_POINTER)
+		{
+			assert(arguments[0]->lValue == 0);
+
+			return CreateConstantInt(ctx.allocator, NULL, arguments[1]->iValue || arguments[1]->container);
+		}
+
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)

@@ -814,6 +814,10 @@ const char	*testFuzzingCrash17 =
 class Foo{ float a, b, c; } auto f2(){ __nullptr t; Foo ref a=t; return *a; } return 1;";
 TEST_RESULT("Fuzzing crash result 17 (null pointer optimizations and lowering)", testFuzzingCrash17, "1");
 
+const char	*testFuzzingCrash18 =
+"auto _(){char ref a;for(;a;)1; return 2;}return _();";
+TEST_RESULT("Fuzzing crash result 18 (missing pointer check in instruction evaluation)", testFuzzingCrash18, "2");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");
