@@ -8579,6 +8579,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(isOperator)
 		CheckOperatorName(ctx, source, name->name, argData);
 
+	if(accessor && name->name == parentType->name)
+		Stop(ctx, errorLocation, "ERROR: name '%.*s' is already taken for a type", FMT_ISTR(name->name));
+
 	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, parentType, name->name, isOperator, accessor);
 
 	TRACE_SCOPE("analyze", "CreateFunctionDefinition");
