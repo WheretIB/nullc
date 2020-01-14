@@ -3197,6 +3197,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		ExprBase *size = AnalyzeExpression(ctx, argument->value);
 
+		if(isType<TypeError>(size->type))
+			return ctx.GetErrorType();
+
 		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, syntax, CreateCast(ctx, node, size, ctx.typeLong, false))))
 		{
 			if(TypeArgumentSet *lhs = getType<TypeArgumentSet>(type))
@@ -3396,6 +3399,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		if(isType<TypeGeneric>(value))
 			return ctx.typeGeneric;
+
+		if(isType<TypeError>(value))
+			return ctx.GetErrorType();
 
 		ExprBase *result = CreateTypeidMemberAccess(ctx, syntax, value, node->member);
 
