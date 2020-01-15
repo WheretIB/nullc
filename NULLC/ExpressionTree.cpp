@@ -3921,7 +3921,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	bool externalAccess = false;
 	bool coroutineAccess = false;
 
-	if(currentFunction && variable->scope->type != SCOPE_TEMPORARY)
+	if(currentFunction && variable->scope->type != SCOPE_TEMPORARY && ctx.scope->type != SCOPE_TEMPORARY)
 	{
 		if(variableFunctionOwner && variableFunctionOwner != currentFunction)
 			externalAccess = true;
