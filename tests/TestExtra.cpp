@@ -844,6 +844,11 @@ const char	*testFuzzingCrash19 =
 return foo(<>{ 1; }, 2);";
 TEST_RESULT_SIMPLE("Fuzzing crash result 19 (incorrect order of shadowed variable restore)", testFuzzingCrash19, "33");
 
+const char	*testFuzzingCrash20 =
+"auto[]a={2.f,0&&8};\r\n\
+return int(0.5+float(a[0]));";
+TEST_RESULT_SIMPLE("Fuzzing crash result 20 (array element store between different blocks still requires dtof instruction removal)", testFuzzingCrash20, "2");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");

@@ -3156,16 +3156,23 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 
 				VmInstruction *elementInst = getType<VmInstruction>(element);
 
-				if(elementInst && elementInst->parent == module->currentBlock)
+				if(elementInst)
 				{
 					if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
 						element = elementInst->arguments[0];
 
-					module->currentBlock->insertPoint = elementInst;
+					if(elementInst->parent == module->currentBlock)
+					{
+						module->currentBlock->insertPoint = elementInst;
 
-					CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+						CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
 
-					module->currentBlock->insertPoint = module->currentBlock->lastInstruction;
+						module->currentBlock->insertPoint = module->currentBlock->lastInstruction;
+					}
+					else
+					{
+						CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+					}
 				}
 				else
 				{
