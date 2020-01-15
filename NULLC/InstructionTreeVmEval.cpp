@@ -617,6 +617,9 @@ VmConstant* AllocateHeapObject(InstructionVMEvalContext &ctx, TypeBase *target)
 	ctx.heap.Reserve(ctx, offset, unsigned(target->size));
 	ctx.heapSize += unsigned(target->size);
 
+	if(ctx.heapSize >= memoryOffsetMask)
+		return (VmConstant*)Report(ctx, "ERROR: heap limit reached");
+
 	VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)), NULL);
 
 	result->iValue = offset;
@@ -632,6 +635,9 @@ VmConstant* AllocateHeapArray(InstructionVMEvalContext &ctx, TypeBase *target, u
 
 	ctx.heap.Reserve(ctx, offset, unsigned(target->size) * count);
 	ctx.heapSize += unsigned(target->size) * count;
+
+	if(ctx.heapSize >= memoryOffsetMask)
+		return (VmConstant*)Report(ctx, "ERROR: heap limit reached");
 
 	unsigned pointer = 0;
 
