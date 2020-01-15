@@ -818,6 +818,32 @@ const char	*testFuzzingCrash18 =
 "auto _(){char ref a;for(;a;)1; return 2;}return _();";
 TEST_RESULT("Fuzzing crash result 18 (missing pointer check in instruction evaluation)", testFuzzingCrash18, "2");
 
+const char	*testFuzzingCrash19 =
+"int foo(int ref() x, int a)\r\n\
+{\r\n\
+	if(a == 1) return 30 + a;\r\n\
+	return (int foo(int ref() f, int a, b){\r\n\
+		return foo(<>{\r\n\
+			(f);\r\n\
+			foo(<>{\r\n\
+				int foo(int ref() f, int a, b, c)\r\n\
+				{\r\n\
+					foo(<>{\r\n\
+						auto bar(@T w){}\r\n\
+						bar(int f(){ return 8; });\r\n\
+						return 7;\r\n\
+					}, 1);\r\n\
+					return 6;\r\n\
+				}\r\n\
+				return 5;\r\n\
+			}, 1, 2);\r\n\
+			return 4;\r\n\
+		}, 1);\r\n\
+	})(<>{ 3; }, 4, 5) + a;\r\n\
+}\r\n\
+return foo(<>{ 1; }, 2);";
+TEST_RESULT_SIMPLE("Fuzzing crash result 19 (incorrect order of shadowed variable restore)", testFuzzingCrash19, "33");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");

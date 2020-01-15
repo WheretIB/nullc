@@ -1131,7 +1131,8 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 	{
 		VariableData *variable = scope->shadowedVariables[i];
 
-		variableMap.insert(variable->nameHash, variable);
+		if (variable)
+			variableMap.insert(variable->nameHash, variable);
 	}
 
 	scope = scope->scope;
@@ -1443,16 +1444,15 @@ void ExpressionContext::HideFunction(FunctionData *function)
 	{
 		functionMap.remove(function->nameHash, function);
 
-		for(unsigned i = 0; i < scope->shadowedVariables.size(); i++)
+		for(int i = int(scope->shadowedVariables.count) - 1; i >= 0; i--)
 		{
-			if(scope->shadowedVariables[i]->nameHash == function->nameHash)
-			{
-				VariableData *variable = scope->shadowedVariables[i];
+			VariableData *variable = scope->shadowedVariables[i];
 
+			if(variable && variable->nameHash == function->nameHash)
+			{
 				variableMap.insert(variable->nameHash, variable);
 
-				scope->shadowedVariables[i] = scope->shadowedVariables.back();
-				scope->shadowedVariables.pop_back();
+				scope->shadowedVariables[i] = NULL;
 			}
 		}
 
