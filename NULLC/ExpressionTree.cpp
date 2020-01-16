@@ -1919,8 +1919,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 void AnalyzeClassBaseElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
-ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal, bool checkParent);
-ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType);
+ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal, bool checkParent);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *argumentType);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, ArrayView<ArgumentData> arguments, IntrusiveList<MatchData> aliases);
 
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, SynIdentifier *member);
@@ -1981,7 +1981,7 @@ ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBa
 ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *count);
 
 bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *parentType);
-ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, SynIdentifier *name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches);
+ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, SynIdentifier *name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, FunctionData *genericProto, TypeFunction *instance, IntrusiveList<MatchData> matches);
 
 FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeFunction *type)
 {
@@ -6577,9 +6577,9 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	if(!setjmp(ctx.errorHandler))
 	{
 		if(SynFunctionDefinition *syntax = GetGenericFunctionDefinition(ctx, source, function))
-			expr = AnalyzeFunctionDefinition(ctx, syntax, instance, parentType, aliases, false, false, false);
+			expr = AnalyzeFunctionDefinition(ctx, syntax, function, instance, parentType, aliases, false, false, false);
 		else if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(function->declaration->source))
-			expr = AnalyzeShortFunctionDefinition(ctx, node, instance);
+			expr = AnalyzeShortFunctionDefinition(ctx, node, function, instance);
 		else
 			Stop(ctx, source, "ERROR: imported generic function call is not supported");
 	}
@@ -6652,10 +6652,6 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expr);
 
 	assert(definition);
-
-	definition->function->proto = function;
-
-	function->instances.push_back(definition->function);
 
 	if(definition->contextVariable)
 	{
@@ -7804,7 +7800,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 			SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(name);
 
-			function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, nameIdentifier, IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, IntrusiveList<MatchData>());
+			function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, nameIdentifier, IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, NULL, IntrusiveList<MatchData>());
 
 			ctx.newConstructorFunctions.insert(syntax, function);
 		}
@@ -8383,7 +8379,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 	}
 }
 
-ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool hideFunction, bool checkParent)
+ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool hideFunction, bool checkParent)
 {
 	TypeBase *parentType = NULL;
 
@@ -8426,7 +8422,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	if(syntax->accessor && !parentType)
 		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
-	ExprBase *value = CreateFunctionDefinition(ctx, syntax, syntax->prototype, syntax->coroutine, parentType, syntax->accessor, returnType, syntax->isOperator, syntax->name, syntax->aliases, syntax->arguments, syntax->expressions, instance, matches);
+	ExprBase *value = CreateFunctionDefinition(ctx, syntax, syntax->prototype, syntax->coroutine, parentType, syntax->accessor, returnType, syntax->isOperator, syntax->name, syntax->aliases, syntax->arguments, syntax->expressions, genericProto, instance, matches);
 
 	if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(value))
 	{
@@ -8529,7 +8525,7 @@ void AnalyzeFunctionDefinitionArguments(ExpressionContext &ctx, IntrusiveList<Sy
 	}
 }
 
-ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, SynIdentifier *name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
+ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, SynIdentifier *name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, FunctionData *genericProto, TypeFunction *instance, IntrusiveList<MatchData> matches)
 {
 	SynBase *errorLocation = name->begin ? name : source;
 
@@ -8694,6 +8690,13 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		ctx.functionMap.remove(function->nameHash, function);
 
 		ctx.noAssignmentOperatorForTypePair.clear();
+	}
+
+	if(genericProto)
+	{
+		function->proto = genericProto;
+
+		genericProto->instances.push_back(function);
 	}
 
 	ctx.PushScope(function);
@@ -8916,7 +8919,7 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	function->hasExplicitReturn = true;
 }
 
-ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType)
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *argumentType)
 {
 	if(syntax->arguments.size() != argumentType->arguments.size())
 		return NULL;
@@ -9000,6 +9003,13 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		function->contextType = ctx.GetReferenceType(ctx.typeVoid);
 
 		return function->declaration;
+	}
+
+	if(genericProto)
+	{
+		function->proto = genericProto;
+
+		genericProto->instances.push_back(function);
 	}
 
 	ctx.PushScope(function);
@@ -9198,7 +9208,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	if(!argumentType)
 		return NULL;
 
-	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
+	return AnalyzeShortFunctionDefinition(ctx, syntax, NULL, argumentType);
 }
 
 bool AssertResolvableType(ExpressionContext &ctx, SynBase *source, TypeBase *type, bool allowGeneric)
@@ -9944,7 +9954,7 @@ void AnalyzeClassBaseElements(ExpressionContext &ctx, ExprClassDefinition *class
 void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
 {
 	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
-		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>(), false, false, true));
+		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, NULL, IntrusiveList<MatchData>(), false, false, true));
 
 	for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
 	{
@@ -9968,7 +9978,7 @@ void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *c
 
 			TypeFunction *instance = ctx.GetFunctionType(syntax, accessorType, IntrusiveList<TypeHandle>());
 
-			ExprBase *definition = AnalyzeFunctionDefinition(ctx, function, instance, NULL, IntrusiveList<MatchData>(), false, false, false);
+			ExprBase *definition = AnalyzeFunctionDefinition(ctx, function, NULL, instance, NULL, IntrusiveList<MatchData>(), false, false, false);
 
 			if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(definition))
 				accessorType = node->function->type->returnType;
@@ -10003,7 +10013,7 @@ void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *c
 
 			TypeFunction *instance = ctx.GetFunctionType(syntax, ctx.typeAuto, argTypes);
 
-			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, instance, NULL, IntrusiveList<MatchData>(), false, false, false));
+			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, instance, NULL, IntrusiveList<MatchData>(), false, false, false));
 		}
 	}
 
@@ -11335,7 +11345,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
 	{
-		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, IntrusiveList<MatchData>(), true, true, true);
+		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, NULL, IntrusiveList<MatchData>(), true, true, true);
 	}
 
 	if(isType<SynShortFunctionDefinition>(syntax))
@@ -11416,7 +11426,7 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
 	{
-		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, IntrusiveList<MatchData>(), true, false, true);
+		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, NULL, IntrusiveList<MatchData>(), true, false, true);
 	}
 
 	if(SynClassDefinition *node = getType<SynClassDefinition>(syntax))
