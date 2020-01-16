@@ -2333,10 +2333,6 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
 		ctx.ctx.types[i]->typeIndex = i;
 
-	// Generate function indexes
-	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
-		ctx.ctx.functions[i]->functionIndex = i;
-
 	// Reserve types, generate as required
 	ctx.types.resize(ctx.ctx.types.size());
 	memset(ctx.types.data, 0, ctx.types.count * sizeof(ctx.types[0]));

@@ -2399,8 +2399,6 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	{
 		FunctionData *function = ctx.ctx.functions[i];
 
-		function->functionIndex = i;
-
 		function->nextTranslateRestoreBlock = 1;
 	}
 

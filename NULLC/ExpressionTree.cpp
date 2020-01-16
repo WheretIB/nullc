@@ -1360,6 +1360,8 @@ void ExpressionContext::AddFunction(FunctionData *function)
 {
 	scope->functions.push_back(function);
 
+	function->functionIndex = functions.size();
+
 	functions.push_back(function);
 
 	// Don't add internal functions to named lookup
@@ -1421,20 +1423,7 @@ unsigned ExpressionContext::GetTypeIndex(TypeBase *type)
 
 unsigned ExpressionContext::GetFunctionIndex(FunctionData *data)
 {
-	unsigned index = ~0u;
-
-	for(unsigned i = 0, e = functions.count; i < e; i++)
-	{
-		if(functions.data[i] == data)
-		{
-			index = i;
-			break;
-		}
-	}
-
-	assert(index != ~0u);
-
-	return index;
+	return data->functionIndex;
 }
 
 void ExpressionContext::HideFunction(FunctionData *function)

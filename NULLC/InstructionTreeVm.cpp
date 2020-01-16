@@ -4027,10 +4027,6 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 		for(unsigned i = 0; i < ctx.types.size(); i++)
 			ctx.types[i]->typeIndex = i;
 
-		// Generate function indexes
-		for(unsigned i = 0; i < ctx.functions.size(); i++)
-			ctx.functions[i]->functionIndex = i;
-
 		// Generate VmFunction object for each function
 		for(unsigned i = 0; i < ctx.functions.size(); i++)
 		{
