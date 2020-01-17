@@ -6512,7 +6512,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	assert(!instance->isGeneric);
 
-	// Search for an existing functions
+	// Search for an existing function
 	for(unsigned i = 0; i < function->instances.size(); i++)
 	{
 		FunctionData *data = function->instances[i];
@@ -7777,9 +7777,11 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		ExprBase *initializer = CreateAssignment(ctx, syntaxInternal, CreateVariableAccess(ctx, syntaxInternal, variable, false), alloc);
 		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntaxInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), initializer);
 
+		CustomConstructionFunctionRequest request(parentType, syntax);
+
 		ExprBase *function = NULL;
 
-		if(ExprBase **it = ctx.newConstructorFunctions.find(syntax))
+		if(ExprBase **it = ctx.newConstructorFunctions.find(request))
 			function = *it;
 
 		if(!function)
@@ -7791,7 +7793,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 			function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, nameIdentifier, IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, NULL, IntrusiveList<MatchData>());
 
-			ctx.newConstructorFunctions.insert(syntax, function);
+			ctx.newConstructorFunctions.insert(request, function);
 		}
 
 		ExprFunctionDefinition *functionDefinition = getType<ExprFunctionDefinition>(function);

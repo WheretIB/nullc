@@ -103,6 +103,49 @@ struct GenericFunctionInstanceTypeResponse
 	IntrusiveList<MatchData> aliases;
 };
 
+struct CustomConstructionFunctionRequest
+{
+	CustomConstructionFunctionRequest() : hash(0), parentType(NULL), syntax(NULL)
+	{
+	}
+
+	CustomConstructionFunctionRequest(TypeBase *parentType, SynBase *syntax) : parentType(parentType), syntax(syntax)
+	{
+		hash = parentType ? parentType->nameHash : 0;
+
+		hash = hash + (hash << 5) + unsigned((uintptr_t(syntax) >> 16) + uintptr_t(syntax));
+	}
+
+	bool operator==(const CustomConstructionFunctionRequest& rhs) const
+	{
+		if(parentType != rhs.parentType)
+			return false;
+
+		if(syntax != rhs.syntax)
+			return false;
+
+		return true;
+	}
+
+	bool operator!=(const CustomConstructionFunctionRequest& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
+	unsigned hash;
+
+	TypeBase *parentType;
+	SynBase *syntax;
+};
+
+struct CustomConstructionFunctionRequestHasher
+{
+	unsigned operator()(const CustomConstructionFunctionRequest& key)
+	{
+		return key.hash;
+	}
+};
+
 struct TypePair
 {
 	TypePair(): a(NULL), b(NULL)
@@ -132,14 +175,6 @@ struct TypePairHasher
 	unsigned operator()(const TypePair& key)
 	{
 		return key.a->nameHash + key.b->nameHash;
-	}
-};
-
-struct SyntaxNodeHasher
-{
-	unsigned operator()(SynBase* key)
-	{
-		return unsigned((uintptr_t(key) >> 16) + uintptr_t(key));
 	}
 };
 
@@ -236,7 +271,7 @@ struct ExpressionContext
 
 	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
 
-	SmallDenseMap<SynBase*, ExprBase*, SyntaxNodeHasher, 32> newConstructorFunctions;
+	SmallDenseMap<CustomConstructionFunctionRequest, ExprBase*, CustomConstructionFunctionRequestHasher, 32> newConstructorFunctions;
 
 	unsigned baseModuleFunctionCount;
 

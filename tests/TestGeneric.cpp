@@ -1792,6 +1792,15 @@ int operator+(int a, int ref(int) b){ return a + b(1); }\r\n\
 return 1 + a.f;";
 TEST_RESULT("Class generic function pointer access selection (return type match)", testGeneric154, "3");
 
+const char *testGeneric155 =
+"auto foo(@T x){ return new T(){ this.x = 2 * x; }; }\r\n\
+\r\n\
+class A{ int x = 10; }\r\n\
+class B{ float x = 2.5; }\r\n\
+\r\n\
+return int(foo(A()).x + foo(B()).x + 0.5);";
+TEST_RESULT("Local functions must be analyzed again in a generic function instantiation", testGeneric155, "25");
+
 const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";
