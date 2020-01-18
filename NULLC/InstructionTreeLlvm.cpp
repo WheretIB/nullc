@@ -1650,13 +1650,13 @@ LLVMValueRef CompileLlvmFunctionContextAccess(LlvmCompilationContext &ctx, ExprF
 	}
 	else
 	{
-		LLVMValueRef *variable = ctx.variables.find(node->function->contextVariable->uniqueId);
+		LLVMValueRef *variable = ctx.variables.find(node->contextVariable->uniqueId);
 
 		assert(variable);
 
 		LLVMValueRef address = *variable;
 
-		value = LLVMBuildLoad(ctx.builder, address, CreateLlvmName(ctx, node->function->contextVariable->name->name));
+		value = LLVMBuildLoad(ctx.builder, address, CreateLlvmName(ctx, node->contextVariable->name->name));
 	}
 
 	return CheckType(ctx, node, value);
@@ -2138,8 +2138,8 @@ LLVMValueRef CompileLlvmSequence(LlvmCompilationContext &ctx, ExprSequence *node
 {
 	LLVMValueRef result = NULL;
 
-	for(ExprBase *value = node->expressions.head; value; value = value->next)
-		result = CompileLlvm(ctx, value);
+	for(unsigned i = 0; i < node->expressions.size(); i++)
+		result = CompileLlvm(ctx, node->expressions[i]);
 
 	return CheckType(ctx, node, result);
 }

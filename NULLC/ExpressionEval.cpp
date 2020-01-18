@@ -1783,7 +1783,7 @@ ExprBase* EvaluateFunctionContextAccess(ExpressionEvalContext &ctx, ExprFunction
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->function->contextVariable);
+	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->contextVariable);
 
 	if(!ptr)
 		return NULL;
@@ -3021,9 +3021,9 @@ ExprBase* EvaluateSequence(ExpressionEvalContext &ctx, ExprSequence *expression)
 
 	ExprBase *result = new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
-	for(ExprBase *value = expression->expressions.head; value; value = value->next)
+	for(unsigned i = 0; i < expression->expressions.size(); i++)
 	{
-		result = Evaluate(ctx, value);
+		result = Evaluate(ctx, expression->expressions[i]);
 
 		if(!result)
 			return NULL;

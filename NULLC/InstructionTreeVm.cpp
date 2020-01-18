@@ -3372,11 +3372,11 @@ VmValue* CompileVmFunctionContextAccess(ExpressionContext &ctx, VmModule *module
 	}
 	else
 	{
-		VmValue *address = CreateVariableAddress(module, node->source, node->function->contextVariable, ctx.GetReferenceType(node->function->contextVariable->type));
+		VmValue *address = CreateVariableAddress(module, node->source, node->contextVariable, ctx.GetReferenceType(node->contextVariable->type));
 
-		value = CreateLoad(ctx, module, node->source, node->function->contextVariable->type, address, 0);
+		value = CreateLoad(ctx, module, node->source, node->contextVariable->type, address, 0);
 
-		value->comment = node->function->contextVariable->name->name;
+		value->comment = node->contextVariable->name->name;
 	}
 
 	return CheckType(ctx, node, value);
@@ -3844,8 +3844,8 @@ VmValue* CompileVmSequence(ExpressionContext &ctx, VmModule *module, ExprSequenc
 {
 	VmValue *result = CreateVoid(module);
 
-	for(ExprBase *value = node->expressions.head; value; value = value->next)
-		result = CompileVm(ctx, module, value);
+	for(unsigned i = 0; i < node->expressions.size(); i++)
+		result = CompileVm(ctx, module, node->expressions[i]);
 
 	return CheckType(ctx, node, result);
 }

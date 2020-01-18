@@ -822,22 +822,26 @@ struct ExprVariableAccess: ExprBase
 
 struct ExprFunctionContextAccess: ExprBase
 {
-	ExprFunctionContextAccess(SynBase *source, TypeBase *type, FunctionData *function): ExprBase(myTypeID, source, type), function(function)
+	ExprFunctionContextAccess(SynBase *source, TypeBase *type, FunctionData *function, VariableData *contextVariable): ExprBase(myTypeID, source, type), function(function), contextVariable(contextVariable)
 	{
 		assert(function);
-		assert(type == function->contextVariable->type);
-		assert(!function->contextVariable->lookupOnly);
+		assert(type == contextVariable->type);
+		assert(!contextVariable->lookupOnly);
 	}
 
 	FunctionData *function;
+
+	VariableData *contextVariable;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprFunctionDefinition: ExprBase
 {
-	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, ExprBase *coroutineStateRead, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), coroutineStateRead(coroutineStateRead), expressions(expressions), contextVariable(contextVariable)
+	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, ExprBase *coroutineStateRead, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariableDefinition, VariableData *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), coroutineStateRead(coroutineStateRead), expressions(expressions), contextVariableDefinition(contextVariableDefinition), contextVariable(contextVariable)
 	{
+		if(contextVariableDefinition)
+			contextVariable = contextVariableDefinition->variable->variable;
 	}
 
 	FunctionData* function;
@@ -850,7 +854,8 @@ struct ExprFunctionDefinition: ExprBase
 
 	IntrusiveList<ExprBase> expressions;
 
-	ExprVariableDefinition *contextVariable;
+	ExprVariableDefinition *contextVariableDefinition;
+	VariableData *contextVariable;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -1079,11 +1084,13 @@ struct ExprBlock: ExprBase
 
 struct ExprSequence: ExprBase
 {
-	ExprSequence(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
+	ExprSequence(SynBase *source, TypeBase *type, ArrayView<ExprBase*> arr): ExprBase(myTypeID, source, type)
 	{
+		for(unsigned i = 0; i < arr.size(); i++)
+			expressions.push_back(arr[i]);
 	}
 
-	IntrusiveList<ExprBase> expressions;
+	SmallArray<ExprBase*, 4> expressions;
 
 	static const unsigned myTypeID = __LINE__;
 };

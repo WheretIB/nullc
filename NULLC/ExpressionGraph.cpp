@@ -908,8 +908,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node, "ExprSequence()");
 
-		for(ExprBase *value = node->expressions.head; value; value = value->next)
-			PrintGraph(ctx, value, "");
+		for(unsigned i = 0; i < node->expressions.size(); i++)
+			PrintGraph(ctx, node->expressions[i], "");
 
 		PrintLeaveBlock(ctx);
 	}

@@ -1911,6 +1911,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal, bool checkParent);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *argumentType);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, ArrayView<ArgumentData> arguments, IntrusiveList<MatchData> aliases);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *argumentType, IntrusiveList<MatchData> argCasts, ArrayView<ArgumentData> argData);
 
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, SynIdentifier *member);
 
@@ -1943,7 +1944,8 @@ InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx);
 InplaceStr GetDefaultArgumentWrapperFunctionName(ExpressionContext &ctx, FunctionData *function, InplaceStr argumentName);
 TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, InplaceStr functionName);
 ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, SynBase *source, FunctionData *function);
-ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype);
+VariableData* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype);
+ExprVariableDefinition* CreateFunctionContextVariableDefinition(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype, VariableData *context);
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function);
 ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context);
 ExprBase* CreateFunctionCoroutineStateUpdate(ExpressionContext &ctx, SynBase *source, FunctionData *function, int state);
@@ -2085,7 +2087,7 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 
 ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *first, ExprBase *second)
 {
-	IntrusiveList<ExprBase> expressions;
+	SmallArray<ExprBase*, 2> expressions;
 
 	expressions.push_back(first);
 	expressions.push_back(second);
@@ -2095,7 +2097,7 @@ ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *firs
 
 ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *first, ExprBase *second, ExprBase *third)
 {
-	IntrusiveList<ExprBase> expressions;
+	SmallArray<ExprBase*, 3> expressions;
 
 	expressions.push_back(first);
 	expressions.push_back(second);
@@ -2132,12 +2134,12 @@ ExprBase* CreateFunctionPointer(ExpressionContext &ctx, SynBase *source, ExprFun
 		definition->function->isHidden = true;
 	}
 
-	IntrusiveList<ExprBase> expressions;
+	SmallArray<ExprBase*, 3> expressions;
 
 	expressions.push_back(definition);
 
-	if(definition->contextVariable)
-		expressions.push_back(definition->contextVariable);
+	if(definition->contextVariableDefinition)
+		expressions.push_back(definition->contextVariableDefinition);
 
 	expressions.push_back(new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(ctx.MakeInternal(source), definition->function->type, definition->function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), definition->function)));
 
@@ -2599,7 +2601,7 @@ ExprBase* CreateFunctionUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 	if(!onwerFunction)
 		return NULL;
 
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_FUNCTION, source, fromScope, 0));
 
@@ -2608,7 +2610,7 @@ ExprBase* CreateFunctionUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 
 ExprBase* CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *scope)
 {
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
 
@@ -2619,7 +2621,7 @@ ExprBase* CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, Funct
 
 ExprBase* CreateBreakUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
 
@@ -2630,7 +2632,7 @@ ExprBase* CreateBreakUpvalueClose(ExpressionContext &ctx, SynBase *source, Funct
 
 ExprBase* CreateContinueUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
 
@@ -2644,7 +2646,7 @@ ExprBase* CreateArgumentUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 	if(!onwerFunction)
 		return NULL;
 
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_ARGUMENT, source, NULL, 0));
 
@@ -2780,18 +2782,16 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Sy
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
+	VariableData *contextVariable = NULL;
 	ExprVariableDefinition *contextVariableDefinition = NULL;
 
-	if(ctx.scope == ctx.globalScope || ctx.scope->ownerNamespace)
+	if(ctx.scope != ctx.globalScope && !ctx.scope->ownerNamespace)
 	{
-		contextVariableDefinition = NULL;
-	}
-	else 
-	{
-		contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, NULL);
+		contextVariable = CreateFunctionContextVariable(ctx, source, function, NULL);
+		contextVariableDefinition = CreateFunctionContextVariableDefinition(ctx, source, function, NULL, contextVariable);
 	}
 
-	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), NULL, expressions, contextVariableDefinition);
+	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), NULL, expressions, contextVariableDefinition, contextVariable);
 
 	ctx.definitions.push_back(function->declaration);
 
@@ -3728,15 +3728,49 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 	{
 		context = CreateVariableAccess(ctx, source, function->contextArgument, true);
 	}
-	else if(function->contextVariable)
+	else if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(function->declaration))
 	{
-		context = CreateVariableAccess(ctx, source, function->contextVariable, true);
-
-		if(ExprVariableAccess *access = getType<ExprVariableAccess>(context))
+		if(definition->contextVariable)
 		{
-			assert(access->variable == function->contextVariable);
+			VariableData *contextVariable = definition->contextVariable;
 
-			context = new (ctx.get<ExprFunctionContextAccess>()) ExprFunctionContextAccess(source, access->type, function);
+			context = CreateVariableAccess(ctx, source, contextVariable, true);
+
+			if(ExprVariableAccess *access = getType<ExprVariableAccess>(context))
+			{
+				assert(access->variable == contextVariable);
+
+				context = new (ctx.get<ExprFunctionContextAccess>()) ExprFunctionContextAccess(source, access->type, function, contextVariable);
+			}
+		}
+		else
+		{
+			context = new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, function->contextType);
+		}
+	}
+	else if(function->coroutine)
+	{
+		unsigned functionIndex = ctx.GetFunctionIndex(function);
+
+		if(function->importModule)
+			functionIndex = functionIndex - function->importModule->startingFunctionIndex + function->importModule->importedFunctionCount;
+
+		InplaceStr contextVariableName = GetFunctionContextVariableName(ctx, function, functionIndex);
+
+		if(VariableData **variable = ctx.variableMap.find(contextVariableName.hash()))
+		{
+			context = CreateVariableAccess(ctx, source, *variable, true);
+
+			if(ExprVariableAccess *access = getType<ExprVariableAccess>(context))
+			{
+				assert(access->variable == *variable);
+
+				context = new (ctx.get<ExprFunctionContextAccess>()) ExprFunctionContextAccess(source, access->type, function, *variable);
+			}
+		}
+		else
+		{
+			context = new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, function->contextType);
 		}
 	}
 	else
@@ -6642,12 +6676,12 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	assert(definition);
 
-	if(definition->contextVariable)
+	if(definition->contextVariableDefinition)
 	{
 		if(ExprGenericFunctionPrototype *genericProto = getType<ExprGenericFunctionPrototype>(function->declaration))
-			genericProto->contextVariables.push_back(definition->contextVariable);
+			genericProto->contextVariables.push_back(definition->contextVariableDefinition);
 		else
-			ctx.setup.push_back(definition->contextVariable);
+			ctx.setup.push_back(definition->contextVariableDefinition);
 	}
 
 	if(standalone)
@@ -7595,7 +7629,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			if(!constructor && syntax->arguments.empty())
 			{
-				IntrusiveList<ExprBase> expressions;
+				SmallArray<ExprBase*, 2> expressions;
 
 				expressions.push_back(definition);
 				expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
@@ -7616,7 +7650,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 				ExprBase *call = CreateFunctionCallFinal(ctx, syntax, function, functions, generics, arguments, false);
 
-				IntrusiveList<ExprBase> expressions;
+				SmallArray<ExprBase*, 3> expressions;
 
 				expressions.push_back(definition);
 				expressions.push_back(call);
@@ -7738,7 +7772,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, IntrusiveList<TypeHandle>(), syntax->arguments.head, syntax->arguments.empty()))
 		{
-			IntrusiveList<ExprBase> expressions;
+			SmallArray<ExprBase*, 3> expressions;
 
 			expressions.push_back(definition);
 			expressions.push_back(call);
@@ -7756,7 +7790,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *copy = CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, parentType, CreateVariableAccess(ctx, syntaxInternal, variable, false)), AnalyzeExpression(ctx, syntax->arguments.head->value));
 
-		IntrusiveList<ExprBase> expressions;
+		SmallArray<ExprBase*, 3> expressions;
 
 		expressions.push_back(definition);
 		expressions.push_back(copy);
@@ -7806,7 +7840,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *call = CreateFunctionCallFinal(ctx, syntax, function, functions, IntrusiveList<TypeHandle>(), arguments, false);
 
-		IntrusiveList<ExprBase> expressions;
+		SmallArray<ExprBase*, 3> expressions;
 
 		expressions.push_back(definition);
 		expressions.push_back(call);
@@ -8221,7 +8255,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 	return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, function->contextArgument), NULL);
 }
 
-ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype)
+VariableData* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype)
 {
 	if(function->scope->ownerType)
 		return NULL;
@@ -8243,7 +8277,9 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 	if(prototype)
 	{
-		context = prototype->contextVariable;
+		ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(prototype->declaration);
+
+		context = definition->contextVariable;
 
 		context->isAlloca = false;
 		context->offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
@@ -8260,7 +8296,21 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 		ctx.AddVariable(context, true);
 	}
 
-	function->contextVariable = context;
+	return context;
+}
+
+ExprVariableDefinition* CreateFunctionContextVariableDefinition(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype, VariableData *context)
+{
+	if(!context)
+		return NULL;
+
+	TypeRef *refType = getType<TypeRef>(function->contextType);
+
+	assert(refType);
+
+	TypeClass *classType = getType<TypeClass>(refType->subType);
+
+	assert(classType);
 
 	// Allocate closure
 	ExprBase *alloc = CreateObjectAllocation(ctx, source, classType);
@@ -8304,7 +8354,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 		assert(declaration);
 
-		declaration->contextVariable->initializer = initializer;
+		declaration->contextVariableDefinition->initializer = initializer;
 		return NULL;
 	}
 
@@ -8783,6 +8833,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			Stop(ctx, errorLocation, "ERROR: type constructor return type must be 'void'");
 	}
 
+	VariableData *contextVariable = NULL;
 	ExprVariableDefinition *contextVariableDefinition = NULL;
 
 	if(parentType)
@@ -8801,20 +8852,21 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(GetFunctionContextVariableName(ctx, function, ctx.GetFunctionIndex(function)));
 
-		VariableData *context = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, refType->alignment, refType, nameIdentifier, 0, ctx.uniqueVariableId++);
+		contextVariable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, refType->alignment, refType, nameIdentifier, 0, ctx.uniqueVariableId++);
 
-		context->isAlloca = true;
-		context->offset = ~0u;
+		contextVariable->isAlloca = true;
+		contextVariable->offset = ~0u;
 
-		function->contextVariable = context;
+		//function->contextVariable = context;
 
-		ctx.AddVariable(context, true);
+		ctx.AddVariable(contextVariable, true);
 
-		contextVariableDefinition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, context), NULL);
+		contextVariableDefinition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, contextVariable), NULL);
 	}
 	else
 	{
-		contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, implementedPrototype);
+		contextVariable = CreateFunctionContextVariable(ctx, source, function, implementedPrototype);
+		contextVariableDefinition = CreateFunctionContextVariableDefinition(ctx, source, function, implementedPrototype, contextVariable);
 	}
 
 	// If the type was deduced, implement prototype now that it's known
@@ -8848,7 +8900,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(conflict)
 		Report(ctx, errorLocation, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
 
-	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition);
+	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition, contextVariable);
 
 	ctx.definitions.push_back(function->declaration);
 
@@ -8971,13 +9023,28 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		expected = expected->next;
 	}
 
+	TypeFunction *instanceType = ctx.GetFunctionType(syntax, returnType, argData);
+
+	ExprBase *definition = AnalyzeShortFunctionDefinition(ctx, syntax, genericProto, instanceType, argCasts, argData);
+
+	if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(definition))
+	{
+		node->contextVariable = CreateFunctionContextVariable(ctx, syntax, node->function, NULL);
+		node->contextVariableDefinition = CreateFunctionContextVariableDefinition(ctx, syntax, node->function, NULL, node->contextVariable);
+	}
+
+	return definition;
+}
+
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *instanceType, IntrusiveList<MatchData> argCasts, ArrayView<ArgumentData> argData)
+{
 	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, NULL, InplaceStr(), false, false);
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
 	SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(functionName);
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, returnType, argData), ctx.GetReferenceType(contextClassType), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, instanceType, ctx.GetReferenceType(contextClassType), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
@@ -9058,7 +9125,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		function->type = ctx.GetFunctionType(syntax, ctx.typeVoid, function->type->arguments);
 
 	if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
-		Report(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+		Report(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(function->type->returnType->name));
 
 	// User might have not returned from all control paths, for a void function we will generate a return
 	if(function->type->returnType == ctx.typeVoid)
@@ -9072,9 +9139,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
-	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function, NULL);
-
-	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, arguments, NULL, expressions, contextVariableDefinition);
+	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, arguments, NULL, expressions, NULL, NULL);
 
 	ctx.definitions.push_back(function->declaration);
 
@@ -9149,9 +9214,10 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
-	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function, NULL);
+	VariableData *contextVariable = CreateFunctionContextVariable(ctx, syntax, function, NULL);
+	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariableDefinition(ctx, syntax, function, NULL, contextVariable);
 
-	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), coroutineStateRead, expressions, contextVariableDefinition);
+	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), coroutineStateRead, expressions, contextVariableDefinition, contextVariable);
 
 	ctx.definitions.push_back(function->declaration);
 
@@ -9670,9 +9736,10 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 		if(addedParentScope)
 			ctx.PopScope(SCOPE_TYPE);
 
-		ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, NULL);
+		VariableData *contextVariable = CreateFunctionContextVariable(ctx, source, function, NULL);
+		ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariableDefinition(ctx, source, function, NULL, contextVariable);
 
-		function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), NULL, expressions, contextVariableDefinition);
+		function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), NULL, expressions, contextVariableDefinition, contextVariable);
 
 		ctx.definitions.push_back(function->declaration);
 
@@ -9799,7 +9866,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 		ctx.PopScope(SCOPE_FUNCTION);
 
-		function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+		function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL, NULL);
 
 		ctx.definitions.push_back(function->declaration);
 
@@ -10397,7 +10464,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 			ctx.PopScope(SCOPE_FUNCTION);
 
-			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntaxInternal, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntaxInternal, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL, NULL);
 
 			ctx.definitions.push_back(function->declaration);
 
@@ -10446,7 +10513,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 			ctx.PopScope(SCOPE_FUNCTION);
 
-			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntaxInternal, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntaxInternal, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL, NULL);
 
 			ctx.definitions.push_back(function->declaration);
 
@@ -12150,6 +12217,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 	ExternVarInfo *explicitTypeInfo = FindFirstVar(bCode) + bCode->variableCount;
 
+	moduleCtx.data->importedFunctionCount = bCode->moduleFunctionCount;
+
 	// Import functions
 	ExternFuncInfo *functionList = FindFirstFunc(bCode);
 	ExternLocalInfo *localList = FindFirstLocal(bCode);
@@ -12396,14 +12465,6 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			data->type = ctx.GetFunctionType(source, returnType, argTypes);
 		}
 
-		if(function.funcCat == ExternFuncInfo::COROUTINE)
-		{
-			InplaceStr contextVariableName = GetFunctionContextVariableName(ctx, data, i + bCode->moduleFunctionCount);
-
-			if(VariableData **variable = ctx.variableMap.find(contextVariableName.hash()))
-				data->contextVariable = *variable;
-		}
-
 		assert(data->type);
 
 		ctx.PopScope(SCOPE_FUNCTION);
@@ -12501,7 +12562,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 	ImportModuleFunctions(ctx, source, moduleCtx);
 
-	moduleData->functionCount = ctx.functions.size() - moduleData->startingFunctionIndex;
+	moduleData->moduleFunctionCount = ctx.functions.size() - moduleData->startingFunctionIndex;
 }
 
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
@@ -13016,8 +13077,8 @@ void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)
 	}
 	else if(ExprSequence *node = getType<ExprSequence>(expression))
 	{
-		for(ExprBase *value = node->expressions.head; value; value = value->next)
-			VisitExpressionTreeNodes(value, context, accept);
+		for(unsigned i = 0; i < node->expressions.size(); i++)
+			VisitExpressionTreeNodes(node->expressions[i], context, accept);
 	}
 	else if(ExprModule *node = getType<ExprModule>(expression))
 	{

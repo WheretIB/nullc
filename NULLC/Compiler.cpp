@@ -1375,7 +1375,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		debugSymbols.push_back(0);
 
 		moduleInfo.funcStart = moduleData->startingFunctionIndex;
-		moduleInfo.funcCount = moduleData->functionCount;
+		moduleInfo.funcCount = moduleData->moduleFunctionCount;
 
 		moduleInfo.variableOffset = 0;
 		moduleInfo.nameHash = ~0u;

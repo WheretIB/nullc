@@ -103,7 +103,8 @@ struct ModuleData
 		lexStreamSize = 0;
 
 		startingFunctionIndex = 0;
-		functionCount = 0;
+		importedFunctionCount = 0;
+		moduleFunctionCount = 0;
 
 		startingDependencyIndex = 0;
 	}
@@ -122,7 +123,8 @@ struct ModuleData
 	unsigned lexStreamSize;
 
 	unsigned startingFunctionIndex;
-	unsigned functionCount;
+	unsigned importedFunctionCount;
+	unsigned moduleFunctionCount;
 
 	unsigned startingDependencyIndex;
 };
@@ -368,8 +370,6 @@ struct FunctionData
 
 		coroutineJumpOffset = NULL;
 
-		contextVariable = NULL;
-
 		yieldCount = 0;
 
 		hasExplicitReturn = false;
@@ -447,9 +447,6 @@ struct FunctionData
 
 	SmallDenseMap<VariableData*, CoroutineStateData*, VariableDataHasher, 2> coroutineStateVariableMap;
 	SmallDenseSet<InplaceStr, InplaceStrHasher, 2> coroutineStateNameSet;
-
-	// Variable containing a pointer to the function context
-	VariableData *contextVariable;
 
 	unsigned yieldCount;
 

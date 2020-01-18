@@ -904,7 +904,7 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 
 	ExprSequence *closures = getType<ExprSequence>(expression->closures);
 
-	if(closures && !closures->expressions.head)
+	if(closures && closures->expressions.empty())
 		closures = NULL;
 
 	if(!ctx.currentFunction)
@@ -988,7 +988,7 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 
 	ExprSequence *closures = getType<ExprSequence>(expression->closures);
 
-	if(closures && !closures->expressions.head)
+	if(closures && closures->expressions.empty())
 		closures = NULL;
 
 	if(expression->value->type == ctx.ctx.typeVoid)
@@ -1128,7 +1128,7 @@ void TranslateFunctionContextAccess(ExpressionTranslateContext &ctx, ExprFunctio
 	}
 	else
 	{
-		TranslateVariableName(ctx, expression->function->contextVariable);
+		TranslateVariableName(ctx, expression->contextVariable);
 	}
 }
 
@@ -1652,7 +1652,7 @@ void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
 {
 	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
 	{
-		if(closures->expressions.head)
+		if(!closures->expressions.empty())
 		{
 			Translate(ctx, expression->closures);
 			Print(ctx, ";");
@@ -1668,7 +1668,7 @@ void TranslateContinue(ExpressionTranslateContext &ctx, ExprContinue *expression
 {
 	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
 	{
-		if(closures->expressions.head)
+		if(!closures->expressions.empty())
 		{
 			Translate(ctx, expression->closures);
 			Print(ctx, ";");
@@ -1718,7 +1718,7 @@ void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
 
 void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression)
 {
-	if(!expression->expressions.head)
+	if(expression->expressions.empty())
 	{
 		Print(ctx, "/*empty sequence*/");
 		return;
@@ -1729,13 +1729,13 @@ void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression
 
 	ctx.depth++;
 
-	for(ExprBase *curr = expression->expressions.head; curr; curr = curr->next)
+	for(unsigned i = 0; i < expression->expressions.size(); i++)
 	{
 		PrintIndent(ctx);
 
-		Translate(ctx, curr);
+		Translate(ctx, expression->expressions[i]);
 
-		if(curr->next)
+		if(i + 1 < expression->expressions.size())
 			Print(ctx, ", ");
 
 		PrintLine(ctx);
