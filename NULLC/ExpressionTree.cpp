@@ -6728,6 +6728,11 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 			functions.push_back(FunctionValue(node->source, arg->function, context));
 		}
 	}
+	else if(ExprShortFunctionOverloadSet *node = getType<ExprShortFunctionOverloadSet>(function))
+	{
+		for(ShortFunctionHandle *option = node->functions.head; option; option = option->next)
+			functions.push_back(FunctionValue(node->source, option->function, option->context));
+	}
 }
 
 ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData *function)
@@ -6991,7 +6996,8 @@ void AnalyzeFunctionArgumentsFinal(ExpressionContext &ctx, SynBase *source, Expr
 			else
 			{
 				SmallArray<TypeBase*, 16> types(ctx.allocator);
-				IntrusiveList<FunctionHandle> overloads;
+
+				IntrusiveList<ShortFunctionHandle> overloads;
 
 				for(unsigned i = 0; i < options.size(); i++)
 				{
@@ -7001,15 +7007,42 @@ void AnalyzeFunctionArgumentsFinal(ExpressionContext &ctx, SynBase *source, Expr
 
 					types.push_back(option->type);
 
-					if(ExprFunctionDefinition *function = getType<ExprFunctionDefinition>(option))
-						overloads.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function->function));
-					else if(ExprGenericFunctionPrototype *function = getType<ExprGenericFunctionPrototype>(option))
-						overloads.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function->function));
+					if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(options[i]))
+					{
+						ExprBase *context = NULL;
+
+						if(node->contextVariableDefinition)
+						{
+							SmallArray<ExprBase*, 3> expressions;
+
+							expressions.push_back(node);
+
+							if(node->contextVariableDefinition)
+								expressions.push_back(node->contextVariableDefinition);
+
+							if(node->contextVariable)
+								expressions.push_back(CreateVariableAccess(ctx, source, node->contextVariable, true));
+
+							context = new (ctx.get<ExprSequence>()) ExprSequence(source, node->function->contextType, expressions);
+						}
+						else
+						{
+							context = new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, node->function->contextType);
+						}
+
+						overloads.push_back(new (ctx.get<ShortFunctionHandle>()) ShortFunctionHandle(node->function, context));
+					}
+					else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(option))
+					{
+						ExprBase *context = new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, node->function->contextType);
+
+						overloads.push_back(new (ctx.get<ShortFunctionHandle>()) ShortFunctionHandle(node->function, context));
+					}
 				}
 
 				TypeFunctionSet *type = ctx.GetFunctionSetType(types);
 
-				argument = new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, overloads, NULL);
+				argument = new (ctx.get<ExprShortFunctionOverloadSet>()) ExprShortFunctionOverloadSet(source, type, overloads);
 			}
 
 			resultArguments[pos++] = ArgumentData(el, false, el->name, argument->type, argument);
@@ -12997,6 +13030,11 @@ void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)
 	{
 		VisitExpressionTreeNodes(node->context, context, accept);
 	}
+	else if(ExprShortFunctionOverloadSet *node = getType<ExprShortFunctionOverloadSet>(expression))
+	{
+		for(ShortFunctionHandle *arg = node->functions.head; arg; arg = arg->next)
+			VisitExpressionTreeNodes(arg->context, context, accept);
+	}
 	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
 	{
 		VisitExpressionTreeNodes(node->function, context, accept);
@@ -13166,6 +13204,8 @@ const char* GetExpressionTreeNodeName(ExprBase *expression)
 		return "ExprFunctionAccess";
 	case ExprFunctionOverloadSet::myTypeID:
 		return "ExprFunctionOverloadSet";
+	case ExprShortFunctionOverloadSet::myTypeID:
+		return "ExprShortFunctionOverloadSet";
 	case ExprFunctionCall::myTypeID:
 		return "ExprFunctionCall";
 	case ExprAliasDefinition::myTypeID:

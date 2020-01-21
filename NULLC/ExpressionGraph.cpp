@@ -732,6 +732,23 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprShortFunctionOverloadSet *node = getType<ExprShortFunctionOverloadSet>(expression))
+	{
+		PrintEnterBlock(ctx, name, node, "ExprShortFunctionOverloadSet()");
+
+		PrintEnterBlock(ctx, InplaceStr("functions"), 0);
+
+		for(ShortFunctionHandle *arg = node->functions.head; arg; arg = arg->next)
+		{
+			PrintIndented(ctx, name, arg->function->type, "%.*s: f%04x", FMT_ISTR(arg->function->name->name), arg->function->uniqueId);
+
+			PrintGraph(ctx, arg->context, "context");
+		}
+
+		PrintLeaveBlock(ctx);
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
 	{
 		PrintEnterBlock(ctx, name, node, "ExprFunctionCall()");

@@ -3176,6 +3176,9 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 	if(isType<ExprFunctionOverloadSet>(expression))
 		return NULL;
 
+	if(isType<ExprShortFunctionOverloadSet>(expression))
+		return NULL;
+
 	if(ExprFunctionCall *expr = getType<ExprFunctionCall>(expression))
 		return EvaluateFunctionCall(ctx, expr);
 

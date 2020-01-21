@@ -2576,6 +2576,8 @@ void Translate(ExpressionTranslateContext &ctx, ExprBase *expression)
 		TranslateFunctionAccess(ctx, expr);
 	else if(isType<ExprFunctionOverloadSet>(expression))
 		assert(!"miscompiled tree");
+	else if(isType<ExprShortFunctionOverloadSet>(expression))
+		assert(!"miscompiled tree");
 	else if(ExprFunctionCall *expr = getType<ExprFunctionCall>(expression))
 		TranslateFunctionCall(ctx, expr);
 	else if(ExprAliasDefinition *expr = getType<ExprAliasDefinition>(expression))

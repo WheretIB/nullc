@@ -905,6 +905,17 @@ struct ExprFunctionOverloadSet: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprShortFunctionOverloadSet : ExprBase
+{
+	ExprShortFunctionOverloadSet(SynBase *source, TypeBase *type, IntrusiveList<ShortFunctionHandle> functions) : ExprBase(myTypeID, source, type), functions(functions)
+	{
+	}
+
+	IntrusiveList<ShortFunctionHandle> functions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprFunctionCall: ExprBase
 {
 	ExprFunctionCall(SynBase *source, TypeBase *type, ExprBase *function, IntrusiveList<ExprBase> arguments): ExprBase(myTypeID, source, type), function(function), arguments(arguments)

@@ -89,6 +89,19 @@ struct MemberHandle
 	bool listed;
 };
 
+struct ShortFunctionHandle
+{
+	ShortFunctionHandle(FunctionData *function, ExprBase *context) : function(function), context(context), next(0), listed(false)
+	{
+	}
+
+	FunctionData *function;
+	ExprBase *context;
+
+	ShortFunctionHandle *next;
+	bool listed;
+};
+
 struct ModuleData
 {
 	ModuleData(SynBase *source, InplaceStr name): source(source), name(name)
