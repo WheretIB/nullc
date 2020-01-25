@@ -103,22 +103,24 @@ struct GenericFunctionInstanceTypeResponse
 	IntrusiveList<MatchData> aliases;
 };
 
-struct CustomConstructionFunctionRequest
+struct TypedFunctionInstanceRequest
 {
-	CustomConstructionFunctionRequest() : hash(0), parentType(NULL), syntax(NULL)
+	TypedFunctionInstanceRequest() : hash(0), instanceType(NULL), syntax(NULL)
 	{
 	}
 
-	CustomConstructionFunctionRequest(TypeBase *parentType, SynBase *syntax) : parentType(parentType), syntax(syntax)
+	TypedFunctionInstanceRequest(unsigned scopeHash, TypeBase *instanceType, SynBase *syntax) : instanceType(instanceType), syntax(syntax)
 	{
-		hash = parentType ? parentType->nameHash : 0;
+		hash = scopeHash;
+
+		hash = hash + (hash << 5) + (instanceType ? instanceType->nameHash : 0);
 
 		hash = hash + (hash << 5) + unsigned((uintptr_t(syntax) >> 16) + uintptr_t(syntax));
 	}
 
-	bool operator==(const CustomConstructionFunctionRequest& rhs) const
+	bool operator==(const TypedFunctionInstanceRequest& rhs) const
 	{
-		if(parentType != rhs.parentType)
+		if(instanceType != rhs.instanceType)
 			return false;
 
 		if(syntax != rhs.syntax)
@@ -127,20 +129,20 @@ struct CustomConstructionFunctionRequest
 		return true;
 	}
 
-	bool operator!=(const CustomConstructionFunctionRequest& rhs) const
+	bool operator!=(const TypedFunctionInstanceRequest& rhs) const
 	{
 		return !(*this == rhs);
 	}
 
 	unsigned hash;
 
-	TypeBase *parentType;
+	TypeBase *instanceType;
 	SynBase *syntax;
 };
 
-struct CustomConstructionFunctionRequestHasher
+struct TypedFunctionInstanceRequestHasher
 {
-	unsigned operator()(const CustomConstructionFunctionRequest& key)
+	unsigned operator()(const TypedFunctionInstanceRequest& key)
 	{
 		return key.hash;
 	}
@@ -271,7 +273,9 @@ struct ExpressionContext
 
 	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
 
-	SmallDenseMap<CustomConstructionFunctionRequest, ExprBase*, CustomConstructionFunctionRequestHasher, 32> newConstructorFunctions;
+	SmallDenseMap<TypedFunctionInstanceRequest, ExprBase*, TypedFunctionInstanceRequestHasher, 32> newConstructorFunctions;
+
+	SmallDenseMap<TypedFunctionInstanceRequest, ExprBase*, TypedFunctionInstanceRequestHasher, 32> shortInlineFunctions;
 
 	unsigned baseModuleFunctionCount;
 
