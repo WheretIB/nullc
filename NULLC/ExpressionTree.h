@@ -109,11 +109,9 @@ struct TypedFunctionInstanceRequest
 	{
 	}
 
-	TypedFunctionInstanceRequest(unsigned scopeHash, TypeBase *instanceType, SynBase *syntax) : instanceType(instanceType), syntax(syntax)
+	TypedFunctionInstanceRequest(TypeBase *instanceType, SynBase *syntax) : instanceType(instanceType), syntax(syntax)
 	{
-		hash = scopeHash;
-
-		hash = hash + (hash << 5) + (instanceType ? instanceType->nameHash : 0);
+		hash = (instanceType ? instanceType->nameHash : 0);
 
 		hash = hash + (hash << 5) + unsigned((uintptr_t(syntax) >> 16) + uintptr_t(syntax));
 	}
@@ -274,8 +272,6 @@ struct ExpressionContext
 	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
 
 	SmallDenseMap<TypedFunctionInstanceRequest, ExprBase*, TypedFunctionInstanceRequestHasher, 32> newConstructorFunctions;
-
-	SmallDenseMap<TypedFunctionInstanceRequest, ExprBase*, TypedFunctionInstanceRequestHasher, 32> shortInlineFunctions;
 
 	unsigned baseModuleFunctionCount;
 

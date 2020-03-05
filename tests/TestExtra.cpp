@@ -849,51 +849,6 @@ const char	*testFuzzingCrash20 =
 return int(0.5+float(a[0]));";
 TEST_RESULT_SIMPLE("Fuzzing crash result 20 (array element store between different blocks still requires dtof instruction removal)", testFuzzingCrash20, "2");
 
-const char	*testFuzzingCrash21 =
-"float foo(int idx, float ref(float) f, int ref x)\r\n\
-{\r\n\
-	return f(1.0f);\r\n\
-}\r\n\
-int foo(int idx, int ref(int) f)\r\n\
-{\r\n\
-	if(idx > 4)\r\n\
-		return 2;\r\n\
-\r\n\
-	return f(2 + foo(idx + 1, <x>{\r\n\
-		return 2 + foo(idx + 1, <x>{\r\n\
-			return 2 + foo(idx + 1, <x>{\r\n\
-				return 2 + foo(idx + 1, <x>{\r\n\
-					return 2 + foo(idx + 1, <x>{\r\n\
-						return 2 + foo(idx + 1, <x>{\r\n\
-							return 2 + foo(idx + 1, <x>{\r\n\
-								return 2 + foo(idx + 1, <x>{\r\n\
-									return 2 + foo(idx + 1, <x>{\r\n\
-										return 2 + foo(idx + 1, <x>{\r\n\
-											return 2 + foo(idx + 1, <x>{\r\n\
-												return 2 + foo(idx + 1, <x>{\r\n\
-													return 2 + foo(idx + 1, <x>{\r\n\
-														return 2 + foo(idx + 1, <x>{\r\n\
-															if(x == 0)\r\n\
-																f(1);\r\n\
-															return 2 + x;\r\n\
-														});\r\n\
-													});\r\n\
-												});\r\n\
-											});\r\n\
-										});\r\n\
-									});\r\n\
-								});\r\n\
-							});\r\n\
-						});\r\n\
-					});\r\n\
-				});\r\n\
-			});\r\n\
-		});\r\n\
-	}));\r\n\
-}\r\n\
-return foo(1, <x>{ x + 2; });";
-TEST_RESULT_SIMPLE("Fuzzing crash result 21 (exponential short inline function creation)", testFuzzingCrash21, "96");
-
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");

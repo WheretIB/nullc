@@ -1852,6 +1852,25 @@ auto b = foo with<float>(3, int aa(int ref(int) x){ return x(5); });\r\n\
 return a + b;";
 TEST_RESULT("Same short function instance request with different closure types 3", testGeneric159, "25");
 
+const char *testGeneric160 =
+"float foo(int idx, float ref(float) f, int ref x)\r\n\
+{\r\n\
+	return f(1.0f);\r\n\
+}\r\n\
+int foo(int idx, int ref(int) f)\r\n\
+{\r\n\
+	if(idx > 4)\r\n\
+		return 2;\r\n\
+\r\n\
+	return f(2 + foo(idx + 1, <x1>{\r\n\
+		return 2 + foo(idx + 1, <x2>{\r\n\
+			return 2 + x1 + x2;\r\n\
+		});\r\n\
+	}));\r\n\
+}\r\n\
+return foo(1, <x>{ x + 2; });";
+TEST_RESULT("Same short function instance request with different closure types 4", testGeneric160, "76");
+
 const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";

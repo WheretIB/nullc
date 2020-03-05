@@ -7844,21 +7844,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		ExprBase *initializer = CreateAssignment(ctx, syntaxInternal, CreateVariableAccess(ctx, syntaxInternal, variable, false), alloc);
 		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntaxInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), initializer);
 
-		unsigned scopeHash = 0;
-
-		for(ScopeData *scope = ctx.scope; scope; scope = scope->scope)
-		{
-			if(scope->ownerFunction && ctx.IsGenericInstance(scope->ownerFunction))
-			{
-				scopeHash = scopeHash + (scopeHash << 5) + scope->ownerFunction->nameHash;
-				scopeHash = scopeHash + (scopeHash << 5) + scope->ownerFunction->type->nameHash;
-
-				for(MatchData *curr = scope->ownerFunction->generics.head; curr; curr = curr->next)
-					scopeHash = scopeHash + (scopeHash << 5) + curr->type->nameHash;
-			}
-		}
-
-		TypedFunctionInstanceRequest request(scopeHash, parentType, syntax);
+		TypedFunctionInstanceRequest request(parentType, syntax);
 
 		ExprBase *function = NULL;
 
@@ -9070,35 +9056,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		expected = expected->next;
 	}
 
-	unsigned scopeHash = 0;
-
-	for(ScopeData *scope = ctx.scope; scope; scope = scope->scope)
-	{
-		if(scope->ownerFunction && ctx.IsGenericInstance(scope->ownerFunction))
-		{
-			scopeHash = scopeHash + (scopeHash << 5) + scope->ownerFunction->nameHash;
-			scopeHash = scopeHash + (scopeHash << 5) + scope->ownerFunction->type->nameHash;
-
-			for(MatchData *curr = scope->ownerFunction->generics.head; curr; curr = curr->next)
-				scopeHash = scopeHash + (scopeHash << 5) + curr->type->nameHash;
-		}
-	}
-
 	TypeFunction *instanceType = ctx.GetFunctionType(syntax, returnType, argData);
-
-	TypedFunctionInstanceRequest request(scopeHash, instanceType, syntax);
-
-	if(ExprBase **it = ctx.shortInlineFunctions.find(request))
-	{
-		// Update context variable definition of the previous function instance
-		if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(*it))
-		{
-			node->contextVariable = CreateFunctionContextVariable(ctx, syntax, node->function, NULL);
-			node->contextVariableDefinition = CreateFunctionContextVariableDefinition(ctx, syntax, node->function, NULL, node->contextVariable);
-		}
-
-		return *it;
-	}
 
 	ExprBase *definition = AnalyzeShortFunctionDefinition(ctx, syntax, genericProto, instanceType, argCasts, argData);
 
@@ -9106,8 +9064,6 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	{
 		node->contextVariable = CreateFunctionContextVariable(ctx, syntax, node->function, NULL);
 		node->contextVariableDefinition = CreateFunctionContextVariableDefinition(ctx, syntax, node->function, NULL, node->contextVariable);
-
-		ctx.shortInlineFunctions.insert(request, definition);
 	}
 
 	return definition;
