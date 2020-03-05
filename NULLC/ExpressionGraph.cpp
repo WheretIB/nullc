@@ -366,6 +366,12 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 
 void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr name)
 {
+	if(ctx.depth > 1024)
+	{
+		PrintIndented(ctx, name, expression, "{...}");
+		return;
+	}
+
 	if(ExprError *node = getType<ExprError>(expression))
 	{
 		if(!node->values.empty())

@@ -80,6 +80,12 @@ void PrintLeaveBlock(ParseGraphContext &ctx)
 
 void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 {
+	if(ctx.depth > 1024)
+	{
+		PrintIndented(ctx, name, "{...}");
+		return;
+	}
+
 	if(isType<SynError>(syntax))
 	{
 		PrintIndented(ctx, name, "SynError()");
