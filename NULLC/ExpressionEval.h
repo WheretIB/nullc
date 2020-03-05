@@ -32,6 +32,9 @@ struct ExpressionEvalContext
 
 		instruction = 0;
 		instructionsLimit = 64 * 1024;
+
+		expressionDepth = 0;
+		expressionDepthLimit = 2048;
 	}
 
 	ExpressionContext &ctx;
@@ -89,6 +92,9 @@ struct ExpressionEvalContext
 
 	unsigned instruction;
 	unsigned instructionsLimit;
+
+	unsigned expressionDepth;
+	unsigned expressionDepthLimit;
 
 private:
 	ExpressionEvalContext(const ExpressionEvalContext&);

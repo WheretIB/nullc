@@ -288,6 +288,7 @@ struct ExpressionContext
 
 	unsigned functionInstanceDepth;
 	unsigned classInstanceDepth;
+	unsigned expressionDepth;
 
 	// Error info
 	bool errorHandlerActive;

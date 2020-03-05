@@ -911,6 +911,7 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 
 	functionInstanceDepth = 0;
 	classInstanceDepth = 0;
+	expressionDepth = 0;
 
 	genericTypeMap.init();
 
@@ -11385,6 +11386,11 @@ ExprBase* AnalyzeError(ExpressionContext &ctx, SynError *syntax)
 
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 {
+	ctx.expressionDepth++;
+
+	if(ctx.expressionDepth > NULLC_MAX_EXPRESSION_DEPTH)
+		Stop(ctx, syntax, "ERROR: reached maximum generic expression depth (%d)", NULLC_MAX_EXPRESSION_DEPTH);
+
 	ExprBase *result = NULL;
 
 	switch(syntax->typeID)
@@ -11495,6 +11501,8 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	default:
 		break;
 	}
+
+	ctx.expressionDepth--;
 
 	if(!result)
 		Stop(ctx, syntax, "ERROR: unknown expression type");

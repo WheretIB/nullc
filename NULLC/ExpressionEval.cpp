@@ -3116,6 +3116,11 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 	if(isType<TypeError>(expression->type))
 		return NULL;
 
+	ctx.expressionDepth++;
+
+	if(ctx.expressionDepth > ctx.expressionDepthLimit)
+		return Report(ctx, "ERROR: expression depth limit reached");
+
 	ExprBase *result = NULL;
 
 	switch(expression->typeID)
@@ -3283,6 +3288,8 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 		assert(!"unknown type");
 		break;
 	}
+
+	ctx.expressionDepth--;
 
 	return result;
 }
