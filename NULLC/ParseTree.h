@@ -218,13 +218,88 @@ T* getType(SynBase *node)
 	return 0;
 }
 
+namespace SynNode
+{
+	enum SynNodeId
+	{
+		SynError,
+		SynImportLocation,
+		SynInternal,
+		SynNothing,
+		SynIdentifier,
+		SynTypeAuto,
+		SynTypeGeneric,
+		SynTypeSimple,
+		SynTypeAlias,
+		SynTypeArray,
+		SynTypeReference,
+		SynTypeFunction,
+		SynTypeGenericInstance,
+		SynTypeof,
+		SynBool,
+		SynNumber,
+		SynNullptr,
+		SynCharacter,
+		SynString,
+		SynArray,
+		SynGenerator,
+		SynAlign,
+		SynTypedef,
+		SynMemberAccess,
+		SynCallArgument,
+		SynArrayIndex,
+		SynFunctionCall,
+		SynPreModify,
+		SynPostModify,
+		SynGetAddress,
+		SynDereference,
+		SynSizeof,
+		SynNew,
+		SynConditional,
+		SynReturn,
+		SynYield,
+		SynBreak,
+		SynContinue,
+		SynBlock,
+		SynIfElse,
+		SynFor,
+		SynForEachIterator,
+		SynForEach,
+		SynWhile,
+		SynDoWhile,
+		SynSwitchCase,
+		SynSwitch,
+		SynUnaryOp,
+		SynBinaryOp,
+		SynAssignment,
+		SynModifyAssignment,
+		SynVariableDefinition,
+		SynVariableDefinitions,
+		SynAccessor,
+		SynFunctionArgument,
+		SynFunctionDefinition,
+		SynShortFunctionArgument,
+		SynShortFunctionDefinition,
+		SynConstant,
+		SynConstantSet,
+		SynClassPrototype,
+		SynClassStaticIf,
+		SynClassElements,
+		SynClassDefinition,
+		SynEnumDefinition,
+		SynNamespaceDefinition,
+		SynModuleImport,
+		SynModule,
+	};
+}
+
 struct SynError: SynBase
 {
 	SynError(Lexeme *begin, Lexeme *end): SynBase(myTypeID, begin, end)
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynError;
 };
 
 struct SynImportLocation: SynBase
@@ -233,7 +308,7 @@ struct SynImportLocation: SynBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynImportLocation;
 };
 
 struct SynInternal: SynBase
@@ -243,7 +318,7 @@ struct SynInternal: SynBase
 		isInternal = true;
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynInternal;
 };
 
 struct SynNothing: SynBase
@@ -252,7 +327,7 @@ struct SynNothing: SynBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynNothing;
 };
 
 struct SynIdentifier: SynBase
@@ -275,7 +350,7 @@ struct SynIdentifier: SynBase
 
 	InplaceStr name;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynIdentifier;
 };
 
 struct SynTypeAuto: SynBase
@@ -284,7 +359,7 @@ struct SynTypeAuto: SynBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeAuto;
 };
 
 struct SynTypeGeneric: SynBase
@@ -293,7 +368,7 @@ struct SynTypeGeneric: SynBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeGeneric;
 };
 
 struct SynTypeSimple: SynBase
@@ -305,7 +380,7 @@ struct SynTypeSimple: SynBase
 	IntrusiveList<SynIdentifier> path;
 	InplaceStr name;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeSimple;
 };
 
 struct SynTypeAlias: SynBase
@@ -316,7 +391,7 @@ struct SynTypeAlias: SynBase
 
 	SynIdentifier *name;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeAlias;
 };
 
 struct SynTypeArray: SynBase
@@ -328,7 +403,7 @@ struct SynTypeArray: SynBase
 	SynBase *type;
 	IntrusiveList<SynBase> sizes;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeArray;
 };
 
 struct SynTypeReference: SynBase
@@ -339,7 +414,7 @@ struct SynTypeReference: SynBase
 
 	SynBase *type;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeReference;
 };
 
 struct SynTypeFunction: SynBase
@@ -351,7 +426,7 @@ struct SynTypeFunction: SynBase
 	SynBase *returnType;
 	IntrusiveList<SynBase> arguments;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeFunction;
 };
 
 struct SynTypeGenericInstance: SynBase
@@ -363,7 +438,7 @@ struct SynTypeGenericInstance: SynBase
 	SynBase *baseType;
 	IntrusiveList<SynBase> types;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeGenericInstance;
 };
 
 struct SynTypeof: SynBase
@@ -374,7 +449,7 @@ struct SynTypeof: SynBase
 
 	SynBase *value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypeof;
 };
 
 struct SynBool: SynBase
@@ -385,7 +460,7 @@ struct SynBool: SynBase
 
 	bool value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynBool;
 };
 
 struct SynNumber: SynBase
@@ -397,7 +472,7 @@ struct SynNumber: SynBase
 	InplaceStr value;
 	InplaceStr suffix;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynNumber;
 };
 
 struct SynNullptr: SynBase
@@ -406,7 +481,7 @@ struct SynNullptr: SynBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynNullptr;
 };
 
 struct SynCharacter: SynBase
@@ -417,7 +492,7 @@ struct SynCharacter: SynBase
 
 	InplaceStr value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynCharacter;
 };
 
 struct SynString: SynBase
@@ -429,7 +504,7 @@ struct SynString: SynBase
 	bool rawLiteral;
 	InplaceStr value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynString;
 };
 
 struct SynArray: SynBase
@@ -440,7 +515,7 @@ struct SynArray: SynBase
 
 	IntrusiveList<SynBase> values;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynArray;
 };
 
 struct SynGenerator: SynBase
@@ -451,7 +526,7 @@ struct SynGenerator: SynBase
 
 	IntrusiveList<SynBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynGenerator;
 };
 
 struct SynAlign: SynBase
@@ -462,7 +537,7 @@ struct SynAlign: SynBase
 
 	SynBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynAlign;
 };
 
 struct SynTypedef: SynBase
@@ -474,7 +549,7 @@ struct SynTypedef: SynBase
 	SynBase *type;
 	SynIdentifier *alias;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynTypedef;
 };
 
 struct SynMemberAccess: SynBase
@@ -486,7 +561,7 @@ struct SynMemberAccess: SynBase
 	SynBase* value;
 	SynIdentifier* member;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynMemberAccess;
 };
 
 struct SynCallArgument: SynBase
@@ -498,7 +573,7 @@ struct SynCallArgument: SynBase
 	SynIdentifier* name;
 	SynBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynCallArgument;
 };
 
 struct SynArrayIndex: SynBase
@@ -510,7 +585,7 @@ struct SynArrayIndex: SynBase
 	SynBase* value;
 	IntrusiveList<SynCallArgument> arguments;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynArrayIndex;
 };
 
 struct SynFunctionCall: SynBase
@@ -523,7 +598,7 @@ struct SynFunctionCall: SynBase
 	IntrusiveList<SynBase> aliases;
 	IntrusiveList<SynCallArgument> arguments;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynFunctionCall;
 };
 
 struct SynPreModify: SynBase
@@ -535,7 +610,7 @@ struct SynPreModify: SynBase
 	SynBase* value;
 	bool isIncrement;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynPreModify;
 };
 
 struct SynPostModify: SynBase
@@ -547,7 +622,7 @@ struct SynPostModify: SynBase
 	SynBase* value;
 	bool isIncrement;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynPostModify;
 };
 
 struct SynGetAddress: SynBase
@@ -558,7 +633,7 @@ struct SynGetAddress: SynBase
 
 	SynBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynGetAddress;
 };
 
 struct SynDereference: SynBase
@@ -569,7 +644,7 @@ struct SynDereference: SynBase
 
 	SynBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynDereference;
 };
 
 struct SynSizeof: SynBase
@@ -580,7 +655,7 @@ struct SynSizeof: SynBase
 
 	SynBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynSizeof;
 };
 
 struct SynNew: SynBase
@@ -594,7 +669,7 @@ struct SynNew: SynBase
 	SynBase *count;
 	IntrusiveList<SynBase> constructor;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynNew;
 };
 
 struct SynConditional: SynBase
@@ -607,7 +682,7 @@ struct SynConditional: SynBase
 	SynBase* trueBlock;
 	SynBase* falseBlock;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynConditional;
 };
 
 struct SynReturn: SynBase
@@ -618,7 +693,7 @@ struct SynReturn: SynBase
 
 	SynBase *value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynReturn;
 };
 
 struct SynYield: SynBase
@@ -629,7 +704,7 @@ struct SynYield: SynBase
 
 	SynBase *value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynYield;
 };
 
 struct SynBreak: SynBase
@@ -640,7 +715,7 @@ struct SynBreak: SynBase
 
 	SynNumber* number;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynBreak;
 };
 
 struct SynContinue: SynBase
@@ -651,7 +726,7 @@ struct SynContinue: SynBase
 
 	SynNumber* number;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynContinue;
 };
 
 struct SynBlock: SynBase
@@ -662,7 +737,7 @@ struct SynBlock: SynBase
 
 	IntrusiveList<SynBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynBlock;
 };
 
 struct SynIfElse: SynBase
@@ -676,7 +751,7 @@ struct SynIfElse: SynBase
 	SynBase* trueBlock;
 	SynBase* falseBlock;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynIfElse;
 };
 
 struct SynFor: SynBase
@@ -690,7 +765,7 @@ struct SynFor: SynBase
 	SynBase* increment;
 	SynBase* body;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynFor;
 };
 
 struct SynForEachIterator: SynBase
@@ -703,7 +778,7 @@ struct SynForEachIterator: SynBase
 	SynIdentifier* name;
 	SynBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynForEachIterator;
 };
 
 struct SynForEach: SynBase
@@ -715,7 +790,7 @@ struct SynForEach: SynBase
 	IntrusiveList<SynForEachIterator> iterators;
 	SynBase* body;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynForEach;
 };
 
 struct SynWhile: SynBase
@@ -727,7 +802,7 @@ struct SynWhile: SynBase
 	SynBase* condition;
 	SynBase* body;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynWhile;
 };
 
 struct SynDoWhile: SynBase
@@ -739,7 +814,7 @@ struct SynDoWhile: SynBase
 	IntrusiveList<SynBase> expressions;
 	SynBase* condition;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynDoWhile;
 };
 
 struct SynSwitchCase: SynBase
@@ -751,7 +826,7 @@ struct SynSwitchCase: SynBase
 	SynBase* value;
 	IntrusiveList<SynBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynSwitchCase;
 };
 
 struct SynSwitch: SynBase
@@ -763,7 +838,7 @@ struct SynSwitch: SynBase
 	SynBase* condition;
 	IntrusiveList<SynSwitchCase> cases;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynSwitch;
 };
 
 struct SynUnaryOp: SynBase
@@ -775,7 +850,7 @@ struct SynUnaryOp: SynBase
 	SynUnaryOpType type;
 	SynBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynUnaryOp;
 };
 
 struct SynBinaryOp: SynBase
@@ -788,7 +863,7 @@ struct SynBinaryOp: SynBase
 	SynBase* lhs;
 	SynBase* rhs;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynBinaryOp;
 };
 
 struct SynAssignment: SynBase
@@ -800,7 +875,7 @@ struct SynAssignment: SynBase
 	SynBase* lhs;
 	SynBase* rhs;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynAssignment;
 };
 
 struct SynModifyAssignment: SynBase
@@ -813,7 +888,7 @@ struct SynModifyAssignment: SynBase
 	SynBase* lhs;
 	SynBase* rhs;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynModifyAssignment;
 };
 
 struct SynVariableDefinition: SynBase
@@ -825,7 +900,7 @@ struct SynVariableDefinition: SynBase
 	SynIdentifier *name;
 	SynBase *initializer;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynVariableDefinition;
 };
 
 struct SynVariableDefinitions: SynBase
@@ -838,7 +913,7 @@ struct SynVariableDefinitions: SynBase
 	SynBase *type;
 	IntrusiveList<SynVariableDefinition> definitions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynVariableDefinitions;
 };
 
 struct SynAccessor: SynBase
@@ -853,7 +928,7 @@ struct SynAccessor: SynBase
 	SynBase *setBlock;
 	SynIdentifier *setName;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynAccessor;
 };
 
 struct SynFunctionArgument: SynBase
@@ -868,7 +943,7 @@ struct SynFunctionArgument: SynBase
 	SynIdentifier* name;
 	SynBase* initializer;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynFunctionArgument;
 };
 
 struct SynFunctionDefinition: SynBase
@@ -888,7 +963,7 @@ struct SynFunctionDefinition: SynBase
 	IntrusiveList<SynFunctionArgument> arguments;
 	IntrusiveList<SynBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynFunctionDefinition;
 };
 
 struct SynShortFunctionArgument: SynBase
@@ -900,7 +975,7 @@ struct SynShortFunctionArgument: SynBase
 	SynBase* type;
 	SynIdentifier* name;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynShortFunctionArgument;
 };
 
 struct SynShortFunctionDefinition: SynBase
@@ -912,7 +987,7 @@ struct SynShortFunctionDefinition: SynBase
 	IntrusiveList<SynShortFunctionArgument> arguments;
 	IntrusiveList<SynBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynShortFunctionDefinition;
 };
 
 struct SynConstant: SynBase
@@ -924,7 +999,7 @@ struct SynConstant: SynBase
 	SynIdentifier *name;
 	SynBase *value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynConstant;
 };
 
 struct SynConstantSet: SynBase
@@ -936,7 +1011,7 @@ struct SynConstantSet: SynBase
 	SynBase *type;
 	IntrusiveList<SynConstant> constants;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynConstantSet;
 };
 
 struct SynClassPrototype: SynBase
@@ -947,7 +1022,7 @@ struct SynClassPrototype: SynBase
 
 	SynIdentifier *name;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynClassPrototype;
 };
 
 struct SynClassElements;
@@ -962,7 +1037,7 @@ struct SynClassStaticIf: SynBase
 	SynClassElements *trueBlock;
 	SynClassElements *falseBlock;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynClassStaticIf;
 };
 
 struct SynClassElements: SynBase
@@ -978,7 +1053,7 @@ struct SynClassElements: SynBase
 	IntrusiveList<SynConstantSet> constantSets;
 	IntrusiveList<SynClassStaticIf> staticIfs;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynClassElements;
 };
 
 struct SynClassDefinition: SynBase
@@ -996,7 +1071,7 @@ struct SynClassDefinition: SynBase
 	SynBase *baseClass;
 	SynClassElements *elements;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynClassDefinition;
 };
 
 struct SynEnumDefinition: SynBase
@@ -1008,7 +1083,7 @@ struct SynEnumDefinition: SynBase
 	SynIdentifier* name;
 	IntrusiveList<SynConstant> values;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynEnumDefinition;
 };
 
 struct SynNamespaceElement
@@ -1035,7 +1110,7 @@ struct SynNamespaceDefinition: SynBase
 	IntrusiveList<SynIdentifier> path;
 	IntrusiveList<SynBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynNamespaceDefinition;
 };
 
 struct SynModuleImport: SynBase
@@ -1047,7 +1122,7 @@ struct SynModuleImport: SynBase
 	IntrusiveList<SynIdentifier> path;
 	ByteCode *bytecode;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynModuleImport;
 };
 
 struct SynModule: SynBase
@@ -1060,7 +1135,7 @@ struct SynModule: SynBase
 
 	IntrusiveList<SynBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = SynNode::SynModule;
 };
 
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);

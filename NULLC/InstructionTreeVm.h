@@ -223,6 +223,18 @@ struct VmType
 	}
 };
 
+namespace VmValueNode
+{
+	enum VmValueNodeId
+	{
+		VmVoid,
+		VmConstant,
+		VmInstruction,
+		VmBlock,
+		VmFunction,
+	};
+}
+
 struct VmValue
 {
 	VmValue(unsigned typeID, Allocator *allocator, VmType type, SynBase *source): typeID(typeID), type(type), source(source), users(allocator)
@@ -268,7 +280,7 @@ struct VmVoid: VmValue
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = VmValueNode::VmVoid;
 };
 
 struct VmConstant: VmValue
@@ -305,7 +317,7 @@ struct VmConstant: VmValue
 	bool isFloat;
 	bool isReference;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = VmValueNode::VmConstant;
 };
 
 struct VmInstruction: VmValue
@@ -356,7 +368,7 @@ struct VmInstruction: VmValue
 	VmInstruction *idom;
 	VmInstruction *intersectingIdom;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = VmValueNode::VmInstruction;
 };
 
 struct VmBlock: VmValue
@@ -440,7 +452,7 @@ struct VmBlock: VmValue
 	VmInstruction *entryPc;
 	VmInstruction *exitPc;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = VmValueNode::VmBlock;
 };
 
 struct VmFunction: VmValue
@@ -507,7 +519,7 @@ struct VmFunction: VmValue
 	unsigned nextColor;
 	unsigned nextSearchMarker;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = VmValueNode::VmFunction;
 };
 
 struct VmModule

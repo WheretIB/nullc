@@ -637,6 +637,42 @@ unsigned GetTypeAlignment()
 	return sizeof(Helper) - sizeof(T);
 }
 
+namespace TypeNode
+{
+	enum TypeNodeId
+	{
+		TypeError,
+		TypeVoid,
+		TypeBool,
+		TypeChar,
+		TypeShort,
+		TypeInt,
+		TypeLong,
+		TypeFloat,
+		TypeDouble,
+		TypeTypeID,
+		TypeFunctionID,
+		TypeNullptr,
+		TypeGeneric,
+		TypeGenericAlias,
+		TypeAuto,
+		TypeStruct,
+		TypeAutoRef,
+		TypeAutoArray,
+		TypeRef,
+		TypeArray,
+		TypeUnsizedArray,
+		TypeFunction,
+		TypeGenericClassProto,
+		TypeGenericClass,
+		TypeClass,
+		TypeEnum,
+		TypeFunctionSet,
+		TypeArgumentSet,
+		TypeMemberSet,
+	};
+}
+
 struct TypeBase
 {
 	TypeBase(unsigned typeID, InplaceStr name): typeID(typeID), name(name)
@@ -693,7 +729,7 @@ struct TypeError: TypeBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeError;
 };
 
 struct TypeVoid: TypeBase
@@ -704,7 +740,7 @@ struct TypeVoid: TypeBase
 		alignment = 0;
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeVoid;
 };
 
 struct TypeBool: TypeBase
@@ -714,7 +750,7 @@ struct TypeBool: TypeBase
 		size = 1;
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeBool;
 };
 
 struct TypeChar: TypeBase
@@ -724,7 +760,7 @@ struct TypeChar: TypeBase
 		size = 1;
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeChar;
 };
 
 struct TypeShort: TypeBase
@@ -735,7 +771,7 @@ struct TypeShort: TypeBase
 		alignment = GetTypeAlignment<short>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeShort;
 };
 
 struct TypeInt: TypeBase
@@ -746,7 +782,7 @@ struct TypeInt: TypeBase
 		alignment = GetTypeAlignment<int>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeInt;
 };
 
 struct TypeLong: TypeBase
@@ -757,7 +793,7 @@ struct TypeLong: TypeBase
 		alignment = GetTypeAlignment<long>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeLong;
 };
 
 struct TypeFloat: TypeBase
@@ -768,7 +804,7 @@ struct TypeFloat: TypeBase
 		alignment = GetTypeAlignment<float>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeFloat;
 };
 
 struct TypeDouble: TypeBase
@@ -779,7 +815,7 @@ struct TypeDouble: TypeBase
 		alignment = GetTypeAlignment<double>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeDouble;
 };
 
 struct TypeTypeID: TypeBase
@@ -790,7 +826,7 @@ struct TypeTypeID: TypeBase
 		alignment = GetTypeAlignment<int>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeTypeID;
 };
 
 struct TypeFunctionID: TypeBase
@@ -801,7 +837,7 @@ struct TypeFunctionID: TypeBase
 		alignment = GetTypeAlignment<int>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeFunctionID;
 };
 
 struct TypeNullptr: TypeBase
@@ -812,7 +848,7 @@ struct TypeNullptr: TypeBase
 		alignment = GetTypeAlignment<int>();
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeNullptr;
 };
 
 struct TypeGeneric: TypeBase
@@ -822,7 +858,7 @@ struct TypeGeneric: TypeBase
 		isGeneric = true;
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeGeneric;
 };
 
 struct TypeGenericAlias: TypeBase
@@ -836,7 +872,7 @@ struct TypeGenericAlias: TypeBase
 
 	SynIdentifier *baseName;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeGenericAlias;
 };
 
 struct TypeAuto: TypeBase
@@ -845,7 +881,7 @@ struct TypeAuto: TypeBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeAuto;
 };
 
 struct TypeStruct: TypeBase
@@ -870,7 +906,7 @@ struct TypeAutoRef: TypeStruct
 		hasPointers = true;
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeAutoRef;
 };
 
 struct TypeAutoArray: TypeStruct
@@ -880,7 +916,7 @@ struct TypeAutoArray: TypeStruct
 		hasPointers = true;
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeAutoArray;
 };
 
 struct TypeRef: TypeBase
@@ -897,7 +933,7 @@ struct TypeRef: TypeBase
 
 	TypeBase *subType;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeRef;
 };
 
 struct TypeArray: TypeBase
@@ -914,7 +950,7 @@ struct TypeArray: TypeBase
 	TypeBase *subType;
 	long long length;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeArray;
 };
 
 struct TypeUnsizedArray: TypeStruct
@@ -928,7 +964,7 @@ struct TypeUnsizedArray: TypeStruct
 
 	TypeBase *subType;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeUnsizedArray;
 };
 
 struct TypeFunction: TypeBase
@@ -948,7 +984,7 @@ struct TypeFunction: TypeBase
 	TypeBase *returnType;
 	IntrusiveList<TypeHandle> arguments;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeFunction;
 };
 
 struct TypeGenericClassProto: TypeBase
@@ -968,7 +1004,7 @@ struct TypeGenericClassProto: TypeBase
 
 	IntrusiveList<ExprBase> instances;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeGenericClassProto;
 };
 
 struct TypeGenericClass: TypeBase
@@ -982,7 +1018,7 @@ struct TypeGenericClass: TypeBase
 
 	IntrusiveList<TypeHandle> generics;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeGenericClass;
 };
 
 struct TypeClass: TypeStruct
@@ -1016,7 +1052,7 @@ struct TypeClass: TypeStruct
 
 	bool hasFinalizer;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeClass;
 };
 
 struct TypeEnum: TypeStruct
@@ -1033,7 +1069,7 @@ struct TypeEnum: TypeStruct
 
 	ScopeData *scope;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeEnum;
 };
 
 struct TypeFunctionSet: TypeBase
@@ -1045,7 +1081,7 @@ struct TypeFunctionSet: TypeBase
 
 	IntrusiveList<TypeHandle> types;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeFunctionSet;
 };
 
 struct TypeArgumentSet: TypeBase
@@ -1057,7 +1093,7 @@ struct TypeArgumentSet: TypeBase
 
 	IntrusiveList<TypeHandle> types;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeArgumentSet;
 };
 
 struct TypeMemberSet: TypeBase
@@ -1069,7 +1105,7 @@ struct TypeMemberSet: TypeBase
 
 	TypeStruct *type;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = TypeNode::TypeMemberSet;
 };
 
 template<typename T>
