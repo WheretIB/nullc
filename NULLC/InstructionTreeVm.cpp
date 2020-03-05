@@ -3852,152 +3852,105 @@ VmValue* CompileVmSequence(ExpressionContext &ctx, VmModule *module, ExprSequenc
 
 VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expression)
 {
-	if(ExprVoid *node = getType<ExprVoid>(expression))
-		return CompileVmVoid(ctx, module, node);
-
-	if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(expression))
-		return CompileVmBoolLiteral(ctx, module, node);
-
-	if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(expression))
-		return CompileVmCharacterLiteral(ctx, module, node);
-
-	if(ExprStringLiteral *node = getType<ExprStringLiteral>(expression))
-		return CompileVmStringLiteral(ctx, module, node);
-
-	if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(expression))
-		return CompileVmIntegerLiteral(ctx, module, node);
-
-	if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(expression))
-		return CompileVmRationalLiteral(ctx, module, node);
-
-	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expression))
-		return CompileVmTypeLiteral(ctx, module, node);
-
-	if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
-		return CompileVmNullptrLiteral(ctx, module, node);
-
-	if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
-		return CompileVmFunctionIndexLiteral(ctx, module, node);
-
-	if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
-		return CompileVmPassthrough(ctx, module, node);
-
-	if(ExprArray *node = getType<ExprArray>(expression))
-		return CompileVmArray(ctx, module, node);
-
-	if(ExprPreModify *node = getType<ExprPreModify>(expression))
-		return CompileVmPreModify(ctx, module, node);
-
-	if(ExprPostModify *node = getType<ExprPostModify>(expression))
-		return CompileVmPostModify(ctx, module, node);	
-
-	if(ExprTypeCast *node = getType<ExprTypeCast>(expression))
-		return CompileVmTypeCast(ctx, module, node);
-
-	if(ExprUnaryOp *node = getType<ExprUnaryOp>(expression))
-		return CompileVmUnaryOp(ctx, module, node);
-
-	if(ExprBinaryOp *node = getType<ExprBinaryOp>(expression))
-		return CompileVmBinaryOp(ctx, module, node);
-
-	if(ExprGetAddress *node = getType<ExprGetAddress>(expression))
-		return CompileVmGetAddress(ctx, module, node);
-
-	if(ExprDereference *node = getType<ExprDereference>(expression))
-		return CompileVmDereference(ctx, module, node);
-
-	if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
-		return CompileVmUnboxing(ctx, module, node);
-
-	if(ExprConditional *node = getType<ExprConditional>(expression))
-		return CompileVmConditional(ctx, module, node);
-
-	if(ExprAssignment *node = getType<ExprAssignment>(expression))
-		return CompileVmAssignment(ctx, module, node);
-
-	if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
-		return CompileVmMemberAccess(ctx, module, node);
-
-	if(ExprArrayIndex *node = getType<ExprArrayIndex>(expression))
-		return CompileVmArrayIndex(ctx, module, node);
-
-	if(ExprReturn *node = getType<ExprReturn>(expression))
-		return CompileVmReturn(ctx, module, node);
-
-	if(ExprYield *node = getType<ExprYield>(expression))
-		return CompileVmYield(ctx, module, node);
-
-	if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
-		return CompileVmVariableDefinition(ctx, module, node);
-
-	if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
-		return CompileVmArraySetup(ctx, module, node);
-
-	if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
-		return CompileVmVariableDefinitions(ctx, module, node);
-
-	if(ExprVariableAccess *node = getType<ExprVariableAccess>(expression))
-		return CompileVmVariableAccess(ctx, module, node);
-
-	if(ExprFunctionContextAccess *node = getType<ExprFunctionContextAccess>(expression))
-		return CompileVmFunctionContextAccess(ctx, module, node);
-
-	if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
-		return CompileVmFunctionDefinition(ctx, module, node);
-
-	if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
-		return CompileVmGenericFunctionPrototype(ctx, module, node);
-
-	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
-		return CompileVmFunctionAccess(ctx, module, node);
-
-	if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
-		return CompileVmFunctionCall(ctx, module, node);
-
-	if(ExprAliasDefinition *node = getType<ExprAliasDefinition>(expression))
-		return CompileVmAliasDefinition(ctx, module, node);
-
-	if(ExprClassPrototype *node = getType<ExprClassPrototype>(expression))
-		return CompileVmClassPrototype(ctx, module, node);
-
-	if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
-		return CompileVmGenericClassPrototype(ctx, module, node);
-
-	if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
-		return CompileVmClassDefinition(ctx, module, node);
-
-	if(ExprEnumDefinition *node = getType<ExprEnumDefinition>(expression))
-		return CompileVmEnumDefinition(ctx, module, node);
-
-	if(ExprIfElse *node = getType<ExprIfElse>(expression))
-		return CompileVmIfElse(ctx, module, node);
-
-	if(ExprFor *node = getType<ExprFor>(expression))
-		return CompileVmFor(ctx, module, node);
-
-	if(ExprWhile *node = getType<ExprWhile>(expression))
-		return CompileVmWhile(ctx, module, node);
-
-	if(ExprDoWhile *node = getType<ExprDoWhile>(expression))
-		return CompileVmDoWhile(ctx, module, node);
-
-	if(ExprSwitch *node = getType<ExprSwitch>(expression))
-		return CompileVmSwitch(ctx, module, node);
-
-	if(ExprBreak *node = getType<ExprBreak>(expression))
-		return CompileVmBreak(ctx, module, node);
-
-	if(ExprContinue *node = getType<ExprContinue>(expression))
-		return CompileVmContinue(ctx, module, node);
-
-	if(ExprBlock *node = getType<ExprBlock>(expression))
-		return CompileVmBlock(ctx, module, node);
-
-	if(ExprSequence *node = getType<ExprSequence>(expression))
-		return CompileVmSequence(ctx, module, node);
-
-	if(!expression)
-		return NULL;
+	switch(expression->typeID)
+	{
+	case ExprVoid::myTypeID:
+		return CompileVmVoid(ctx, module, (ExprVoid*)expression);
+	case ExprBoolLiteral::myTypeID:
+		return CompileVmBoolLiteral(ctx, module, (ExprBoolLiteral*)expression);
+	case ExprCharacterLiteral::myTypeID:
+		return CompileVmCharacterLiteral(ctx, module, (ExprCharacterLiteral*)expression);
+	case ExprStringLiteral::myTypeID:
+		return CompileVmStringLiteral(ctx, module, (ExprStringLiteral*)expression);
+	case ExprIntegerLiteral::myTypeID:
+		return CompileVmIntegerLiteral(ctx, module, (ExprIntegerLiteral*)expression);
+	case ExprRationalLiteral::myTypeID:
+		return CompileVmRationalLiteral(ctx, module, (ExprRationalLiteral*)expression);
+	case ExprTypeLiteral::myTypeID:
+		return CompileVmTypeLiteral(ctx, module, (ExprTypeLiteral*)expression);
+	case ExprNullptrLiteral::myTypeID:
+		return CompileVmNullptrLiteral(ctx, module, (ExprNullptrLiteral*)expression);
+	case ExprFunctionIndexLiteral::myTypeID:
+		return CompileVmFunctionIndexLiteral(ctx, module, (ExprFunctionIndexLiteral*)expression);
+	case ExprPassthrough::myTypeID:
+		return CompileVmPassthrough(ctx, module, (ExprPassthrough*)expression);
+	case ExprArray::myTypeID:
+		return CompileVmArray(ctx, module, (ExprArray*)expression);
+	case ExprPreModify::myTypeID:
+		return CompileVmPreModify(ctx, module, (ExprPreModify*)expression);
+	case ExprPostModify::myTypeID:
+		return CompileVmPostModify(ctx, module, (ExprPostModify*)expression);
+	case ExprTypeCast::myTypeID:
+		return CompileVmTypeCast(ctx, module, (ExprTypeCast*)expression);
+	case ExprUnaryOp::myTypeID:
+		return CompileVmUnaryOp(ctx, module, (ExprUnaryOp*)expression);
+	case ExprBinaryOp::myTypeID:
+		return CompileVmBinaryOp(ctx, module, (ExprBinaryOp*)expression);
+	case ExprGetAddress::myTypeID:
+		return CompileVmGetAddress(ctx, module, (ExprGetAddress*)expression);
+	case ExprDereference::myTypeID:
+		return CompileVmDereference(ctx, module, (ExprDereference*)expression);
+	case ExprUnboxing::myTypeID:
+		return CompileVmUnboxing(ctx, module, (ExprUnboxing*)expression);
+	case ExprConditional::myTypeID:
+		return CompileVmConditional(ctx, module, (ExprConditional*)expression);
+	case ExprAssignment::myTypeID:
+		return CompileVmAssignment(ctx, module, (ExprAssignment*)expression);
+	case ExprMemberAccess::myTypeID:
+		return CompileVmMemberAccess(ctx, module, (ExprMemberAccess*)expression);
+	case ExprArrayIndex::myTypeID:
+		return CompileVmArrayIndex(ctx, module, (ExprArrayIndex*)expression);
+	case ExprReturn::myTypeID:
+		return CompileVmReturn(ctx, module, (ExprReturn*)expression);
+	case ExprYield::myTypeID:
+		return CompileVmYield(ctx, module, (ExprYield*)expression);
+	case ExprVariableDefinition::myTypeID:
+		return CompileVmVariableDefinition(ctx, module, (ExprVariableDefinition*)expression);
+	case ExprArraySetup::myTypeID:
+		return CompileVmArraySetup(ctx, module, (ExprArraySetup*)expression);
+	case ExprVariableDefinitions::myTypeID:
+		return CompileVmVariableDefinitions(ctx, module, (ExprVariableDefinitions*)expression);
+	case ExprVariableAccess::myTypeID:
+		return CompileVmVariableAccess(ctx, module, (ExprVariableAccess*)expression);
+	case ExprFunctionContextAccess::myTypeID:
+		return CompileVmFunctionContextAccess(ctx, module, (ExprFunctionContextAccess*)expression);
+	case ExprFunctionDefinition::myTypeID:
+		return CompileVmFunctionDefinition(ctx, module, (ExprFunctionDefinition*)expression);
+	case ExprGenericFunctionPrototype::myTypeID:
+		return CompileVmGenericFunctionPrototype(ctx, module, (ExprGenericFunctionPrototype*)expression);
+	case ExprFunctionAccess::myTypeID:
+		return CompileVmFunctionAccess(ctx, module, (ExprFunctionAccess*)expression);
+	case ExprFunctionCall::myTypeID:
+		return CompileVmFunctionCall(ctx, module, (ExprFunctionCall*)expression);
+	case ExprAliasDefinition::myTypeID:
+		return CompileVmAliasDefinition(ctx, module, (ExprAliasDefinition*)expression);
+	case ExprClassPrototype::myTypeID:
+		return CompileVmClassPrototype(ctx, module, (ExprClassPrototype*)expression);
+	case ExprGenericClassPrototype::myTypeID:
+		return CompileVmGenericClassPrototype(ctx, module, (ExprGenericClassPrototype*)expression);
+	case ExprClassDefinition::myTypeID:
+		return CompileVmClassDefinition(ctx, module, (ExprClassDefinition*)expression);
+	case ExprEnumDefinition::myTypeID:
+		return CompileVmEnumDefinition(ctx, module, (ExprEnumDefinition*)expression);
+	case ExprIfElse::myTypeID:
+		return CompileVmIfElse(ctx, module, (ExprIfElse*)expression);
+	case ExprFor::myTypeID:
+		return CompileVmFor(ctx, module, (ExprFor*)expression);
+	case ExprWhile::myTypeID:
+		return CompileVmWhile(ctx, module, (ExprWhile*)expression);
+	case ExprDoWhile::myTypeID:
+		return CompileVmDoWhile(ctx, module, (ExprDoWhile*)expression);
+	case ExprSwitch::myTypeID:
+		return CompileVmSwitch(ctx, module, (ExprSwitch*)expression);
+	case ExprBreak::myTypeID:
+		return CompileVmBreak(ctx, module, (ExprBreak*)expression);
+	case ExprContinue::myTypeID:
+		return CompileVmContinue(ctx, module, (ExprContinue*)expression);
+	case ExprBlock::myTypeID:
+		return CompileVmBlock(ctx, module, (ExprBlock*)expression);
+	case ExprSequence::myTypeID:
+		return CompileVmSequence(ctx, module, (ExprSequence*)expression);
+	}
 
 	assert(!"unknown type");
 

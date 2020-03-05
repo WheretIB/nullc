@@ -5000,23 +5000,6 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 	return NULL;
 }
 
-ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
-{
-	// It could be a type property
-	if(TypeBase *type = AnalyzeType(ctx, syntax->value, false))
-	{
-		if(ExprBase *result = CreateTypeidMemberAccess(ctx, syntax, type, syntax->member))
-			return result;
-	}
-
-	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
-
-	if(isType<TypeError>(value->type))
-		return new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(syntax, ctx.GetErrorType(), value, NULL);
-
-	return CreateMemberAccess(ctx, syntax, value, syntax->member, false);
-}
-
 ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<ArgumentData> arguments)
 {
 	// Handle argument[x] expresion
@@ -11181,321 +11164,342 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 	return new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, NULL);
 }
 
-ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
+ExprBase* AnalyzeBool(ExpressionContext &ctx, SynBool *syntax)
 {
-	if(SynBool *node = getType<SynBool>(syntax))
+	return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(syntax, ctx.typeBool, syntax->value);
+}
+
+ExprBase* AnalyzeCharacter(ExpressionContext &ctx, SynCharacter *syntax)
+{
+	unsigned char result = (unsigned char)syntax->value.begin[1];
+
+	if(result == '\\')
+		result = ParseEscapeSequence(ctx, syntax, syntax->value.begin + 1);
+
+	return new (ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(syntax, ctx.typeChar, result);
+}
+
+ExprBase* AnalyzeString(ExpressionContext &ctx, SynString *syntax)
+{
+	unsigned length = 0;
+
+	if(syntax->rawLiteral)
 	{
-		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(node, ctx.typeBool, node->value);
+		if(syntax->value.length() >= 2)
+			length = syntax->value.length() - 2;
 	}
-
-	if(SynCharacter *node = getType<SynCharacter>(syntax))
+	else
 	{
-		unsigned char result = (unsigned char)node->value.begin[1];
-
-		if(result == '\\')
-			result = ParseEscapeSequence(ctx, syntax, node->value.begin + 1);
-
-		return new (ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(node, ctx.typeChar, result);
-	}
-
-	if(SynString *node = getType<SynString>(syntax))
-	{
-		unsigned length = 0;
-
-		if(node->rawLiteral)
+		// Find the length of the string with collapsed escape-sequences
+		for(const char *curr = syntax->value.begin + 1, *end = syntax->value.end - 1; curr < end; curr++, length++)
 		{
-			if(node->value.length() >= 2)
-				length = node->value.length() - 2;
+			if(*curr == '\\')
+				curr++;
 		}
-		else
+	}
+
+	unsigned memory = length ? ((length + 1) + 3) & ~3 : 4;
+
+	char *value = (char*)ctx.allocator->alloc(memory);
+
+	for(unsigned i = length; i < memory; i++)
+		value[i] = 0;
+
+	if(syntax->rawLiteral)
+	{
+		for(unsigned i = 0; i < length; i++)
+			value[i] = syntax->value.begin[i + 1];
+
+		value[length] = 0;
+	}
+	else
+	{
+		unsigned i = 0;
+
+		// Find the length of the string with collapsed escape-sequences
+		for(const char *curr = syntax->value.begin + 1, *end = syntax->value.end - 1; curr < end;)
 		{
-			// Find the length of the string with collapsed escape-sequences
-			for(const char *curr = node->value.begin + 1, *end = node->value.end - 1 ; curr < end; curr++, length++)
+			if(*curr == '\\')
 			{
-				if(*curr == '\\')
-					curr++;
+				value[i++] = ParseEscapeSequence(ctx, syntax, curr);
+				curr += 2;
+			}
+			else
+			{
+				value[i++] = *curr;
+				curr += 1;
 			}
 		}
 
-		unsigned memory = length ? ((length + 1) + 3) & ~3 : 4;
-
-		char *value = (char*)ctx.allocator->alloc(memory);
-
-		for(unsigned i = length; i < memory; i++)
-			value[i] = 0;
-
-		if(node->rawLiteral)
-		{
-			for(unsigned i = 0; i < length; i++)
-				value[i] = node->value.begin[i + 1];
-
-			value[length] = 0;
-		}
-		else
-		{
-			unsigned i = 0;
-
-			// Find the length of the string with collapsed escape-sequences
-			for(const char *curr = node->value.begin + 1, *end = node->value.end - 1 ; curr < end;)
-			{
-				if(*curr == '\\')
-				{
-					value[i++] = ParseEscapeSequence(ctx, node, curr);
-					curr += 2;
-				}
-				else
-				{
-					value[i++] = *curr;
-					curr += 1;
-				}
-			}
-
-			value[length] = 0;
-		}
-
-		return new (ctx.get<ExprStringLiteral>()) ExprStringLiteral(node, ctx.GetArrayType(ctx.typeChar, length + 1), value, length);
-	}
-	
-	if(SynNullptr *node = getType<SynNullptr>(syntax))
-	{
-		return new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(node, ctx.typeNullPtr);
+		value[length] = 0;
 	}
 
-	if(SynNumber *node = getType<SynNumber>(syntax))
-	{
-		return AnalyzeNumber(ctx, node);
-	}
+	return new (ctx.get<ExprStringLiteral>()) ExprStringLiteral(syntax, ctx.GetArrayType(ctx.typeChar, length + 1), value, length);
+}
 
-	if(SynArray *node = getType<SynArray>(syntax))
-	{
-		return AnalyzeArray(ctx, node);
-	}
+ExprBase* AnalyzeNullptr(ExpressionContext &ctx, SynNullptr *syntax)
+{
+	return new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral((SynNullptr*)syntax, ctx.typeNullPtr);
+}
 
-	if(SynPreModify *node = getType<SynPreModify>(syntax))
-	{
-		return AnalyzePreModify(ctx, node);
-	}
+ExprBase* AnalyzeTypeof(ExpressionContext &ctx, SynTypeof *syntax)
+{
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(SynPostModify *node = getType<SynPostModify>(syntax))
-	{
-		return AnalyzePostModify(ctx, node);
-	}
+	if(value->type == ctx.typeAuto)
+		Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
 
-	if(SynUnaryOp *node = getType<SynUnaryOp>(syntax))
-	{
-		return AnalyzeUnaryOp(ctx, node);
-	}
+	if(isType<ExprTypeLiteral>(value))
+		return value;
 
-	if(SynBinaryOp *node = getType<SynBinaryOp>(syntax))
-	{
-		return AnalyzeBinaryOp(ctx, node);
-	}
-	
-	if(SynGetAddress *node = getType<SynGetAddress>(syntax))
-	{
-		return AnalyzeGetAddress(ctx, node);
-	}
+	ResolveInitializerValue(ctx, syntax, value);
 
-	if(SynDereference *node = getType<SynDereference>(syntax))
-	{
-		return AnalyzeDereference(ctx, node);
-	}
+	assert(!isType<TypeArgumentSet>(value->type) && !isType<TypeMemberSet>(value->type) && !isType<TypeFunctionSet>(value->type));
 
-	if(SynTypeof *node = getType<SynTypeof>(syntax))
-	{
-		ExprBase *value = AnalyzeExpression(ctx, node->value);
+	return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(syntax, ctx.typeTypeID, value->type);
+}
 
-		if(value->type == ctx.typeAuto)
+ExprBase* AnalyzeTypeSimple(ExpressionContext &ctx, SynTypeSimple *syntax)
+{
+	// It could be a typeid
+	if(TypeBase *type = AnalyzeType(ctx, syntax, false))
+	{
+		if(type == ctx.typeAuto)
 			Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
 
-		if(isType<ExprTypeLiteral>(value))
-			return value;
-
-		ResolveInitializerValue(ctx, syntax, value);
-
-		assert(!isType<TypeArgumentSet>(value->type) && !isType<TypeMemberSet>(value->type) && !isType<TypeFunctionSet>(value->type));
-
-		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, value->type);
+		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(syntax, ctx.typeTypeID, type);
 	}
 
-	if(SynIdentifier *node = getType<SynIdentifier>(syntax))
+	return AnalyzeVariableAccess(ctx, syntax);
+}
+
+ExprBase* AnalyzeSizeof(ExpressionContext &ctx, SynSizeof *syntax)
+{
+	if(TypeBase *type = AnalyzeType(ctx, syntax->value, false))
 	{
-		return AnalyzeVariableAccess(ctx, node);
-	}
+		if(type->isGeneric)
+			Stop(ctx, syntax, "ERROR: sizeof generic type is illegal");
 
-	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
-	{
-		// It could be a typeid
-		if(TypeBase *type = AnalyzeType(ctx, node, false))
-		{
-			if(type == ctx.typeAuto)
-				Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
-
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, type);
-		}
-
-		return AnalyzeVariableAccess(ctx, node);
-	}
-
-	if(SynSizeof *node = getType<SynSizeof>(syntax))
-	{
-		if(TypeBase *type = AnalyzeType(ctx, node->value, false))
-		{
-			if(type->isGeneric)
-				Stop(ctx, syntax, "ERROR: sizeof generic type is illegal");
-
-			if(type == ctx.typeAuto)
-				Stop(ctx, syntax, "ERROR: sizeof auto type is illegal");
-
-			if(TypeClass *typeClass = getType<TypeClass>(type))
-			{
-				if(!typeClass->completed)
-					Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
-			}
-
-			assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
-
-			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(node, ctx.typeInt, type->size);
-		}
-
-		ExprBase *value = AnalyzeExpression(ctx, node->value);
-
-		if(value->type == ctx.typeAuto)
+		if(type == ctx.typeAuto)
 			Stop(ctx, syntax, "ERROR: sizeof auto type is illegal");
 
-		if(TypeClass *typeClass = getType<TypeClass>(value->type))
+		if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
 			if(!typeClass->completed)
-				Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(value->type->name));
+				Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
 		}
 
-		ResolveInitializerValue(ctx, syntax, value);
+		assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
 
-		assert(!isType<TypeArgumentSet>(value->type) && !isType<TypeMemberSet>(value->type) && !isType<TypeFunctionSet>(value->type));
-
-		return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(node, ctx.typeInt, value->type->size);
+		return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeInt, type->size);
 	}
 
-	if(SynConditional *node = getType<SynConditional>(syntax))
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	if(value->type == ctx.typeAuto)
+		Stop(ctx, syntax, "ERROR: sizeof auto type is illegal");
+
+	if(TypeClass *typeClass = getType<TypeClass>(value->type))
 	{
-		return AnalyzeConditional(ctx, node);
+		if(!typeClass->completed)
+			Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(value->type->name));
 	}
 
-	if(SynAssignment *node = getType<SynAssignment>(syntax))
+	ResolveInitializerValue(ctx, syntax, value);
+
+	assert(!isType<TypeArgumentSet>(value->type) && !isType<TypeMemberSet>(value->type) && !isType<TypeFunctionSet>(value->type));
+
+	return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeInt, value->type->size);
+}
+
+ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
+{
+	// It could be a typeid
+	if(TypeBase *type = AnalyzeType(ctx, syntax, false))
 	{
-		return AnalyzeAssignment(ctx, node);
+		if(type == ctx.typeAuto)
+			Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
+
+		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(syntax, ctx.typeTypeID, type);
 	}
 
-	if(SynModifyAssignment *node = getType<SynModifyAssignment>(syntax))
+	// It could be a type property
+	if(TypeBase *type = AnalyzeType(ctx, syntax->value, false))
 	{
-		return AnalyzeModifyAssignment(ctx, node);
+		if(ExprBase *result = CreateTypeidMemberAccess(ctx, syntax, type, syntax->member))
+			return result;
 	}
 
-	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
+	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
+
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(syntax, ctx.GetErrorType(), value, NULL);
+
+	return CreateMemberAccess(ctx, syntax, value, syntax->member, false);
+}
+
+ExprBase* AnalyzeTypeArray(ExpressionContext &ctx, SynTypeArray *syntax)
+{
+	// It could be a typeid
+	if(TypeBase *type = AnalyzeType(ctx, syntax, false))
 	{
-		// It could be a typeid
-		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
-		{
-			if(type == ctx.typeAuto)
-				Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
+		if(type == ctx.typeAuto)
+			Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
 
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, type);
-		}
-
-		return AnalyzeMemberAccess(ctx, node);
+		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(syntax, ctx.typeTypeID, type);
 	}
 
-	if(SynTypeArray *node = getType<SynTypeArray>(syntax))
+	return AnalyzeArrayIndex(ctx, syntax);
+}
+
+ExprBase* AnalyzeTypeReference(ExpressionContext &ctx, SynTypeReference *syntax)
+{
+	return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(syntax, ctx.typeTypeID, AnalyzeType(ctx, syntax));
+}
+
+ExprBase* AnalyzeTypeFunction(ExpressionContext &ctx, SynTypeFunction *syntax)
+{
+	if(TypeBase *type = AnalyzeType(ctx, syntax, false))
+		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(syntax, ctx.typeTypeID, type);
+
+	// Transform 'type ref(arguments)' into a 'type ref' constructor call
+	SynBase* value = new (ctx.get<SynTypeReference>()) SynTypeReference(syntax->begin, syntax->end, syntax->returnType);
+
+	IntrusiveList<SynCallArgument> arguments;
+
+	for(SynBase *curr = syntax->arguments.head; curr; curr = curr->next)
+		arguments.push_back(new (ctx.get<SynCallArgument>()) SynCallArgument(curr->begin, curr->end, NULL, curr));
+
+	return AnalyzeFunctionCall(ctx, new (ctx.get<SynFunctionCall>()) SynFunctionCall(syntax->begin, syntax->end, value, IntrusiveList<SynBase>(), arguments));
+}
+
+ExprBase* AnalyzeTypeGenericInstance(ExpressionContext &ctx, SynTypeGenericInstance *syntax)
+{
+	return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(syntax, ctx.typeTypeID, AnalyzeType(ctx, syntax));
+}
+
+ExprBase* AnalyzeError(ExpressionContext &ctx, SynError *syntax)
+{
+	return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+}
+
+ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
+{
+	ExprBase *result = NULL;
+
+	switch(syntax->typeID)
 	{
-		// It could be a typeid
-		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
-		{
-			if(type == ctx.typeAuto)
-				Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
-
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, type);
-		}
-
-		return AnalyzeArrayIndex(ctx, node);
-	}
-
-	if(SynArrayIndex *node = getType<SynArrayIndex>(syntax))
-	{
-		return AnalyzeArrayIndex(ctx, node);
-	}
-
-	if(SynFunctionCall *node = getType<SynFunctionCall>(syntax))
-	{
-		return AnalyzeFunctionCall(ctx, node);
-	}
-
-	if(SynNew *node = getType<SynNew>(syntax))
-	{
-		return AnalyzeNew(ctx, node);
-	}
-
-	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
-	{
-		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, NULL, IntrusiveList<MatchData>(), true, true, true);
-	}
-
-	if(isType<SynShortFunctionDefinition>(syntax))
-	{
-		Report(ctx, syntax, "ERROR: cannot infer type for inline function outside of the function call");
-
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
-	}
-
-	if(SynGenerator *node = getType<SynGenerator>(syntax))
-	{
-		return AnalyzeGenerator(ctx, node);
-	}
-
-	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
-		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
-
-	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
-	{
-		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, type);
-
-		// Transform 'type ref(arguments)' into a 'type ref' constructor call
-		SynBase* value = new (ctx.get<SynTypeReference>()) SynTypeReference(node->begin, node->end, node->returnType);
-
-		IntrusiveList<SynCallArgument> arguments;
-
-		for(SynBase *curr = node->arguments.head; curr; curr = curr->next)
-			arguments.push_back(new (ctx.get<SynCallArgument>()) SynCallArgument(curr->begin, curr->end, NULL, curr));
-
-		return AnalyzeFunctionCall(ctx, new (ctx.get<SynFunctionCall>()) SynFunctionCall(node->begin, node->end, value, IntrusiveList<SynBase>(), arguments));
-	}
-
-	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
-		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
-
-	if(isType<SynTypeAuto>(syntax))
-	{
-		Report(ctx, syntax, "ERROR: cannot take typeid from auto type");
-
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
-	}
-
-	if(isType<SynTypeAlias>(syntax))
-	{
-		Report(ctx, syntax, "ERROR: cannot take typeid from generic type");
-
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
-	}
-
-	if(isType<SynTypeGeneric>(syntax))
+	case SynBool::myTypeID:
+		result = AnalyzeBool(ctx, (SynBool*)syntax);
+		break;
+	case SynCharacter::myTypeID:
+		result = AnalyzeCharacter(ctx, (SynCharacter*)syntax);
+		break;
+	case SynString::myTypeID:
+		result = AnalyzeString(ctx, (SynString*)syntax);
+		break;
+	case SynNullptr::myTypeID:
+		result = AnalyzeNullptr(ctx, (SynNullptr*)syntax);
+		break;
+	case SynNumber::myTypeID:
+		result = AnalyzeNumber(ctx, (SynNumber*)syntax);
+		break;
+	case SynArray::myTypeID:
+		result = AnalyzeArray(ctx, (SynArray*)syntax);
+		break;
+	case SynPreModify::myTypeID:
+		result = AnalyzePreModify(ctx, (SynPreModify*)syntax);
+		break;
+	case SynPostModify::myTypeID:
+		result = AnalyzePostModify(ctx, (SynPostModify*)syntax);
+		break;
+	case SynUnaryOp::myTypeID:
+		result = AnalyzeUnaryOp(ctx, (SynUnaryOp*)syntax);
+		break;
+	case SynBinaryOp::myTypeID:
+		result = AnalyzeBinaryOp(ctx, (SynBinaryOp*)syntax);
+		break;
+	case SynGetAddress::myTypeID:
+		result = AnalyzeGetAddress(ctx, (SynGetAddress*)syntax);
+		break;
+	case SynDereference::myTypeID:
+		result = AnalyzeDereference(ctx, (SynDereference*)syntax);
+		break;
+	case SynTypeof::myTypeID:
+		result = AnalyzeTypeof(ctx, (SynTypeof*)syntax);
+		break;
+	case SynIdentifier::myTypeID:
+		result = AnalyzeVariableAccess(ctx, (SynIdentifier*)syntax);
+		break;
+	case SynTypeSimple::myTypeID:
+		result = AnalyzeTypeSimple(ctx, (SynTypeSimple*)syntax);
+		break;
+	case SynSizeof::myTypeID:
+		result = AnalyzeSizeof(ctx, (SynSizeof*)syntax);
+		break;
+	case SynConditional::myTypeID:
+		result = AnalyzeConditional(ctx, (SynConditional*)syntax);
+		break;
+	case SynAssignment::myTypeID:
+		result = AnalyzeAssignment(ctx, (SynAssignment*)syntax);
+		break;
+	case SynModifyAssignment::myTypeID:
+		result = AnalyzeModifyAssignment(ctx, (SynModifyAssignment*)syntax);
+		break;
+	case SynMemberAccess::myTypeID:
+		result = AnalyzeMemberAccess(ctx, (SynMemberAccess*)syntax);
+		break;
+	case SynTypeArray::myTypeID:
+		result = AnalyzeTypeArray(ctx, (SynTypeArray*)syntax);
+		break;
+	case SynArrayIndex::myTypeID:
+		result = AnalyzeArrayIndex(ctx, (SynArrayIndex*)syntax);
+		break;
+	case SynFunctionCall::myTypeID:
+		result = AnalyzeFunctionCall(ctx, (SynFunctionCall*)syntax);
+		break;
+	case SynNew::myTypeID:
+		result = AnalyzeNew(ctx, (SynNew*)syntax);
+		break;
+	case SynFunctionDefinition::myTypeID:
+		result = AnalyzeFunctionDefinition(ctx, (SynFunctionDefinition*)syntax, NULL, NULL, NULL, IntrusiveList<MatchData>(), true, true, true);
+		break;
+	case SynGenerator::myTypeID:
+		result = AnalyzeGenerator(ctx, (SynGenerator*)syntax);
+		break;
+	case SynTypeReference::myTypeID:
+		result = AnalyzeTypeReference(ctx, (SynTypeReference*)syntax);
+		break;
+	case SynTypeFunction::myTypeID:
+		result = AnalyzeTypeFunction(ctx, (SynTypeFunction*)syntax);
+		break;
+	case SynTypeGenericInstance::myTypeID:
+		result = AnalyzeTypeGenericInstance(ctx, (SynTypeGenericInstance*)syntax);
+		break;
+	case SynShortFunctionDefinition::myTypeID:
+		result = ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot infer type for inline function outside of the function call");
+		break;
+	case SynTypeAuto::myTypeID:
+		result = ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot take typeid from auto type");
+		break;
+	case SynTypeAlias::myTypeID:
+		result = ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot take typeid from generic type");
+		break;
+	case SynTypeGeneric::myTypeID:
 		Stop(ctx, syntax, "ERROR: cannot take typeid from generic type");
 
-	if(isType<SynError>(syntax))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+		break;
+	case SynError::myTypeID:
+		result = AnalyzeError(ctx, (SynError*)syntax);
+		break;
+	default:
+		break;
+	}
 
-	Stop(ctx, syntax, "ERROR: unknown expression type");
+	if(!result)
+		Stop(ctx, syntax, "ERROR: unknown expression type");
 
-	return NULL;
+	return result;
 }
 
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)

@@ -2146,152 +2146,105 @@ LLVMValueRef CompileLlvmSequence(LlvmCompilationContext &ctx, ExprSequence *node
 
 LLVMValueRef CompileLlvm(LlvmCompilationContext &ctx, ExprBase *expression)
 {
-	if(ExprVoid *node = getType<ExprVoid>(expression))
-		return CompileLlvmVoid(ctx, node);
-
-	if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(expression))
-		return CompileLlvmBoolLiteral(ctx, node);
-
-	if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(expression))
-		return CompileLlvmCharacterLiteral(ctx, node);
-
-	if(ExprStringLiteral *node = getType<ExprStringLiteral>(expression))
-		return CompileLlvmStringLiteral(ctx, node);
-
-	if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(expression))
-		return CompileLlvmIntegerLiteral(ctx, node);
-
-	if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(expression))
-		return CompileLlvmRationalLiteral(ctx, node);
-
-	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expression))
-		return CompileLlvmTypeLiteral(ctx, node);
-
-	if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
-		return CompileLlvmNullptrLiteral(ctx, node);
-
-	if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
-		return CompileLlvmFunctionIndexLiteral(ctx, node);
-
-	if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
-		return CompileLlvmPassthrough(ctx, node);
-
-	if(ExprArray *node = getType<ExprArray>(expression))
-		return CompileLlvmArray(ctx, node);
-
-	if(ExprPreModify *node = getType<ExprPreModify>(expression))
-		return CompileLlvmPreModify(ctx, node);
-
-	if(ExprPostModify *node = getType<ExprPostModify>(expression))
-		return CompileLlvmPostModify(ctx, node);	
-
-	if(ExprTypeCast *node = getType<ExprTypeCast>(expression))
-		return CompileLlvmTypeCast(ctx, node);
-
-	if(ExprUnaryOp *node = getType<ExprUnaryOp>(expression))
-		return CompileLlvmUnaryOp(ctx, node);
-
-	if(ExprBinaryOp *node = getType<ExprBinaryOp>(expression))
-		return CompileLlvmBinaryOp(ctx, node);
-
-	if(ExprGetAddress *node = getType<ExprGetAddress>(expression))
-		return CompileLlvmGetAddress(ctx, node);
-
-	if(ExprDereference *node = getType<ExprDereference>(expression))
-		return CompileLlvmDereference(ctx, node);
-
-	if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
-		return CompileLlvmUnboxing(ctx, node);
-
-	if(ExprConditional *node = getType<ExprConditional>(expression))
-		return CompileLlvmConditional(ctx, node);
-
-	if(ExprAssignment *node = getType<ExprAssignment>(expression))
-		return CompileLlvmAssignment(ctx, node);
-
-	if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
-		return CompileLlvmMemberAccess(ctx, node);
-
-	if(ExprArrayIndex *node = getType<ExprArrayIndex>(expression))
-		return CompileLlvmArrayIndex(ctx, node);
-
-	if(ExprReturn *node = getType<ExprReturn>(expression))
-		return CompileLlvmReturn(ctx, node);
-
-	if(ExprYield *node = getType<ExprYield>(expression))
-		return CompileLlvmYield(ctx, node);
-
-	if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
-		return CompileLlvmVariableDefinition(ctx, node);
-
-	if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
-		return CompileLlvmArraySetup(ctx, node);
-
-	if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
-		return CompileLlvmVariableDefinitions(ctx, node);
-
-	if(ExprVariableAccess *node = getType<ExprVariableAccess>(expression))
-		return CompileLlvmVariableAccess(ctx, node);
-
-	if(ExprFunctionContextAccess *node = getType<ExprFunctionContextAccess>(expression))
-		return CompileLlvmFunctionContextAccess(ctx, node);
-
-	if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
-		return CompileLlvmFunctionDefinition(ctx, node);
-
-	if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
-		return CompileLlvmGenericFunctionPrototype(ctx, node);
-
-	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
-		return CompileLlvmFunctionAccess(ctx, node);
-
-	if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
-		return CompileLlvmFunctionCall(ctx, node);
-
-	if(ExprAliasDefinition *node = getType<ExprAliasDefinition>(expression))
-		return CompileLlvmAliasDefinition(ctx, node);
-
-	if(ExprClassPrototype *node = getType<ExprClassPrototype>(expression))
-		return CompileLlvmClassPrototype(ctx, node);
-
-	if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
-		return CompileLlvmGenericClassPrototype(ctx, node);
-
-	if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
-		return CompileLlvmClassDefinition(ctx, node);
-
-	if(ExprEnumDefinition *node = getType<ExprEnumDefinition>(expression))
-		return CompileLlvmEnumDefinition(ctx, node);
-
-	if(ExprIfElse *node = getType<ExprIfElse>(expression))
-		return CompileLlvmIfElse(ctx, node);
-
-	if(ExprFor *node = getType<ExprFor>(expression))
-		return CompileLlvmFor(ctx, node);
-
-	if(ExprWhile *node = getType<ExprWhile>(expression))
-		return CompileLlvmWhile(ctx, node);
-
-	if(ExprDoWhile *node = getType<ExprDoWhile>(expression))
-		return CompileLlvmDoWhile(ctx, node);
-
-	if(ExprSwitch *node = getType<ExprSwitch>(expression))
-		return CompileLlvmSwitch(ctx, node);
-
-	if(ExprBreak *node = getType<ExprBreak>(expression))
-		return CompileLlvmBreak(ctx, node);
-
-	if(ExprContinue *node = getType<ExprContinue>(expression))
-		return CompileLlvmContinue(ctx, node);
-
-	if(ExprBlock *node = getType<ExprBlock>(expression))
-		return CompileLlvmBlock(ctx, node);
-
-	if(ExprSequence *node = getType<ExprSequence>(expression))
-		return CompileLlvmSequence(ctx, node);
-
-	if(!expression)
-		return NULL;
+	switch(expression->typeID)
+	{
+	case ExprVoid::myTypeID:
+		return CompileLlvmVoid(ctx, (ExprVoid*)expression);
+	case ExprBoolLiteral::myTypeID:
+		return CompileLlvmBoolLiteral(ctx, (ExprBoolLiteral*)expression);
+	case ExprCharacterLiteral::myTypeID:
+		return CompileLlvmCharacterLiteral(ctx, (ExprCharacterLiteral*)expression);
+	case ExprStringLiteral::myTypeID:
+		return CompileLlvmStringLiteral(ctx, (ExprStringLiteral*)expression);
+	case ExprIntegerLiteral::myTypeID:
+		return CompileLlvmIntegerLiteral(ctx, (ExprIntegerLiteral*)expression);
+	case ExprRationalLiteral::myTypeID:
+		return CompileLlvmRationalLiteral(ctx, (ExprRationalLiteral*)expression);
+	case ExprTypeLiteral::myTypeID:
+		return CompileLlvmTypeLiteral(ctx, (ExprTypeLiteral*)expression);
+	case ExprNullptrLiteral::myTypeID:
+		return CompileLlvmNullptrLiteral(ctx, (ExprNullptrLiteral*)expression);
+	case ExprFunctionIndexLiteral::myTypeID:
+		return CompileLlvmFunctionIndexLiteral(ctx, (ExprFunctionIndexLiteral*)expression);
+	case ExprPassthrough::myTypeID:
+		return CompileLlvmPassthrough(ctx, (ExprPassthrough*)expression);
+	case ExprArray::myTypeID:
+		return CompileLlvmArray(ctx, (ExprArray*)expression);
+	case ExprPreModify::myTypeID:
+		return CompileLlvmPreModify(ctx, (ExprPreModify*)expression);
+	case ExprPostModify::myTypeID:
+		return CompileLlvmPostModify(ctx, (ExprPostModify*)expression);
+	case ExprTypeCast::myTypeID:
+		return CompileLlvmTypeCast(ctx, (ExprTypeCast*)expression);
+	case ExprUnaryOp::myTypeID:
+		return CompileLlvmUnaryOp(ctx, (ExprUnaryOp*)expression);
+	case ExprBinaryOp::myTypeID:
+		return CompileLlvmBinaryOp(ctx, (ExprBinaryOp*)expression);
+	case ExprGetAddress::myTypeID:
+		return CompileLlvmGetAddress(ctx, (ExprGetAddress*)expression);
+	case ExprDereference::myTypeID:
+		return CompileLlvmDereference(ctx, (ExprDereference*)expression);
+	case ExprUnboxing::myTypeID:
+		return CompileLlvmUnboxing(ctx, (ExprUnboxing*)expression);
+	case ExprConditional::myTypeID:
+		return CompileLlvmConditional(ctx, (ExprConditional*)expression);
+	case ExprAssignment::myTypeID:
+		return CompileLlvmAssignment(ctx, (ExprAssignment*)expression);
+	case ExprMemberAccess::myTypeID:
+		return CompileLlvmMemberAccess(ctx, (ExprMemberAccess*)expression);
+	case ExprArrayIndex::myTypeID:
+		return CompileLlvmArrayIndex(ctx, (ExprArrayIndex*)expression);
+	case ExprReturn::myTypeID:
+		return CompileLlvmReturn(ctx, (ExprReturn*)expression);
+	case ExprYield::myTypeID:
+		return CompileLlvmYield(ctx, (ExprYield*)expression);
+	case ExprVariableDefinition::myTypeID:
+		return CompileLlvmVariableDefinition(ctx, (ExprVariableDefinition*)expression);
+	case ExprArraySetup::myTypeID:
+		return CompileLlvmArraySetup(ctx, (ExprArraySetup*)expression);
+	case ExprVariableDefinitions::myTypeID:
+		return CompileLlvmVariableDefinitions(ctx, (ExprVariableDefinitions*)expression);
+	case ExprVariableAccess::myTypeID:
+		return CompileLlvmVariableAccess(ctx, (ExprVariableAccess*)expression);
+	case ExprFunctionContextAccess::myTypeID:
+		return CompileLlvmFunctionContextAccess(ctx, (ExprFunctionContextAccess*)expression);
+	case ExprFunctionDefinition::myTypeID:
+		return CompileLlvmFunctionDefinition(ctx, (ExprFunctionDefinition*)expression);
+	case ExprGenericFunctionPrototype::myTypeID:
+		return CompileLlvmGenericFunctionPrototype(ctx, (ExprGenericFunctionPrototype*)expression);
+	case ExprFunctionAccess::myTypeID:
+		return CompileLlvmFunctionAccess(ctx, (ExprFunctionAccess*)expression);
+	case ExprFunctionCall::myTypeID:
+		return CompileLlvmFunctionCall(ctx, (ExprFunctionCall*)expression);
+	case ExprAliasDefinition::myTypeID:
+		return CompileLlvmAliasDefinition(ctx, (ExprAliasDefinition*)expression);
+	case ExprClassPrototype::myTypeID:
+		return CompileLlvmClassPrototype(ctx, (ExprClassPrototype*)expression);
+	case ExprGenericClassPrototype::myTypeID:
+		return CompileLlvmGenericClassPrototype(ctx, (ExprGenericClassPrototype*)expression);
+	case ExprClassDefinition::myTypeID:
+		return CompileLlvmClassDefinition(ctx, (ExprClassDefinition*)expression);
+	case ExprEnumDefinition::myTypeID:
+		return CompileLlvmEnumDefinition(ctx, (ExprEnumDefinition*)expression);
+	case ExprIfElse::myTypeID:
+		return CompileLlvmIfElse(ctx, (ExprIfElse*)expression);
+	case ExprFor::myTypeID:
+		return CompileLlvmFor(ctx, (ExprFor*)expression);
+	case ExprWhile::myTypeID:
+		return CompileLlvmWhile(ctx, (ExprWhile*)expression);
+	case ExprDoWhile::myTypeID:
+		return CompileLlvmDoWhile(ctx, (ExprDoWhile*)expression);
+	case ExprSwitch::myTypeID:
+		return CompileLlvmSwitch(ctx, (ExprSwitch*)expression);
+	case ExprBreak::myTypeID:
+		return CompileLlvmBreak(ctx, (ExprBreak*)expression);
+	case ExprContinue::myTypeID:
+		return CompileLlvmContinue(ctx, (ExprContinue*)expression);
+	case ExprBlock::myTypeID:
+		return CompileLlvmBlock(ctx, (ExprBlock*)expression);
+	case ExprSequence::myTypeID:
+		return CompileLlvmSequence(ctx, (ExprSequence*)expression);
+	}
 
 	assert(!"unknown type");
 
