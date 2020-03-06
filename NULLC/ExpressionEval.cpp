@@ -1221,6 +1221,9 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 
 			if(classType && (classType->extendable || classType->baseClass))
 			{
+				if(isType<ExprNullptrLiteral>(value))
+					return Report(ctx, "ERROR: null pointer access");
+
 				ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(value);
 
 				assert(ptr);
