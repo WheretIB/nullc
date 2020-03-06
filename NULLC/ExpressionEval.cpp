@@ -1353,6 +1353,11 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 			if(expression->op == SYN_UNARY_OP_LOGICAL_NOT)
 				return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, expression->type, !expr->value));
 		}
+		else if(ExprIntegerLiteral *expr = getType<ExprIntegerLiteral>(value))
+		{
+			if(expression->op == SYN_UNARY_OP_LOGICAL_NOT)
+				return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, expression->type, !expr->value));
+		}
 	}
 	else if(ctx.ctx.IsIntegerType(value->type))
 	{
