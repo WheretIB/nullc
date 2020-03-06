@@ -8739,8 +8739,6 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		function->definition = getType<SynFunctionDefinition>(source);
 		function->declaration = new (ctx.get<ExprGenericFunctionPrototype>()) ExprGenericFunctionPrototype(source, function->type, function);
 
-		function->contextType = ctx.GetReferenceType(ctx.typeVoid);
-
 		return function->declaration;
 	}
 

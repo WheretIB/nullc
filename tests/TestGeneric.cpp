@@ -1902,3 +1902,10 @@ const char *testGenericClassOperatorInANamespace =
 auto x = Test.Foo(1), y = Test.Foo(20);\r\n\
 return x + y;";
 TEST_RESULT("Generic operator of a class defined in a namespace", testGenericClassOperatorInANamespace, "21");
+
+const char *testGenericClassMemberFunction =
+"class F{ int x; }\r\n\
+void F:F<@J>(int a){ x = a * sizeof(J); }\r\n\
+auto x = F with<int>(5);\r\n\
+return x.x;";
+TEST_RESULT("Generic member function of a regular class", testGenericClassMemberFunction, "20");
