@@ -61,6 +61,8 @@ namespace NULLC
 
 	int optimizationLevel = 2;
 
+	unsigned moduleAnalyzeMemoryLimit = 128 * 1024 * 1024;
+
 	TraceContext *traceContext = NULL;
 }
 
@@ -230,6 +232,12 @@ void nullcSetEnableTimeTrace(int enable)
 {
 	NULLC::traceContext = NULLC::TraceGetContext();
 	NULLC::TraceSetEnabled(enable != 0);
+}
+
+
+void nullcSetModuleAnalyzeMemoryLimit(unsigned bytes)
+{
+	NULLC::moduleAnalyzeMemoryLimit = bytes;
 }
 
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
@@ -461,6 +469,8 @@ nullres nullcAnalyze(const char* code)
 	compilerCtx->outputCtx.tempBuf = tempOutputBuf;
 	compilerCtx->outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
 
+	compilerCtx->exprMemoryLimit = moduleAnalyzeMemoryLimit;
+
 	if(!AnalyzeModuleFromSource(*compilerCtx, code))
 	{
 		if(compilerCtx->errorPos)
@@ -497,6 +507,8 @@ nullres	nullcCompile(const char* code)
 	compilerCtx->errorBufSize = NULLC_ERROR_BUFFER_SIZE;
 
 	compilerCtx->enableLogFiles = enableLogFiles;
+
+	compilerCtx->exprMemoryLimit = moduleAnalyzeMemoryLimit;
 
 	compilerCtx->outputCtx.openStream = openStream;
 	compilerCtx->outputCtx.writeStream = writeStream;

@@ -29,6 +29,7 @@ struct CompilerContext
 		synModule = 0;
 
 		exprModule = 0;
+		exprMemoryLimit = 0;
 
 		vmModule = 0;
 
@@ -54,6 +55,7 @@ struct CompilerContext
 
 	ExpressionContext exprCtx;
 	ExprModule *exprModule;
+	unsigned exprMemoryLimit;
 
 	VmModule *vmModule;
 

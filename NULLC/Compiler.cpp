@@ -464,6 +464,8 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 	ExpressionContext &exprCtx = ctx.exprCtx;
 
+	exprCtx.memoryLimit = ctx.exprMemoryLimit;
+
 	exprCtx.errorBuf = ctx.errorBuf;
 	exprCtx.errorBufSize = ctx.errorBufSize;
 

@@ -290,6 +290,8 @@ struct ExpressionContext
 	unsigned classInstanceDepth;
 	unsigned expressionDepth;
 
+	unsigned memoryLimit;
+
 	// Error info
 	bool errorHandlerActive;
 	bool errorHandlerNested;

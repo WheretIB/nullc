@@ -22,6 +22,7 @@ void		nullcSetGlobalMemoryLimit(unsigned limit);
 void		nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream));
 void		nullcSetOptimizationLevel(int level);
 void		nullcSetEnableTimeTrace(int enable);
+void		nullcSetModuleAnalyzeMemoryLimit(unsigned bytes);
 
 void		nullcTerminate();
 

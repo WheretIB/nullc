@@ -913,6 +913,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	classInstanceDepth = 0;
 	expressionDepth = 0;
 
+	memoryLimit = 0;
+
 	genericTypeMap.init();
 
 	uniqueNamespaceId = 0;
@@ -12878,17 +12880,17 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 	ctx.AddType(ctx.typeAutoRef = new (ctx.get<TypeAutoRef>()) TypeAutoRef(InplaceStr("auto ref")));
 	ctx.PushScope(ctx.typeAutoRef);
 	ctx.typeAutoRef->typeScope = ctx.scope;
-	ctx.typeAutoRef->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++), NULL));
-	ctx.typeAutoRef->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoRef->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(syntax, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoRef->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(syntax, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++), NULL));
 	FinalizeAlignment(ctx.typeAutoRef);
 	ctx.PopScope(SCOPE_TYPE);
 
 	ctx.AddType(ctx.typeAutoArray = new (ctx.get<TypeAutoArray>()) TypeAutoArray(InplaceStr("auto[]")));
 	ctx.PushScope(ctx.typeAutoArray);
 	ctx.typeAutoArray->typeScope = ctx.scope;
-	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++), NULL));
-	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++), NULL));
-	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(NULL, AllocateClassMember(ctx, syntax, 0, ctx.typeInt, InplaceStr("size"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(syntax, AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(syntax, AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++), NULL));
+	ctx.typeAutoArray->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(syntax, AllocateClassMember(ctx, syntax, 0, ctx.typeInt, InplaceStr("size"), true, ctx.uniqueVariableId++), NULL));
 	FinalizeAlignment(ctx.typeAutoArray);
 	ctx.PopScope(SCOPE_TYPE);
 
@@ -12899,9 +12901,28 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 	{
 		ctx.errorHandlerActive = true;
 
+		if(ctx.memoryLimit != 0)
+		{
+			unsigned totalLimit = ctx.allocator->requested() + ctx.memoryLimit;
+
+			ctx.allocator->set_limit(totalLimit, &ctx, [](void *context){
+				ExpressionContext &ctx = *(ExpressionContext*)context;
+
+				ctx.allocator->clear_limit();
+
+				if(ctx.scope->ownerFunction)
+					Stop(ctx, ctx.scope->ownerFunction->source, "ERROR: memory limit (%u) reached during compilation (analyze stage)", ctx.memoryLimit);
+				else
+					Stop(ctx, ctx.typeAutoRef->members.head->source, "ERROR: memory limit (%u) reached during compilation (analyze stage)", ctx.memoryLimit);
+			});
+		}
+
 		ExprModule *module = AnalyzeModule(ctx, syntax);
 
 		ctx.errorHandlerActive = false;
+
+		if(ctx.memoryLimit != 0)
+			ctx.allocator->clear_limit();
 
 		ctx.PopScope(SCOPE_EXPLICIT);
 

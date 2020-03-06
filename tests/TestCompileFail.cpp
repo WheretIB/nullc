@@ -971,6 +971,10 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "auto a(){ a; } a();", "ERROR: function 'a' type is unresolved at this point");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "for(i in char ref()(", "ERROR: ')' not found after function argument list");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "class Foo{ const int a = Foo.hasMember; }", "ERROR: expected '(' after 'hasMember'");
+
+	nullcSetModuleAnalyzeMemoryLimit(8 * 1024 * 1024);
+	TEST_FOR_FAIL("fuzzing test crash", "float foo(int idx, float ref(float) f, int ref x){return f(1.0f);}int foo(int idx, int ref(int) f){if(idx > 4)return 2;return f(2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{if(x == 0)f(1);return 2 + x;});});});});});});});});});});});});});}));}return foo(1, <x>{ x + 2; });", "ERROR: memory limit (8388608) reached during compilation (analyze stage)");
+	nullcSetModuleAnalyzeMemoryLimit(256 * 1024 * 1024);
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
