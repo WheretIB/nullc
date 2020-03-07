@@ -955,6 +955,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "(int)[(int)[4 in void k(){ (int)[(int)[4 in(1) ........................ * ....................... *  ........................ * ...................... * .]; }]];", "ERROR: member name expected after '.'");
 	TEST_FOR_FAIL("fuzzing test crash", "class Fo{}bool bool(Fo f){ return true; }(Fo() && int o(){enum f{A}void f.f(){}(void f.c(){f();});return 0;});", "ERROR: name 'f' is already taken for a type");
 	TEST_FOR_FAIL("fuzzing test crash", "int f(){ int foo(@t ref() a){ return 1; } int foo(int ref() b){ return -foo(<>{ f; }); } return 2; }", "ERROR: cannot convert 'int ref()' to 'int'");
+	TEST_FOR_FAIL("fuzzing test crash", "auto foo(int ref() ref() a){} auto foo(@T a, int ref() f){} auto foo(int ref() a){} foo(<>{}, <>{});", "ERROR: function must return a value of type 'int'");
 
 	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
 	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
