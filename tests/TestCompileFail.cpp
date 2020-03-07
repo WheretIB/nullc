@@ -224,10 +224,10 @@ int[foo(3)] arr;";
 
 	TEST_FOR_FAIL("Read-only member", "int[] arr; arr.size = 10; return arr.size;", "ERROR: cannot change immutable value of type int");
 	TEST_FOR_FAIL("Read-only member", "auto ref x; x.type = int; return 1;", "ERROR: cannot change immutable value of type typeid");
-	TEST_FOR_FAIL("Read-only member", "auto ref x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from void ref to void");
+	TEST_FOR_FAIL("Read-only member", "auto ref x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from 'void ref' to 'void'");
 	TEST_FOR_FAIL("Read-only member", "auto[] x; x.type = int; return 1;", "ERROR: cannot change immutable value of type typeid");
 	TEST_FOR_FAIL("Read-only member", "auto[] x; x.size = 10; return 1;", "ERROR: cannot change immutable value of type int");
-	TEST_FOR_FAIL("Read-only member", "auto[] x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from void ref to void");
+	TEST_FOR_FAIL("Read-only member", "auto[] x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from 'void ref' to 'void'");
 	TEST_FOR_FAIL("Read-only member", "int[] x = new int[2]; (&x.size)++; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "int[] x = new int[2]; (&x.size)--; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)++; return x.size;", "ERROR: cannot get address of the expression");
@@ -874,6 +874,9 @@ auto m = bar;",
 	TEST_FOR_FAIL("function argument size limit", "class Large{ int x, y, z, w; int[16] pad; } class Huge{ Large[512] b; } auto test8(Huge a, b){ return b.b[110].x; }", "ERROR: function argument size cannot exceed 65536");
 
 	TEST_FOR_FAIL("restore after explicit generic error type", "auto op2<@T>(@T a, b, c, d){ return a - b - c - d; } return op2 with<T>(1000, 2, 3, 4);", "ERROR: 'T' is not a known type name");
+
+	TEST_FOR_FAIL("void conversion", "auto ref a; void(a);", "ERROR: cannot convert 'auto ref' to 'void'");
+	TEST_FOR_FAIL("void conversion", "auto foo(auto ref x){return x.ptr;} auto u = foo(void());", "ERROR: cannot convert 'void' to 'auto ref'");
 
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");

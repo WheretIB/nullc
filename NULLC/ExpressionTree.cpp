@@ -2340,7 +2340,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		}
 	}
 
-	if(type == ctx.typeAutoRef)
+	if(type == ctx.typeAutoRef && value->type != ctx.typeVoid)
 	{
 		// type ref to auto ref conversion
 		if(isType<TypeRef>(value->type))
@@ -2388,7 +2388,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	if(value->type == ctx.typeAutoRef)
 	{
 		// auto ref to type (unboxing)
-		if(!isType<TypeRef>(type))
+		if(!isType<TypeRef>(type) && type != ctx.typeVoid)
 		{
 			ExprBase *ptr = CreateCast(ctx, source, value, ctx.GetReferenceType(type), false);
 
@@ -2528,10 +2528,10 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 		return ReportExpected(ctx, source, ctx.GetErrorType(), "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
 
 	if(rhs->type == ctx.typeVoid)
-		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from void to %.*s", FMT_ISTR(lhs->type->name));
+		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from 'void' to '%.*s'", FMT_ISTR(lhs->type->name));
 
 	if(lhs->type == ctx.typeVoid)
-		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from %.*s to void", FMT_ISTR(rhs->type->name));
+		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from '%.*s' to 'void'", FMT_ISTR(rhs->type->name));
 
 	TypePair typePair(wrapped->type, rhs->type);
 
