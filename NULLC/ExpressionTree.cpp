@@ -2102,7 +2102,7 @@ ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *firs
 	expressions.push_back(first);
 	expressions.push_back(second);
 
-	return new (ctx.get<ExprSequence>()) ExprSequence(source, second->type, expressions);
+	return new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, second->type, expressions);
 }
 
 ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *first, ExprBase *second, ExprBase *third)
@@ -2113,7 +2113,7 @@ ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *firs
 	expressions.push_back(second);
 	expressions.push_back(third);
 
-	return new (ctx.get<ExprSequence>()) ExprSequence(source, third->type, expressions);
+	return new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, third->type, expressions);
 }
 
 ExprBase* CreateLiteralCopy(ExpressionContext &ctx, SynBase *source, ExprBase *value)
@@ -2153,7 +2153,7 @@ ExprBase* CreateFunctionPointer(ExpressionContext &ctx, SynBase *source, ExprFun
 
 	expressions.push_back(new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(ctx.MakeInternal(source), definition->function->type, definition->function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), definition->function)));
 
-	return new (ctx.get<ExprSequence>()) ExprSequence(source, definition->function->type, expressions);
+	return new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, definition->function->type, expressions);
 }
 
 ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeBase *type, bool isFunctionArgument)
@@ -2611,7 +2611,7 @@ ExprBase* CreateFunctionUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 	if(!onwerFunction)
 		return NULL;
 
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_FUNCTION, source, fromScope, 0));
 
@@ -2620,7 +2620,7 @@ ExprBase* CreateFunctionUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 
 ExprBase* CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *scope)
 {
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
 
@@ -2631,7 +2631,7 @@ ExprBase* CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, Funct
 
 ExprBase* CreateBreakUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
 
@@ -2642,7 +2642,7 @@ ExprBase* CreateBreakUpvalueClose(ExpressionContext &ctx, SynBase *source, Funct
 
 ExprBase* CreateContinueUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
 
@@ -2656,7 +2656,7 @@ ExprBase* CreateArgumentUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 	if(!onwerFunction)
 		return NULL;
 
-	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, ArrayView<ExprBase*>());
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, ctx.typeVoid, ArrayView<ExprBase*>());
 
 	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_ARGUMENT, source, NULL, 0));
 
@@ -7019,7 +7019,7 @@ void AnalyzeFunctionArgumentsFinal(ExpressionContext &ctx, SynBase *source, Expr
 							if(node->contextVariable)
 								expressions.push_back(CreateVariableAccess(ctx, source, node->contextVariable, true));
 
-							context = new (ctx.get<ExprSequence>()) ExprSequence(source, node->function->contextType, expressions);
+							context = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, source, node->function->contextType, expressions);
 						}
 						else
 						{
@@ -7663,7 +7663,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 				expressions.push_back(definition);
 				expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
-				return new (ctx.get<ExprSequence>()) ExprSequence(syntax, type->value, expressions);
+				return new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, syntax, type->value, expressions);
 			}
 
 			if(constructor)
@@ -7685,7 +7685,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 				expressions.push_back(call);
 				expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
-				return new (ctx.get<ExprSequence>()) ExprSequence(syntax, type->value, expressions);
+				return new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, syntax, type->value, expressions);
 			}
 		}
 	}
@@ -7807,7 +7807,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 			expressions.push_back(call);
 			expressions.push_back(CreateVariableAccess(ctx, syntaxInternal, variable, false));
 
-			alloc = new (ctx.get<ExprSequence>()) ExprSequence(syntax, allocType, expressions);
+			alloc = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, syntax, allocType, expressions);
 		}
 	}
 	else if(syntax->arguments.size() == 1 && !syntax->arguments.head->name)
@@ -7825,7 +7825,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		expressions.push_back(copy);
 		expressions.push_back(CreateVariableAccess(ctx, syntaxInternal, variable, false));
 
-		alloc = new (ctx.get<ExprSequence>()) ExprSequence(syntax, allocType, expressions);
+		alloc = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, syntax, allocType, expressions);
 	}
 	else if(!syntax->arguments.empty())
 	{
@@ -7875,7 +7875,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		expressions.push_back(call);
 		expressions.push_back(CreateVariableAccess(ctx, syntaxInternal, variable, false));
 
-		alloc = new (ctx.get<ExprSequence>()) ExprSequence(syntax, allocType, expressions);
+		alloc = new (ctx.get<ExprSequence>()) ExprSequence(ctx.allocator, syntax, allocType, expressions);
 	}
 
 	return alloc;

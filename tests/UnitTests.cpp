@@ -366,6 +366,8 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	// Terminate NULLC
 	nullcTerminate();
 
+	assert(testTotalMemoryAlloc == testTotalMemoryFree);
+
 	Tests::Cleanup();
 
 	return allPassed == allTests ? 0 : 1;

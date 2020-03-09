@@ -1161,7 +1161,7 @@ struct ExprBlock: ExprBase
 
 struct ExprSequence: ExprBase
 {
-	ExprSequence(SynBase *source, TypeBase *type, ArrayView<ExprBase*> arr): ExprBase(myTypeID, source, type)
+	ExprSequence(Allocator *allocator, SynBase *source, TypeBase *type, ArrayView<ExprBase*> arr): ExprBase(myTypeID, source, type), expressions(allocator)
 	{
 		for(unsigned i = 0; i < arr.size(); i++)
 			expressions.push_back(arr[i]);
