@@ -1070,17 +1070,18 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 			variableMap.remove(variable->nameHash, variable);
 	}
 
-	if(!keepFunctions)
+	for(int i = int(scope->functions.count) - 1; i >= 0; i--)
 	{
-		for(int i = int(scope->functions.count) - 1; i >= 0; i--)
+		FunctionData *function = scope->functions[i];
+
+		// Keep class functions visible
+		if(function->scope->ownerType)
+			continue;
+
+		// Always hide local functions
+		if(!keepFunctions || (!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL))
 		{
-			FunctionData *function = scope->functions[i];
-
-			// Keep class functions visible
-			if(function->scope->ownerType)
-				continue;
-
-			if(scope->scope && function->isPrototype && !function->implementation)
+			if(scope->scope && function->isPrototype && !function->implementation && !keepFunctions)
 				Stop(function->source, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name->name));
 
 			if(functionMap.find(function->nameHash, function))
@@ -1160,15 +1161,21 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 			variableMap.insert(variable->nameHash, variable);
 	}
 
-	// For functions, restore only the variable shadowing state
+	// For functions, restore variable shadowing state and local functions
 	for(unsigned i = 0, e = target->functions.count; i < e; i++)
 	{
 		FunctionData *function = target->functions.data[i];
+
+		if(function->scope->ownerType)
+			continue;
 
 		if(!location || function->importModule != NULL || function->source->pos.begin <= location->pos.begin)
 		{
 			while(VariableData **variable = variableMap.find(function->nameHash))
 				variableMap.remove(function->nameHash, *variable);
+
+			if(!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL)
+				functionMap.insert(function->nameHash, function);
 		}
 	}
 

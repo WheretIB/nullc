@@ -878,6 +878,9 @@ auto m = bar;",
 	TEST_FOR_FAIL("void conversion", "auto ref a; void(a);", "ERROR: cannot convert 'auto ref' to 'void'");
 	TEST_FOR_FAIL("void conversion", "auto foo(auto ref x){return x.ptr;} auto u = foo(void());", "ERROR: cannot convert 'void' to 'auto ref'");
 
+	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ int bar(int a){ return 8 + y; } return foo(4); }", "ERROR: unknown identifier 'bar'");
+	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ { int bar(int a){ return 8 + y; } return foo(4); } }", "ERROR: unknown identifier 'bar'");
+
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");
