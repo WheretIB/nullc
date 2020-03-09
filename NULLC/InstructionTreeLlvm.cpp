@@ -200,7 +200,7 @@ void LLVMAddAttributeAtIndex(LLVMValueRef, LLVMAttributeIndex, LLVMAttributeRef)
 
 struct LlvmCompilationContext
 {
-	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), types(ctx.allocator), functions(ctx.allocator), allocator(ctx.allocator)
+	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), types(ctx.allocator), functions(ctx.allocator), currentRestoreBlocks(ctx.allocator), loopInfo(ctx.allocator), allocator(ctx.allocator)
 	{
 		enableOptimization = false;
 
@@ -977,7 +977,7 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 		if(TypeRef *refType = getType<TypeRef>(node->type))
 		{
 			// TODO: use global type index values for a later remap
-			SmallArray<LLVMValueRef, 2> arguments;
+			SmallArray<LLVMValueRef, 2> arguments(ctx.allocator);
 
 			arguments.push_back(CompileArgument(ctx, ctx.ctx.typeAutoRef, value));
 			arguments.push_back(CompileArgument(ctx, ctx.ctx.typeTypeID, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeTypeID), refType->subType->typeIndex, true)));

@@ -843,11 +843,14 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 
 	baseModuleFunctionCount = 0;
 
+	dependencies.set_allocator(allocator);
+	imports.set_allocator(allocator);
 	namespaces.set_allocator(allocator);
 	types.set_allocator(allocator);
 	functions.set_allocator(allocator);
 	variables.set_allocator(allocator);
 	definitions.set_allocator(allocator);
+	setup.set_allocator(allocator);
 
 	vtables.set_allocator(allocator);
 	vtableMap.set_allocator(allocator);
@@ -908,6 +911,7 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	scope = NULL;
 
 	globalScope = NULL;
+	globalNamespaces.set_allocator(allocator);
 
 	functionInstanceDepth = 0;
 	classInstanceDepth = 0;
@@ -2097,7 +2101,7 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 
 ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *first, ExprBase *second)
 {
-	SmallArray<ExprBase*, 2> expressions;
+	SmallArray<ExprBase*, 2> expressions(ctx.allocator);
 
 	expressions.push_back(first);
 	expressions.push_back(second);
@@ -2107,7 +2111,7 @@ ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *firs
 
 ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *first, ExprBase *second, ExprBase *third)
 {
-	SmallArray<ExprBase*, 3> expressions;
+	SmallArray<ExprBase*, 3> expressions(ctx.allocator);
 
 	expressions.push_back(first);
 	expressions.push_back(second);
@@ -2144,7 +2148,7 @@ ExprBase* CreateFunctionPointer(ExpressionContext &ctx, SynBase *source, ExprFun
 		definition->function->isHidden = true;
 	}
 
-	SmallArray<ExprBase*, 3> expressions;
+	SmallArray<ExprBase*, 3> expressions(ctx.allocator);
 
 	expressions.push_back(definition);
 
@@ -5164,7 +5168,7 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 
 	if(isType<TypeError>(value->type))
 	{
-		SmallArray<ExprBase*, 8> values;
+		SmallArray<ExprBase*, 8> values(ctx.allocator);
 
 		values.push_back(value);
 
@@ -5178,7 +5182,7 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 	{
 		if(isType<TypeError>(arguments[i].value->type))
 		{
-			SmallArray<ExprBase*, 8> values;
+			SmallArray<ExprBase*, 8> values(ctx.allocator);
 
 			values.push_back(value);
 
@@ -7009,7 +7013,7 @@ void AnalyzeFunctionArgumentsFinal(ExpressionContext &ctx, SynBase *source, Expr
 
 						if(node->contextVariableDefinition)
 						{
-							SmallArray<ExprBase*, 3> expressions;
+							SmallArray<ExprBase*, 3> expressions(ctx.allocator);
 
 							expressions.push_back(node);
 
@@ -7658,7 +7662,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			if(!constructor && syntax->arguments.empty())
 			{
-				SmallArray<ExprBase*, 2> expressions;
+				SmallArray<ExprBase*, 2> expressions(ctx.allocator);
 
 				expressions.push_back(definition);
 				expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
@@ -7679,7 +7683,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 				ExprBase *call = CreateFunctionCallFinal(ctx, syntax, function, functions, generics, arguments, false);
 
-				SmallArray<ExprBase*, 3> expressions;
+				SmallArray<ExprBase*, 3> expressions(ctx.allocator);
 
 				expressions.push_back(definition);
 				expressions.push_back(call);
@@ -7801,7 +7805,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, IntrusiveList<TypeHandle>(), syntax->arguments.head, syntax->arguments.empty()))
 		{
-			SmallArray<ExprBase*, 3> expressions;
+			SmallArray<ExprBase*, 3> expressions(ctx.allocator);
 
 			expressions.push_back(definition);
 			expressions.push_back(call);
@@ -7819,7 +7823,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *copy = CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, parentType, CreateVariableAccess(ctx, syntaxInternal, variable, false)), AnalyzeExpression(ctx, syntax->arguments.head->value));
 
-		SmallArray<ExprBase*, 3> expressions;
+		SmallArray<ExprBase*, 3> expressions(ctx.allocator);
 
 		expressions.push_back(definition);
 		expressions.push_back(copy);
@@ -7869,7 +7873,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *call = CreateFunctionCallFinal(ctx, syntax, function, functions, IntrusiveList<TypeHandle>(), arguments, false);
 
-		SmallArray<ExprBase*, 3> expressions;
+		SmallArray<ExprBase*, 3> expressions(ctx.allocator);
 
 		expressions.push_back(definition);
 		expressions.push_back(call);
@@ -10736,7 +10740,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 	IntrusiveList<ExprBase> definitions;
 	IntrusiveList<ExprBase> increments;
 
-	SmallArray<VariableData*, 4> iterators;
+	SmallArray<VariableData*, 4> iterators(ctx.allocator);
 
 	for(SynForEachIterator *curr = syntax->iterators.head; curr; curr = getType<SynForEachIterator>(curr->next))
 	{
@@ -11766,7 +11770,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 	for(unsigned i = prevSize; i < moduleCtx.types.size(); i++)
 		moduleCtx.types[i] = NULL;
 
-	SmallArray<DelayedType, 32> delayedTypes;
+	SmallArray<DelayedType, 32> delayedTypes(ctx.allocator);
 
 	ExternConstantInfo *currentConstant = constantList;
 

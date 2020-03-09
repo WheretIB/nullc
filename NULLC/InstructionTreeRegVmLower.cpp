@@ -3233,7 +3233,7 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 		}
 	}
 
-	SmallArray<unsigned char, 16> usedRegisters;
+	SmallArray<unsigned char, 16> usedRegisters(ctx.allocator);
 
 	// Reserve registers already allocated by live in variables
 	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)

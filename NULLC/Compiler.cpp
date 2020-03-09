@@ -1936,7 +1936,7 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 	exprTranslateCtx.errorBuf = ctx.errorBuf;
 	exprTranslateCtx.errorBufSize = ctx.errorBufSize;
 
-	SmallArray<const char*, 32> dependencies;
+	SmallArray<const char*, 32> dependencies(ctx.allocator);
 
 	if(!TranslateModule(exprTranslateCtx, ctx.exprModule, dependencies))
 	{
