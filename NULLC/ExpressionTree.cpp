@@ -1106,7 +1106,7 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 		{
 			if(!keepFunctions)
 			{
-				if(TypeClass *typeClass = getType<TypeClass>(type))
+				if(isType<TypeClass>(type))
 				{
 					for(unsigned k = 0; k < functions.size(); k++)
 					{
@@ -6914,7 +6914,7 @@ void AnalyzeFunctionArgumentsEarly(ExpressionContext &ctx, SynCallArgument *argu
 {
 	for(SynCallArgument *el = argumentHead; el; el = getType<SynCallArgument>(el->next))
 	{
-		if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(el->value))
+		if(isType<SynShortFunctionDefinition>(el->value))
 		{
 			resultArguments.push_back(ArgumentData());
 		}
@@ -6953,7 +6953,7 @@ void AnalyzeFunctionArgumentsFinal(ExpressionContext &ctx, SynBase *source, Expr
 
 					FunctionData *function = functions[i].function;
 
-					if(TypeBase *parentType = function->scope->ownerType)
+					if(function->scope->ownerType)
 					{
 						if(TypeRef *contextType = getType<TypeRef>(functions[i].context->type))
 						{
@@ -10416,7 +10416,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
 
-	if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+	if(ctx.typeMap.find(typeName.hash()) != NULL)
 		Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name->name));
 
 	TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(SynIdentifier(syntax->name, typeName), syntax, ctx.scope);
