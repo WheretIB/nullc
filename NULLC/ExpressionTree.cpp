@@ -138,6 +138,18 @@ namespace
 		StopAt(ctx, source, source->pos.begin, msg, args);
 	}
 
+	void OnMemoryLimitHit(void *context)
+	{
+		ExpressionContext &ctx = *(ExpressionContext*)context;
+
+		ctx.allocator->clear_limit();
+
+		if(ctx.scope->ownerFunction)
+			Stop(ctx, ctx.scope->ownerFunction->source, "ERROR: memory limit (%u) reached during compilation (analyze stage)", ctx.memoryLimit);
+		else
+			Stop(ctx, ctx.typeAutoRef->members.head->source, "ERROR: memory limit (%u) reached during compilation (analyze stage)", ctx.memoryLimit);
+	}
+
 	unsigned char ParseEscapeSequence(ExpressionContext &ctx, SynBase *source, const char* str)
 	{
 		assert(str[0] == '\\');
@@ -12917,16 +12929,7 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 		{
 			unsigned totalLimit = ctx.allocator->requested() + ctx.memoryLimit;
 
-			ctx.allocator->set_limit(totalLimit, &ctx, [](void *context){
-				ExpressionContext &ctx = *(ExpressionContext*)context;
-
-				ctx.allocator->clear_limit();
-
-				if(ctx.scope->ownerFunction)
-					Stop(ctx, ctx.scope->ownerFunction->source, "ERROR: memory limit (%u) reached during compilation (analyze stage)", ctx.memoryLimit);
-				else
-					Stop(ctx, ctx.typeAutoRef->members.head->source, "ERROR: memory limit (%u) reached during compilation (analyze stage)", ctx.memoryLimit);
-			});
+			ctx.allocator->set_limit(totalLimit, &ctx, OnMemoryLimitHit);
 		}
 
 		ExprModule *module = AnalyzeModule(ctx, syntax);
