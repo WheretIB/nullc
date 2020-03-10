@@ -2,6 +2,50 @@
 
 #include "CodeGenRegVm_X86.h"
 
+namespace
+{
+	const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
+	const char* x64RegText[] = { "none", "rax", "rbx", "rcx", "rdx", "rsp", "rdi", "rbp", "rsi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15" };
+
+	const char* x86XmmRegText[] = {
+		"xmm0",
+		"xmm1",
+		"xmm2",
+		"xmm3",
+		"xmm4",
+		"xmm5",
+		"xmm6",
+		"xmm7",
+		"xmm8",
+		"xmm9",
+		"xmm10",
+		"xmm11",
+		"xmm12",
+		"xmm13",
+		"xmm14",
+		"xmm15"
+	};
+
+	const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
+	const char* x86XmmSizeText[] = { "none", "byte", "word", "dword", "mmword" };
+
+	const char* x86CmdText[] =
+	{
+		"",
+		"mov", "movsx", "push", "pop", "lea", "cdq", "cqo", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
+		"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
+		"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
+		"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
+		"movss", "movsd", "movd", "movsxd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd", "sqrtsd", "cmpeqsd", "cmpltsd", "cmplesd", "cmpneqsd",
+		"int", "label", "use32", "nop", "other",
+		"; read_register", "; kill_register", "; set_tracking",
+
+		"mov",
+		"neg", "add", "sub", "imul", "idiv", "sal", "sar", "not", "and", "or", "xor", "cmp",
+		"cvttsd2si", "cvtsi2sd"
+	};
+}
+
 int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize)
 {
 	char *curr = buf;

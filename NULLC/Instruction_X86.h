@@ -35,9 +35,6 @@ enum x86Reg
 	rRegCount
 };
 
-static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
-static const char* x64RegText[] = { "none", "rax", "rbx", "rcx", "rdx", "rsp", "rdi", "rbp", "rsi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15" };
-
 enum x86XmmReg
 {
 	rXMM0,
@@ -60,28 +57,7 @@ enum x86XmmReg
 	rXmmRegCount
 };
 
-static const char* x86XmmRegText[] = {
-	"xmm0",
-	"xmm1",
-	"xmm2",
-	"xmm3",
-	"xmm4",
-	"xmm5",
-	"xmm6",
-	"xmm7",
-	"xmm8",
-	"xmm9",
-	"xmm10",
-	"xmm11",
-	"xmm12",
-	"xmm13",
-	"xmm14",
-	"xmm15"
-};
-
 enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD };
-static const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
-static const char* x86XmmSizeText[] = { "none", "byte", "word", "dword", "mmword" };
 
 enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
 				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
@@ -201,21 +177,6 @@ enum x86Command
 	o_jc = o_jb,
 	o_jz = o_je,
 	o_jnz = o_jne
-};
-
-static const char* x86CmdText[] = 
-{	"",
-	"mov", "movsx", "push", "pop", "lea", "cdq", "cqo", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
-	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
-	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
-	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
-	"movss", "movsd", "movd", "movsxd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd", "sqrtsd", "cmpeqsd", "cmpltsd", "cmplesd", "cmpneqsd",
-	"int", "label", "use32", "nop", "other",
-	"; read_register", "; kill_register", "; set_tracking",
-
-	"mov",
-	"neg", "add", "sub", "imul", "idiv", "sal", "sar", "not", "and", "or", "xor", "cmp",
-	"cvttsd2si", "cvtsi2sd"
 };
 
 struct CodeGenRegVmStateContext;
@@ -344,8 +305,6 @@ struct x86Argument
 
 	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize);
 };
-
-const int INST_COMMENT = 1;
 
 struct x86Instruction
 {
