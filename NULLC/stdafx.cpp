@@ -51,7 +51,15 @@ const char* NULLC::defaultFileLoad(const char* name, unsigned* size)
 		*size = ftell(file);
 		fseek(file, 0, SEEK_SET);
 		char *fileContent = (char*)NULLC::alloc(*size + 1);
-		fread(fileContent, 1, *size, file);
+		unsigned read = (unsigned)fread(fileContent, 1, *size, file);
+
+		if(read != *size)
+		{
+			NULLC::dealloc(fileContent);
+			*size = 0;
+			return NULL;
+		}
+
 		fileContent[*size] = 0;
 		fclose(file);
 		return fileContent;
