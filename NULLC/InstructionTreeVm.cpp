@@ -1956,7 +1956,7 @@ void VmBlock::RemoveInstruction(VmInstruction* instruction)
 
 bool VmBlock::HasExternalInstructionUsers()
 {
-	for(VmInstruction *curr = firstInstruction; curr; curr = curr = curr->nextSibling)
+	for(VmInstruction *curr = firstInstruction; curr; curr = curr->nextSibling)
 	{
 		for(unsigned i = 0; i < curr->users.size(); i++)
 		{
