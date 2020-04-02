@@ -1692,13 +1692,16 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 			block.code = binCode;
 			block.codeSize = oldBinCodeReserved;
-			block.unwindTable = functionWin64UnwindTable.data;
 
-			expiredCodeBlocks.push_back(block);
+#ifdef _M_X64
+			block.unwindTable = functionWin64UnwindTable.data;
 
 			functionWin64UnwindTable.data = NULL;
 			functionWin64UnwindTable.count = 0;
 			functionWin64UnwindTable.max = 0;
+#endif
+
+			expiredCodeBlocks.push_back(block);
 		}
 		else
 		{

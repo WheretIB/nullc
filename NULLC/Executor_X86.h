@@ -105,7 +105,10 @@ public:
 	{
 		unsigned char *code;
 		unsigned codeSize;
+
+#ifdef _M_X64
 		RUNTIME_FUNCTION *unwindTable;
+#endif
 	};
 
 	FastVector<ExpiredCodeBlock>	expiredCodeBlocks;
@@ -147,7 +150,10 @@ public:
 	FastVector<ExpiredFunctionAddressList> expiredFunctionAddressLists;
 
 	FastVector<unsigned> globalCodeRanges;
+
+#ifdef _M_X64
 	FastVector<RUNTIME_FUNCTION> functionWin64UnwindTable;
+#endif
 
 	void *breakFunctionContext;
 	unsigned (*breakFunction)(void*, unsigned);
