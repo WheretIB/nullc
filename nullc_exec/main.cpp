@@ -18,8 +18,6 @@
 #include "../NULLC/includes/math.h"
 #include "../NULLC/includes/string.h"
 #include "../NULLC/includes/vector.h"
-#include "../NULLC/includes/list.h"
-#include "../NULLC/includes/map.h"
 #include "../NULLC/includes/random.h"
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/gc.h"
@@ -132,10 +130,6 @@ int main(int argc, char** argv)
 #endif
 	if(!nullcInitVectorModule() && verbose)
 		printf("ERROR: Failed to init std.vector module\r\n");
-	if(!nullcInitListModule() && verbose)
-		printf("ERROR: Failed to init std.list module\r\n");
-	if(!nullcInitMapModule() && verbose)
-		printf("ERROR: Failed to init std.map module\r\n");
 	if(!nullcInitRandomModule() && verbose)
 		printf("ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule() && verbose)

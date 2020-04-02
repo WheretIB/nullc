@@ -104,9 +104,6 @@
     <ClCompile Include="includes\io.cpp">
       <Filter>Modules\std</Filter>
     </ClCompile>
-    <ClCompile Include="includes\map.cpp">
-      <Filter>Modules\std</Filter>
-    </ClCompile>
     <ClCompile Include="includes\math.cpp">
       <Filter>Modules\std</Filter>
     </ClCompile>
@@ -133,9 +130,6 @@
     </ClCompile>
     <ClCompile Include="..\external\pugixml\pugixml.cpp">
       <Filter>Modules\ext\pugi</Filter>
-    </ClCompile>
-    <ClCompile Include="includes\list.cpp">
-      <Filter>Modules\old</Filter>
     </ClCompile>
     <ClCompile Include="includes\vector.cpp">
       <Filter>Modules\old</Filter>
@@ -295,9 +289,6 @@
     <ClInclude Include="includes\io.h">
       <Filter>Modules\std</Filter>
     </ClInclude>
-    <ClInclude Include="includes\map.h">
-      <Filter>Modules\std</Filter>
-    </ClInclude>
     <ClInclude Include="includes\math.h">
       <Filter>Modules\std</Filter>
     </ClInclude>
@@ -327,9 +318,6 @@
     </ClInclude>
     <ClInclude Include="..\external\pugixml\pugixml.hpp">
       <Filter>Modules\ext\pugi</Filter>
-    </ClInclude>
-    <ClInclude Include="includes\list.h">
-      <Filter>Modules\old</Filter>
     </ClInclude>
     <ClInclude Include="includes\vector.h">
       <Filter>Modules\old</Filter>

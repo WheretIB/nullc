@@ -42,8 +42,6 @@
 #include "../NULLC/includes/math.h"
 #include "../NULLC/includes/string.h"
 #include "../NULLC/includes/vector.h"
-#include "../NULLC/includes/list.h"
-#include "../NULLC/includes/map.h"
 #include "../NULLC/includes/random.h"
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/gc.h"
@@ -551,10 +549,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	if(!nullcInitVectorModule())
 		strcat(initError, "ERROR: Failed to init old.vector module\r\n");
-	if(!nullcInitListModule())
-		strcat(initError, "ERROR: Failed to init old.list module\r\n");
-	if(!nullcInitMapModule())
-		strcat(initError, "ERROR: Failed to init std.map module\r\n");
 	if(!nullcInitRandomModule())
 		strcat(initError, "ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule())

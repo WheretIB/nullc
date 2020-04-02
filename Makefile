@@ -125,8 +125,6 @@ STDLIB_TARGETS = \
   temp/lib/file.o \
   temp/lib/gc.o \
   temp/lib/io.o \
-  temp/lib/list.o \
-  temp/lib/map.o \
   temp/lib/math.o \
   temp/lib/pugi.o \
   temp/lib/random.o \

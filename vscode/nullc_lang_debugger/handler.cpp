@@ -20,8 +20,6 @@
 #include "../../NULLC/includes/math.h"
 #include "../../NULLC/includes/string.h"
 #include "../../NULLC/includes/vector.h"
-#include "../../NULLC/includes/list.h"
-#include "../../NULLC/includes/map.h"
 #include "../../NULLC/includes/random.h"
 #include "../../NULLC/includes/time.h"
 #include "../../NULLC/includes/gc.h"
@@ -594,8 +592,6 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		return RespondWithError(ctx, response, "failed to init std.math module");
 	if(!nullcInitStringModule())
 		return RespondWithError(ctx, response, "failed to init std.string module");
-	if(!nullcInitMapModule())
-		return RespondWithError(ctx, response, "failed to init std.map module");
 	if(!nullcInitRandomModule())
 		return RespondWithError(ctx, response, "failed to init std.random module");
 	if(!nullcInitTimeModule())

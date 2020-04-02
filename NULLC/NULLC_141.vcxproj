@@ -242,7 +242,6 @@
     <ClCompile Include="includes\file.cpp" />
     <ClCompile Include="includes\gc.cpp" />
     <ClCompile Include="includes\io.cpp" />
-    <ClCompile Include="includes\map.cpp" />
     <ClCompile Include="includes\math.cpp" />
     <ClCompile Include="includes\random.cpp" />
     <ClCompile Include="includes\string.cpp" />
@@ -252,7 +251,6 @@
     <ClCompile Include="includes\canvas.cpp" />
     <ClCompile Include="includes\pugi.cpp" />
     <ClCompile Include="..\external\pugixml\pugixml.cpp" />
-    <ClCompile Include="includes\list.cpp" />
     <ClCompile Include="includes\vector.cpp" />
     <ClCompile Include="Executor_LLVM.cpp" />
     <ClCompile Include="TypeTree.cpp" />
@@ -308,7 +306,6 @@
     <ClInclude Include="includes\file.h" />
     <ClInclude Include="includes\gc.h" />
     <ClInclude Include="includes\io.h" />
-    <ClInclude Include="includes\map.h" />
     <ClInclude Include="includes\math.h" />
     <ClInclude Include="includes\random.h" />
     <ClInclude Include="includes\string.h" />
@@ -319,7 +316,6 @@
     <ClInclude Include="includes\pugi.h" />
     <ClInclude Include="..\external\pugixml\pugiconfig.hpp" />
     <ClInclude Include="..\external\pugixml\pugixml.hpp" />
-    <ClInclude Include="includes\list.h" />
     <ClInclude Include="includes\vector.h" />
     <ClInclude Include="Executor_LLVM.h" />
     <ClInclude Include="Tree.h" />
