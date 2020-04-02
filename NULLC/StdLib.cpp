@@ -182,25 +182,25 @@ public:
 	}
 	void* GetBasePointer(void* ptr)
 	{
-		if(!sortedPages.size() || ptr < sortedPages[0] || ptr > (char*)sortedPages.back() + sizeof(MyLargeBlock))
+		if(sortedPages.count == 0 || ptr < sortedPages.data[0] || ptr > (char*)sortedPages.data[sortedPages.count - 1] + sizeof(MyLargeBlock))
 			return NULL;
 		// Binary search
 		unsigned int lowerBound = 0;
-		unsigned int upperBound = sortedPages.size() - 1;
+		unsigned int upperBound = sortedPages.count - 1;
 		unsigned int pointer = 0;
 		while(upperBound - lowerBound > 1)
 		{
 			pointer = (lowerBound + upperBound) >> 1;
-			if(ptr < sortedPages[pointer])
+			if(ptr < sortedPages.data[pointer])
 				upperBound = pointer;
-			if(ptr > sortedPages[pointer])
+			if(ptr > sortedPages.data[pointer])
 				lowerBound = pointer;
 		}
-		if(ptr < sortedPages[pointer])
+		if(ptr < sortedPages.data[pointer])
 			pointer--;
-		if(ptr > (char*)sortedPages[pointer]  + sizeof(MyLargeBlock))
+		if(ptr > (char*)sortedPages.data[pointer]  + sizeof(MyLargeBlock))
 			pointer++;
-		MyLargeBlock *best = sortedPages[pointer];
+		MyLargeBlock *best = sortedPages.data[pointer];
 
 		if(ptr < best->page || ptr > (char*)best + sizeof(best->page))
 			return NULL;
@@ -250,7 +250,7 @@ public:
 	MyLargeBlock	*activePages;
 	unsigned int	lastNum;
 
-	FastVector<MyLargeBlock*>	sortedPages;
+	FastVector<MyLargeBlock*> sortedPages;
 };
 
 namespace NULLC
