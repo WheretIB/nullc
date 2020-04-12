@@ -101,6 +101,36 @@ namespace NULLC
 {
 	ExecutorX86	*currExecutor = NULL;
 
+	unsigned GetInstructionFromAddress(uintptr_t address)
+	{
+		unsigned lowerBound = 0;
+		unsigned upperBound = currExecutor->instAddress.size() - 1;
+		unsigned index = 0;
+
+		while(lowerBound <= upperBound)
+		{
+			index = (lowerBound + upperBound) >> 1;
+
+			if(address < uintptr_t(currExecutor->instAddress.data[index]))
+				upperBound = index - 1;
+			else if(address > uintptr_t(currExecutor->instAddress.data[index]))
+				lowerBound = index + 1;
+			else
+				break;
+		}
+
+		return index;
+	}
+
+	void AddCrashStackFrame(unsigned instruction)
+	{
+		if(instruction != ~0u)
+		{
+			currExecutor->vmState.callStackTop->instruction = instruction;
+			currExecutor->vmState.callStackTop++;
+		}
+	}
+
 #ifndef __linux
 
 #if defined(_M_X64)
@@ -145,6 +175,8 @@ namespace NULLC
 		// Check that exception happened in NULLC code
 		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
 
+		unsigned internalInstruction = isInternal ? GetInstructionFromAddress(address) : ~0u;
+
 		for(unsigned i = 0; i < currExecutor->expiredCodeBlocks.size(); i++)
 		{
 			if(address >= uintptr_t(currExecutor->expiredCodeBlocks[i].code) && address <= uintptr_t(currExecutor->expiredCodeBlocks[i].code + currExecutor->expiredCodeBlocks[i].codeSize))
@@ -187,6 +219,8 @@ namespace NULLC
 
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
 		{
+			AddCrashStackFrame(internalInstruction);
+
 			currExecutor->Stop("ERROR: integer division by zero");
 
 			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
@@ -194,6 +228,8 @@ namespace NULLC
 
 		if(expCode == EXCEPTION_INT_OVERFLOW)
 		{
+			AddCrashStackFrame(internalInstruction);
+
 			currExecutor->Stop("ERROR: integer overflow");
 
 			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
@@ -201,6 +237,8 @@ namespace NULLC
 
 		if(expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000)
 		{
+			AddCrashStackFrame(internalInstruction);
+
 			currExecutor->Stop("ERROR: null pointer access");
 
 			return (DWORD)EXCEPTION_EXECUTE_HANDLER;
@@ -249,6 +287,8 @@ namespace NULLC
 		// Check that exception happened in NULLC code
 		bool isInternal = address >= uintptr_t(currExecutor->binCode) && address <= uintptr_t(currExecutor->binCode + currExecutor->binCodeSize);
 
+		unsigned internalInstruction = isInternal ? GetInstructionFromAddress(address) : ~0u;
+
 		for(unsigned i = 0; i < currExecutor->expiredCodeBlocks.size(); i++)
 		{
 			if(address >= uintptr_t(currExecutor->expiredCodeBlocks[i].code) && address <= uintptr_t(currExecutor->expiredCodeBlocks[i].code + currExecutor->expiredCodeBlocks[i].codeSize))
@@ -270,13 +310,19 @@ namespace NULLC
 
 		if(signum == SIGFPE)
 		{
+			AddCrashStackFrame(internalInstruction);
+
 			currExecutor->Stop("ERROR: integer division by zero");
+
 			siglongjmp(errorHandler, 1);
 		}
 
 		if(signum == SIGSEGV && uintptr_t(info->si_addr) < 0x00010000)
 		{
+			AddCrashStackFrame(internalInstruction);
+
 			currExecutor->Stop("ERROR: null pointer access");
+
 			siglongjmp(errorHandler, 1);
 		}
 
