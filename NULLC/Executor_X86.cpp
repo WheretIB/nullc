@@ -450,8 +450,9 @@ ExecutorX86::~ExecutorX86()
 		NULLC::MemProtect((void*)binCode, binCodeSize, PROT_READ | PROT_WRITE);
 #endif
 
+	NULLC::dealloc(codeLaunchWin64UnwindTable);
+
 	NULLC::dealloc(binCode);
-	binCode = NULL;
 
 	NULLC::currExecutor = NULL;
 
