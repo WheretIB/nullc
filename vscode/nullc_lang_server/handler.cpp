@@ -1591,7 +1591,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 	if(symbols.empty())
 	{
-		result.SetNull();
+		// Work-around for Visual Studio, which breaks if 'null' is sent as response here
+		//result.SetNull();
+		result.SetArray();
 	}
 	else
 	{
