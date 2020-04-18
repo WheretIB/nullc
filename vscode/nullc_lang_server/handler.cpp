@@ -1087,7 +1087,7 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 	if(!ctx.nullcInitialized)
 	{
-		if(arguments["rootUri"].IsString())
+		if(arguments.HasMember("rootUri") && arguments["rootUri"].IsString())
 		{
 			std::string rootUri = UrlDecode(arguments["rootUri"].GetString());
 
