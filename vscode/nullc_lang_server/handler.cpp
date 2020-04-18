@@ -863,7 +863,12 @@ void SendResponse(Context& ctx, rapidjson::Document &doc)
 	unsigned length = (unsigned)strlen(output);
 
 	if(ctx.debugMode)
-		fprintf(stderr, "DEBUG: Sending message '%.*s%s'\n", (int)(length > 96 ? 96 : length), output, length > 96 ? "..." : "");
+	{
+		if(ctx.debugFullMessages)
+			fprintf(stderr, "DEBUG: Sending message '%s'\n", output);
+		else
+			fprintf(stderr, "DEBUG: Sending message '%.*s%s'\n", (int)(length > 96 ? 96 : length), output, length > 96 ? "..." : "");
+	}
 
 	fprintf(stdout, "Content-Length: %d\r\n", length);
 	fprintf(stdout, "\r\n");
