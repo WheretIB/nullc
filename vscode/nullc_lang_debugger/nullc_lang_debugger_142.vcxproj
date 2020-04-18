@@ -162,6 +162,9 @@
       <Project>{5914662d-ebdb-4f94-8a1c-bc26e3e8b8c7}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\..\external\rapidjson\rapidjson.natvis" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

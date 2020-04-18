@@ -31,4 +31,7 @@
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\..\external\rapidjson\rapidjson.natvis" />
+  </ItemGroup>
 </Project>
