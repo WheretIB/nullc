@@ -119,6 +119,9 @@ namespace NULLC
 				break;
 		}
 
+		if(index != 0 && address < uintptr_t(currExecutor->instAddress.data[index]))
+			index--;
+
 		return index;
 	}
 
