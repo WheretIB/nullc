@@ -63,6 +63,9 @@ public:
 	bool	AddBreakpoint(unsigned int instruction, bool oneHit);
 	bool	RemoveBreakpoint(unsigned int instruction);
 
+	unsigned	GetInstructionAtAddress(void *address);
+	bool		IsCodeLaunchHeader(void *address);
+
 private:
 	bool	InitExecution();
 

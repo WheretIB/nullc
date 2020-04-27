@@ -17,8 +17,6 @@ bool AreMembersAligned(ExternTypeInfo *lType, ExternTypeInfo *exTypes, ExternMem
 
 bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra);
 
-ExternTypeInfo*	GetTypeList();
-
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, bool withVariables);
 void DumpStackFrames();
 

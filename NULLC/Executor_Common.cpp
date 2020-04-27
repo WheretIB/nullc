@@ -130,26 +130,25 @@ bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigne
 	return false;
 }
 
-ExternTypeInfo*	GetTypeList()
-{
-	return NULLC::commonLinker->exTypes.data;
-}
-
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, bool withVariables)
 {
 	const char *start = current;
 
-	FastVector<ExternFuncInfo> &exFunctions = NULLC::commonLinker->exFunctions;
-	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
-	FastVector<ExternModuleInfo> &exModules = NULLC::commonLinker->exModules;
+	unsigned exFunctionsSize = 0;
+	ExternFuncInfo *exFunctions = nullcDebugFunctionInfo(&exFunctionsSize);
 
-	ExternSourceInfo *exInfo = &NULLC::commonLinker->exRegVmSourceInfo[0];
-	unsigned int infoSize = NULLC::commonLinker->exRegVmSourceInfo.size();
+	char *exSymbols = nullcDebugSymbols(NULL);
 
-	const char *source = &NULLC::commonLinker->exSource[0];
+	unsigned exModulesSize = 0;
+	ExternModuleInfo *exModules = nullcDebugModuleInfo(&exModulesSize);
+
+	unsigned exInfoSize = 0;
+	ExternSourceInfo *exInfo = nullcDebugSourceInfo(&exInfoSize);
+
+	char *source = nullcDebugSource();
 
 	int funcID = -1;
-	for(unsigned int i = 0; i < exFunctions.size(); i++)
+	for(unsigned int i = 0; i < exFunctionsSize; i++)
 	{
 		if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
 			funcID = i;
@@ -159,24 +158,28 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", &exSymbols[exFunctions[funcID].offsetToName]);
 	else
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", address == -1 ? "external" : "global scope");
+
 	if(address != -1)
 	{
 		unsigned int infoID = 0;
 		unsigned int i = address - 1;
-		while((infoID < infoSize - 1) && (i >= exInfo[infoID + 1].instruction))
+		while((infoID < exInfoSize - 1) && (i >= exInfo[infoID + 1].instruction))
 			infoID++;
 		const char *codeStart = source + exInfo[infoID].sourceOffset;
+
 		// Find beginning of the line
 		while(codeStart != source && *(codeStart-1) != '\n')
 			codeStart--;
+
 		// Skip whitespace
 		while(*codeStart == ' ' || *codeStart == '\t')
 			codeStart++;
 		const char *codeEnd = codeStart;
+
 		// Find corresponding module
 		unsigned moduleID = ~0u;
 		const char *prevEnd = NULL;
-		for(unsigned l = 0; l < exModules.size(); l++)
+		for(unsigned l = 0; l < exModulesSize; l++)
 		{
 			// special check for main module
 			if(source + exModules[l].sourceOffset > prevEnd && codeStart >= prevEnd && codeStart < source + exModules[l].sourceOffset)
@@ -190,6 +193,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 			moduleStart = source + exModules[moduleID].sourceOffset;
 		else
 			moduleStart = prevEnd;
+
 		// Find line number
 		unsigned line = 0;
 		while(moduleStart < codeStart)
@@ -197,20 +201,24 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 			if(*moduleStart++ == '\n')
 				line++;
 		}
+
 		// Find ending of the line
 		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 			codeEnd++;
+
 		int codeLength = (int)(codeEnd - codeStart);
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), " (line %d: at %.*s)\r\n", line + 1, codeLength, codeStart);
 	}
 
 	if(withVariables)
 	{
-		FastVector<ExternTypeInfo> &exTypes = NULLC::commonLinker->exTypes;
+		unsigned exTypesSize = 0;
+		ExternTypeInfo *exTypes = nullcDebugTypeInfo(&exTypesSize);
 
 		if(funcID != -1)
 		{
-			FastVector<ExternLocalInfo> &exLocals = NULLC::commonLinker->exLocals;
+			unsigned exLocalsSize = 0;
+			ExternLocalInfo *exLocals = nullcDebugLocalInfo(&exLocalsSize);
 
 			for(unsigned int i = 0; i < exFunctions[funcID].localCount + exFunctions[funcID].externCount; i++)
 			{
@@ -224,9 +232,10 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 		}
 		else
 		{
-			FastVector<ExternVarInfo> &exVariables = NULLC::commonLinker->exVariables;
+			unsigned exVariablesSize = 0;
+			ExternVarInfo *exVariables = nullcDebugVariableInfo(&exVariablesSize);
 
-			for(unsigned i = 0; i < exVariables.size(); i++)
+			for(unsigned i = 0; i < exVariablesSize; i++)
 			{
 				ExternVarInfo &vInfo = exVariables[i];
 

@@ -1814,6 +1814,243 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 	return NULL;
 }
 
+namespace
+{
+	struct OutputBuffer
+	{
+		char buf[4096];
+		unsigned pos;
+	};
+
+	void BufferWriteStream(void *stream, const char *data, unsigned size)
+	{
+		OutputBuffer *buffer = (OutputBuffer*)stream;
+
+		for(unsigned i = 0; i < size; i++)
+		{
+			if(buffer->pos < 4096 - 1)
+				buffer->buf[buffer->pos++] = data[i];
+		}
+	}
+}
+
+const char* nullcDebugGetInstructionSourceLocation(unsigned instruction)
+{
+	unsigned infoSize = 0;
+	ExternSourceInfo *sourceInfo = nullcDebugSourceInfo(&infoSize);
+
+	if(!infoSize)
+		return NULL;
+
+	const char *fullSource = nullcDebugSource();
+
+	for(unsigned i = 0; i < infoSize; i++)
+	{
+		if(instruction == sourceInfo[i].instruction)
+			return fullSource + sourceInfo[i].sourceOffset;
+
+		if(i + 1 < infoSize && instruction < sourceInfo[i + 1].instruction)
+			return fullSource + sourceInfo[i].sourceOffset;
+	}
+
+	return fullSource + sourceInfo[infoSize - 1].sourceOffset;
+}
+
+unsigned nullcDebugGetSourceLocationModuleIndex(const char *sourceLocation)
+{
+	if(!sourceLocation)
+		return ~0u;
+
+	unsigned moduleCount = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleCount);
+
+	const char* fullSource = nullcDebugSource();
+
+	for(unsigned i = 0; i < moduleCount; i++)
+	{
+		ExternModuleInfo &moduleInfo = modules[i];
+
+		const char *start = fullSource + moduleInfo.sourceOffset;
+		const char *end = start + moduleInfo.sourceSize;
+
+		if(sourceLocation >= start && sourceLocation < end)
+			return i;
+	}
+
+	return ~0u;
+}
+
+unsigned nullcDebugGetSourceLocationLineAndColumn(const char *sourceLocation, unsigned moduleIndex, unsigned &column)
+{
+	unsigned moduleCount = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleCount);
+
+	const char* fullSource = nullcDebugSource();
+
+	const char *sourceStart = fullSource + (moduleIndex < moduleCount ? modules[moduleIndex].sourceOffset : modules[moduleCount - 1].sourceOffset + modules[moduleCount - 1].sourceSize);
+
+	unsigned line = 0;
+
+	const char *pos = sourceStart;
+	const char *lastLineStart = pos;
+
+	while(pos < sourceLocation)
+	{
+		if(*pos == '\r')
+		{
+			line++;
+
+			pos++;
+
+			if(*pos == '\n')
+				pos++;
+
+			lastLineStart = pos;
+		}
+		else if(*pos == '\n')
+		{
+			line++;
+
+			pos++;
+
+			lastLineStart = pos;
+		}
+		else
+		{
+			pos++;
+		}
+	}
+
+	column = int(pos - lastLineStart);
+
+	return line;
+}
+
+unsigned nullcDebugConvertNativeAddressToInstruction(void *address)
+{
+	using namespace NULLC;
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86 && executorX86)
+		return executorX86->GetInstructionAtAddress(address);
+#endif
+
+	return ~0u;
+}
+
+const char* nullcDebugGetNativeAddressLocation(void *address)
+{
+	using namespace NULLC;
+
+	unsigned instruction = nullcDebugConvertNativeAddressToInstruction(address);
+
+	if(instruction == ~0u)
+	{
+#ifdef NULLC_BUILD_X86_JIT
+		if(currExec == NULLC_X86 && executorX86 && executorX86->IsCodeLaunchHeader(address))
+			return "[Transition to nullc]";
+#endif
+
+		return NULL;
+	}
+
+	static OutputBuffer buffer;
+
+	// Reset position
+	buffer.pos = 0;
+
+	OutputContext output;
+
+	output.stream = &buffer;
+	output.writeStream = BufferWriteStream;
+
+	unsigned functionCount = 0;
+	ExternFuncInfo *functions = nullcDebugFunctionInfo(&functionCount);
+
+	char *symbols = nullcDebugSymbols(NULL);
+
+	char *fullSource = nullcDebugSource();
+
+	unsigned moduleCount = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleCount);
+
+	const char *sourceLocation = nullcDebugGetInstructionSourceLocation(instruction);
+
+	unsigned moduleIndex = nullcDebugGetSourceLocationModuleIndex(sourceLocation);
+
+	if(moduleIndex < moduleCount)
+		output.Printf("{%s} ", symbols + modules[moduleIndex].nameOffset);
+	else
+		output.Printf("{root} ");
+
+	ExternFuncInfo *targetFunction = nullcDebugConvertAddressToFunction(instruction, functions, functionCount);
+
+	if(targetFunction)
+	{
+		output.Printf("%s(", symbols + targetFunction->offsetToName);
+
+		unsigned exTypesSize = 0;
+		ExternTypeInfo *exTypes = nullcDebugTypeInfo(&exTypesSize);
+
+		unsigned exLocalsSize = 0;
+		ExternLocalInfo *exLocals = nullcDebugLocalInfo(&exLocalsSize);
+
+		for(unsigned i = 0; i < targetFunction->paramCount; i++)
+		{
+			ExternLocalInfo &lInfo = exLocals[targetFunction->offsetToFirstLocal + i];
+
+			if(lInfo.paramType != ExternLocalInfo::PARAMETER)
+				continue;
+
+			output.Printf("%s%s %s", i != 0 ? ", " : "", symbols + exTypes[lInfo.type].offsetToName, symbols + lInfo.offsetToName);
+		}
+
+		output.Print(")");
+	}
+	else
+	{
+		output.Print("nullcGlobal()");
+	}
+
+	// Stop if source location is missing
+	if(!sourceLocation)
+	{
+		output.Flush();
+		output.stream = NULL;
+		buffer.buf[buffer.pos] = 0;
+
+		return buffer.buf;
+	}
+
+	const char *codeStart = sourceLocation;
+
+	unsigned column = 0;
+	unsigned line = nullcDebugGetSourceLocationLineAndColumn(codeStart, moduleIndex, column);
+
+	// Find beginning of the line
+	while(codeStart != fullSource && *(codeStart-1) != '\n')
+		codeStart--;
+
+	// Skip whitespace
+	while(*codeStart == ' ' || *codeStart == '\t')
+		codeStart++;
+
+	const char *codeEnd = codeStart;
+
+	// Find ending of the line
+	while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
+		codeEnd++;
+
+	int codeLength = int(codeEnd - codeStart);
+	output.Printf(" line %d at '%.*s'", line + 1, codeLength, codeStart);
+
+	output.Flush();
+	output.stream = NULL;
+	buffer.buf[buffer.pos] = 0;
+
+	return buffer.buf;
+}
+
 #endif
 
 CompilerContext* nullcGetCompilerContext()

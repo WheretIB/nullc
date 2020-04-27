@@ -2157,4 +2157,19 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 	return true;
 }
 
+unsigned ExecutorX86::GetInstructionAtAddress(void *address)
+{
+	bool isInternal = uintptr_t(address) >= uintptr_t(binCode) && uintptr_t(address) <= uintptr_t(binCode + binCodeSize);
+
+	if(!isInternal)
+		return ~0u;
+
+	return NULLC::GetInstructionFromAddress(uintptr_t(address));
+}
+
+bool ExecutorX86::IsCodeLaunchHeader(void *address)
+{
+	return uintptr_t(address) >= uintptr_t(codeLaunchHeader) && uintptr_t(address) <= uintptr_t(codeLaunchHeader + codeLaunchHeaderLength);
+}
+
 #endif

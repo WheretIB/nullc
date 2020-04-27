@@ -49,6 +49,14 @@ nullres				nullcDebugRemoveBreakpoint(unsigned int instruction);
 
 ExternFuncInfo*		nullcDebugConvertAddressToFunction(int instruction, ExternFuncInfo* codeFunctions, unsigned functionCount);
 
+const char*			nullcDebugGetInstructionSourceLocation(unsigned instruction);
+unsigned			nullcDebugGetSourceLocationModuleIndex(const char *sourceLocation);
+unsigned			nullcDebugGetSourceLocationLineAndColumn(const char *sourceLocation, unsigned moduleIndex, unsigned &column);
+
+NULLC_BIND unsigned				nullcDebugConvertNativeAddressToInstruction(void *address);
+
+NULLC_BIND const char*			nullcDebugGetNativeAddressLocation(void *address);
+
 #ifdef __cplusplus
 }
 #endif
