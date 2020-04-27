@@ -7781,7 +7781,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
-		ExprBase *alloc = CreateArrayAllocation(ctx, syntaxInternal, type, count);
+		ExprBase *alloc = CreateArrayAllocation(ctx, syntax, type, count);
 
 		if(HasDefaultConstructor(ctx, syntax, type))
 		{
@@ -7797,7 +7797,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		return alloc;
 	}
 
-	ExprBase *alloc = CreateObjectAllocation(ctx, syntaxInternal, type);
+	ExprBase *alloc = CreateObjectAllocation(ctx, syntax, type);
 
 	// Call constructor
 	TypeRef *allocType = getType<TypeRef>(alloc->type);
