@@ -119,11 +119,6 @@ namespace nullc_debugger_component
 
         public class NullcDebugger : IDkmCallStackFilter
         {
-            //public const string NullcRuntimeId = "57CDD231-583D-4083-BFCD-26637F0ACFBF";
-            //public static readonly Guid NullcRuntimeGuid = new Guid(NullcRuntimeId);
-
-
-
             internal string FindFunctionAddress(DkmRuntimeInstance runtimeInstance, string name)
             {
                 string result = null;
@@ -216,33 +211,6 @@ namespace nullc_debugger_component
 
                     if (stackFrameDesc != null)
                     {
-                        //if (processData.runtime == null)
-                        //    processData.runtime = DkmCustomRuntimeInstance.Create(input.Thread.Process, new DkmRuntimeInstanceId(NullcRuntimeGuid, 0), null);
-
-                        //var stackData = NullcDebuggerHelpers.GetOrCreateDataItem<DebugStackDataItem>(stackContext);
-
-                        /*if (stackData.module == null && processData.nullcDebugGetNativeModuleBase != null && processData.nullcDebugGetNativeModuleSize != null)
-                        {
-                            string result = ExecuteExpression($"((unsigned long long(*)()){processData.nullcDebugGetNativeModuleBase})()", stackContext, input);
-
-                            ulong moduleBase = 0;
-
-                            if (result != null)
-                                ulong.TryParse(result, out moduleBase);
-
-                            result = ExecuteExpression($"((unsigned(*)()){processData.nullcDebugGetNativeModuleSize})()", stackContext, input);
-
-                            uint moduleSize = 0;
-
-                            if (result != null)
-                                uint.TryParse(result, out moduleSize);
-
-                            if (moduleBase != 0 && moduleSize != 0)
-                                stackData.module = DkmCustomModuleInstance.Create("nullc", "nullc.embedded.code", 0, input.RuntimeInstance, null, null, DkmModuleFlags.None, DkmModuleMemoryLayout.Unknown, moduleBase, 1, moduleSize, "nullc embedded code", false, null, null, null);
-                        }*/
-
-                        //stackFrameDesc = $"{input.InstructionAddress.CPUInstructionPart.InstructionPointer:X} {stackFrameDesc}";
-
                         var flags = input.Flags;
 
                         flags = flags & ~(DkmStackWalkFrameFlags.NonuserCode | DkmStackWalkFrameFlags.UserStatusNotDetermined);
@@ -278,54 +246,8 @@ namespace nullc_debugger_component
             }
         }
 
-        public class NullcSymbolProvider : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolQuery, IDkmAsyncBreakCompleteReceived, IDkmProcessExecutionNotification/*, IDkmRuntimeInstanceLoadNotification*/, IDkmModuleUserCodeDeterminer
+        public class NullcSymbolProvider : IDkmProcessExecutionNotification, IDkmModuleUserCodeDeterminer
         {
-            DkmCompilerId IDkmSymbolCompilerIdQuery.GetCompilerId(DkmInstructionSymbol instruction, DkmInspectionSession inspectionSession)
-            {
-                return new DkmCompilerId(Guid.Empty, Guid.Empty);
-            }
-
-            DkmResolvedDocument[] IDkmSymbolDocumentCollectionQuery.FindDocuments(DkmModule module, DkmSourceFileId sourceFileId)
-            {
-                if (module.Name != "nullc.embedded.code")
-                    throw new NotSupportedException();
-
-                //throw new NotSupportedException();
-                return new[] {
-                    DkmResolvedDocument.Create(module, module.Name, null, DkmDocumentMatchStrength.FullPath, DkmResolvedDocumentWarning.None, false, null)
-                };
-            }
-
-            DkmSourcePosition IDkmSymbolQuery.GetSourcePosition(DkmInstructionSymbol instruction, DkmSourcePositionFlags flags, DkmInspectionSession inspectionSession, out bool startOfLine)
-            {
-                startOfLine = false;
-
-                return null;
-            }
-
-            object IDkmSymbolQuery.GetSymbolInterface(DkmModule module, Guid interfaceID)
-            {
-                throw new NotImplementedException();
-            }
-
-            void IDkmAsyncBreakCompleteReceived.OnAsyncBreakCompleteReceived(DkmProcess process, DkmAsyncBreakStatus status, DkmThread thread, DkmEventDescriptorS eventDescriptor)
-            {
-                /*try
-                {
-                    ulong moduleBase = 0;
-
-                    uint moduleSize = 0;
-
-                    var processData = NullcDebuggerHelpers.GetOrCreateDataItem<DebugProcessDataItem>(thread.Process);
-
-                    DkmCustomModuleInstance.Create("nullc", "nullc.embedded.code", 0, process.GetNativeRuntimeInstance(), null, null, DkmModuleFlags.None, DkmModuleMemoryLayout.Unknown, moduleBase, 1, moduleSize, "nullc embedded code", false, null, null, null);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("OnAsyncBreakCompleteReceived failed with: " + ex.ToString());
-                }*/
-            }
-
             void IDkmProcessExecutionNotification.OnProcessPause(DkmProcess process, DkmProcessExecutionCounters processCounters)
             {
                 try
@@ -336,61 +258,8 @@ namespace nullc_debugger_component
 
                     var processData = NullcDebuggerHelpers.GetOrCreateDataItem<RemoteProcessDataItem>(process);
 
-                    //foreach (var runtimeInstance in process.GetRuntimeInstances())
-                    /*var runtimeInstance = process.GetNativeRuntimeInstance();
-
-                    if (runtimeInstance != null)
-                    {
-                        foreach (var module in runtimeInstance.GetModuleInstances())
-                        {
-                            var nativeModule = module as DkmNativeModuleInstance;
-
-                            var nullcModuleStartAddress = nativeModule?.FindExportName("nullcModuleStartAddress", IgnoreDataExports: false);
-                            var nullcModuleEndAddress = nativeModule?.FindExportName("nullcModuleEndAddress", IgnoreDataExports: false);
-
-                            if (nullcModuleStartAddress != null && nullcModuleEndAddress != null)
-                            {
-                                if ((process.SystemInformation.Flags & DkmSystemInformationFlags.Is64Bit) == 0)
-                                {
-                                    byte[] nullcModuleStartAddressData = new byte[4];
-                                    byte[] nullcModuleEndAddressData = new byte[4];
-
-                                    process.ReadMemory(nullcModuleStartAddress.CPUInstructionPart.InstructionPointer, DkmReadMemoryFlags.None, nullcModuleStartAddressData);
-                                    process.ReadMemory(nullcModuleEndAddress.CPUInstructionPart.InstructionPointer, DkmReadMemoryFlags.None, nullcModuleEndAddressData);
-
-                                    moduleBase = (ulong)BitConverter.ToUInt32(nullcModuleStartAddressData, 0);
-                                    var moduleEnd = BitConverter.ToUInt32(nullcModuleEndAddressData, 0);
-
-                                    moduleSize = (uint)(moduleEnd - moduleBase);
-                                }
-                                else
-                                {
-                                    byte[] nullcModuleStartAddressData = new byte[8];
-                                    byte[] nullcModuleEndAddressData = new byte[8];
-
-                                    process.ReadMemory(nullcModuleStartAddress.CPUInstructionPart.InstructionPointer, DkmReadMemoryFlags.None, nullcModuleStartAddressData);
-                                    process.ReadMemory(nullcModuleEndAddress.CPUInstructionPart.InstructionPointer, DkmReadMemoryFlags.None, nullcModuleEndAddressData);
-
-                                    moduleBase = BitConverter.ToUInt64(nullcModuleStartAddressData, 0);
-                                    var moduleEnd = BitConverter.ToUInt64(nullcModuleEndAddressData, 0);
-
-                                    moduleSize = (uint)(moduleEnd - moduleBase);
-                                }
-
-                                break;
-                            }
-                        }
-                    }*/
-
                     if (moduleBase == 0 || moduleSize == 0)
                         return;
-
-                    /*if (processData.runtimeInstance == null)
-                    {
-                        processData.runtimeId = new DkmRuntimeInstanceId(NullcDebuggerHelpers.NullcRuntimeGuid, 0);
-
-                        processData.runtimeInstance = DkmCustomRuntimeInstance.Create(process, processData.runtimeId, null);//DkmRuntimeCapabilities.None, process.GetNativeRuntimeInstance(), null);
-                    }*/
 
                     if (processData.runtimeInstance == null)
                     {
@@ -425,7 +294,7 @@ namespace nullc_debugger_component
                 }
             }
 
-            public void OnProcessResume(DkmProcess process, DkmProcessExecutionCounters processCounters)
+            void IDkmProcessExecutionNotification.OnProcessResume(DkmProcess process, DkmProcessExecutionCounters processCounters)
             {
             }
 
@@ -441,33 +310,6 @@ namespace nullc_debugger_component
 
                 return moduleInstance.IsUserCode();
             }
-
-            /*void IDkmRuntimeInstanceLoadNotification.OnRuntimeInstanceLoad(DkmRuntimeInstance runtimeInstance, DkmEventDescriptor eventDescriptor)
-            {
-                var processData = NullcDebuggerHelpers.GetOrCreateDataItem<RemoteProcessDataItem>(runtimeInstance.Process);
-
-                foreach (var module in runtimeInstance.GetModuleInstances())
-                {
-                    var nativeModule = module as DkmNativeModuleInstance;
-
-                    var nullcModuleStartAddress = nativeModule?.FindExportName("nullcModuleStartAddress", IgnoreDataExports: false);
-                    var nullcModuleEndAddress = nativeModule?.FindExportName("nullcModuleEndAddress", IgnoreDataExports: false);
-
-                    if (nullcModuleStartAddress != null && nullcModuleEndAddress != null)
-                    {
-                        if (processData.runtimeInstance == null)
-                        {
-                            processData.runtimeId = new DkmRuntimeInstanceId(NullcDebuggerHelpers.NullcRuntimeGuid, 0);
-
-                            var temp = DkmRuntimeId.Native;
-
-                            processData.runtimeInstance = DkmCustomRuntimeInstance.Create(runtimeInstance.Process, processData.runtimeId, null);
-                        }
-
-                        break;
-                    }
-                }
-            }*/
         }
 
         public class NullcLocalSymbolProvider : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification

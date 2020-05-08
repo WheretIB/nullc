@@ -9,38 +9,10 @@
 			<Implements>
 				<InterfaceGroup>
 					<NoFilter/>
-					<!--
-					<Interface Name="IDkmSymbolDocumentCollectionQuery"/>
-					
-					<Interface Name="IDkmSymbolQuery"/>
-					-->
-					
 					<Interface Name="IDkmProcessExecutionNotification"/>
 					<Interface Name="IDkmModuleUserCodeDeterminer"/>
 				</InterfaceGroup>
 			</Implements>
 		</Class>
 	</ManagedComponent>
-
-	<!--
-	<ManagedComponent
-	ComponentId="guidNullcSymbolProviderId"
-	ComponentLevel="1999010"
-	AssemblyName="nullc_debugger_component">
-	
-	<Class Name="nullc_debugger_component.DkmDebugger.NullcSymbolProvider">
-	  <Implements>
-
-		<InterfaceGroup>
-			<NoFilter/>
-		  <Interface Name="IDkmSymbolCompilerIdQuery"/>
-		  <Interface Name="IDkmSymbolDocumentCollectionQuery"/>
-		  <Interface Name="IDkmSymbolQuery"/>
-		</InterfaceGroup>
-
-	  </Implements>
-	</Class>
-  </ManagedComponent>
-  
-	-->
 </Configuration>
