@@ -36,13 +36,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bytecode.cs" />
-    <Compile Include="nullc_debugger_component.cs" />
+    <Compile Include="DebugHelpers.cs" />
+    <Compile Include="LocalComponent.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RemoteComponent.cs" />
+    <Compile Include="StackFilter.cs" />
   </ItemGroup>
   <ItemGroup>
     <VsdConfigXmlFiles Include="nullc_stack_filter_component.vsdconfigxml" />
-    <VsdConfigXmlFiles Include="nullc_symbol_provider_component.vsdconfigxml" />
-    <VsdConfigXmlFiles Include="nullc_local_symbol_provider_component.vsdconfigxml" />
+    <VsdConfigXmlFiles Include="nullc_remote_component.vsdconfigxml" />
+    <VsdConfigXmlFiles Include="nullc_local_component.vsdconfigxml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.Debugger.Engine" Version="16.0.2032702">

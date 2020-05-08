@@ -5,7 +5,7 @@
 
 	<ManagedComponent ComponentId="guidNullcSymbolProviderId" ComponentLevel="40500" AssemblyName="nullc_debugger_component">
 
-		<Class Name="nullc_debugger_component.DkmDebugger.NullcSymbolProvider">
+		<Class Name="nullc_debugger_component.DkmDebugger.NullcRemoteComponent">
 			<Implements>
 				<InterfaceGroup>
 					<NoFilter/>
