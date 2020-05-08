@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Configuration xmlns="http://schemas.microsoft.com/vstudio/vsdconfig/2008">
+
+	<DefineGuid Name="guidNullcSymbolProviderId" Value="C1341E06-2406-44D8-ADAB-B797BE8687D8"/>
+
+	<ManagedComponent ComponentId="guidNullcSymbolProviderId" ComponentLevel="40500" AssemblyName="nullc_debugger_component">
+
+		<Class Name="nullc_debugger_component.DkmDebugger.NullcSymbolProvider">
+			<Implements>
+				<InterfaceGroup>
+					<NoFilter/>
+					<!--
+					<Interface Name="IDkmSymbolDocumentCollectionQuery"/>
+					
+					<Interface Name="IDkmSymbolQuery"/>
+					-->
+					
+					<Interface Name="IDkmProcessExecutionNotification"/>
+					<Interface Name="IDkmModuleUserCodeDeterminer"/>
+				</InterfaceGroup>
+			</Implements>
+		</Class>
+	</ManagedComponent>
+
+	<!--
+	<ManagedComponent
+	ComponentId="guidNullcSymbolProviderId"
+	ComponentLevel="1999010"
+	AssemblyName="nullc_debugger_component">
+	
+	<Class Name="nullc_debugger_component.DkmDebugger.NullcSymbolProvider">
+	  <Implements>
+
+		<InterfaceGroup>
+			<NoFilter/>
+		  <Interface Name="IDkmSymbolCompilerIdQuery"/>
+		  <Interface Name="IDkmSymbolDocumentCollectionQuery"/>
+		  <Interface Name="IDkmSymbolQuery"/>
+		</InterfaceGroup>
+
+	  </Implements>
+	</Class>
+  </ManagedComponent>
+  
+	-->
+</Configuration>

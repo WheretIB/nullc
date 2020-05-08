@@ -2,7 +2,6 @@
 <Configuration xmlns="http://schemas.microsoft.com/vstudio/vsdconfig/2008">
 
   <DefineGuid Name="guidNullcDebuggerComponent" Value="54CF3F5D-B698-48CC-A41A-5EF3C2FBB743"/>
-  <DefineGuid Name="guidNullcSymbolProviderId" Value="C1341E06-2406-44D8-ADAB-B797BE8687D8"/>
 
   <ManagedComponent
     ComponentId="guidNullcDebuggerComponent"
@@ -16,7 +15,6 @@
             <NoFilter/>
           <Interface Name="IDkmCallStackFilter"/>
         </InterfaceGroup>
-
       </Implements>
     </Class>
   </ManagedComponent>

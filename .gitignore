@@ -22,3 +22,5 @@ euler/
 /vscode/nullc_language_client_vs/obj
 /vscode/nullc_lang_client/.vscode/ipch
 /out
+/vscode/nullc_debugger_component/bin
+/vscode/nullc_debugger_component/obj

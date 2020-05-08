@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>c2a214f4-30f4-46f8-8755-781feee50737</ProjectGuid>
+    <ProjectGuid>{C2A214F4-30F4-46F8-8755-781FEEE50737}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>nullc_debugger_component</RootNamespace>
@@ -39,7 +39,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <VsdConfigXmlFiles Include="nullc_debugger_component.vsdconfigxml" />
+    <VsdConfigXmlFiles Include="nullc_stack_filter_component.vsdconfigxml" />
+    <VsdConfigXmlFiles Include="nullc_symbol_provider_component.vsdconfigxml" />
+    <VsdConfigXmlFiles Include="nullc_local_symbol_provider_component.vsdconfigxml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.Debugger.Engine" Version="16.0.2032702">
