@@ -8,7 +8,7 @@
     ComponentLevel="9995000"
     AssemblyName="nullc_debugger_component">
     
-    <Class Name="nullc_debugger_component.DkmDebugger.NullcDebugger">
+    <Class Name="nullc_debugger_component.DkmDebugger.NullcStackFilter">
       <Implements>
 
         <InterfaceGroup>

@@ -21,16 +21,12 @@ namespace nullc_debugger_component
 {
     namespace DkmDebugger
     {
-        internal class DebugProcessDataItem : DkmDataItem
+        internal class NullcStackFilterDataItem : DkmDataItem
         {
-            //public DkmCustomRuntimeInstance runtime = null;
-
             public bool nullcIsMissing = false;
             public bool nullcIsReady = false;
 
             public string nullcDebugGetNativeAddressLocation = null;
-            public string nullcDebugGetNativeModuleBase = null;
-            public string nullcDebugGetNativeModuleSize = null;
         }
 
         internal class RemoteProcessDataItem : DkmDataItem
@@ -79,6 +75,24 @@ namespace nullc_debugger_component
                 return item;
             }
 
+            internal static string FindFunctionAddress(DkmRuntimeInstance runtimeInstance, string name)
+            {
+                string result = null;
+
+                foreach (var module in runtimeInstance.GetModuleInstances())
+                {
+                    var address = (module as DkmNativeModuleInstance)?.FindExportName(name, IgnoreDataExports: true);
+
+                    if (address != null)
+                    {
+                        result = $"0x{address.CPUInstructionPart.InstructionPointer:X}";
+                        break;
+                    }
+                }
+
+                return result;
+            }
+
             internal static ulong? ReadUlongVariable(DkmProcess process, string name)
             {
                 var runtimeInstance = process.GetNativeRuntimeInstance();
@@ -117,41 +131,20 @@ namespace nullc_debugger_component
             }
         }
 
-        public class NullcDebugger : IDkmCallStackFilter
+        public class NullcStackFilter : IDkmCallStackFilter
         {
-            internal string FindFunctionAddress(DkmRuntimeInstance runtimeInstance, string name)
-            {
-                string result = null;
-
-                foreach (var module in runtimeInstance.GetModuleInstances())
-                {
-                    var address = (module as DkmNativeModuleInstance)?.FindExportName(name, IgnoreDataExports: true);
-
-                    if (address != null)
-                    {
-                        result = $"0x{address.CPUInstructionPart.InstructionPointer:X}";
-                        break;
-                    }
-                }
-
-                return result;
-            }
-
-            internal void InitNullcDebugFunctions(DebugProcessDataItem processData, DkmRuntimeInstance runtimeInstance)
+            internal void InitNullcDebugFunctions(NullcStackFilterDataItem processData, DkmRuntimeInstance runtimeInstance)
             {
                 if (processData.nullcIsMissing)
                     return;
 
-                processData.nullcDebugGetNativeAddressLocation = FindFunctionAddress(runtimeInstance, "nullcDebugGetNativeAddressLocation");
+                processData.nullcDebugGetNativeAddressLocation = NullcDebuggerHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetNativeAddressLocation");
 
                 if (processData.nullcDebugGetNativeAddressLocation == null)
                 {
                     processData.nullcIsMissing = true;
                     return;
                 }
-
-                processData.nullcDebugGetNativeModuleBase = FindFunctionAddress(runtimeInstance, "nullcDebugGetNativeModuleBase");
-                processData.nullcDebugGetNativeModuleSize = FindFunctionAddress(runtimeInstance, "nullcDebugGetNativeModuleSize");
             }
 
             internal string ExecuteExpression(string expression, DkmStackContext stackContext, DkmStackWalkFrame input)
@@ -200,7 +193,7 @@ namespace nullc_debugger_component
 
                 try
                 {
-                    var processData = NullcDebuggerHelpers.GetOrCreateDataItem<DebugProcessDataItem>(input.Thread.Process);
+                    var processData = NullcDebuggerHelpers.GetOrCreateDataItem<NullcStackFilterDataItem>(input.Thread.Process);
 
                     InitNullcDebugFunctions(processData, input.RuntimeInstance);
 
