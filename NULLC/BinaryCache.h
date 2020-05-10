@@ -28,6 +28,8 @@ namespace BinaryCache
 
 	void		ClearImportPaths();
 	void		AddImportPath(const char* path);
+	void		RemoveImportPath(const char* path);
+	bool		HasImportPath(const char* path);
 	const char*	EnumImportPath(unsigned pos);
 
 	struct	CodeDescriptor

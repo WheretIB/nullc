@@ -16,6 +16,8 @@ nullres		nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*
 
 void		nullcClearImportPaths();
 void		nullcAddImportPath(const char* importPath);
+void		nullcRemoveImportPath(const char* importPath);
+nullres		nullcHasImportPath(const char* importPath);
 
 void		nullcSetFileReadHandler(const char* (*fileLoadFunc)(const char* name, unsigned* size), void (*fileFreeFunc)(const char* data));
 void		nullcSetGlobalMemoryLimit(unsigned limit);

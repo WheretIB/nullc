@@ -155,6 +155,16 @@ void nullcAddImportPath(const char* importPath)
 	BinaryCache::AddImportPath(importPath);
 }
 
+void nullcRemoveImportPath(const char* importPath)
+{
+	BinaryCache::RemoveImportPath(importPath);
+}
+
+nullres nullcHasImportPath(const char* importPath)
+{
+	return BinaryCache::HasImportPath(importPath);
+}
+
 void nullcSetFileReadHandler(const char* (*fileLoadFunc)(const char* name, unsigned* size), void (*fileFreeFunc)(const char* data))
 {
 	NULLC::fileLoad = fileLoadFunc ? fileLoadFunc : NULLC::defaultFileLoad;
