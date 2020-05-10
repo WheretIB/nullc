@@ -87,11 +87,7 @@ struct ExternLocalInfo
 	unsigned short	defaultFuncId;
 
 	unsigned int	type, size;
-	union
-	{
-		unsigned int	offset;
-		unsigned int	target;
-	};
+	unsigned int	offset;
 	unsigned int	closeListID;
 	unsigned char	alignmentLog2; // 1 << value
 
