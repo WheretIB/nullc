@@ -1599,6 +1599,15 @@ ExternMemberInfo* nullcDebugTypeExtraInfo(unsigned int *count)
 	return linker ? linker->exTypeExtra.data : NULL;
 }
 
+ExternConstantInfo* nullcDebugTypeConstantInfo(unsigned int *count)
+{
+	using namespace NULLC;
+
+	if(count && linker)
+		*count = linker->exTypeConstants.size();
+	return linker ? linker->exTypeConstants.data : NULL;
+}
+
 ExternVarInfo* nullcDebugVariableInfo(unsigned int *count)
 {
 	using namespace NULLC;

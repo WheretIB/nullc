@@ -21,6 +21,7 @@ const void*			nullcGetModule(const char* path);
 
 ExternTypeInfo*		nullcDebugTypeInfo(unsigned int *count);
 ExternMemberInfo*	nullcDebugTypeExtraInfo(unsigned int *count);
+ExternConstantInfo*	nullcDebugTypeConstantInfo(unsigned int *count);
 ExternVarInfo*		nullcDebugVariableInfo(unsigned int *count);
 ExternFuncInfo*		nullcDebugFunctionInfo(unsigned int *count);
 ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);
