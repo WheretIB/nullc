@@ -2607,7 +2607,7 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 			EMIT_OP_REG(ctx.ctx, o_push, rESI);
 			EMIT_OP_NUM(ctx.ctx, o_push, uintptr_t(ctx.vmState));
 			EMIT_OP_ADDR(ctx.ctx, o_call, sDWORD, uintptr_t(&ctx.vmState->checkedReturnWrap));
-			EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 8);
+			EMIT_OP_REG_NUM(ctx.ctx, o_add, rESP, 12);
 		}
 	}
 
