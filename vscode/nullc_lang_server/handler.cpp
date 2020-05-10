@@ -978,6 +978,46 @@ Document* FindDocument(Context& ctx, rapidjson::Document &response, std::string 
 	return &documentIt->second;
 }
 
+struct ScopedDocumentImport
+{
+	ScopedDocumentImport(Context& ctx, Document *document): ctx(ctx)
+	{
+		if(document->uri.find("file:///") == 0)
+		{
+			auto pos = document->uri.rfind('/');
+
+			if(pos != std::string::npos)
+				documentFolder = document->uri.substr(8, pos - 7);
+		}
+
+		if(!documentFolder.empty())
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding temporary import path '%s'\n", documentFolder.c_str());
+
+			if(nullcHasImportPath(documentFolder.c_str()))
+				documentFolder.clear();
+			else
+				nullcAddImportPath(documentFolder.c_str());
+		}
+	}
+
+	~ScopedDocumentImport()
+	{
+		if(!documentFolder.empty())
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Removing temporary import path '%s'\n", documentFolder.c_str());
+
+			nullcRemoveImportPath(documentFolder.c_str());
+		}
+	}
+
+	Context& ctx;
+
+	std::string documentFolder;
+};
+
 bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 {
 	if(!response.IsArray())
@@ -1034,11 +1074,24 @@ bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 				ctx.modulePath = modulePath;
 
 				nullcInit();
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.rootPath.c_str());
+
 				nullcAddImportPath(ctx.rootPath.c_str());
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.modulePath.c_str());
+
 				nullcAddImportPath(ctx.modulePath.c_str());
 
 				if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+				{
+					if(ctx.debugMode)
+						fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.defaultModulePath.c_str());
+
 					nullcAddImportPath(ctx.defaultModulePath.c_str());
+				}
 
 				for(auto &&el : ctx.documents)
 					UpdateDiagnostics(ctx, el.second);
@@ -1094,7 +1147,9 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 			if(rootUri.find("file:///") == 0)
 			{
 				ctx.rootPath = rootUri.substr(8);
-				ctx.rootPath.push_back('/');
+
+				if(ctx.rootPath.back() != '/' && ctx.rootPath.back() != '\\')
+					ctx.rootPath.push_back('/');
 
 				ctx.modulePath = ctx.rootPath;
 				ctx.modulePath += "Modules/";
@@ -1103,7 +1158,15 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 					fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\n", ctx.modulePath.c_str());
 
 				nullcInit();
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.rootPath.c_str());
+
 				nullcAddImportPath(ctx.rootPath.c_str());
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.modulePath.c_str());
+
 				nullcAddImportPath(ctx.modulePath.c_str());
 			}
 			else
@@ -1125,7 +1188,12 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		}
 
 		if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.defaultModulePath.c_str());
+
 			nullcAddImportPath(ctx.defaultModulePath.c_str());
+		}
 
 		ctx.nullcInitialized = true;
 	}
@@ -1217,6 +1285,8 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 		return true;
 
 	std::vector<FoldingRange> foldingRanges;
+
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
 
 	nullcAnalyze(document->code.c_str());
 
@@ -1317,6 +1387,8 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 	auto position = Position(arguments["position"]);
 
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
 	nullcAnalyze(document->code.c_str());
 
 	Hover hover;
@@ -1396,6 +1468,8 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 	if(!document)
 		return true;
+
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
 
 	nullcAnalyze(document->code.c_str());
 
@@ -1656,6 +1730,8 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 		CompilerContext *context = nullptr;
 	};
+
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
 
 	nullcAnalyze(document->code.c_str());
 
@@ -2054,6 +2130,8 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 	auto position = Position(arguments["position"]);
 
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
 	nullcAnalyze(document->code.c_str());
 
 	std::vector<LocationLink> locations;
@@ -2231,6 +2309,8 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 	//auto includeDeclaration = arguments["includeDeclaration"].GetBool();
 
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
 	nullcAnalyze(document->code.c_str());
 
 	std::vector<Location> locations;
@@ -2328,6 +2408,8 @@ bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjso
 
 	auto position = Position(arguments["position"]);
 
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
 	nullcAnalyze(document->code.c_str());
 
 	std::vector<DocumentHighlight> highlights;
@@ -2421,6 +2503,8 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 
 		CompilerContext *context = nullptr;
 	};
+
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
 
 	nullcAnalyze(document->code.c_str());
 
@@ -2604,6 +2688,8 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 	rapidjson::Value diagnostics;
 	diagnostics.SetArray();
 
+	ScopedDocumentImport scopedDocumentImport(ctx, &document);
+
 	if(!nullcAnalyze(document.code.c_str()))
 	{
 		if(CompilerContext *context = nullcGetCompilerContext())
@@ -2678,7 +2764,9 @@ bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 		if(uri.find("file:///") == 0 && uri.find_last_of('/') != std::string::npos)
 		{
 			ctx.rootPath = uri.substr(8, uri.find_last_of('/') - 8);
-			ctx.rootPath.push_back('/');
+
+			if(ctx.rootPath.back() != '/' && ctx.rootPath.back() != '\\')
+				ctx.rootPath.push_back('/');
 
 			if(ctx.modulePath.empty())
 			{
@@ -2693,11 +2781,24 @@ bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 				fprintf(stderr, "DEBUG: Restarting nullc with root path '%s'\n", ctx.rootPath.c_str());
 
 			nullcInit();
+
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.rootPath.c_str());
+
 			nullcAddImportPath(ctx.rootPath.c_str());
+
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.modulePath.c_str());
+
 			nullcAddImportPath(ctx.modulePath.c_str());
 
 			if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+			{
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.defaultModulePath.c_str());
+
 				nullcAddImportPath(ctx.defaultModulePath.c_str());
+			}
 		}
 	}
 
