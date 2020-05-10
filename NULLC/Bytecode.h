@@ -36,7 +36,10 @@ struct ExternTypeInfo
 		unsigned int	arrSize;
 		unsigned int	memberCount;
 	};
+
 	unsigned int	constantCount;
+	unsigned int	constantOffset;
+
 	union
 	{
 		unsigned int	subType;

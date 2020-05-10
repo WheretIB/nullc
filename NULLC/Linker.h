@@ -30,6 +30,7 @@ public:
 
 	FastVector<ExternTypeInfo>		exTypes;
 	FastVector<ExternMemberInfo>	exTypeExtra;
+	FastVector<ExternConstantInfo>	exTypeConstants;
 	FastVector<ExternVarInfo>		exVariables;
 	FastVector<ExternFuncInfo>		exFunctions;
 	FastVector<unsigned>			exFunctionExplicitTypeArrayOffsets;

@@ -18,7 +18,7 @@ namespace NULLC
 	extern bool enableLogFiles;
 }
 
-Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exLocals(1024), exSymbols(8192), regVmJumpTargets(1024)
+Linker::Linker(): exTypes(128), exTypeExtra(256), exTypeConstants(256), exVariables(128), exFunctions(256), exLocals(1024), exSymbols(8192), regVmJumpTargets(1024)
 {
 	globalVarSize = 0;
 
@@ -39,6 +39,7 @@ void Linker::CleanCode()
 {
 	exTypes.clear();
 	exTypeExtra.clear();
+	exTypeConstants.clear();
 	exVariables.clear();
 	exFunctions.clear();
 	exFunctionExplicitTypeArrayOffsets.clear();
@@ -113,6 +114,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 
 	ExternTypeInfo *tInfo = FindFirstType(bCode), *tStart = tInfo;
 	ExternMemberInfo *memberList = FindFirstMember(bCode);
+	ExternConstantInfo *constantList = FindFirstConstant(bCode);
 
 	unsigned int moduleFuncCount = 0;
 
@@ -221,6 +223,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	unsigned int oldSymbolSize = exSymbols.size();
 	unsigned int oldTypeCount = exTypes.size();
 	unsigned int oldMemberSize = exTypeExtra.size();
+	unsigned int oldConstantSize = exTypeConstants.size();
 
 	mInfo = FindFirstModule(bCode);
 	// Fixup function table
@@ -306,6 +309,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				// Additional list of members with pointer
 				if(tInfo->subCat == ExternTypeInfo::CAT_CLASS && tInfo->pointerCount)
 					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount);
+
+				exTypes.back().constantOffset = exTypeConstants.size();
+				exTypeConstants.push_back(constantList + tInfo->constantOffset, tInfo->constantCount);
 			}
 		}else{
 			typeRemap.push_back(*lastType);
@@ -324,6 +330,10 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	// Remap new member types (while skipping member offsets)
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
 		exTypeExtra[i].type = typeRemap[exTypeExtra[i].type];
+
+	// Remap new constant types
+	for(unsigned int i = oldConstantSize; i < exTypeConstants.size(); i++)
+		exTypeConstants[i].type = typeRemap[exTypeConstants[i].type];
 
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);

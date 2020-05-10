@@ -1072,6 +1072,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		target.defaultAlign = (unsigned char)type->alignment;
 		target.padding = type->padding;
 
+		target.constantOffset = 0;
 		target.constantCount = 0;
 
 		target.memberCount = 0;
@@ -1236,6 +1237,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				debugSymbols.push_back(curr->variable->name->name.begin, curr->variable->name->name.length());
 				debugSymbols.push_back(0);
 			}
+
+			target.constantCount = 0;
+			target.constantOffset = constantList.count;
 
 			for(ConstantData *curr = typeStruct->constants.head; curr; curr = curr->next)
 			{
