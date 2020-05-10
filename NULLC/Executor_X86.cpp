@@ -1340,9 +1340,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #else
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+			EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBX);
 			EMIT_OP_REG(codeGenCtx->ctx, o_push, rESI);
-			EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
 
 			EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
@@ -1499,10 +1499,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
 #else
-				EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
-				EMIT_REG_READ(codeGenCtx->ctx, rESP);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rESI);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBX);
+				EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
+				EMIT_REG_READ(codeGenCtx->ctx, rESP);
 				EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
 			}
@@ -1533,9 +1533,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		EMIT_OP_REG_NUM(codeGenCtx->ctx, o_sub64, rRSP, 40);
 #else
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBP);
+		EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rEBX);
 		EMIT_OP_REG(codeGenCtx->ctx, o_push, rESI);
-		EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rEBP, rESP);
 #endif
 
 		EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 1);
@@ -1548,10 +1548,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rR15);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rRBX);
 #else
-	EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
-	EMIT_REG_READ(codeGenCtx->ctx, rESP);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rESI);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBX);
+	EMIT_OP_REG_REG(codeGenCtx->ctx, o_mov, rESP, rEBP);
+	EMIT_REG_READ(codeGenCtx->ctx, rESP);
 	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
 #endif
 
