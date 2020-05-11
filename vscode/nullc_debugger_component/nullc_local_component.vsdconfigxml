@@ -17,7 +17,15 @@
 					<Interface Name="IDkmSymbolDocumentCollectionQuery"/>
 					<Interface Name="IDkmSymbolDocumentSpanQuery"/>
 					<Interface Name="IDkmSymbolQuery"/>
+
 					<Interface Name="IDkmModuleInstanceLoadNotification"/>
+				</InterfaceGroup>
+
+				<InterfaceGroup>
+					<Filter>
+						<LanguageId RequiredValue="9221BA37-3FB0-483A-BD6A-0E5DD22E107E"/>
+					</Filter>
+					<Interface Name="IDkmLanguageExpressionEvaluator"/>
 				</InterfaceGroup>
 
 				<InterfaceGroup>

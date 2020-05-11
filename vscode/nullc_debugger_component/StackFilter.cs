@@ -4,6 +4,8 @@ using Microsoft.VisualStudio.Debugger.ComponentInterfaces;
 using Microsoft.VisualStudio.Debugger.CustomRuntimes;
 using Microsoft.VisualStudio.Debugger.Evaluation;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace nullc_debugger_component
@@ -16,6 +18,8 @@ namespace nullc_debugger_component
             public bool nullcIsReady = false;
 
             public string nullcDebugGetNativeAddressLocation = null;
+
+            public int nullcFramePosition = 1;
         }
 
         public class NullcStackFilter : IDkmCallStackFilter
@@ -63,10 +67,16 @@ namespace nullc_debugger_component
                 return resultText;
             }
 
-            public DkmStackWalkFrame[] FilterNextFrame(DkmStackContext stackContext, DkmStackWalkFrame input)
+            DkmStackWalkFrame[] IDkmCallStackFilter.FilterNextFrame(DkmStackContext stackContext, DkmStackWalkFrame input)
             {
                 if (input == null) // null input frame indicates the end of the call stack. This sample does nothing on end-of-stack.
+                {
+                    var processData = DebugHelpers.GetOrCreateDataItem<NullcStackFilterDataItem>(stackContext.InspectionSession.Process);
+
+                    processData.nullcFramePosition = 1;
+
                     return null;
+                }
 
                 if (input.InstructionAddress == null)
                     return new DkmStackWalkFrame[1] { input };
@@ -107,12 +117,20 @@ namespace nullc_debugger_component
                             {
                                 var instructionAddress = DkmCustomInstructionAddress.Create(nullcRuntime, nullcModuleInstance, null, input.InstructionAddress.CPUInstructionPart.InstructionPointer, null, input.InstructionAddress.CPUInstructionPart);
 
-                                frame = DkmStackWalkFrame.Create(stackContext.Thread, instructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, input.Annotations, nullcModuleInstance, null, null);
+                                var rawAnnotations = new List<DkmStackWalkFrameAnnotation>();
+
+                                rawAnnotations.Add(DkmStackWalkFrameAnnotation.Create(DebugHelpers.NullcCallStackPositionGuid, (ulong)(processData.nullcFramePosition))); // Start frames from 1
+
+                                processData.nullcFramePosition++;
+
+                                var annotations = new ReadOnlyCollection<DkmStackWalkFrameAnnotation>(rawAnnotations);
+
+                                frame = DkmStackWalkFrame.Create(stackContext.Thread, instructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, annotations, nullcModuleInstance, null, null);
                             }
                         }
 
                         if (frame == null)
-                            frame = DkmStackWalkFrame.Create(stackContext.Thread, input.InstructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, input.Annotations/*, stackData.module, null, null*/);
+                            frame = DkmStackWalkFrame.Create(stackContext.Thread, input.InstructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, input.Annotations);
 
                         return new DkmStackWalkFrame[1] { frame };
                     }

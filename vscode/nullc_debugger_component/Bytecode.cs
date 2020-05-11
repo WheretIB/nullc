@@ -7,23 +7,76 @@ namespace nullc_debugger_component
 {
     namespace DkmDebugger
     {
+        enum NullcTypeIndex
+        {
+            Void,
+            Bool,
+            Char,
+            Short,
+            Int,
+            Long,
+            Float,
+            Double,
+            TypeId,
+            Function,
+            Nullptr,
+            Generic,
+            Auto,
+            AutoRef,
+            VoidRef,
+            AutoArray,
+        }
+
+        enum NullcTypeCategory
+        {
+            Complex,
+            Void,
+            Int,
+            Float,
+            Long,
+            Double,
+            Short,
+            Char
+        };
+
+        enum NullTypeSubCategory
+        {
+            None,
+            Array,
+            Pointer,
+            Function,
+            Class
+        };
+
         class NullcTypeInfo
         {
             public string name;
+
+            public NullcTypeInfo nullcSubType;
+            public List<NullcMemberInfo> nullcMembers = new List<NullcMemberInfo>();
+            public List<NullcConstantInfo> nullcConstants = new List<NullcConstantInfo>();
+            public NullcTypeInfo nullcBaseType;
+
+            public NullcTypeIndex index;
 
             public uint offsetToName;
 
             public uint size;
             public uint padding;
-            public uint typeCategory;
-            public uint subCat;
+            public NullcTypeCategory typeCategory;
+            public NullTypeSubCategory subCat;
             public byte defaultAlign;
             public byte typeFlags;
             public ushort pointerCount;
 
-            public uint arrSizeOrMemberCount;
-            public uint constantCount;
-            public uint subTypeOrMemberOffset;
+            public int arrSize;
+            public int memberCount;
+
+            public int constantCount;
+            public int constantOffset;
+
+            public int subType;
+            public int memberOffset;
             public uint nameHash;
 
             public uint definitionModule; // Index of the module containing the definition
@@ -37,7 +90,7 @@ namespace nullc_debugger_component
             public uint genericTypeCount;
 
             public uint namespaceHash;
-            public uint baseType;
+            public int baseType;
 
             public void ReadFrom(BinaryReader reader)
             {
@@ -45,15 +98,21 @@ namespace nullc_debugger_component
 
                 size = reader.ReadUInt32();
                 padding = reader.ReadUInt32();
-                typeCategory = reader.ReadUInt32();
-                subCat = reader.ReadUInt32();
+                typeCategory = (NullcTypeCategory)reader.ReadUInt32();
+                subCat = (NullTypeSubCategory)reader.ReadUInt32();
                 defaultAlign = reader.ReadByte();
                 typeFlags = reader.ReadByte();
                 pointerCount = reader.ReadUInt16();
 
-                arrSizeOrMemberCount = reader.ReadUInt32();
-                constantCount = reader.ReadUInt32();
-                subTypeOrMemberOffset = reader.ReadUInt32();
+                arrSize = reader.ReadInt32();
+                memberCount = arrSize;
+
+                constantCount = reader.ReadInt32();
+                constantOffset = reader.ReadInt32();
+
+                subType = reader.ReadInt32();
+                memberOffset = subType;
+
                 nameHash = reader.ReadUInt32();
 
                 definitionModule = reader.ReadUInt32();
@@ -66,12 +125,13 @@ namespace nullc_debugger_component
                 genericTypeCount = reader.ReadUInt32();
 
                 namespaceHash = reader.ReadUInt32();
-                baseType = reader.ReadUInt32();
+                baseType = reader.ReadInt32();
             }
         }
         class NullcMemberInfo
         {
             public NullcTypeInfo nullcType;
+            public string name;
 
             public uint type;
             public uint offset;
@@ -80,6 +140,21 @@ namespace nullc_debugger_component
             {
                 type = reader.ReadUInt32();
                 offset = reader.ReadUInt32();
+            }
+        }
+
+        class NullcConstantInfo
+        {
+            public NullcTypeInfo nullcType;
+            public string name;
+
+            public uint type;
+            public long value;
+
+            public void ReadFrom(BinaryReader reader)
+            {
+                type = reader.ReadUInt32();
+                value = reader.ReadInt64();
             }
         }
 
@@ -107,6 +182,14 @@ namespace nullc_debugger_component
         {
             public string name;
 
+            public List<NullcLocalInfo> arguments = new List<NullcLocalInfo>();
+            public List<NullcLocalInfo> locals = new List<NullcLocalInfo>();
+            public List<NullcLocalInfo> externs = new List<NullcLocalInfo>();
+
+            public NullcTypeInfo nullcFunctionType;
+            public NullcTypeInfo nullcParentType;
+            public NullcTypeInfo nullcContextType;
+
             public uint offsetToName;
 
             public uint regVmAddress;
@@ -128,21 +211,21 @@ namespace nullc_debugger_component
             public byte returnShift; // Amount of dwords to remove for result type after raw external function call
 
             public uint returnSize; // Return size of the wrapped external function call
-            public uint funcType;  // index to the type array
+            public int funcType;  // index to the type array
 
             public uint startInByteCode;
-            public uint parentType; // Type inside which the function is defined
-            public uint contextType; // Type of the function context
+            public int parentType; // Type inside which the function is defined
+            public int contextType; // Type of the function context
 
-            public uint offsetToFirstLocal;
-            public uint paramCount;
-            public uint localCount;
-            public uint externCount;
+            public int offsetToFirstLocal;
+            public int paramCount;
+            public int localCount;
+            public int externCount;
 
             public uint namespaceHash;
 
-            public uint bytesToPop; // Arguments size
-            public uint stackSize; // Including arguments
+            public int bytesToPop; // Arguments size
+            public int stackSize; // Including arguments
 
             // For generic functions
             public uint genericOffsetStart; // Position in the lexeme stream of the definition
@@ -186,21 +269,21 @@ namespace nullc_debugger_component
                 reader.ReadBytes(3); // Padding
 
                 returnSize = reader.ReadUInt32();
-                funcType = reader.ReadUInt32();
+                funcType = reader.ReadInt32();
 
                 startInByteCode = reader.ReadUInt32();
-                parentType = reader.ReadUInt32();
-                contextType = reader.ReadUInt32();
+                parentType = reader.ReadInt32();
+                contextType = reader.ReadInt32();
 
-                offsetToFirstLocal = reader.ReadUInt32();
-                paramCount = reader.ReadUInt32();
-                localCount = reader.ReadUInt32();
-                externCount = reader.ReadUInt32();
+                offsetToFirstLocal = reader.ReadInt32();
+                paramCount = reader.ReadInt32();
+                localCount = reader.ReadInt32();
+                externCount = reader.ReadInt32();
 
                 namespaceHash = reader.ReadUInt32();
 
-                bytesToPop = reader.ReadUInt32();
-                stackSize = reader.ReadUInt32();
+                bytesToPop = reader.ReadInt32();
+                stackSize = reader.ReadInt32();
 
                 genericOffsetStart = reader.ReadUInt32();
                 genericOffset = reader.ReadUInt32();
@@ -219,18 +302,25 @@ namespace nullc_debugger_component
             }
         }
 
+        enum NullcLocalType
+        {
+            Parameter,
+            Local,
+            External,
+        }
+
         class NullcLocalInfo
         {
             public string name;
             public NullcTypeInfo nullcType;
 
-            public byte paramType;
+            public NullcLocalType paramType;
             public byte paramFlags;
             public ushort defaultFuncId;
 
             public uint type;
             public uint size;
-            public uint offsetOrTarget;
+            public uint offset;
             public uint closeListID;
             public uint alignmentLog2; // 1 << value
 
@@ -238,13 +328,13 @@ namespace nullc_debugger_component
 
             public void ReadFrom(BinaryReader reader)
             {
-                paramType = reader.ReadByte();
+                paramType = (NullcLocalType)reader.ReadByte();
                 paramFlags = reader.ReadByte();
                 defaultFuncId = reader.ReadUInt16();
 
                 type = reader.ReadUInt32();
                 size = reader.ReadUInt32();
-                offsetOrTarget = reader.ReadUInt32();
+                offset = reader.ReadUInt32();
                 closeListID = reader.ReadUInt32();
                 alignmentLog2 = reader.ReadUInt32();
 
@@ -305,7 +395,8 @@ namespace nullc_debugger_component
         class NullcBytecode
         {
             public List<NullcTypeInfo> types;
-            public List<NullcMemberInfo> typeExtra;
+            public List<NullcMemberInfo> typeMembers;
+            public List<NullcConstantInfo> typeConstants;
             public List<NullcVarInfo> variables;
             public List<NullcFuncInfo> functions;
             public uint[] functionExplicitTypeArrayOffsets;
@@ -318,6 +409,7 @@ namespace nullc_debugger_component
             public List<NullcSourceInfo> sourceInfo;
             public uint[] constants;
             public ulong[] instructionPositions;
+            public int globalVariableSize = 0;
 
             internal List<T> InitList<T>(int size) where T : new()
             {
@@ -337,12 +429,22 @@ namespace nullc_debugger_component
                     {
                         types = InitList<NullcTypeInfo>(reader.ReadInt32());
 
+                        int typeIndex = 0;
+
                         foreach (var el in types)
+                        {
+                            el.index = (NullcTypeIndex)typeIndex++;
+                            el.ReadFrom(reader);
+                        }
+
+                        typeMembers = InitList<NullcMemberInfo>(reader.ReadInt32());
+
+                        foreach (var el in typeMembers)
                             el.ReadFrom(reader);
 
-                        typeExtra = InitList<NullcMemberInfo>(reader.ReadInt32());
+                        typeConstants = InitList<NullcConstantInfo>(reader.ReadInt32());
 
-                        foreach (var el in typeExtra)
+                        foreach (var el in typeConstants)
                             el.ReadFrom(reader);
 
                         variables = InitList<NullcVarInfo>(reader.ReadInt32());
@@ -397,6 +499,8 @@ namespace nullc_debugger_component
 
                         for (var i = 0; i < instructionPositions.Length; i++)
                             instructionPositions[i] = is64Bit ? reader.ReadUInt64() : (ulong)reader.ReadUInt32();
+
+                        globalVariableSize = reader.ReadInt32();
                     }
                 }
 
@@ -406,9 +510,51 @@ namespace nullc_debugger_component
                     var ending = Array.FindIndex(symbols, (int)el.offsetToName, (x) => x == 0);
 
                     el.name = new string(symbols, (int)el.offsetToName, ending - (int)el.offsetToName);
+
+                    if (el.subCat == NullTypeSubCategory.Array || el.subCat == NullTypeSubCategory.Pointer)
+                        el.nullcSubType = el.subType == 0 ? null : types[el.subType];
+
+                    if (el.subCat == NullTypeSubCategory.Function || el.subCat == NullTypeSubCategory.Class)
+                    {
+                        uint memberNameOffset = el.offsetToName + (uint)el.name.Length + 1;
+
+                        for (int i = 0; i < el.memberCount; i++)
+                        {
+                            var member = typeMembers[el.memberOffset + i];
+
+                            member.name = new string(symbols, (int)memberNameOffset, Array.FindIndex(symbols, (int)memberNameOffset, (x) => x == 0) - (int)memberNameOffset);
+
+                            memberNameOffset = memberNameOffset + (uint)member.name.Length + 1;
+
+                            el.nullcMembers.Add(member);
+                        }
+
+                        //if (el.constantCount != 0)
+                        //    Debug.WriteLine($"Type {el.index} {el.name} has {el.constantCount} constants");
+
+                        for (int i = 0; i < el.constantCount; i++)
+                        {
+                            var constant = typeConstants[el.constantOffset + i];
+
+                            constant.name = new string(symbols, (int)memberNameOffset, Array.FindIndex(symbols, (int)memberNameOffset, (x) => x == 0) - (int)memberNameOffset);
+
+                            memberNameOffset = memberNameOffset + (uint)constant.name.Length + 1;
+
+                            el.nullcConstants.Add(constant);
+
+                            //Debug.WriteLine($"Constant {member.name} from {el.name}: offset {member.offset} typeid {constant.type} value {constant.value} nameoffset {memberNameOffset}");
+                        }
+                    }
+
+                    el.nullcBaseType = el.baseType == 0 ? null : types[el.baseType];
                 }
 
-                foreach (var el in typeExtra)
+                foreach (var el in typeMembers)
+                {
+                    el.nullcType = types[(int)el.type];
+                }
+
+                foreach (var el in typeConstants)
                 {
                     el.nullcType = types[(int)el.type];
                 }
@@ -427,6 +573,28 @@ namespace nullc_debugger_component
                     var ending = Array.FindIndex(symbols, (int)el.offsetToName, (x) => x == 0);
 
                     el.name = new string(symbols, (int)el.offsetToName, ending - (int)el.offsetToName);
+
+                    for (int i = 0; i < el.localCount + el.externCount; i++)
+                    {
+                        var local = locals[el.offsetToFirstLocal + i];
+
+                        switch (local.paramType)
+                        {
+                            case NullcLocalType.Parameter:
+                                el.arguments.Add(local);
+                                break;
+                            case NullcLocalType.Local:
+                                el.locals.Add(local);
+                                break;
+                            case NullcLocalType.External:
+                                el.externs.Add(local);
+                                break;
+                        }
+                    }
+
+                    el.nullcFunctionType = types[el.funcType];
+                    el.nullcParentType = el.parentType == -1 ? null : types[el.parentType];
+                    el.nullcContextType = el.contextType == 0 ? null : types[el.contextType];
                 }
 
                 foreach (var el in locals)
@@ -468,6 +636,24 @@ namespace nullc_debugger_component
                     index--;
 
                 return index;
+            }
+
+            public NullcFuncInfo GetFunctionAtAddress(int instruction)
+            {
+                for (int i = 0; i < functions.Count; i++)
+                {
+                    var function = functions[i];
+
+                    if (instruction >= function.regVmAddress && instruction < (function.regVmAddress + function.regVmCodeSize))
+                        return function;
+                }
+
+                return null;
+            }
+
+            public NullcFuncInfo GetFunctionAtNativeAddress(ulong address)
+            {
+                return GetFunctionAtAddress(ConvertNativeAddressToInstruction(address));
             }
 
             public int GetInstructionSourceLocation(int instruction)

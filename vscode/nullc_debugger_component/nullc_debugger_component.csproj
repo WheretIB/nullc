@@ -36,6 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bytecode.cs" />
+    <Compile Include="CallStack.cs" />
     <Compile Include="DebugHelpers.cs" />
     <Compile Include="LocalComponent.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

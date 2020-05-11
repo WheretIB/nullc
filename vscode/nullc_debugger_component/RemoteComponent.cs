@@ -29,9 +29,9 @@ namespace nullc_debugger_component
             {
                 try
                 {
-                    ulong moduleBase = DebugHelpers.ReadUlongVariable(process, "nullcModuleStartAddress").GetValueOrDefault(0);
+                    ulong moduleBase = DebugHelpers.ReadPointerVariable(process, "nullcModuleStartAddress").GetValueOrDefault(0);
 
-                    uint moduleSize = (uint)DebugHelpers.ReadUlongVariable(process, "nullcModuleEndAddress").GetValueOrDefault(0);
+                    uint moduleSize = (uint)DebugHelpers.ReadPointerVariable(process, "nullcModuleEndAddress").GetValueOrDefault(0);
 
                     var processData = DebugHelpers.GetOrCreateDataItem<NullcRemoteProcessDataItem>(process);
 
