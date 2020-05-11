@@ -667,7 +667,7 @@ namespace nullc_debugger_component
                         {
                             var address = processData.dataStackBase + (ulong)(activeEntry.dataOffset + el.offset);
 
-                            var result = EvaluateDataAtAddress(inspectionContext, stackFrame, el.name, el.name, el.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.Public, DkmEvaluationResultStorageType.None);
+                            var result = EvaluateDataAtAddress(inspectionContext, stackFrame, el.name, el.name, el.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
 
                             completionRoutine(new DkmEvaluateExpressionAsyncResult(result));
                             return;
@@ -681,7 +681,7 @@ namespace nullc_debugger_component
                         {
                             var address = processData.dataStackBase + (ulong)(activeEntry.dataOffset + el.offset);
 
-                            var result = EvaluateDataAtAddress(inspectionContext, stackFrame, el.name, el.name, el.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.Public, DkmEvaluationResultStorageType.None);
+                            var result = EvaluateDataAtAddress(inspectionContext, stackFrame, el.name, el.name, el.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
 
                             completionRoutine(new DkmEvaluateExpressionAsyncResult(result));
                             return;
@@ -694,9 +694,26 @@ namespace nullc_debugger_component
 
                         if (thisArgument != null)
                         {
-                            /*var address = processData.dataStackBase + (ulong)(activeEntry.dataOffset + el.offset);
+                            var thisaddress = processData.dataStackBase + (ulong)(activeEntry.dataOffset + thisArgument.offset);
 
-                            var result = EvaluateDataAtAddress(inspectionContext, stackFrame, "this", "this", el.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.Public, DkmEvaluationResultStorageType.None);*/
+                            var thisValue = DebugHelpers.ReadPointerVariable(process, thisaddress);
+
+                            if (thisValue.HasValue)
+                            {
+                                var classType = thisArgument.nullcType.nullcSubType;
+
+                                foreach (var el in classType.nullcMembers)
+                                {
+                                    if (el.name == expression.Text)
+                                    {
+                                        var address = thisValue.Value + el.offset;
+
+                                        var result = EvaluateDataAtAddress(inspectionContext, stackFrame, el.name, $"this.{el.name}", el.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+
+                                        completionRoutine(new DkmEvaluateExpressionAsyncResult(result));
+                                    }
+                                }
+                            }
                         }
                     }
                 }
