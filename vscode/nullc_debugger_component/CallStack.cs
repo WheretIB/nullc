@@ -10,6 +10,7 @@ namespace nullc_debugger_component
             public int instruction = 0;
             public NullcFuncInfo function = null;
             public int dataOffset = 0;
+            public int dataSize = 0;
         }
 
         class NullcCallStack
@@ -39,15 +40,11 @@ namespace nullc_debugger_component
                     entry.dataOffset = dataOffset;
 
                     if (entry.function != null)
-                    {
-                        int stackSize = (entry.function.stackSize + 0xf) & ~0xf;
-
-                        dataOffset += stackSize;
-                    }
+                        entry.dataSize = (entry.function.stackSize + 0xf) & ~0xf;
                     else
-                    {
-                        dataOffset += bytecode.globalVariableSize;
-                    }
+                        entry.dataSize = bytecode.globalVariableSize;
+
+                    dataOffset += entry.dataSize;
 
                     callStack.Add(entry);
                 }

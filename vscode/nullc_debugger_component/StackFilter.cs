@@ -18,6 +18,7 @@ namespace nullc_debugger_component
             public bool nullcIsReady = false;
 
             public string nullcDebugGetNativeAddressLocation = null;
+            public string nullcDebugGetReversedStackDataBase = null;
 
             public int nullcFramePosition = 1;
         }
@@ -30,15 +31,16 @@ namespace nullc_debugger_component
                     return;
 
                 processData.nullcDebugGetNativeAddressLocation = DebugHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetNativeAddressLocation");
+                processData.nullcDebugGetReversedStackDataBase = DebugHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetReversedStackDataBase");
 
-                if (processData.nullcDebugGetNativeAddressLocation == null)
+                if (processData.nullcDebugGetNativeAddressLocation == null || processData.nullcDebugGetReversedStackDataBase == null)
                 {
                     processData.nullcIsMissing = true;
                     return;
                 }
             }
 
-            internal string ExecuteExpression(string expression, DkmStackContext stackContext, DkmStackWalkFrame input)
+            internal string ExecuteExpression(string expression, DkmStackContext stackContext, DkmStackWalkFrame input, bool allowZero)
             {
                 var compilerId = new DkmCompilerId(DkmVendorId.Microsoft, DkmLanguageId.Cpp);
                 var language = DkmLanguage.Create("C++", compilerId);
@@ -55,7 +57,7 @@ namespace nullc_debugger_component
                     {
                         var result = res.ResultObject as DkmSuccessEvaluationResult;
 
-                        if (result != null && result.TagValue == DkmEvaluationResult.Tag.SuccessResult && result.Address.Value != 0)
+                        if (result != null && result.TagValue == DkmEvaluationResult.Tag.SuccessResult && (allowZero || result.Address.Value != 0))
                             resultText = result.Value;
 
                         res.ResultObject.Close();
@@ -94,10 +96,10 @@ namespace nullc_debugger_component
 
                     InitNullcDebugFunctions(processData, input.RuntimeInstance);
 
-                    if (processData.nullcDebugGetNativeAddressLocation == null)
+                    if (processData.nullcIsMissing)
                         return new DkmStackWalkFrame[1] { input };
 
-                    string stackFrameDesc = ExecuteExpression($"((char*(*)(void*)){processData.nullcDebugGetNativeAddressLocation})((void*)0x{input.InstructionAddress.CPUInstructionPart.InstructionPointer:X}),sb", stackContext, input);
+                    string stackFrameDesc = ExecuteExpression($"((char*(*)(void*, unsigned)){processData.nullcDebugGetNativeAddressLocation})((void*)0x{input.InstructionAddress.CPUInstructionPart.InstructionPointer:X}, 0),sb", stackContext, input, false);
 
                     if (stackFrameDesc != null)
                     {
@@ -115,17 +117,27 @@ namespace nullc_debugger_component
 
                             if (nullcModuleInstance != null)
                             {
-                                var instructionAddress = DkmCustomInstructionAddress.Create(nullcRuntime, nullcModuleInstance, null, input.InstructionAddress.CPUInstructionPart.InstructionPointer, null, input.InstructionAddress.CPUInstructionPart);
+                                // If the top of the call stack is a nullc frame, nullc call stack wont have an entry for it and we start from 0, otherwise we start from default value of 1
+                                if (input.Flags.HasFlag(DkmStackWalkFrameFlags.TopFrame))
+                                    processData.nullcFramePosition = 0;
 
-                                var rawAnnotations = new List<DkmStackWalkFrameAnnotation>();
-
-                                rawAnnotations.Add(DkmStackWalkFrameAnnotation.Create(DebugHelpers.NullcCallStackPositionGuid, (ulong)(processData.nullcFramePosition))); // Start frames from 1
+                                string stackFrameBase = ExecuteExpression($"((unsigned(*)(unsigned)){processData.nullcDebugGetReversedStackDataBase})({processData.nullcFramePosition})", stackContext, input, true);
 
                                 processData.nullcFramePosition++;
 
-                                var annotations = new ReadOnlyCollection<DkmStackWalkFrameAnnotation>(rawAnnotations);
+                                if (int.TryParse(stackFrameBase, out int stackFrameBaseValue))
+                                {
+                                    var instructionAddress = DkmCustomInstructionAddress.Create(nullcRuntime, nullcModuleInstance, null, input.InstructionAddress.CPUInstructionPart.InstructionPointer, null, input.InstructionAddress.CPUInstructionPart);
 
-                                frame = DkmStackWalkFrame.Create(stackContext.Thread, instructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, annotations, nullcModuleInstance, null, null);
+                                    var rawAnnotations = new List<DkmStackWalkFrameAnnotation>();
+
+                                    // Additional unique request id
+                                    rawAnnotations.Add(DkmStackWalkFrameAnnotation.Create(DebugHelpers.NullcCallStackDataBaseGuid, (ulong)(stackFrameBaseValue)));
+
+                                    var annotations = new ReadOnlyCollection<DkmStackWalkFrameAnnotation>(rawAnnotations);
+
+                                    frame = DkmStackWalkFrame.Create(stackContext.Thread, instructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, annotations, nullcModuleInstance, null, null);
+                                }
                             }
                         }
 

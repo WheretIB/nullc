@@ -599,18 +599,17 @@ namespace nullc_debugger_component
 
                 if (stackFrame.Annotations != null)
                 {
-                    var position = stackFrame.Annotations.FirstOrDefault((x) => x.Id == DebugHelpers.NullcCallStackPositionGuid);
+                    var actualFunction = processData.bytecode.GetFunctionAtNativeAddress(stackFrame.InstructionAddress.CPUInstructionPart.InstructionPointer);
 
-                    if (position.Value != 0)
-                    {
-                        if ((int)position.Value - 1 >= processData.callStack.callStack.Count)
-                        {
-                            error = "Internal nullc error: invalid stack frame index";
-                            return null;
-                        }
+                    var dataBase = stackFrame.Annotations.FirstOrDefault((x) => x.Id == DebugHelpers.NullcCallStackDataBaseGuid);
 
-                        activeEntry = processData.callStack.callStack[processData.callStack.callStack.Count - (int)position.Value];
-                    }
+                    activeEntry = new NullcCallStackEntry();
+
+                    activeEntry.function = actualFunction;
+                    activeEntry.dataOffset = (int)dataBase.Value;
+
+                    error = null;
+                    return activeEntry;
                 }
 
                 // Best-effort based fallback: find the first matching function
