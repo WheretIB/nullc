@@ -651,7 +651,13 @@ namespace nullc_debugger_component
 
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(process);
 
+                string finalExpression = expression.Text;
+
                 // Lets start by simple stand-alone variables
+
+                // Since we don't handle composite expressions yet, we can at least clean-up access to class members (even if this can lead to a wrong result if member is shadowed)
+                if (finalExpression.StartsWith("this."))
+                    finalExpression = finalExpression.Substring(5);
 
                 // TODO: DkmEvaluationResultCategory Method/Class
                 // TODO: DkmEvaluationResultAccessType Internal
@@ -663,7 +669,7 @@ namespace nullc_debugger_component
                 {
                     foreach (var el in activeEntry.function.locals)
                     {
-                        if (el.name == expression.Text)
+                        if (el.name == finalExpression)
                         {
                             var address = processData.dataStackBase + (ulong)(activeEntry.dataOffset + el.offset);
 
@@ -677,7 +683,7 @@ namespace nullc_debugger_component
 
                     foreach (var el in activeEntry.function.arguments)
                     {
-                        if (el.name == expression.Text)
+                        if (el.name == finalExpression)
                         {
                             var address = processData.dataStackBase + (ulong)(activeEntry.dataOffset + el.offset);
 
@@ -704,7 +710,7 @@ namespace nullc_debugger_component
 
                                 foreach (var el in classType.nullcMembers)
                                 {
-                                    if (el.name == expression.Text)
+                                    if (el.name == finalExpression)
                                     {
                                         var address = thisValue.Value + el.offset;
 
@@ -721,7 +727,7 @@ namespace nullc_debugger_component
                 // Check globals
                 foreach (var el in processData.bytecode.variables)
                 {
-                    if (el.name == expression.Text)
+                    if (el.name == finalExpression)
                     {
                         var address = processData.dataStackBase + (ulong)(el.offset);
 
