@@ -1,11 +1,14 @@
 using Microsoft.VisualStudio.Debugger;
+using Microsoft.VisualStudio.Debugger.Breakpoints;
 using Microsoft.VisualStudio.Debugger.CallStack;
 using Microsoft.VisualStudio.Debugger.ComponentInterfaces;
 using Microsoft.VisualStudio.Debugger.CustomRuntimes;
+using Microsoft.VisualStudio.Debugger.DefaultPort;
 using Microsoft.VisualStudio.Debugger.Evaluation;
 using Microsoft.VisualStudio.Debugger.Native;
 using Microsoft.VisualStudio.Debugger.Symbols;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -100,7 +103,12 @@ namespace nullc_debugger_component
                 if (module.Name != "nullc.embedded.code")
                     return module.FindDocuments(sourceFileId);
 
-                var nullcModuleInstance = module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                DkmModuleInstance nullcModuleInstance;
+
+                if (DebugHelpers.useNativeInterfaces)
+                    nullcModuleInstance = module.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                else
+                    nullcModuleInstance = module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
 
                 if (nullcModuleInstance == null)
                     return module.FindDocuments(sourceFileId);
@@ -190,7 +198,10 @@ namespace nullc_debugger_component
 
                     symbolLocation = new DkmSourcePosition[1] { DkmSourcePosition.Create(sourceFileId, resultSpan) };
 
-                    return new DkmInstructionSymbol[1] { DkmNativeInstructionSymbol.Create(resolvedDocument.Module, (uint)(nativeInstruction - documentData.moduleBase)) };
+                    if (DebugHelpers.useNativeInterfaces)
+                        return new DkmInstructionSymbol[1] { DkmNativeInstructionSymbol.Create(resolvedDocument.Module, (uint)(nativeInstruction - documentData.moduleBase)) };
+                    else
+                        return new DkmInstructionSymbol[1] { DkmCustomInstructionSymbol.Create(resolvedDocument.Module, DebugHelpers.NullcRuntimeGuid, null, nativeInstruction, null) };
                 }
 
                 return resolvedDocument.FindSymbols(textSpan, text, out symbolLocation);
@@ -198,7 +209,12 @@ namespace nullc_debugger_component
 
             DkmSourcePosition IDkmSymbolQuery.GetSourcePosition(DkmInstructionSymbol instruction, DkmSourcePositionFlags flags, DkmInspectionSession inspectionSession, out bool startOfLine)
             {
-                var nullcModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                DkmModuleInstance nullcModuleInstance;
+
+                if (DebugHelpers.useNativeInterfaces)
+                    nullcModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                else
+                    nullcModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
 
                 if (nullcModuleInstance == null)
                     return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
@@ -207,29 +223,39 @@ namespace nullc_debugger_component
 
                 if (processData.bytecode != null)
                 {
-                    var instructionSymbol = instruction as DkmCustomInstructionSymbol;
+                    int nullcInstruction = 0;
 
-                    if (instructionSymbol != null)
+                    if (DebugHelpers.useNativeInterfaces)
                     {
-                        int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(instructionSymbol.Offset);
+                        var instructionSymbol = instruction as DkmNativeInstructionSymbol;
 
-                        if (nullcInstruction != 0)
-                        {
-                            int sourceLocation = processData.bytecode.GetInstructionSourceLocation(nullcInstruction);
+                        if (instructionSymbol != null)
+                            nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(nullcModuleInstance.BaseAddress + instructionSymbol.RVA);
+                    }
+                    else
+                    {
+                        var instructionSymbol = instruction as DkmCustomInstructionSymbol;
 
-                            int moduleIndex = processData.bytecode.GetSourceLocationModuleIndex(sourceLocation);
+                        if (instructionSymbol != null)
+                            nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(instructionSymbol.Offset);
+                    }
 
-                            int column = 0;
-                            int line = processData.bytecode.GetSourceLocationLineAndColumn(sourceLocation, moduleIndex, out column);
+                    if (nullcInstruction != 0)
+                    {
+                        int sourceLocation = processData.bytecode.GetInstructionSourceLocation(nullcInstruction);
 
-                            string moduleName = moduleIndex != -1 ? processData.bytecode.modules[moduleIndex].name : "nbody.nc"; // TODO: main module name
+                        int moduleIndex = processData.bytecode.GetSourceLocationModuleIndex(sourceLocation);
 
-                            // TODO: correct path resolve
-                            string path = "L:\\dev\\nullc_debug_test\\bin\\" + moduleName;
+                        int column = 0;
+                        int line = processData.bytecode.GetSourceLocationLineAndColumn(sourceLocation, moduleIndex, out column);
 
-                            startOfLine = true;
-                            return DkmSourcePosition.Create(DkmSourceFileId.Create(path, null, null, null), new DkmTextSpan(line, line, column, column));
-                        }
+                        string moduleName = moduleIndex != -1 ? processData.bytecode.modules[moduleIndex].name : "nbody.nc"; // TODO: main module name
+
+                        // TODO: correct path resolve
+                        string path = "L:\\dev\\nullc_debug_test\\bin\\" + moduleName;
+
+                        startOfLine = true;
+                        return DkmSourcePosition.Create(DkmSourceFileId.Create(path, null, null, null), new DkmTextSpan(line, line, column, column));
                     }
                 }
 

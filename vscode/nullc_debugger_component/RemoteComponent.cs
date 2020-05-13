@@ -1,7 +1,9 @@
 using Microsoft.VisualStudio.Debugger;
+using Microsoft.VisualStudio.Debugger.Breakpoints;
 using Microsoft.VisualStudio.Debugger.ComponentInterfaces;
 using Microsoft.VisualStudio.Debugger.CustomRuntimes;
 using Microsoft.VisualStudio.Debugger.Evaluation;
+using Microsoft.VisualStudio.Debugger.Native;
 using Microsoft.VisualStudio.Debugger.Symbols;
 using System;
 
@@ -13,6 +15,7 @@ namespace nullc_debugger_component
         {
             public DkmRuntimeInstanceId runtimeId;
             public DkmCustomRuntimeInstance runtimeInstance = null;
+            public DkmNativeRuntimeInstance nativeRuntimeInstance = null;
 
             public DkmModuleId moduleId;
             public DkmCompilerId compilerId;
@@ -21,6 +24,7 @@ namespace nullc_debugger_component
 
             public DkmModule module = null;
             public DkmCustomModuleInstance moduleInstance = null;
+            public DkmNativeModuleInstance nativeModuleInstance = null;
         }
 
         public class NullcRemoteComponent : IDkmProcessExecutionNotification, IDkmModuleUserCodeDeterminer
@@ -31,18 +35,21 @@ namespace nullc_debugger_component
                 {
                     ulong moduleBase = DebugHelpers.ReadPointerVariable(process, "nullcModuleStartAddress").GetValueOrDefault(0);
 
-                    uint moduleSize = (uint)DebugHelpers.ReadPointerVariable(process, "nullcModuleEndAddress").GetValueOrDefault(0);
+                    uint moduleSize = (uint)(DebugHelpers.ReadPointerVariable(process, "nullcModuleEndAddress").GetValueOrDefault(0) - moduleBase);
 
                     var processData = DebugHelpers.GetOrCreateDataItem<NullcRemoteProcessDataItem>(process);
 
                     if (moduleBase == 0 || moduleSize == 0)
                         return;
 
-                    if (processData.runtimeInstance == null)
+                    if (processData.runtimeInstance == null && processData.nativeRuntimeInstance == null)
                     {
                         processData.runtimeId = new DkmRuntimeInstanceId(DebugHelpers.NullcRuntimeGuid, 0);
 
-                        processData.runtimeInstance = DkmCustomRuntimeInstance.Create(process, processData.runtimeId, null);
+                        if (DebugHelpers.useNativeInterfaces)
+                            processData.nativeRuntimeInstance = DkmNativeRuntimeInstance.Create(process, processData.runtimeId, DkmRuntimeCapabilities.None, process.GetNativeRuntimeInstance(), null);
+                        else
+                            processData.runtimeInstance = DkmCustomRuntimeInstance.Create(process, processData.runtimeId, null);
                     }
 
                     if (processData.module == null)
@@ -56,13 +63,22 @@ namespace nullc_debugger_component
                         processData.module = DkmModule.Create(processData.moduleId, "nullc.embedded.code", processData.compilerId, process.Connection, null);
                     }
 
-                    if (processData.moduleInstance == null)
+                    if (processData.moduleInstance == null && processData.nativeModuleInstance == null)
                     {
                         DkmDynamicSymbolFileId symbolFileId = DkmDynamicSymbolFileId.Create(DebugHelpers.NullcSymbolProviderGuid);
 
-                        processData.moduleInstance = DkmCustomModuleInstance.Create("nullc", "nullc.embedded.code", 0, processData.runtimeInstance, null, symbolFileId, DkmModuleFlags.None, DkmModuleMemoryLayout.Unknown, moduleBase, 1, moduleSize, "nullc embedded code", false, null, null, null);
+                        if (DebugHelpers.useNativeInterfaces)
+                        {
+                            processData.nativeModuleInstance = DkmNativeModuleInstance.Create("nullc", "nullc.embedded.code", 0, null, symbolFileId, DkmModuleFlags.None, DkmModuleMemoryLayout.Unknown, 1, "nullc embedded code", processData.nativeRuntimeInstance, moduleBase, moduleSize, Microsoft.VisualStudio.Debugger.Clr.DkmClrHeaderStatus.NativeBinary, false, null, null, null);
 
-                        processData.moduleInstance.SetModule(processData.module, true); // Can use reload?
+                            processData.nativeModuleInstance.SetModule(processData.module, true); // Can use reload?
+                        }
+                        else
+                        {
+                            processData.moduleInstance = DkmCustomModuleInstance.Create("nullc", "nullc.embedded.code", 0, processData.runtimeInstance, null, symbolFileId, DkmModuleFlags.None, DkmModuleMemoryLayout.Unknown, moduleBase, 1, moduleSize, "nullc embedded code", false, null, null, null);
+
+                            processData.moduleInstance.SetModule(processData.module, true); // Can use reload?
+                        }
                     }
                 }
                 catch (Exception ex)
