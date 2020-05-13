@@ -2,10 +2,12 @@ using Microsoft.VisualStudio.Debugger;
 using Microsoft.VisualStudio.Debugger.CallStack;
 using Microsoft.VisualStudio.Debugger.ComponentInterfaces;
 using Microsoft.VisualStudio.Debugger.CustomRuntimes;
-using Microsoft.VisualStudio.Debugger.DefaultPort;
 using Microsoft.VisualStudio.Debugger.Evaluation;
+using Microsoft.VisualStudio.Debugger.Native;
 using Microsoft.VisualStudio.Debugger.Symbols;
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 
 namespace nullc_debugger_component
@@ -75,6 +77,14 @@ namespace nullc_debugger_component
             public NullcCallStackEntry activeEntry;
         }
 
+        internal class NullResolvedDocumentDataItem : DkmDataItem
+        {
+            public NullcBytecode bytecode;
+            public ulong moduleBase;
+
+            public int moduleIndex;
+        }
+
         public class NullcLocalComponent : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification, IDkmLanguageExpressionEvaluator
         {
             DkmCompilerId IDkmSymbolCompilerIdQuery.GetCompilerId(DkmInstructionSymbol instruction, DkmInspectionSession inspectionSession)
@@ -90,37 +100,118 @@ namespace nullc_debugger_component
                 if (module.Name != "nullc.embedded.code")
                     return module.FindDocuments(sourceFileId);
 
+                var nullcModuleInstance = module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+
+                if (nullcModuleInstance == null)
+                    return module.FindDocuments(sourceFileId);
+
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(nullcModuleInstance.Process);
+
+                if (processData.bytecode != null)
+                {
+                    var processPath = nullcModuleInstance.Process.Path;
+
+                    var dataItem = new NullResolvedDocumentDataItem();
+
+                    dataItem.bytecode = processData.bytecode;
+                    dataItem.moduleBase = nullcModuleInstance.BaseAddress;
+
+                    foreach (var nullcModule in processData.bytecode.modules)
+                    {
+                        foreach (var importPath in processData.bytecode.importPaths)
+                        {
+                            var finalPath = importPath.Replace('/', '\\');
+
+                            if (finalPath.Length == 0)
+                                finalPath = $"{Path.GetDirectoryName(processPath)}\\";
+                            else if (!Path.IsPathRooted(finalPath))
+                                finalPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(processPath), finalPath));
+
+                            var modulePath = nullcModule.name.Replace('/', '\\');
+
+                            var combined = $"{finalPath}{modulePath}";
+
+                            if (combined == sourceFileId.DocumentName)
+                            {
+                                dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
+
+                                return new DkmResolvedDocument[1] { DkmResolvedDocument.Create(module, sourceFileId.DocumentName, null, DkmDocumentMatchStrength.FullPath, DkmResolvedDocumentWarning.None, false, dataItem) };
+                            }
+
+                            if (combined.ToLowerInvariant() == sourceFileId.DocumentName.ToLowerInvariant())
+                            {
+                                dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
+
+                                return new DkmResolvedDocument[1] { DkmResolvedDocument.Create(module, sourceFileId.DocumentName, null, DkmDocumentMatchStrength.SubPath, DkmResolvedDocumentWarning.None, false, dataItem) };
+                            }
+
+                            if (combined.ToLowerInvariant().EndsWith(sourceFileId.DocumentName.ToLowerInvariant()))
+                            {
+                                if (File.Exists(combined))
+                                {
+                                    dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
+
+                                    return new DkmResolvedDocument[1] { DkmResolvedDocument.Create(module, sourceFileId.DocumentName, null, DkmDocumentMatchStrength.SubPath, DkmResolvedDocumentWarning.None, false, dataItem) };
+                                }
+                            }
+                        }
+                    }
+                }
+
                 return module.FindDocuments(sourceFileId);
-                //return new DkmResolvedDocument[0];
-                /*return new[] {
-                    DkmResolvedDocument.Create(module, module.Name, null, DkmDocumentMatchStrength.FullPath, DkmResolvedDocumentWarning.None, false, null)
-                };*/
             }
 
             DkmInstructionSymbol[] IDkmSymbolDocumentSpanQuery.FindSymbols(DkmResolvedDocument resolvedDocument, DkmTextSpan textSpan, string text, out DkmSourcePosition[] symbolLocation)
             {
-                var sourceFileId = DkmSourceFileId.Create(resolvedDocument.DocumentName, null, null, null);
-                var resultSpan = new DkmTextSpan(textSpan.StartLine, textSpan.StartLine, 0, 0);
-                symbolLocation = new DkmSourcePosition[1] { DkmSourcePosition.Create(sourceFileId, resultSpan) };
+                var documentData = DebugHelpers.GetOrCreateDataItem<NullResolvedDocumentDataItem>(resolvedDocument);
 
-                return new DkmCustomInstructionSymbol[1] { DkmCustomInstructionSymbol.Create(resolvedDocument.Module, DkmRuntimeId.Native, null, 0, null) };
+                if (documentData == null)
+                    return resolvedDocument.FindSymbols(textSpan, text, out symbolLocation);
+
+                for (int line = textSpan.StartLine; line < textSpan.EndLine; line++)
+                {
+                    int moduleSourceLocation = documentData.bytecode.GetModuleSourceLocation(documentData.moduleIndex);
+
+                    if (moduleSourceLocation == -1)
+                        continue;
+
+                    int instruction = documentData.bytecode.ConvertLineToInstruction(moduleSourceLocation, line - 1);
+
+                    if (instruction == 0)
+                        continue;
+
+                    ulong nativeInstruction = documentData.bytecode.ConvertInstructionToNativeAddress(instruction);
+
+                    Debug.Assert(nativeInstruction >= documentData.moduleBase);
+
+                    var sourceFileId = DkmSourceFileId.Create(resolvedDocument.DocumentName, null, null, null);
+
+                    var resultSpan = new DkmTextSpan(line, line + 1, 0, 0);
+
+                    symbolLocation = new DkmSourcePosition[1] { DkmSourcePosition.Create(sourceFileId, resultSpan) };
+
+                    return new DkmInstructionSymbol[1] { DkmNativeInstructionSymbol.Create(resolvedDocument.Module, (uint)(nativeInstruction - documentData.moduleBase)) };
+                }
+
+                return resolvedDocument.FindSymbols(textSpan, text, out symbolLocation);
             }
 
             DkmSourcePosition IDkmSymbolQuery.GetSourcePosition(DkmInstructionSymbol instruction, DkmSourcePositionFlags flags, DkmInspectionSession inspectionSession, out bool startOfLine)
             {
-                // Can't lookup any data without inspectionSession, strange that it's optional
-                if (inspectionSession == null)
+                var nullcModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+
+                if (nullcModuleInstance == null)
                     return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
 
-                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(inspectionSession.Process);
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(nullcModuleInstance.Process);
 
                 if (processData.bytecode != null)
                 {
-                    var customInstructionSymbol = instruction as DkmCustomInstructionSymbol;
+                    var instructionSymbol = instruction as DkmCustomInstructionSymbol;
 
-                    if (customInstructionSymbol != null)
+                    if (instructionSymbol != null)
                     {
-                        int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(customInstructionSymbol.Offset);
+                        int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(instructionSymbol.Offset);
 
                         if (nullcInstruction != 0)
                         {
@@ -151,8 +242,6 @@ namespace nullc_debugger_component
                     throw new NotImplementedException();
 
                 throw new NotImplementedException();
-
-                //throw new NotImplementedException();
             }
 
             void IDkmLanguageFrameDecoder.GetFrameName(DkmInspectionContext inspectionContext, DkmWorkList workList, DkmStackWalkFrame frame, DkmVariableInfoFlags argumentFlags, DkmCompletionRoutine<DkmGetFrameNameAsyncResult> completionRoutine)

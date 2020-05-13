@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace nullc_debugger_component
 {
@@ -408,6 +409,7 @@ namespace nullc_debugger_component
             public uint[] dependencies;
             public List<NullcSourceInfo> sourceInfo;
             public uint[] constants;
+            public string[] importPaths;
             public ulong[] instructionPositions;
             public int globalVariableSize = 0;
 
@@ -423,6 +425,8 @@ namespace nullc_debugger_component
 
             public void ReadFrom(byte[] data, bool is64Bit)
             {
+                char[] rawImportPaths;
+
                 using (var stream = new MemoryStream(data))
                 {
                     using (var reader = new BinaryReader(stream))
@@ -495,6 +499,8 @@ namespace nullc_debugger_component
                         for (var i = 0; i < constants.Length; i++)
                             constants[i] = reader.ReadUInt32();
 
+                        rawImportPaths = reader.ReadChars(reader.ReadInt32());
+
                         instructionPositions = new ulong[reader.ReadInt32()];
 
                         for (var i = 0; i < instructionPositions.Length; i++)
@@ -529,9 +535,6 @@ namespace nullc_debugger_component
                             el.nullcMembers.Add(member);
                         }
 
-                        //if (el.constantCount != 0)
-                        //    Debug.WriteLine($"Type {el.index} {el.name} has {el.constantCount} constants");
-
                         for (int i = 0; i < el.constantCount; i++)
                         {
                             var constant = typeConstants[el.constantOffset + i];
@@ -541,8 +544,6 @@ namespace nullc_debugger_component
                             memberNameOffset = memberNameOffset + (uint)constant.name.Length + 1;
 
                             el.nullcConstants.Add(constant);
-
-                            //Debug.WriteLine($"Constant {member.name} from {el.name}: offset {member.offset} typeid {constant.type} value {constant.value} nameoffset {memberNameOffset}");
                         }
                     }
 
@@ -612,6 +613,8 @@ namespace nullc_debugger_component
 
                     el.name = new string(symbols, (int)el.nameOffset, ending - (int)el.nameOffset);
                 }
+
+                importPaths = (new string(rawImportPaths)).Split(';');
             }
 
             public int ConvertNativeAddressToInstruction(ulong address)
@@ -636,6 +639,11 @@ namespace nullc_debugger_component
                     index--;
 
                 return index;
+            }
+
+            public ulong ConvertInstructionToNativeAddress(int instruction)
+            {
+                return instructionPositions[instruction];
             }
 
             public NullcFuncInfo GetFunctionAtAddress(int instruction)
@@ -733,6 +741,92 @@ namespace nullc_debugger_component
                 column = pos - lastLineStart + 1;
 
                 return line + 1;
+            }
+
+            int GetLineStartOffset(int moduleSourceCodeOffset, int line)
+            {
+                int start = moduleSourceCodeOffset;
+                int startLine = 0;
+
+                while (source[start] != 0 && startLine < line)
+                {
+                    if (source[start] == '\r')
+                    {
+                        start++;
+
+                        if (source[start] == '\n')
+                            start++;
+
+                        startLine++;
+                    }
+                    else if (source[start] == '\n')
+                    {
+                        start++;
+
+                        startLine++;
+                    }
+                    else
+                    {
+                        start++;
+                    }
+                }
+
+                return start;
+            }
+
+            int GetLineEndOffset(int lineStartOffset)
+            {
+                int pos = lineStartOffset;
+
+                while (source[pos] != 0)
+                {
+                    if (source[pos] == '\r')
+                        return pos;
+
+                    if (source[pos] == '\n')
+                        return pos;
+
+                    pos++;
+                }
+
+                return pos;
+            }
+
+            int ConvertLinePositionRangeToInstruction(int lineStartOffset, int lineEndOffset)
+            {
+                // Find instruction
+                for (int i = 0; i < sourceInfo.Count; i++)
+                {
+                    if (sourceInfo[i].sourceOffset >= lineStartOffset && sourceInfo[i].sourceOffset <= lineEndOffset)
+                        return (int)sourceInfo[i].instruction;
+                }
+
+                return 0;
+            }
+
+            public int ConvertLineToInstruction(int moduleSourceCodeOffset, int line)
+            {
+                int lineStartOffset = GetLineStartOffset(moduleSourceCodeOffset, line);
+
+                if (lineStartOffset == 0)
+                    return 0;
+
+                int lineEndOffset = GetLineEndOffset(lineStartOffset);
+
+                return ConvertLinePositionRangeToInstruction(lineStartOffset, lineEndOffset);
+            }
+
+            public int GetModuleSourceLocation(int moduleIndex)
+            {
+                Debug.Assert(moduleIndex <= modules.Count);
+
+                if (moduleIndex < modules.Count)
+                    return modules[moduleIndex].sourceOffset;
+
+                if (moduleIndex == modules.Count)
+                    return modules.Last().sourceOffset + modules.Last().sourceSize;
+
+                return -1;
             }
         }
     }
