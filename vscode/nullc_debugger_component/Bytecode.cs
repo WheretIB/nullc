@@ -524,7 +524,8 @@ namespace nullc_debugger_component
                     {
                         uint memberNameOffset = el.offsetToName + (uint)el.name.Length + 1;
 
-                        for (int i = 0; i < el.memberCount; i++)
+                        // One extra member for function return type
+                        for (int i = 0; i < el.memberCount + (el.subCat == NullTypeSubCategory.Function ? 1 : 0); i++)
                         {
                             var member = typeMembers[el.memberOffset + i];
 
