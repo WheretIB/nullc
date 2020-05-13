@@ -24,7 +24,15 @@ namespace nullc_debugger_component
             public int nullcFramePosition = 1;
         }
 
-        public class NullcStackFilter : IDkmCallStackFilter
+        internal class NullcModuleDataItem : DkmDataItem
+        {
+            public bool nullcIsMissing = false;
+
+            public ulong moduleBase;
+            public uint moduleSize;
+        }
+
+        public class NullcStackFilter : IDkmCallStackFilter, IDkmInstructionAddressProvider
         {
             internal void InitNullcDebugFunctions(NullcStackFilterDataItem processData, DkmRuntimeInstance runtimeInstance)
             {
@@ -171,6 +179,48 @@ namespace nullc_debugger_component
                 }
 
                 return new DkmStackWalkFrame[1] { input };
+            }
+
+            void IDkmInstructionAddressProvider.GetInstructionAddress(DkmProcess process, DkmWorkList workList, ulong instructionPointer, DkmCompletionRoutine<DkmGetInstructionAddressAsyncResult> completionRoutine)
+            {
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcModuleDataItem>(process);
+
+                if (!processData.nullcIsMissing && processData.moduleBase == 0)
+                {
+                    processData.moduleBase = DebugHelpers.ReadPointerVariable(process, "nullcModuleStartAddress").GetValueOrDefault(0);
+
+                    processData.moduleSize = (uint)(DebugHelpers.ReadPointerVariable(process, "nullcModuleEndAddress").GetValueOrDefault(0) - processData.moduleBase);
+
+                    processData.nullcIsMissing = processData.moduleBase == 0;
+                }
+
+                if (processData.moduleBase != 0)
+                {
+                    if (instructionPointer >= processData.moduleBase && instructionPointer < processData.moduleBase + processData.moduleSize)
+                    {
+                        DkmInstructionAddress address;
+
+                        if (DebugHelpers.useNativeInterfaces)
+                        {
+                            var nullcNativeRuntime = process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+                            var nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid); ;
+
+                            address = DkmNativeInstructionAddress.Create(nullcNativeRuntime, nullcModuleInstance, (uint)(instructionPointer - processData.moduleBase), new DkmInstructionAddress.CPUInstruction(instructionPointer));
+                        }
+                        else
+                        {
+                            var nullcNativeRuntime = process.GetRuntimeInstances().OfType<DkmCustomRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+                            var nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid); ;
+
+                            address = DkmCustomInstructionAddress.Create(nullcNativeRuntime, nullcModuleInstance, null, instructionPointer, null, new DkmInstructionAddress.CPUInstruction(instructionPointer));
+                        }
+
+                        completionRoutine(new DkmGetInstructionAddressAsyncResult(address, true));
+                        return;
+                    }
+                }
+
+                process.GetInstructionAddress(workList, instructionPointer, completionRoutine);
             }
         }
     }

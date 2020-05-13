@@ -14,6 +14,7 @@
 				<InterfaceGroup>
 					<NoFilter/>
 					<Interface Name="IDkmCallStackFilter"/>
+					<Interface Name="IDkmInstructionAddressProvider"/>
 				</InterfaceGroup>
 			</Implements>
 		</Class>
