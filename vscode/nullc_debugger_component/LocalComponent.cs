@@ -246,8 +246,40 @@ namespace nullc_debugger_component
 
             void IDkmLanguageFrameDecoder.GetFrameName(DkmInspectionContext inspectionContext, DkmWorkList workList, DkmStackWalkFrame frame, DkmVariableInfoFlags argumentFlags, DkmCompletionRoutine<DkmGetFrameNameAsyncResult> completionRoutine)
             {
+                var process = frame.Process;
+
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(process);
+
+                var function = processData.bytecode.GetFunctionAtNativeAddress(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
+
+                int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
+
+                if (function != null)
+                {
+                    string result = $"{function.name}(";
+
+                    for (int i = 0; i < function.paramCount; i++)
+                    {
+                        var localInfo = function.arguments[i];
+
+                        if (i != 0)
+                            result += ", ";
+
+                        result += $"{localInfo.nullcType.name} {localInfo.name}";
+                    }
+
+                    result += ")";
+
+                    completionRoutine(new DkmGetFrameNameAsyncResult(result));
+                    return;
+                }
+                else if (nullcInstruction != 0)
+                {
+                    completionRoutine(new DkmGetFrameNameAsyncResult("nullcGlobal()"));
+                    return;
+                }
+
                 inspectionContext.GetFrameName(workList, frame, argumentFlags, completionRoutine);
-                //completionRoutine(new DkmGetFrameNameAsyncResult("FakeTestResultFunction"));
             }
 
             void IDkmLanguageFrameDecoder.GetFrameReturnType(DkmInspectionContext inspectionContext, DkmWorkList workList, DkmStackWalkFrame frame, DkmCompletionRoutine<DkmGetFrameReturnTypeAsyncResult> completionRoutine)
