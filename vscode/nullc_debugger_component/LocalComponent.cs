@@ -90,7 +90,7 @@ namespace nullc_debugger_component
             public int moduleIndex;
         }
 
-        public class NullcLocalComponent : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification, IDkmLanguageExpressionEvaluator
+        public class NullcLocalComponent : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification, IDkmLanguageExpressionEvaluator, IDkmLanguageInstructionDecoder
         {
             DkmCompilerId IDkmSymbolCompilerIdQuery.GetCompilerId(DkmInstructionSymbol instruction, DkmInspectionSession inspectionSession)
             {
@@ -327,6 +327,43 @@ namespace nullc_debugger_component
                 throw new NotImplementedException();
             }
 
+            string FormatFunction(NullcFuncInfo function, DkmVariableInfoFlags argumentFlags)
+            {
+                string result = $"{function.name}";
+
+                if (argumentFlags.HasFlag(DkmVariableInfoFlags.Types) || argumentFlags.HasFlag(DkmVariableInfoFlags.Names))
+                {
+                    result += "(";
+
+                    for (int i = 0; i < function.paramCount; i++)
+                    {
+                        var localInfo = function.arguments[i];
+
+                        if (argumentFlags.HasFlag(DkmVariableInfoFlags.Types))
+                        {
+                            if (i != 0)
+                                result += ", ";
+
+                            result += $"{localInfo.nullcType.name}";
+
+                            if (argumentFlags.HasFlag(DkmVariableInfoFlags.Names))
+                                result += $" {localInfo.name}";
+                        }
+                        else if (argumentFlags.HasFlag(DkmVariableInfoFlags.Names))
+                        {
+                            if (i != 0)
+                                result += ", ";
+
+                            result += $"{localInfo.name}";
+                        }
+                    }
+
+                    result += ")";
+                }
+
+                return result;
+            }
+
             void IDkmLanguageFrameDecoder.GetFrameName(DkmInspectionContext inspectionContext, DkmWorkList workList, DkmStackWalkFrame frame, DkmVariableInfoFlags argumentFlags, DkmCompletionRoutine<DkmGetFrameNameAsyncResult> completionRoutine)
             {
                 var process = frame.Process;
@@ -335,28 +372,15 @@ namespace nullc_debugger_component
 
                 var function = processData.bytecode.GetFunctionAtNativeAddress(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
 
-                int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
-
                 if (function != null)
                 {
-                    string result = $"{function.name}(";
-
-                    for (int i = 0; i < function.paramCount; i++)
-                    {
-                        var localInfo = function.arguments[i];
-
-                        if (i != 0)
-                            result += ", ";
-
-                        result += $"{localInfo.nullcType.name} {localInfo.name}";
-                    }
-
-                    result += ")";
-
-                    completionRoutine(new DkmGetFrameNameAsyncResult(result));
+                    completionRoutine(new DkmGetFrameNameAsyncResult(FormatFunction(function, argumentFlags)));
                     return;
                 }
-                else if (nullcInstruction != 0)
+
+                int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
+
+                if (nullcInstruction != 0)
                 {
                     completionRoutine(new DkmGetFrameNameAsyncResult("nullcGlobal()"));
                     return;
@@ -367,9 +391,30 @@ namespace nullc_debugger_component
 
             void IDkmLanguageFrameDecoder.GetFrameReturnType(DkmInspectionContext inspectionContext, DkmWorkList workList, DkmStackWalkFrame frame, DkmCompletionRoutine<DkmGetFrameReturnTypeAsyncResult> completionRoutine)
             {
-                inspectionContext.GetFrameReturnType(workList, frame, completionRoutine);
                 // Not provided at the moment
-                //completionRoutine(new DkmGetFrameReturnTypeAsyncResult(null));
+                inspectionContext.GetFrameReturnType(workList, frame, completionRoutine);
+            }
+
+            string IDkmLanguageInstructionDecoder.GetMethodName(DkmLanguageInstructionAddress languageInstructionAddress, DkmVariableInfoFlags argumentFlags)
+            {
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(languageInstructionAddress.Address.Process);
+
+                var function = processData.bytecode.GetFunctionAtNativeAddress(languageInstructionAddress.Address.CPUInstructionPart.InstructionPointer);
+
+                if (function != null)
+                    return FormatFunction(function, argumentFlags);
+
+                int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(languageInstructionAddress.Address.CPUInstructionPart.InstructionPointer);
+
+                if (nullcInstruction != 0)
+                {
+                    if (argumentFlags.HasFlag(DkmVariableInfoFlags.Types) || argumentFlags.HasFlag(DkmVariableInfoFlags.Names))
+                        return "nullcGlobal()";
+
+                    return "nullcGlobal";
+                }
+
+                return languageInstructionAddress.GetMethodName(argumentFlags);
             }
 
             void IDkmModuleInstanceLoadNotification.OnModuleInstanceLoad(DkmModuleInstance moduleInstance, DkmWorkList workList, DkmEventDescriptorS eventDescriptor)
