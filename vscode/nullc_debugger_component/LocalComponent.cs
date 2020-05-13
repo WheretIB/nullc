@@ -39,6 +39,8 @@ namespace nullc_debugger_component
 
             public NullcCallStack callStack = new NullcCallStack();
 
+            public List<string> activeDocumentPaths = new List<string>();
+
             public bool UpdateContextData(DkmProcess process)
             {
                 if (moduleContextMainDataLocation == 0)
@@ -143,14 +145,9 @@ namespace nullc_debugger_component
                             {
                                 dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
 
+                                processData.activeDocumentPaths.Add(sourceFileId.DocumentName);
+
                                 return new DkmResolvedDocument[1] { DkmResolvedDocument.Create(module, sourceFileId.DocumentName, null, DkmDocumentMatchStrength.FullPath, DkmResolvedDocumentWarning.None, false, dataItem) };
-                            }
-
-                            if (combined.ToLowerInvariant() == sourceFileId.DocumentName.ToLowerInvariant())
-                            {
-                                dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
-
-                                return new DkmResolvedDocument[1] { DkmResolvedDocument.Create(module, sourceFileId.DocumentName, null, DkmDocumentMatchStrength.SubPath, DkmResolvedDocumentWarning.None, false, dataItem) };
                             }
 
                             if (combined.ToLowerInvariant().EndsWith(sourceFileId.DocumentName.ToLowerInvariant()))
@@ -159,9 +156,13 @@ namespace nullc_debugger_component
                                 {
                                     dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
 
+                                    processData.activeDocumentPaths.Add(combined);
+
                                     return new DkmResolvedDocument[1] { DkmResolvedDocument.Create(module, sourceFileId.DocumentName, null, DkmDocumentMatchStrength.SubPath, DkmResolvedDocumentWarning.None, false, dataItem) };
                                 }
                             }
+
+                            Debug.WriteLine($"Failed to find nullc document using '{sourceFileId.DocumentName}' name");
                         }
                     }
                 }
@@ -205,6 +206,38 @@ namespace nullc_debugger_component
                 }
 
                 return resolvedDocument.FindSymbols(textSpan, text, out symbolLocation);
+            }
+
+            string TryFindModuleFilePath(NullcLocalProcessDataItem processData, string processPath, string moduleName)
+            {
+                foreach (var importPath in processData.bytecode.importPaths)
+                {
+                    var finalPath = importPath.Replace('/', '\\');
+
+                    if (finalPath.Length == 0)
+                        finalPath = $"{Path.GetDirectoryName(processPath)}\\";
+                    else if (!Path.IsPathRooted(finalPath))
+                        finalPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(processPath), finalPath));
+
+                    var modulePath = moduleName.Replace('/', '\\');
+
+                    var combined = $"{finalPath}{modulePath}";
+
+                    foreach (var activeDocumentPath in processData.activeDocumentPaths)
+                    {
+                        if (combined == activeDocumentPath)
+                            return combined;
+                    }
+
+                    if (File.Exists(combined))
+                    {
+                        processData.activeDocumentPaths.Add(combined);
+
+                        return combined;
+                    }
+                }
+
+                return null;
             }
 
             DkmSourcePosition IDkmSymbolQuery.GetSourcePosition(DkmInstructionSymbol instruction, DkmSourcePositionFlags flags, DkmInspectionSession inspectionSession, out bool startOfLine)
@@ -251,11 +284,16 @@ namespace nullc_debugger_component
 
                         string moduleName = moduleIndex != -1 ? processData.bytecode.modules[moduleIndex].name : "nbody.nc"; // TODO: main module name
 
-                        // TODO: correct path resolve
-                        string path = "L:\\dev\\nullc_debug_test\\bin\\" + moduleName;
+                        var processPath = nullcModuleInstance.Process.Path;
+
+                        string path = TryFindModuleFilePath(processData, processPath, moduleName);
+
+                        // Let Visual Studio find it using a partial name
+                        if (path == null)
+                            path = moduleName;
 
                         startOfLine = true;
-                        return DkmSourcePosition.Create(DkmSourceFileId.Create(path, null, null, null), new DkmTextSpan(line, line, column, column));
+                        return DkmSourcePosition.Create(DkmSourceFileId.Create(path, null, null, null), new DkmTextSpan(line, line, 0, 0));
                     }
                 }
 
