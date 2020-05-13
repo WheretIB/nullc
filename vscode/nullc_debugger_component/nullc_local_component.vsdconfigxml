@@ -23,22 +23,18 @@
 
 				<InterfaceGroup>
 					<Filter>
-						<LanguageId RequiredValue="9221BA37-3FB0-483A-BD6A-0E5DD22E107E"/>
+						<LanguageId RequiredValue="guidNullcLanguageId"/>
 					</Filter>
 					<Interface Name="IDkmLanguageExpressionEvaluator"/>
 				</InterfaceGroup>
 
 				<InterfaceGroup>
-					<!--
-                    <Filter>
-                        <RuntimeId RequiredValue="3AF14FEA-CB31-4DBB-90E5-74BF685CA7B8"/>
-                    </Filter>
-                    -->
-                    <Filter>
-                        <LanguageId RequiredValue="9221BA37-3FB0-483A-BD6A-0E5DD22E107E"/>
-                    </Filter>
+					<Filter>
+						<LanguageId RequiredValue="guidNullcLanguageId"/>
+					</Filter>
 					<Interface Name="IDkmLanguageFrameDecoder"/>
 					<Interface Name="IDkmLanguageInstructionDecoder"/>
+					<Interface Name="IDkmSymbolFunctionResolver"/>
 				</InterfaceGroup>
 			</Implements>
 		</Class>

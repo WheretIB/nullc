@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.Debugger.ComponentInterfaces;
 using Microsoft.VisualStudio.Debugger.CustomRuntimes;
 using Microsoft.VisualStudio.Debugger.DefaultPort;
 using Microsoft.VisualStudio.Debugger.Evaluation;
+using Microsoft.VisualStudio.Debugger.FunctionResolution;
 using Microsoft.VisualStudio.Debugger.Native;
 using Microsoft.VisualStudio.Debugger.Symbols;
 using System;
@@ -90,7 +91,7 @@ namespace nullc_debugger_component
             public int moduleIndex;
         }
 
-        public class NullcLocalComponent : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification, IDkmLanguageExpressionEvaluator, IDkmLanguageInstructionDecoder
+        public class NullcLocalComponent : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmSymbolFunctionResolver, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification, IDkmLanguageExpressionEvaluator, IDkmLanguageInstructionDecoder
         {
             DkmCompilerId IDkmSymbolCompilerIdQuery.GetCompilerId(DkmInstructionSymbol instruction, DkmInspectionSession inspectionSession)
             {
@@ -1403,6 +1404,43 @@ namespace nullc_debugger_component
             {
                 // RawString is not used at the moment
                 return "";
+            }
+
+            DkmInstructionSymbol[] IDkmSymbolFunctionResolver.Resolve(DkmSymbolFunctionResolutionRequest symbolFunctionResolutionRequest)
+            {
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(symbolFunctionResolutionRequest.Process);
+
+                var nullcCustomRuntime = symbolFunctionResolutionRequest.Process.GetRuntimeInstances().OfType<DkmCustomRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+                var nullcNativeRuntime = symbolFunctionResolutionRequest.Process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+
+                if (DebugHelpers.useNativeInterfaces ? nullcNativeRuntime != null : nullcCustomRuntime != null)
+                {
+                    DkmModuleInstance nullcModuleInstance;
+
+                    if (DebugHelpers.useNativeInterfaces)
+                        nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                    else
+                        nullcModuleInstance = nullcCustomRuntime.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+
+                    if (nullcModuleInstance == null)
+                        return symbolFunctionResolutionRequest.Resolve();
+
+                    foreach (var function in processData.bytecode.functions)
+                    {
+                        if (function.name == symbolFunctionResolutionRequest.FunctionName)
+                        {
+                            // External function
+                            if (function.regVmAddress == ~0u)
+                                return symbolFunctionResolutionRequest.Resolve();
+
+                            ulong nativeInstruction = processData.bytecode.ConvertInstructionToNativeAddress((int)function.regVmAddress);
+
+                            return new DkmInstructionSymbol[1] { DkmNativeInstructionSymbol.Create(nullcModuleInstance.Module, (uint)(nativeInstruction - nullcModuleInstance.BaseAddress)) };
+                        }
+                    }
+                }
+
+                return symbolFunctionResolutionRequest.Resolve();
             }
         }
     }
