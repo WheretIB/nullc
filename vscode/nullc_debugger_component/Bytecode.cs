@@ -410,6 +410,7 @@ namespace nullc_debugger_component
             public List<NullcSourceInfo> sourceInfo;
             public uint[] constants;
             public string[] importPaths;
+            public string mainModuleName;
             public ulong[] instructionPositions;
             public int globalVariableSize = 0;
 
@@ -500,6 +501,8 @@ namespace nullc_debugger_component
                             constants[i] = reader.ReadUInt32();
 
                         rawImportPaths = reader.ReadChars(reader.ReadInt32());
+
+                        mainModuleName = new string(reader.ReadChars(reader.ReadInt32()));
 
                         instructionPositions = new ulong[reader.ReadInt32()];
 
@@ -819,13 +822,13 @@ namespace nullc_debugger_component
 
             public int GetModuleSourceLocation(int moduleIndex)
             {
-                Debug.Assert(moduleIndex <= modules.Count);
+                Debug.Assert(moduleIndex >= -1 && moduleIndex < modules.Count);
+
+                if (moduleIndex == -1)
+                    return modules.Last().sourceOffset + modules.Last().sourceSize;
 
                 if (moduleIndex < modules.Count)
                     return modules[moduleIndex].sourceOffset;
-
-                if (moduleIndex == modules.Count)
-                    return modules.Last().sourceOffset + modules.Last().sourceSize;
 
                 return -1;
             }

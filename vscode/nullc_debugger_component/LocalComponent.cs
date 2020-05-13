@@ -126,7 +126,7 @@ namespace nullc_debugger_component
                     dataItem.bytecode = processData.bytecode;
                     dataItem.moduleBase = nullcModuleInstance.BaseAddress;
 
-                    foreach (var nullcModule in processData.bytecode.modules)
+                    DkmResolvedDocument[] MatchAgainstModule(string moduleName, int moduleIndex)
                     {
                         foreach (var importPath in processData.bytecode.importPaths)
                         {
@@ -137,13 +137,13 @@ namespace nullc_debugger_component
                             else if (!Path.IsPathRooted(finalPath))
                                 finalPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(processPath), finalPath));
 
-                            var modulePath = nullcModule.name.Replace('/', '\\');
+                            var modulePath = moduleName.Replace('/', '\\');
 
                             var combined = $"{finalPath}{modulePath}";
 
                             if (combined == sourceFileId.DocumentName)
                             {
-                                dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
+                                dataItem.moduleIndex = moduleIndex;
 
                                 processData.activeDocumentPaths.Add(sourceFileId.DocumentName);
 
@@ -154,17 +154,36 @@ namespace nullc_debugger_component
                             {
                                 if (File.Exists(combined))
                                 {
-                                    dataItem.moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
+                                    dataItem.moduleIndex = moduleIndex;
 
                                     processData.activeDocumentPaths.Add(combined);
 
                                     return new DkmResolvedDocument[1] { DkmResolvedDocument.Create(module, sourceFileId.DocumentName, null, DkmDocumentMatchStrength.SubPath, DkmResolvedDocumentWarning.None, false, dataItem) };
                                 }
                             }
-
-                            Debug.WriteLine($"Failed to find nullc document using '{sourceFileId.DocumentName}' name");
                         }
+
+                        return null;
                     }
+
+                    foreach (var nullcModule in processData.bytecode.modules)
+                    {
+                        int moduleIndex = processData.bytecode.modules.IndexOf(nullcModule);
+
+                        var result = MatchAgainstModule(nullcModule.name, moduleIndex);
+
+                        if (result != null)
+                            return result;
+                    }
+
+                    {
+                        var result = MatchAgainstModule(processData.bytecode.mainModuleName, -1);
+
+                        if (result != null)
+                            return result;
+                    }
+
+                    Debug.WriteLine($"Failed to find nullc document using '{sourceFileId.DocumentName}' name");
                 }
 
                 return module.FindDocuments(sourceFileId);
@@ -282,7 +301,7 @@ namespace nullc_debugger_component
                         int column = 0;
                         int line = processData.bytecode.GetSourceLocationLineAndColumn(sourceLocation, moduleIndex, out column);
 
-                        string moduleName = moduleIndex != -1 ? processData.bytecode.modules[moduleIndex].name : "nbody.nc"; // TODO: main module name
+                        string moduleName = moduleIndex != -1 ? processData.bytecode.modules[moduleIndex].name : processData.bytecode.mainModuleName;
 
                         var processPath = nullcModuleInstance.Process.Path;
 
