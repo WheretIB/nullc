@@ -66,6 +66,10 @@ namespace nullc_debugger_component
             {
                 byte[] variableAddressData = new byte[1];
 
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
+
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
 
@@ -75,6 +79,10 @@ namespace nullc_debugger_component
             internal static short? ReadShortVariable(DkmProcess process, ulong address)
             {
                 byte[] variableAddressData = new byte[2];
+
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
@@ -86,6 +94,10 @@ namespace nullc_debugger_component
             {
                 byte[] variableAddressData = new byte[4];
 
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
+
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
 
@@ -95,6 +107,10 @@ namespace nullc_debugger_component
             internal static uint? ReadUintVariable(DkmProcess process, ulong address)
             {
                 byte[] variableAddressData = new byte[4];
+
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
@@ -106,6 +122,10 @@ namespace nullc_debugger_component
             {
                 byte[] variableAddressData = new byte[8];
 
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
+
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
 
@@ -115,6 +135,10 @@ namespace nullc_debugger_component
             internal static ulong? ReadUlongVariable(DkmProcess process, ulong address)
             {
                 byte[] variableAddressData = new byte[8];
+
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
@@ -126,6 +150,10 @@ namespace nullc_debugger_component
             {
                 byte[] variableAddressData = new byte[4];
 
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
+
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
 
@@ -135,6 +163,10 @@ namespace nullc_debugger_component
             internal static double? ReadDoubleVariable(DkmProcess process, ulong address)
             {
                 byte[] variableAddressData = new byte[8];
+
+                // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
+                if (address < 0x0001000)
+                    return null;
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
                     return null;
