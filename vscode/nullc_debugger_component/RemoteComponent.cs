@@ -235,6 +235,10 @@ namespace nullc_debugger_component
                     {
                         if (processData.activeBreakpointLocations.Contains(address))
                             processData.activeBreakpointLocations.Remove(address);
+
+                        // If we were planning to restore the breakpoint, forget about it
+                        if (processData.lastHitBreakpointLocation == address)
+                            processData.lastHitBreakpointLocation = 0;
                     }
                 }
             }
