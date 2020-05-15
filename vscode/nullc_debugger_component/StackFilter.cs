@@ -116,6 +116,9 @@ namespace nullc_debugger_component
 
                         flags = flags & ~(DkmStackWalkFrameFlags.NonuserCode | DkmStackWalkFrameFlags.UserStatusNotDetermined);
 
+                        if (stackFrameDesc == "[Transition to nullc]")
+                             return new DkmStackWalkFrame[1] { DkmStackWalkFrame.Create(stackContext.Thread, input.InstructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, input.Annotations) };
+
                         DkmStackWalkFrame frame = null;
 
                         var nullcCustomRuntime = input.Thread.Process.GetRuntimeInstances().OfType<DkmCustomRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
