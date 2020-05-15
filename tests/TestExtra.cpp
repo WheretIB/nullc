@@ -1244,3 +1244,17 @@ TEST_RESULT("Function definition inside a temporary scope", testFunctionDefiniti
 const char	*testVariableShadowingByHiddenFunction =
 "int r = 2; { typeof(void r(){}) x; return r; } return 1;";
 TEST_RESULT("Variable shadowed by a function is restored by function getting hidden", testVariableShadowingByHiddenFunction, "2");
+
+const char	*testRegisterKillInfoOverflow =
+"int bar(int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)\r\n\
+{\r\n\
+	return a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p;\r\n\
+}\r\n\
+\r\n\
+int foo(int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)\r\n\
+{\r\n\
+	return bar(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p);\r\n\
+}\r\n\
+\r\n\
+return foo(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);";
+TEST_RESULT("Register kill info overflow", testRegisterKillInfoOverflow, "136");

@@ -3560,11 +3560,11 @@ void RegFinalizeInstruction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredIn
 	unsigned preKillCount = lowInstruction->preKillRegisters.size();
 	unsigned postKillCount = lowInstruction->postKillRegisters.size();
 
-	if(preKillCount > 16)
-		preKillCount = 16;
+	if(preKillCount > 15)
+		preKillCount = 15;
 
-	if(postKillCount > 16)
-		postKillCount = 16;
+	if(postKillCount > 15)
+		postKillCount = 15;
 
 	ctx.regKillInfo.push_back((unsigned char)((preKillCount << 4) | postKillCount));
 
