@@ -17,6 +17,7 @@ namespace nullc_debugger_component
             public static readonly Guid NullcLanguageGuid = new Guid("9221BA37-3FB0-483A-BD6A-0E5DD22E107E");
             public static readonly Guid NullcRuntimeGuid = new Guid("3AF14FEA-CB31-4DBB-90E5-74BF685CA7B8");
             public static readonly Guid NullcCallStackDataBaseGuid = new Guid("E0838372-9E1B-4ED0-B687-60F0396DC91E");
+            public static readonly Guid NullcStepperBreakpointSourceId = new Guid("4E7147D0-6375-4962-A2BF-651F802E27D7");
 
             //public static readonly Guid NullcSymbolProviderFilterGuid = new Guid("0B2E28CC-D574-461C-90F4-0C251AA71DE8");
 

@@ -378,7 +378,159 @@ namespace nullc_debugger_component
                 dependencyCount = reader.ReadUInt32();
             }
         }
+        enum NullcInstructionCode
+        {
+            rviNop,
 
+            rviLoadByte,
+            rviLoadWord,
+            rviLoadDword,
+            rviLoadLong,
+            rviLoadFloat,
+            rviLoadDouble,
+
+            rviLoadImm,
+            rviLoadImmLong,
+            rviLoadImmDouble,
+
+            rviStoreByte,
+            rviStoreWord,
+            rviStoreDword,
+            rviStoreLong,
+            rviStoreFloat,
+            rviStoreDouble,
+
+            rviCombinedd,
+            rviBreakupdd,
+            rviMov,
+            rviMovMult,
+
+            rviDtoi,
+            rviDtol,
+            rviDtof,
+            rviItod,
+            rviLtod,
+            rviItol,
+            rviLtoi,
+
+            rviIndex,
+
+            rviGetAddr,
+
+            rviSetRange,
+            rviMemCopy,
+
+            rviJmp,
+            rviJmpz,
+            rviJmpnz,
+
+            rviCall,
+            rviCallPtr,
+
+            rviReturn,
+
+            rviAddImm,
+
+            rviAdd,
+            rviSub,
+            rviMul,
+            rviDiv,
+
+            rviPow,
+            rviMod,
+
+            rviLess,
+            rviGreater,
+            rviLequal,
+            rviGequal,
+            rviEqual,
+            rviNequal,
+
+            rviShl,
+            rviShr,
+
+            rviBitAnd,
+            rviBitOr,
+            rviBitXor,
+
+            rviAddImml,
+
+            rviAddl,
+            rviSubl,
+            rviMull,
+            rviDivl,
+
+            rviPowl,
+            rviModl,
+
+            rviLessl,
+            rviGreaterl,
+            rviLequall,
+            rviGequall,
+            rviEquall,
+            rviNequall,
+
+            rviShll,
+            rviShrl,
+
+            rviBitAndl,
+            rviBitOrl,
+            rviBitXorl,
+
+            rviAddd,
+            rviSubd,
+            rviMuld,
+            rviDivd,
+
+            rviAddf,
+            rviSubf,
+            rviMulf,
+            rviDivf,
+
+            rviPowd,
+            rviModd,
+
+            rviLessd,
+            rviGreaterd,
+            rviLequald,
+            rviGequald,
+            rviEquald,
+            rviNequald,
+
+            rviNeg,
+            rviNegl,
+            rviNegd,
+
+            rviBitNot,
+            rviBitNotl,
+
+            rviLogNot,
+            rviLogNotl,
+
+            rviConvertPtr,
+
+            // Temporary instructions, no execution
+            rviFuncAddr,
+            rviTypeid,
+        };
+
+        class NullcInstruction
+        {
+            public NullcInstructionCode code;
+            public byte rA;
+            public byte rB;
+            public byte rC;
+            public uint argument;
+
+            public void ReadFrom(BinaryReader reader)
+            {
+                code = (NullcInstructionCode)reader.ReadByte();
+                rA = reader.ReadByte();
+                rB = reader.ReadByte();
+                rC = reader.ReadByte();
+                argument = reader.ReadUInt32();
+            }
+        }
         class NullcSourceInfo
         {
             public uint instruction;
@@ -407,10 +559,11 @@ namespace nullc_debugger_component
             public char[] symbols;
             public char[] source;
             public uint[] dependencies;
-            public List<NullcSourceInfo> sourceInfo;
-            public uint[] constants;
             public string[] importPaths;
             public string mainModuleName;
+            public List<NullcInstruction> instructions;
+            public List<NullcSourceInfo> sourceInfo;
+            public uint[] constants;
             public ulong[] instructionPositions;
             public int globalVariableSize = 0;
 
@@ -490,6 +643,15 @@ namespace nullc_debugger_component
                         for (var i = 0; i < dependencies.Length; i++)
                             dependencies[i] = reader.ReadUInt32();
 
+                        rawImportPaths = reader.ReadChars(reader.ReadInt32());
+
+                        mainModuleName = new string(reader.ReadChars(reader.ReadInt32()));
+
+                        instructions = InitList<NullcInstruction>(reader.ReadInt32());
+
+                        foreach (var el in instructions)
+                            el.ReadFrom(reader);
+
                         sourceInfo = InitList<NullcSourceInfo>(reader.ReadInt32());
 
                         foreach (var el in sourceInfo)
@@ -499,10 +661,6 @@ namespace nullc_debugger_component
 
                         for (var i = 0; i < constants.Length; i++)
                             constants[i] = reader.ReadUInt32();
-
-                        rawImportPaths = reader.ReadChars(reader.ReadInt32());
-
-                        mainModuleName = new string(reader.ReadChars(reader.ReadInt32()));
 
                         instructionPositions = new ulong[reader.ReadInt32()];
 
@@ -642,6 +800,9 @@ namespace nullc_debugger_component
                 if (index != 0 && address < instructionPositions[index])
                     index--;
 
+                if (index == instructionPositions.Length - 1 && address > instructionPositions[index])
+                    return 0;
+
                 return index;
             }
 
@@ -745,6 +906,15 @@ namespace nullc_debugger_component
                 column = pos - lastLineStart + 1;
 
                 return line + 1;
+            }
+
+            public int GetInstructionSourceLocationLine(int instruction, out int moduleIndex)
+            {
+                int sourceLocation = GetInstructionSourceLocation(instruction);
+
+                moduleIndex = GetSourceLocationModuleIndex(sourceLocation);
+
+                return GetSourceLocationLineAndColumn(sourceLocation, moduleIndex, out _);
             }
 
             int GetLineStartOffset(int moduleSourceCodeOffset, int line)
