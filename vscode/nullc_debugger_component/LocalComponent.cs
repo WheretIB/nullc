@@ -1411,7 +1411,7 @@ namespace nullc_debugger_component
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(symbolFunctionResolutionRequest.Process);
 
                 var nullcCustomRuntime = symbolFunctionResolutionRequest.Process.GetRuntimeInstances().OfType<DkmCustomRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
-                var nullcNativeRuntime = symbolFunctionResolutionRequest.Process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+                var nullcNativeRuntime = DebugHelpers.useDefaultRuntimeInstance ? symbolFunctionResolutionRequest.Process.GetNativeRuntimeInstance() : symbolFunctionResolutionRequest.Process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
 
                 if (DebugHelpers.useNativeInterfaces ? nullcNativeRuntime != null : nullcCustomRuntime != null)
                 {

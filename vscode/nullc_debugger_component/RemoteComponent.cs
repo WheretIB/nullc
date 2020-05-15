@@ -79,7 +79,7 @@ namespace nullc_debugger_component
                         processData.runtimeId = new DkmRuntimeInstanceId(DebugHelpers.NullcRuntimeGuid, 0);
 
                         if (DebugHelpers.useNativeInterfaces)
-                            processData.nativeRuntimeInstance = DkmNativeRuntimeInstance.Create(process, processData.runtimeId, DkmRuntimeCapabilities.None, process.GetNativeRuntimeInstance(), null);
+                            processData.nativeRuntimeInstance = DebugHelpers.useDefaultRuntimeInstance ? process.GetNativeRuntimeInstance() : DkmNativeRuntimeInstance.Create(process, processData.runtimeId, DkmRuntimeCapabilities.None, process.GetNativeRuntimeInstance(), null);
                         else
                             processData.runtimeInstance = DkmCustomRuntimeInstance.Create(process, processData.runtimeId, null);
                     }

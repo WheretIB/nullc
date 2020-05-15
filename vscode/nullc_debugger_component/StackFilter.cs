@@ -119,7 +119,7 @@ namespace nullc_debugger_component
                         DkmStackWalkFrame frame = null;
 
                         var nullcCustomRuntime = input.Thread.Process.GetRuntimeInstances().OfType<DkmCustomRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
-                        var nullcNativeRuntime = input.Thread.Process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+                        var nullcNativeRuntime = DebugHelpers.useDefaultRuntimeInstance ? input.Thread.Process.GetNativeRuntimeInstance() : input.Thread.Process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
 
                         if (DebugHelpers.useNativeInterfaces ? nullcNativeRuntime != null : nullcCustomRuntime != null)
                         {
@@ -202,7 +202,7 @@ namespace nullc_debugger_component
 
                         if (DebugHelpers.useNativeInterfaces)
                         {
-                            var nullcNativeRuntime = process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+                            var nullcNativeRuntime = DebugHelpers.useDefaultRuntimeInstance ? process.GetNativeRuntimeInstance() :  process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
                             var nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid); ;
 
                             address = DkmNativeInstructionAddress.Create(nullcNativeRuntime, nullcModuleInstance, (uint)(instructionPointer - processData.moduleBase), new DkmInstructionAddress.CPUInstruction(instructionPointer));

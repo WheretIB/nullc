@@ -11,6 +11,7 @@ namespace nullc_debugger_component
         static class DebugHelpers
         {
             public static readonly bool useNativeInterfaces = true;
+            public static readonly bool useDefaultRuntimeInstance = false;
 
             public static readonly Guid NullcSymbolProviderGuid = new Guid("BF13BE48-BE1A-4424-B961-BFC40C71E58A");
             public static readonly Guid NullcCompilerGuid = new Guid("A7CB5F2B-CD45-4CF4-9CB6-61A30968EFB5");
