@@ -1112,27 +1112,7 @@ void MarkUsedBlocks()
 	int offset = NULLC::commonLinker->globalVarSize;
 	
 	// Init stack trace
-#ifdef NULLC_BUILD_X86_JIT
-	if(execID == NULLC_X86)
-	{
-		ExecutorX86 *exec = (ExecutorX86*)unknownExec;
-		exec->BeginCallStack();
-	}
-#endif
-
-#ifdef NULLC_LLVM_SUPPORT
-	if(execID == NULLC_LLVM)
-	{
-		ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
-		exec->BeginCallStack();
-	}
-#endif
-
-	if(execID == NULLC_REG_VM)
-	{
-		ExecutorRegVm *exec = (ExecutorRegVm*)unknownExec;
-		exec->BeginCallStack();
-	}
+	unsigned currentFrame = 0;
 
 	// Mark local variables
 	while(true)
@@ -1145,7 +1125,7 @@ void MarkUsedBlocks()
 		if(execID == NULLC_X86)
 		{
 			ExecutorX86 *exec = (ExecutorX86*)unknownExec;
-			address = exec->GetNextAddress();
+			address = exec->GetCallStackAddress(currentFrame++);
 		}
 #endif
 
@@ -1153,14 +1133,14 @@ void MarkUsedBlocks()
 		if(execID == NULLC_LLVM)
 		{
 			ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
-			address = exec->GetNextAddress();
+			address = exec->GetCallStackAddress(currentFrame++);
 		}
 #endif
 
 		if(execID == NULLC_REG_VM)
 		{
 			ExecutorRegVm *exec = (ExecutorRegVm*)unknownExec;
-			address = exec->GetNextAddress();
+			address = exec->GetCallStackAddress(currentFrame++);
 		}
 
 		// If failed, exit

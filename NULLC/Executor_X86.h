@@ -52,11 +52,10 @@ public:
 
 	char*	GetVariableData(unsigned int *count);
 
-	void			BeginCallStack();
-	unsigned int	GetNextAddress();
+	unsigned	GetCallStackAddress(unsigned frame);
 
-	void*			GetStackStart();
-	void*			GetStackEnd();
+	void*		GetStackStart();
+	void*		GetStackEnd();
 
 	void	SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned));
 	void	ClearBreakpoints();
@@ -92,8 +91,6 @@ private:
 
 	// Data stack
 	unsigned int	minStackSize;
-
-	unsigned	currentFrame;
 
 	unsigned	lastFinalReturn;
 

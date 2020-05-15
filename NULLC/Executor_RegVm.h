@@ -32,8 +32,7 @@ public:
 
 	char*		GetVariableData(unsigned *count);
 
-	void		BeginCallStack();
-	unsigned	GetNextAddress();
+	unsigned	GetCallStackAddress(unsigned frame);
 
 	void*		GetStackStart();
 	void*		GetStackEnd();
@@ -70,7 +69,6 @@ private:
 	FastVector<char, true, true>	dataStack;
 
 	FastVector<RegVmCmd*>	callStack;
-	unsigned	currentFrame;
 
 	unsigned	lastFinalReturn;
 

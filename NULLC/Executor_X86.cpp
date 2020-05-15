@@ -385,8 +385,6 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 
 	minStackSize = 1 * 1024 * 1024;
 
-	currentFrame = 0;
-
 	lastFinalReturn = 0;
 
 	callContinue = true;
@@ -1078,8 +1076,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			char *currPos = execError + strlen(execError);
 			currPos += NULLC::SafeSprintf(currPos, REGVM_X86_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
-			BeginCallStack();
-			while(unsigned address = GetNextAddress())
+			unsigned currentFrame = 0;
+			while(unsigned address = GetCallStackAddress(currentFrame++))
 				currPos += PrintStackFrame(address, currPos, REGVM_X86_ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
 
@@ -2077,14 +2075,9 @@ char* ExecutorX86::GetVariableData(unsigned int *count)
 	return vmState.dataStackBase;
 }
 
-void ExecutorX86::BeginCallStack()
+unsigned int ExecutorX86::GetCallStackAddress(unsigned frame)
 {
-	currentFrame = 0;
-}
-
-unsigned int ExecutorX86::GetNextAddress()
-{
-	return currentFrame == unsigned(vmState.callStackTop - vmState.callStackBase) ? 0 : vmState.callStackBase[currentFrame++].instruction;
+	return frame >= unsigned(vmState.callStackTop - vmState.callStackBase) ? 0 : vmState.callStackBase[frame].instruction;
 }
 
 void* ExecutorX86::GetStackStart()

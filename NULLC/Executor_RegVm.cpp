@@ -60,8 +60,6 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 
 	minStackSize = 1 * 1024 * 1024;
 
-	currentFrame = 0;
-
 	tempStackArrayBase = NULL;
 	tempStackArrayEnd = NULL;
 
@@ -310,8 +308,8 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			char *currPos = execError + strlen(execError);
 			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
-			BeginCallStack();
-			while(unsigned address = GetNextAddress())
+			unsigned currentFrame = 0;
+			while(unsigned address = GetCallStackAddress(currentFrame++))
 				currPos += PrintStackFrame(address, currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
 
@@ -1712,17 +1710,12 @@ char* ExecutorRegVm::GetVariableData(unsigned *count)
 	return dataStack.data;
 }
 
-void ExecutorRegVm::BeginCallStack()
+unsigned ExecutorRegVm::GetCallStackAddress(unsigned frame)
 {
-	currentFrame = 0;
-}
-
-unsigned ExecutorRegVm::GetNextAddress()
-{
-	if(currentFrame == callStack.size())
+	if(frame >= callStack.size())
 		return 0;
 
-	RegVmCmd *instruction = callStack[currentFrame++];
+	RegVmCmd *instruction = callStack[frame];
 
 	if(instruction >= breakCode.data && instruction < breakCode.data + breakCode.count)
 	{

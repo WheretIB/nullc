@@ -569,11 +569,7 @@ char* ExecutorLLVM::GetVariableData(unsigned int *count)
 	return ctx->globalVars.data;
 }
 
-void ExecutorLLVM::BeginCallStack()
-{
-}
-
-unsigned int ExecutorLLVM::GetNextAddress()
+unsigned ExecutorLLVM::GetCallStackAddress(unsigned frame)
 {
 	return 0;
 }

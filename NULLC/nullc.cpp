@@ -64,6 +64,8 @@ namespace NULLC
 	unsigned moduleAnalyzeMemoryLimit = 128 * 1024 * 1024;
 
 	TraceContext *traceContext = NULL;
+
+	unsigned currDebugCallStackFrame = 0;
 }
 
 unsigned nullcFindFunctionIndex(const char* name);
@@ -1642,41 +1644,52 @@ void nullcDebugBeginCallStack()
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_X86)
-	{
-#ifdef NULLC_BUILD_X86_JIT
-		executorX86->BeginCallStack();
-#endif
-	}
-	else if(currExec == NULLC_REG_VM)
-	{
-#ifndef NULLC_NO_EXECUTOR
-		executorRegVm->BeginCallStack();
-#endif
-	}
+	currDebugCallStackFrame = 0;
 }
 
 unsigned int nullcDebugGetStackFrame()
 {
 	using namespace NULLC;
 
-	unsigned int address = 0;
+	return nullcDebugEnumStackFrame(currDebugCallStackFrame++);
+}
+
+unsigned int nullcDebugEnumStackFrame(unsigned frame)
+{
+	using namespace NULLC;
+
+	unsigned address = 0;
 
 	// Get next address from call stack
 	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
-		address = executorX86->GetNextAddress();
+		address = executorX86->GetCallStackAddress(frame);
 #endif
 	}
 	else if(currExec == NULLC_REG_VM)
 	{
 #ifndef NULLC_NO_EXECUTOR
-		address = executorRegVm->GetNextAddress();
+		address = executorRegVm->GetCallStackAddress(frame);
 #endif
 	}
 
+	(void)frame;
+
 	return address;
+}
+
+unsigned int nullcDebugGetStackFrameCount()
+{
+	using namespace NULLC;
+
+	unsigned callStackSize = 0;
+
+	unsigned currentFrame = 0;
+	while(nullcDebugEnumStackFrame(currentFrame++))
+		callStackSize++;
+
+	return callStackSize;
 }
 
 #ifndef NULLC_NO_EXECUTOR

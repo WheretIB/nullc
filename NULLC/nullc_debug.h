@@ -31,6 +31,8 @@ ExternModuleInfo*	nullcDebugModuleInfo(unsigned int *count);
 
 void				nullcDebugBeginCallStack();
 unsigned int		nullcDebugGetStackFrame();
+unsigned int		nullcDebugEnumStackFrame(unsigned frame);
+unsigned int		nullcDebugGetStackFrameCount();
 
 #define	NULLC_BREAK_PROCEED		0
 #define NULLC_BREAK_STEP		1

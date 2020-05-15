@@ -29,11 +29,10 @@ public:
 
 	char*		GetVariableData(unsigned int *count);
 
-	void			BeginCallStack();
-	unsigned int	GetNextAddress();
+	unsigned	GetCallStackAddress(unsigned frame);
 
-	void*			GetStackStart();
-	void*			GetStackEnd();
+	void*		GetStackStart();
+	void*		GetStackEnd();
 
 private:
 	bool	codeRunning;
