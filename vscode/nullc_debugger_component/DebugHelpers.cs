@@ -1,6 +1,5 @@
 using System;
 using Microsoft.VisualStudio.Debugger;
-using Microsoft.VisualStudio.Debugger.ComponentInterfaces;
 using Microsoft.VisualStudio.Debugger.DefaultPort;
 using Microsoft.VisualStudio.Debugger.Native;
 
