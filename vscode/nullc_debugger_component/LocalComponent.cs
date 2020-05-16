@@ -213,7 +213,7 @@ namespace nullc_debugger_component
 
                     var sourceFileId = DkmSourceFileId.Create(resolvedDocument.DocumentName, null, null, null);
 
-                    var resultSpan = new DkmTextSpan(line, line + 1, 0, 0);
+                    var resultSpan = new DkmTextSpan(line, line, 0, 0);
 
                     symbolLocation = new DkmSourcePosition[1] { DkmSourcePosition.Create(sourceFileId, resultSpan) };
 
