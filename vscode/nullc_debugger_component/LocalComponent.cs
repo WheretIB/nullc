@@ -1008,23 +1008,39 @@ namespace nullc_debugger_component
 
                     DkmEvaluationResult[] initialResults = new DkmEvaluationResult[finalInitialSize];
 
-                    if (initialRequestSize != 0)
+                    var targetAddress = DebugHelpers.ReadPointerVariable(process, evalData.address);
+
+                    if (!targetAddress.HasValue)
                     {
-                        var targetAddress = DebugHelpers.ReadPointerVariable(process, evalData.address);
-
-                        if (!targetAddress.HasValue)
-                        {
-                            completionRoutine(new DkmGetChildrenAsyncResult(new DkmEvaluationResult[0], DkmEvaluationResultEnumContext.Create(0, result.StackFrame, inspectionContext, null)));
-                            return;
-                        }
-
-                        initialResults[0] = EvaluateDataAtAddress(inspectionContext, result.StackFrame, "", $"*{result.FullName}", evalData.type.nullcSubType, targetAddress.Value, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.Public, DkmEvaluationResultStorageType.None);
+                        completionRoutine(new DkmGetChildrenAsyncResult(new DkmEvaluationResult[0], DkmEvaluationResultEnumContext.Create(0, result.StackFrame, inspectionContext, null)));
+                        return;
                     }
 
-                    var enumerator = DkmEvaluationResultEnumContext.Create(1, result.StackFrame, inspectionContext, evalData);
+                    var targetResult = EvaluateDataAtAddress(inspectionContext, result.StackFrame, "", $"*{result.FullName}", evalData.type.nullcSubType, targetAddress.Value, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.Public, DkmEvaluationResultStorageType.None);
 
-                    completionRoutine(new DkmGetChildrenAsyncResult(initialResults, enumerator));
-                    return;
+                    if (initialRequestSize != 0)
+                        initialResults[0] = targetResult;
+
+                    // If pointer points to a class, inline class member display
+                    if (evalData.type.nullcSubType.subCat == NullcTypeSubCategory.Class && targetAddress.HasValue && targetAddress.Value != 0 && (targetResult as DkmSuccessEvaluationResult) != null)
+                    {
+                        result = targetResult;
+
+                        var finalEvalData = new NullEvaluationDataItem();
+
+                        finalEvalData.address = targetAddress.Value;
+                        finalEvalData.fullName = $"(*{result.FullName})";
+                        finalEvalData.type = evalData.type.nullcSubType;
+
+                        evalData = finalEvalData;
+                    }
+                    else
+                    {
+                        var enumerator = DkmEvaluationResultEnumContext.Create(1, result.StackFrame, inspectionContext, evalData);
+
+                        completionRoutine(new DkmGetChildrenAsyncResult(initialResults, enumerator));
+                        return;
+                    }
                 }
 
                 if (evalData.type.subCat == NullcTypeSubCategory.Class)
