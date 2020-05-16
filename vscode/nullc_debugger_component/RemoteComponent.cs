@@ -346,6 +346,8 @@ namespace nullc_debugger_component
 
                 if (stepper.StepKind == DkmStepKind.Over || stepper.StepKind == DkmStepKind.Into)
                 {
+                    ClearStepBreakpoints(processData);
+
                     int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(stepper.StartingAddress.CPUInstructionPart.InstructionPointer);
 
                     int line = processData.bytecode.GetInstructionSourceLocationLine(nullcInstruction, out int moduleIndex);
@@ -407,23 +409,21 @@ namespace nullc_debugger_component
                                     nextNullcInstruction = (int)function.regVmAddress;
                                     break;
                                 }
-                                else
+                                else if (function.funcPtrWrap != 0 || function.funcPtrRaw != 0)
                                 {
-                                    // TODO: Step into an external call
-                                    throw new NotImplementedException();
+                                    // TODO: Step into an external function
+                                    // I've tryied placing a breakpoint at the external call target but it's not getting handled correctly
+                                    // Maybe the solution is to single step the process until the stack frame changes
                                 }
                             }
                             else if (nextInstruction.code == NullcInstructionCode.rviCallPtr)
                             {
                                 // TODO: Step into a function pointer call
-                                throw new NotImplementedException();
                             }
                         }
 
                         nextNullcInstruction++;
                     }
-
-                    ClearStepBreakpoints(processData);
 
                     if (nextNullcInstruction != 0)
                     {
