@@ -33,6 +33,7 @@ namespace nullc_debugger_component
 
             public ulong moduleBytecodeLocation = 0;
             public ulong moduleBytecodeSize = 0;
+            public ulong moduleBytecodeVersion = 0;
             public byte[] moduleBytecodeRaw;
 
             public NullcBytecode bytecode;
@@ -113,10 +114,24 @@ namespace nullc_debugger_component
                         }
                     }
 
+                    var moduleBytecodeVersion = DebugHelpers.ReadPointerVariable(process, "nullcModuleBytecodeVersion").GetValueOrDefault(0);
+                    bool newBytecode = false;
+
+                    if (processData.moduleBytecodeLocation != 0 && moduleBytecodeVersion != processData.moduleBytecodeVersion)
+                    {
+                        processData.moduleBytecodeLocation = 0;
+                        processData.moduleBytecodeSize = 0;
+                        processData.moduleBytecodeRaw = null;
+                        processData.bytecode = null;
+
+                        newBytecode = true;
+                    }
+
                     if (processData.moduleBytecodeLocation == 0)
                     {
                         processData.moduleBytecodeLocation = DebugHelpers.ReadPointerVariable(process, "nullcModuleBytecodeLocation").GetValueOrDefault(0);
                         processData.moduleBytecodeSize = DebugHelpers.ReadPointerVariable(process, "nullcModuleBytecodeSize").GetValueOrDefault(0);
+                        processData.moduleBytecodeVersion = moduleBytecodeVersion;
 
                         if (processData.moduleBytecodeLocation != 0)
                         {
@@ -125,6 +140,13 @@ namespace nullc_debugger_component
 
                             processData.bytecode = new NullcBytecode();
                             processData.bytecode.ReadFrom(processData.moduleBytecodeRaw, DebugHelpers.Is64Bit(process));
+
+                            if (newBytecode)
+                            {
+                                var message = DkmCustomMessage.Create(process.Connection, process, DebugHelpers.NullcReloadSymbolsMessageGuid, 1, null, null);
+
+                                message.SendHigher();
+                            }
                         }
                     }
                 }

@@ -89,7 +89,7 @@ namespace nullc_debugger_component
             public int moduleIndex;
         }
 
-        public class NullcLocalComponent : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmSymbolFunctionResolver, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification, IDkmLanguageExpressionEvaluator, IDkmLanguageInstructionDecoder
+        public class NullcLocalComponent : IDkmSymbolCompilerIdQuery, IDkmSymbolDocumentCollectionQuery, IDkmSymbolDocumentSpanQuery, IDkmSymbolQuery, IDkmSymbolFunctionResolver, IDkmLanguageFrameDecoder, IDkmModuleInstanceLoadNotification, IDkmLanguageExpressionEvaluator, IDkmLanguageInstructionDecoder, IDkmCustomMessageCallbackReceiver
         {
             DkmCompilerId IDkmSymbolCompilerIdQuery.GetCompilerId(DkmInstructionSymbol instruction, DkmInspectionSession inspectionSession)
             {
@@ -416,6 +416,23 @@ namespace nullc_debugger_component
                 return languageInstructionAddress.GetMethodName(argumentFlags);
             }
 
+            void UpdateModuleBytecode(DkmProcess process)
+            {
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(process);
+
+                processData.moduleBytecodeLocation = DebugHelpers.ReadPointerVariable(process, "nullcModuleBytecodeLocation").GetValueOrDefault(0);
+                processData.moduleBytecodeSize = DebugHelpers.ReadPointerVariable(process, "nullcModuleBytecodeSize").GetValueOrDefault(0);
+
+                if (processData.moduleBytecodeLocation != 0)
+                {
+                    processData.moduleBytecodeRaw = new byte[processData.moduleBytecodeSize];
+                    process.ReadMemory(processData.moduleBytecodeLocation, DkmReadMemoryFlags.None, processData.moduleBytecodeRaw);
+
+                    processData.bytecode = new NullcBytecode();
+                    processData.bytecode.ReadFrom(processData.moduleBytecodeRaw, DebugHelpers.Is64Bit(process));
+                }
+            }
+
             void IDkmModuleInstanceLoadNotification.OnModuleInstanceLoad(DkmModuleInstance moduleInstance, DkmWorkList workList, DkmEventDescriptorS eventDescriptor)
             {
                 var process = moduleInstance.Process;
@@ -424,20 +441,22 @@ namespace nullc_debugger_component
 
                 if (processData.moduleBytecodeLocation == 0)
                 {
-                    processData.moduleBytecodeLocation = DebugHelpers.ReadPointerVariable(process, "nullcModuleBytecodeLocation").GetValueOrDefault(0);
-                    processData.moduleBytecodeSize = DebugHelpers.ReadPointerVariable(process, "nullcModuleBytecodeSize").GetValueOrDefault(0);
-
-                    if (processData.moduleBytecodeLocation != 0)
-                    {
-                        processData.moduleBytecodeRaw = new byte[processData.moduleBytecodeSize];
-                        process.ReadMemory(processData.moduleBytecodeLocation, DkmReadMemoryFlags.None, processData.moduleBytecodeRaw);
-
-                        processData.bytecode = new NullcBytecode();
-                        processData.bytecode.ReadFrom(processData.moduleBytecodeRaw, DebugHelpers.Is64Bit(process));
-                    }
+                    UpdateModuleBytecode(process);
 
                     processData.moduleContextMainDataLocation = DebugHelpers.ReadPointerVariable(process, "nullcModuleContextMainDataAddress").GetValueOrDefault(0);
                 }
+            }
+
+            DkmCustomMessage IDkmCustomMessageCallbackReceiver.SendHigher(DkmCustomMessage customMessage)
+            {
+                var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(customMessage.Process);
+
+                if (customMessage.SourceId == DebugHelpers.NullcReloadSymbolsMessageGuid && customMessage.MessageCode == 1)
+                {
+                    UpdateModuleBytecode(customMessage.Process);
+                }
+
+                return null;
             }
 
             string EvaluateValueAtAddress(DkmProcess process, NullcBytecode bytecode, NullcTypeInfo type, ulong address, out string editableValue, ref DkmEvaluationResultFlags flags, out DkmDataAddress dataAddress)

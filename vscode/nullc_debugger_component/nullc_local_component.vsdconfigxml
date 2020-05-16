@@ -36,6 +36,13 @@
 					<Interface Name="IDkmLanguageInstructionDecoder"/>
 					<Interface Name="IDkmSymbolFunctionResolver"/>
 				</InterfaceGroup>
+
+				<InterfaceGroup>
+					<Filter>
+						<SourceId RequiredValue="3E039B2A-7B89-4801-B2F3-D0A50243246E"/>
+					</Filter>
+					<Interface Name="IDkmCustomMessageCallbackReceiver"/>
+				</InterfaceGroup>
 			</Implements>
 		</Class>
 	</ManagedComponent>
