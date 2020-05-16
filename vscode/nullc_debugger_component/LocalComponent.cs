@@ -445,7 +445,7 @@ namespace nullc_debugger_component
                 editableValue = null;
                 dataAddress = null;
 
-                if (type.subCat == NullTypeSubCategory.Pointer)
+                if (type.subCat == NullcTypeSubCategory.Pointer)
                 {
                     var value = DebugHelpers.ReadPointerVariable(process, address);
 
@@ -460,7 +460,7 @@ namespace nullc_debugger_component
                     return null;
                 }
 
-                if (type.subCat == NullTypeSubCategory.Class)
+                if (type.subCat == NullcTypeSubCategory.Class)
                 {
                     if (type.typeCategory == NullcTypeCategory.Int)
                     {
@@ -490,7 +490,7 @@ namespace nullc_debugger_component
                     return "{}";
                 }
 
-                if (type.subCat == NullTypeSubCategory.Array)
+                if (type.subCat == NullcTypeSubCategory.Array)
                 {
                     if (type.arrSize == -1)
                     {
@@ -510,7 +510,7 @@ namespace nullc_debugger_component
                     return $"Size: {type.arrSize}";
                 }
 
-                if (type.subCat == NullTypeSubCategory.Function)
+                if (type.subCat == NullcTypeSubCategory.Function)
                 {
                     var context = DebugHelpers.ReadPointerVariable(process, address);
                     var id = DebugHelpers.ReadIntVariable(process, address + (ulong)DebugHelpers.GetPointerSize(process));
@@ -672,13 +672,13 @@ namespace nullc_debugger_component
 
             void SetValueAtAddress(DkmProcess process, NullcBytecode bytecode, NullcTypeInfo type, ulong address, string value, out string error)
             {
-                if (type.subCat == NullTypeSubCategory.Pointer)
+                if (type.subCat == NullcTypeSubCategory.Pointer)
                 {
                     error = "Can't modify pointer value";
                     return;
                 }
 
-                if (type.subCat == NullTypeSubCategory.Class)
+                if (type.subCat == NullcTypeSubCategory.Class)
                 {
                     if (type.typeCategory == NullcTypeCategory.Int)
                     {
@@ -696,13 +696,13 @@ namespace nullc_debugger_component
                     return;
                 }
 
-                if (type.subCat == NullTypeSubCategory.Array)
+                if (type.subCat == NullcTypeSubCategory.Array)
                 {
                     error = "Can't modify array value";
                     return;
                 }
 
-                if (type.subCat == NullTypeSubCategory.Function)
+                if (type.subCat == NullcTypeSubCategory.Function)
                 {
                     error = "Can't modify function value";
                     return;
@@ -1002,7 +1002,7 @@ namespace nullc_debugger_component
                 var process = result.StackFrame.Process;
                 var bytecode = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(process).bytecode;
 
-                if (evalData.type.subCat == NullTypeSubCategory.Pointer)
+                if (evalData.type.subCat == NullcTypeSubCategory.Pointer)
                 {
                     int finalInitialSize = initialRequestSize < 1 ? initialRequestSize : 1;
 
@@ -1027,28 +1027,68 @@ namespace nullc_debugger_component
                     return;
                 }
 
-                if (evalData.type.subCat == NullTypeSubCategory.Class)
+                if (evalData.type.subCat == NullcTypeSubCategory.Class)
                 {
-                    int finalInitialSize = initialRequestSize < evalData.type.memberCount ? initialRequestSize : evalData.type.memberCount;
+                    int actualSize = evalData.type.memberCount;
+
+                    bool isExtendable = evalData.type.typeFlags.HasFlag(NullcTypeFlags.IsExtendable);
+
+                    NullcTypeInfo classType = evalData.type;
+
+                    if (isExtendable)
+                    {
+                        int actualType = DebugHelpers.ReadIntVariable(inspectionContext.Thread.Process, evalData.address).GetValueOrDefault(0);
+
+                        if (actualType != 0 && actualType < bytecode.types.Count)
+                        {
+                            classType = bytecode.types[actualType];
+
+                            actualSize = 1 + classType.memberCount;
+                        }
+                    }
+
+                    int finalInitialSize = initialRequestSize < actualSize ? initialRequestSize : actualSize;
 
                     DkmEvaluationResult[] initialResults = new DkmEvaluationResult[finalInitialSize];
 
                     for (int i = 0; i < initialResults.Length; i++)
                     {
-                        var member = evalData.type.nullcMembers[i];
+                        if (isExtendable && i == 0)
+                        {
+                            ulong address = evalData.address;
 
-                        ulong address = evalData.address + member.offset;
+                            var memberType = bytecode.types[(int)NullcTypeIndex.TypeId];
 
-                        initialResults[i] = EvaluateDataAtAddress(inspectionContext, result.StackFrame, member.name, $"{result.FullName}.{member.name}", member.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+                            initialResults[i] = EvaluateDataAtAddress(inspectionContext, result.StackFrame, "typeid", $"{result.FullName}.typeid", memberType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+                        }
+                        else
+                        {
+                            var memberIndex = isExtendable ? i - 1 : i;
+
+                            var member = classType.nullcMembers[memberIndex];
+
+                            ulong address = evalData.address + member.offset;
+
+                            if (memberIndex < evalData.type.nullcMembers.Count)
+                                initialResults[i] = EvaluateDataAtAddress(inspectionContext, result.StackFrame, member.name, $"{result.FullName}.{member.name}", member.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+                            else
+                                initialResults[i] = EvaluateDataAtAddress(inspectionContext, result.StackFrame, member.name, $"(({classType.name} ref){result.FullName}).{member.name}", member.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+                        }
                     }
 
-                    var enumerator = DkmEvaluationResultEnumContext.Create(evalData.type.memberCount, result.StackFrame, inspectionContext, evalData);
+                    var finalEvalData = new NullEvaluationDataItem();
+
+                    finalEvalData.address = evalData.address;
+                    finalEvalData.fullName = $"(({classType.name} ref){result.FullName})";
+                    finalEvalData.type = classType;
+
+                    var enumerator = DkmEvaluationResultEnumContext.Create(actualSize, result.StackFrame, inspectionContext, finalEvalData);
 
                     completionRoutine(new DkmGetChildrenAsyncResult(initialResults, enumerator));
                     return;
                 }
 
-                if (evalData.type.subCat == NullTypeSubCategory.Array)
+                if (evalData.type.subCat == NullcTypeSubCategory.Array)
                 {
                     if (evalData.type.arrSize == -1)
                     {
@@ -1275,7 +1315,7 @@ namespace nullc_debugger_component
                     return;
                 }
 
-                if (evalData.type.subCat == NullTypeSubCategory.Pointer)
+                if (evalData.type.subCat == NullcTypeSubCategory.Pointer)
                 {
                     if (startIndex != 0)
                     {
@@ -1299,24 +1339,39 @@ namespace nullc_debugger_component
                     return;
                 }
 
-                if (evalData.type.subCat == NullTypeSubCategory.Class)
+                if (evalData.type.subCat == NullcTypeSubCategory.Class)
                 {
+                    bool isExtendable = evalData.type.typeFlags.HasFlag(NullcTypeFlags.IsExtendable);
+
                     var results = new DkmEvaluationResult[count];
 
                     for (int i = startIndex; i < startIndex + count; i++)
                     {
-                        var member = evalData.type.nullcMembers[i];
+                        if (isExtendable && i == 0)
+                        {
+                            ulong address = evalData.address;
 
-                        ulong address = evalData.address + member.offset;
+                            var memberType = bytecode.types[(int)NullcTypeIndex.TypeId];
 
-                        results[i - startIndex] = EvaluateDataAtAddress(enumContext.InspectionContext, enumContext.StackFrame, member.name, $"{evalData.fullName}.{member.name}", member.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+                            results[i - startIndex] = EvaluateDataAtAddress(enumContext.InspectionContext, enumContext.StackFrame, "typeid", $"{evalData.fullName}.typeid", memberType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+                        }
+                        else
+                        {
+                            var memberIndex = isExtendable ? i - 1 : i;
+
+                            var member = evalData.type.nullcMembers[i];
+
+                            ulong address = evalData.address + member.offset;
+
+                            results[i - startIndex] = EvaluateDataAtAddress(enumContext.InspectionContext, enumContext.StackFrame, member.name, $"{evalData.fullName}.{member.name}", member.nullcType, address, DkmEvaluationResultFlags.None, DkmEvaluationResultAccessType.None, DkmEvaluationResultStorageType.None);
+                        }
                     }
 
                     completionRoutine(new DkmEvaluationEnumAsyncResult(results));
                     return;
                 }
 
-                if (evalData.type.subCat == NullTypeSubCategory.Array)
+                if (evalData.type.subCat == NullcTypeSubCategory.Array)
                 {
                     if (evalData.type.arrSize == -1)
                     {

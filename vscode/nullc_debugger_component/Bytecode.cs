@@ -40,7 +40,7 @@ namespace nullc_debugger_component
             Char
         };
 
-        enum NullTypeSubCategory
+        enum NullcTypeSubCategory
         {
             None,
             Array,
@@ -48,6 +48,14 @@ namespace nullc_debugger_component
             Function,
             Class
         };
+
+        enum NullcTypeFlags
+        {
+            HasFinalizer = 1 << 0,
+            DependsOnGeneric = 1 << 1,
+            IsExtendable = 1 << 2,
+            Internal = 1 << 3
+        }
 
         class NullcTypeInfo
         {
@@ -65,9 +73,9 @@ namespace nullc_debugger_component
             public uint size;
             public uint padding;
             public NullcTypeCategory typeCategory;
-            public NullTypeSubCategory subCat;
+            public NullcTypeSubCategory subCat;
             public byte defaultAlign;
-            public byte typeFlags;
+            public NullcTypeFlags typeFlags;
             public ushort pointerCount;
 
             public int arrSize;
@@ -100,9 +108,9 @@ namespace nullc_debugger_component
                 size = reader.ReadUInt32();
                 padding = reader.ReadUInt32();
                 typeCategory = (NullcTypeCategory)reader.ReadUInt32();
-                subCat = (NullTypeSubCategory)reader.ReadUInt32();
+                subCat = (NullcTypeSubCategory)reader.ReadUInt32();
                 defaultAlign = reader.ReadByte();
-                typeFlags = reader.ReadByte();
+                typeFlags = (NullcTypeFlags)reader.ReadByte();
                 pointerCount = reader.ReadUInt16();
 
                 arrSize = reader.ReadInt32();
@@ -678,15 +686,15 @@ namespace nullc_debugger_component
 
                     el.name = new string(symbols, (int)el.offsetToName, ending - (int)el.offsetToName);
 
-                    if (el.subCat == NullTypeSubCategory.Array || el.subCat == NullTypeSubCategory.Pointer)
+                    if (el.subCat == NullcTypeSubCategory.Array || el.subCat == NullcTypeSubCategory.Pointer)
                         el.nullcSubType = el.subType == 0 ? null : types[el.subType];
 
-                    if (el.subCat == NullTypeSubCategory.Function || el.subCat == NullTypeSubCategory.Class)
+                    if (el.subCat == NullcTypeSubCategory.Function || el.subCat == NullcTypeSubCategory.Class)
                     {
                         uint memberNameOffset = el.offsetToName + (uint)el.name.Length + 1;
 
                         // One extra member for function return type
-                        for (int i = 0; i < el.memberCount + (el.subCat == NullTypeSubCategory.Function ? 1 : 0); i++)
+                        for (int i = 0; i < el.memberCount + (el.subCat == NullcTypeSubCategory.Function ? 1 : 0); i++)
                         {
                             var member = typeMembers[el.memberOffset + i];
 
