@@ -763,7 +763,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		unsigned pos = 0;
 		while(const char* path = BinaryCache::EnumImportPath(pos++))
 		{
-			exImportPaths.push_back(path, strlen(path));
+			exImportPaths.push_back(path, (unsigned)strlen(path));
 			exImportPaths.push_back(';');
 		}
 	}
@@ -771,7 +771,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	if(moduleName)
 	{
 		exMainModuleName.clear();
-		exMainModuleName.push_back(moduleName, strlen(moduleName));
+		exMainModuleName.push_back(moduleName, (unsigned)strlen(moduleName));
 	}
 
 #ifdef NULLC_LLVM_SUPPORT
