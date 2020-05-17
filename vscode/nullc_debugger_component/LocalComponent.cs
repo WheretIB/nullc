@@ -321,10 +321,6 @@ namespace nullc_debugger_component
 
                     var vmProcessData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(vmModuleInstance.Process);
 
-                    // TODO: remove
-                    if (vmProcessData.bytecode == null)
-                        UpdateModuleBytecode(vmModuleInstance.Process);
-
                     if (vmProcessData.bytecode != null)
                     {
                         var instructionSymbol = instruction as DkmCustomInstructionSymbol;
