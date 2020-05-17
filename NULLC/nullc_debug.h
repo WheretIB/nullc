@@ -57,7 +57,11 @@ unsigned			nullcDebugGetSourceLocationLineAndColumn(const char *sourceLocation, 
 
 NULLC_BIND unsigned				nullcDebugConvertNativeAddressToInstruction(void *address);
 
-NULLC_BIND const char*			nullcDebugGetNativeAddressLocation(void *address);
+// Get call stack frame data location offset from base. Positions are counted from top, starting with 1. If 0 is passed, returns data location offset from the active call stack frame that doesn't have an entry in a call stack
+NULLC_BIND unsigned				nullcDebugGetReversedStackDataBase(unsigned framePos);
+
+NULLC_BIND const char*			nullcDebugGetVmAddressLocation(unsigned instruction, unsigned full);
+NULLC_BIND const char*			nullcDebugGetNativeAddressLocation(void *address, unsigned full);
 
 #ifdef __cplusplus
 }

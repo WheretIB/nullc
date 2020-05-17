@@ -1973,21 +1973,42 @@ unsigned nullcDebugConvertNativeAddressToInstruction(void *address)
 	return ~0u;
 }
 
-const char* nullcDebugGetNativeAddressLocation(void *address)
+unsigned nullcDebugGetReversedStackDataBase(unsigned framePos)
 {
 	using namespace NULLC;
 
-	unsigned instruction = nullcDebugConvertNativeAddressToInstruction(address);
+	unsigned callStackSize = nullcDebugGetStackFrameCount();
 
-	if(instruction == ~0u)
+	if(framePos > callStackSize)
+		return 0;
+
+	unsigned targetFrame = callStackSize - framePos;
+
+	unsigned offset = 0;
+
+	unsigned currentFrame = 0;
+	while(unsigned instruction = nullcDebugEnumStackFrame(currentFrame++))
 	{
-#ifdef NULLC_BUILD_X86_JIT
-		if(currExec == NULLC_X86 && executorX86 && executorX86->IsCodeLaunchHeader(address))
-			return "[Transition to nullc]";
-#endif
+		if(targetFrame == 0)
+			return offset;
 
-		return NULL;
+		targetFrame--;
+
+		unsigned functionCount = 0;
+		ExternFuncInfo *functions = nullcDebugFunctionInfo(&functionCount);
+
+		if(ExternFuncInfo *targetFunction = nullcDebugConvertAddressToFunction(instruction, functions, functionCount))
+			offset += (targetFunction->stackSize + 0xf) & ~0xf;
+		else
+			offset += (linker->globalVarSize + 0xf) & ~0xf;
 	}
+
+	return offset;
+}
+
+const char* nullcDebugGetVmAddressLocation(unsigned instruction, unsigned full)
+{
+	using namespace NULLC;
 
 	static OutputBuffer buffer;
 
@@ -2013,10 +2034,13 @@ const char* nullcDebugGetNativeAddressLocation(void *address)
 
 	unsigned moduleIndex = nullcDebugGetSourceLocationModuleIndex(sourceLocation);
 
-	if(moduleIndex < moduleCount)
-		output.Printf("{%s} ", symbols + modules[moduleIndex].nameOffset);
-	else
-		output.Printf("{root} ");
+	if(full)
+	{
+		if(moduleIndex < moduleCount)
+			output.Printf("{%s} ", symbols + modules[moduleIndex].nameOffset);
+		else
+			output.Printf("{root} ");
+	}
 
 	ExternFuncInfo *targetFunction = nullcDebugConvertAddressToFunction(instruction, functions, functionCount);
 
@@ -2062,28 +2086,54 @@ const char* nullcDebugGetNativeAddressLocation(void *address)
 	unsigned column = 0;
 	unsigned line = nullcDebugGetSourceLocationLineAndColumn(codeStart, moduleIndex, column);
 
-	// Find beginning of the line
-	while(codeStart != fullSource && *(codeStart-1) != '\n')
-		codeStart--;
+	if(full)
+	{
+		// Find beginning of the line
+		while(codeStart != fullSource && *(codeStart - 1) != '\n')
+			codeStart--;
 
-	// Skip whitespace
-	while(*codeStart == ' ' || *codeStart == '\t')
-		codeStart++;
+		// Skip whitespace
+		while(*codeStart == ' ' || *codeStart == '\t')
+			codeStart++;
 
-	const char *codeEnd = codeStart;
+		const char *codeEnd = codeStart;
 
-	// Find ending of the line
-	while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
-		codeEnd++;
+		// Find ending of the line
+		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
+			codeEnd++;
 
-	int codeLength = int(codeEnd - codeStart);
-	output.Printf(" line %d at '%.*s'", line + 1, codeLength, codeStart);
+		int codeLength = int(codeEnd - codeStart);
+		output.Printf(" Line %d at '%.*s'", line + 1, codeLength, codeStart);
+	}
+	else
+	{
+		output.Printf(" Line %d", line + 1);
+	}
 
 	output.Flush();
 	output.stream = NULL;
 	buffer.buf[buffer.pos] = 0;
 
 	return buffer.buf;
+}
+
+const char* nullcDebugGetNativeAddressLocation(void *address, unsigned full)
+{
+	using namespace NULLC;
+
+	unsigned instruction = nullcDebugConvertNativeAddressToInstruction(address);
+
+	if(instruction == ~0u)
+	{
+#ifdef NULLC_BUILD_X86_JIT
+		if(currExec == NULLC_X86 && executorX86 && executorX86->IsCodeLaunchHeader(address))
+			return "[Transition to nullc]";
+#endif
+
+		return NULL;
+	}
+
+	return nullcDebugGetVmAddressLocation(instruction, full);
 }
 
 #endif
