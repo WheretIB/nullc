@@ -18,6 +18,7 @@ namespace nullc_debugger_component
             public bool nullcIsMissing = false;
             public bool nullcIsReady = false;
 
+            public string nullcDebugGetVmAddressLocation = null;
             public string nullcDebugGetNativeAddressLocation = null;
             public string nullcDebugGetReversedStackDataBase = null;
 
@@ -39,10 +40,11 @@ namespace nullc_debugger_component
                 if (processData.nullcIsMissing)
                     return;
 
+                processData.nullcDebugGetVmAddressLocation = DebugHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetVmAddressLocation");
                 processData.nullcDebugGetNativeAddressLocation = DebugHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetNativeAddressLocation");
                 processData.nullcDebugGetReversedStackDataBase = DebugHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetReversedStackDataBase");
 
-                if (processData.nullcDebugGetNativeAddressLocation == null || processData.nullcDebugGetReversedStackDataBase == null)
+                if (processData.nullcDebugGetVmAddressLocation == null || processData.nullcDebugGetNativeAddressLocation == null || processData.nullcDebugGetReversedStackDataBase == null)
                 {
                     processData.nullcIsMissing = true;
                     return;
@@ -93,7 +95,60 @@ namespace nullc_debugger_component
                     return new DkmStackWalkFrame[1] { input };
 
                 if (input.InstructionAddress.ModuleInstance != null)
+                {
+                    if (input.BasicSymbolInfo != null && input.BasicSymbolInfo.MethodName == "ExecutorRegVm::RunCode")
+                    {
+                        var processData = DebugHelpers.GetOrCreateDataItem<NullcStackFilterDataItem>(input.Thread.Process);
+
+                        InitNullcDebugFunctions(processData, input.RuntimeInstance);
+
+                        if (processData.nullcIsMissing)
+                            return new DkmStackWalkFrame[1] { input };
+
+                        string vmInstructionStr = ExecuteExpression("instruction - codeBase", stackContext, input, true);
+
+                        string ptrValue = DebugHelpers.Is64Bit(input.Thread.Process) ? "longValue" : "intValue";
+
+                        string vmDataOffsetStr = ExecuteExpression($"(unsigned long long)regFilePtr[1].{ptrValue} - (unsigned long long)rvm->dataStack.data", stackContext, input, true);
+
+                        if (vmInstructionStr != null && vmDataOffsetStr != null)
+                        {
+                            ulong vmInstruction = ulong.Parse(vmInstructionStr);
+
+                            string stackFrameDesc = ExecuteExpression($"((char*(*)(unsigned, unsigned)){processData.nullcDebugGetVmAddressLocation})({vmInstruction}, 0),sb", stackContext, input, false);
+
+                            var nullcCustomRuntime = input.Thread.Process.GetRuntimeInstances().OfType<DkmCustomRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcVmRuntimeGuid);
+
+                            if (stackFrameDesc != null && nullcCustomRuntime != null)
+                            {
+                                var flags = input.Flags;
+
+                                flags = flags & ~(DkmStackWalkFrameFlags.NonuserCode | DkmStackWalkFrameFlags.UserStatusNotDetermined);
+                                flags = flags | DkmStackWalkFrameFlags.InlineOptimized;
+
+                                DkmCustomModuleInstance nullcModuleInstance = nullcCustomRuntime.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+
+                                if (nullcModuleInstance != null)
+                                {
+                                    DkmInstructionAddress instructionAddress = DkmCustomInstructionAddress.Create(nullcCustomRuntime, nullcModuleInstance, null, vmInstruction, null, null);
+
+                                    var rawAnnotations = new List<DkmStackWalkFrameAnnotation>();
+
+                                    // Additional unique request id
+                                    rawAnnotations.Add(DkmStackWalkFrameAnnotation.Create(DebugHelpers.NullcCallStackDataBaseGuid, ulong.Parse(vmDataOffsetStr)));
+
+                                    var annotations = new ReadOnlyCollection<DkmStackWalkFrameAnnotation>(rawAnnotations);
+
+                                    DkmStackWalkFrame frame = DkmStackWalkFrame.Create(stackContext.Thread, instructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, annotations, nullcModuleInstance, null, null);
+
+                                    return new DkmStackWalkFrame[2] { frame, input };
+                                }
+                            }
+                        }
+                    }
+
                     return new DkmStackWalkFrame[1] { input };
+                }
 
                 // Currently we want to provide info only for JiT frames
                 if (!input.Flags.HasFlag(DkmStackWalkFrameFlags.UserStatusNotDetermined))

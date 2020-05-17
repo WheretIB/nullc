@@ -16,6 +16,30 @@ namespace nullc_debugger_component
 {
     namespace DkmDebugger
     {
+        internal class NullcJitContextData
+        {
+            public ulong location = 0;
+
+            public ulong dataStackBase = 0;
+            public ulong dataStackTop = 0;
+
+            public ulong callStackBase = 0;
+            public ulong callStackTop = 0;
+        }
+
+        internal class NullcVmContextData
+        {
+            public ulong location = 0;
+
+            public ulong dataStackBase = 0;
+            public int dataStackCount = 0;
+
+            public ulong codeBase = 0;
+
+            public ulong callStackBase = 0;
+            public int callStackCount = 0;
+        }
+
         internal class NullcLocalProcessDataItem : DkmDataItem
         {
             public ulong moduleBytecodeLocation = 0;
@@ -24,48 +48,40 @@ namespace nullc_debugger_component
 
             public NullcBytecode bytecode;
 
-            public ulong moduleContextMainDataLocation = 0;
+            public NullcJitContextData jitContext = new NullcJitContextData();
+            public NullcVmContextData vmContext = new NullcVmContextData();
 
             public ulong dataStackBase = 0;
-            public ulong dataStackTop = 0;
-
-            public ulong callStackBase = 0;
-            public ulong callStackTop = 0;
-
-            public ulong regFileArrayBase = 0;
-            public ulong regFileLastPtr = 0;
-            public ulong regFileLastTop = 0;
 
             public NullcCallStack callStack = new NullcCallStack();
 
             public List<string> activeDocumentPaths = new List<string>();
 
-            public bool UpdateContextData(DkmProcess process)
+            public void UpdateContextData(DkmProcess process)
             {
-                if (moduleContextMainDataLocation == 0)
-                    return false;
+                jitContext.location = DebugHelpers.ReadPointerVariable(process, "nullcJitContextMainDataAddress").GetValueOrDefault(0);
 
-                dataStackBase = DebugHelpers.ReadPointerVariable(process, moduleContextMainDataLocation + (ulong)DebugHelpers.GetPointerSize(process) * 0).GetValueOrDefault(0);
-                dataStackTop = DebugHelpers.ReadPointerVariable(process, moduleContextMainDataLocation + (ulong)DebugHelpers.GetPointerSize(process) * 1).GetValueOrDefault(0);
+                if (jitContext.location != 0)
+                {
+                    jitContext.dataStackBase = DebugHelpers.ReadPointerVariable(process, jitContext.location + (ulong)DebugHelpers.GetPointerSize(process) * 0).GetValueOrDefault(0);
+                    jitContext.dataStackTop = DebugHelpers.ReadPointerVariable(process, jitContext.location + (ulong)DebugHelpers.GetPointerSize(process) * 1).GetValueOrDefault(0);
 
-                callStackBase = DebugHelpers.ReadPointerVariable(process, moduleContextMainDataLocation + (ulong)DebugHelpers.GetPointerSize(process) * 3).GetValueOrDefault(0);
-                callStackTop = DebugHelpers.ReadPointerVariable(process, moduleContextMainDataLocation + (ulong)DebugHelpers.GetPointerSize(process) * 4).GetValueOrDefault(0);
+                    jitContext.callStackBase = DebugHelpers.ReadPointerVariable(process, jitContext.location + (ulong)DebugHelpers.GetPointerSize(process) * 3).GetValueOrDefault(0);
+                    jitContext.callStackTop = DebugHelpers.ReadPointerVariable(process, jitContext.location + (ulong)DebugHelpers.GetPointerSize(process) * 4).GetValueOrDefault(0);
+                }
 
-                regFileArrayBase = DebugHelpers.ReadPointerVariable(process, moduleContextMainDataLocation + (ulong)DebugHelpers.GetPointerSize(process) * 6).GetValueOrDefault(0);
-                regFileLastPtr = DebugHelpers.ReadPointerVariable(process, moduleContextMainDataLocation + (ulong)DebugHelpers.GetPointerSize(process) * 7).GetValueOrDefault(0);
-                regFileLastTop = DebugHelpers.ReadPointerVariable(process, moduleContextMainDataLocation + (ulong)DebugHelpers.GetPointerSize(process) * 8).GetValueOrDefault(0);
+                vmContext.location = DebugHelpers.ReadPointerVariable(process, "nullcVmContextMainDataAddress").GetValueOrDefault(0);
 
-                return dataStackBase != 0 && callStackBase != 0 && regFileArrayBase != 0;
-            }
+                if (vmContext.location != 0)
+                {
+                    vmContext.dataStackBase = DebugHelpers.ReadPointerVariable(process, vmContext.location).GetValueOrDefault(0);
+                    vmContext.dataStackCount = DebugHelpers.ReadIntVariable(process, vmContext.location + (ulong)DebugHelpers.GetPointerSize(process)).GetValueOrDefault(0);
 
-            public bool UpdateCallStack(DkmProcess process)
-            {
-                if (bytecode == null)
-                    return false;
+                    vmContext.codeBase = DebugHelpers.ReadPointerVariable(process, vmContext.location + (ulong)DebugHelpers.GetPointerSize(process) + 8).GetValueOrDefault(0);
 
-                callStack.UpdateFrom(process, callStackBase, callStackTop, bytecode);
-
-                return true;
+                    vmContext.callStackBase = DebugHelpers.ReadPointerVariable(process, vmContext.location + (ulong)DebugHelpers.GetPointerSize(process) * 2 + 8).GetValueOrDefault(0);
+                    vmContext.callStackCount = DebugHelpers.ReadIntVariable(process, vmContext.location + (ulong)DebugHelpers.GetPointerSize(process) * 3 + 8).GetValueOrDefault(0);
+                }
             }
         }
 
@@ -258,8 +274,55 @@ namespace nullc_debugger_component
                 return null;
             }
 
+            DkmSourcePosition GetSourcePosition(NullcLocalProcessDataItem processData, string processPath, int nullcInstruction, out bool startOfLine)
+            {
+                int sourceLocation = processData.bytecode.GetInstructionSourceLocation(nullcInstruction);
+
+                int moduleIndex = processData.bytecode.GetSourceLocationModuleIndex(sourceLocation);
+
+                int column = 0;
+                int line = processData.bytecode.GetSourceLocationLineAndColumn(sourceLocation, moduleIndex, out column);
+
+                string moduleName = moduleIndex != -1 ? processData.bytecode.modules[moduleIndex].name : processData.bytecode.mainModuleName;
+
+                string path = TryFindModuleFilePath(processData, processPath, moduleName);
+
+                // Let Visual Studio find it using a partial name
+                if (path == null)
+                    path = moduleName;
+
+                startOfLine = true;
+                return DkmSourcePosition.Create(DkmSourceFileId.Create(path, null, null, null), new DkmTextSpan(line, line, 0, 0));
+            }
+
             DkmSourcePosition IDkmSymbolQuery.GetSourcePosition(DkmInstructionSymbol instruction, DkmSourcePositionFlags flags, DkmInspectionSession inspectionSession, out bool startOfLine)
             {
+                if (instruction.RuntimeType == DebugHelpers.NullcVmRuntimeGuid)
+                {
+                    DkmCustomModuleInstance vmModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+
+                    if (vmModuleInstance == null)
+                        return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
+
+                    var vmProcessData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(vmModuleInstance.Process);
+
+                    // TODO: remove
+                    if (vmProcessData.bytecode == null)
+                        UpdateModuleBytecode(vmModuleInstance.Process);
+
+                    if (vmProcessData.bytecode != null)
+                    {
+                        var instructionSymbol = instruction as DkmCustomInstructionSymbol;
+
+                        int nullcInstruction = (int)instructionSymbol.Offset;
+
+                        if (nullcInstruction != 0)
+                            return GetSourcePosition(vmProcessData, vmModuleInstance.Process.Path, nullcInstruction, out startOfLine);
+                    }
+
+                    return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
+                }
+
                 DkmModuleInstance nullcModuleInstance;
 
                 if (DebugHelpers.useNativeInterfaces)
@@ -292,27 +355,7 @@ namespace nullc_debugger_component
                     }
 
                     if (nullcInstruction != 0)
-                    {
-                        int sourceLocation = processData.bytecode.GetInstructionSourceLocation(nullcInstruction);
-
-                        int moduleIndex = processData.bytecode.GetSourceLocationModuleIndex(sourceLocation);
-
-                        int column = 0;
-                        int line = processData.bytecode.GetSourceLocationLineAndColumn(sourceLocation, moduleIndex, out column);
-
-                        string moduleName = moduleIndex != -1 ? processData.bytecode.modules[moduleIndex].name : processData.bytecode.mainModuleName;
-
-                        var processPath = nullcModuleInstance.Process.Path;
-
-                        string path = TryFindModuleFilePath(processData, processPath, moduleName);
-
-                        // Let Visual Studio find it using a partial name
-                        if (path == null)
-                            path = moduleName;
-
-                        startOfLine = true;
-                        return DkmSourcePosition.Create(DkmSourceFileId.Create(path, null, null, null), new DkmTextSpan(line, line, 0, 0));
-                    }
+                        return GetSourcePosition(processData, nullcModuleInstance.Process.Path, nullcInstruction, out startOfLine);
                 }
 
                 return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
@@ -369,7 +412,12 @@ namespace nullc_debugger_component
 
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(process);
 
-                var function = processData.bytecode.GetFunctionAtNativeAddress(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
+                NullcFuncInfo function;
+
+                if (inspectionContext.RuntimeInstance.Id.RuntimeType == DebugHelpers.NullcVmRuntimeGuid)
+                    function = processData.bytecode.GetFunctionAtAddress((int)(frame.InstructionAddress as DkmCustomInstructionAddress).Offset);
+                else
+                    function = processData.bytecode.GetFunctionAtNativeAddress(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
 
                 if (function != null)
                 {
@@ -377,7 +425,12 @@ namespace nullc_debugger_component
                     return;
                 }
 
-                int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
+                int nullcInstruction;
+
+                if (inspectionContext.RuntimeInstance.Id.RuntimeType == DebugHelpers.NullcVmRuntimeGuid)
+                    nullcInstruction = (int)(frame.InstructionAddress as DkmCustomInstructionAddress).Offset;
+                else
+                    nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(frame.InstructionAddress.CPUInstructionPart.InstructionPointer);
 
                 if (nullcInstruction != 0)
                 {
@@ -398,12 +451,22 @@ namespace nullc_debugger_component
             {
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(languageInstructionAddress.Address.Process);
 
-                var function = processData.bytecode.GetFunctionAtNativeAddress(languageInstructionAddress.Address.CPUInstructionPart.InstructionPointer);
+                NullcFuncInfo function;
+
+                if (languageInstructionAddress.RuntimeInstance.Id.RuntimeType == DebugHelpers.NullcVmRuntimeGuid)
+                    function = processData.bytecode.GetFunctionAtAddress((int)(languageInstructionAddress.Address as DkmCustomInstructionAddress).Offset);
+                else
+                    function = processData.bytecode.GetFunctionAtNativeAddress(languageInstructionAddress.Address.CPUInstructionPart.InstructionPointer);
 
                 if (function != null)
                     return FormatFunction(function, argumentFlags);
 
-                int nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(languageInstructionAddress.Address.CPUInstructionPart.InstructionPointer);
+                int nullcInstruction;
+
+                if (languageInstructionAddress.RuntimeInstance.Id.RuntimeType == DebugHelpers.NullcVmRuntimeGuid)
+                    nullcInstruction = (int)(languageInstructionAddress.Address as DkmCustomInstructionAddress).Offset;
+                else
+                    nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(languageInstructionAddress.Address.CPUInstructionPart.InstructionPointer);
 
                 if (nullcInstruction != 0)
                 {
@@ -442,8 +505,6 @@ namespace nullc_debugger_component
                 if (processData.moduleBytecodeLocation == 0)
                 {
                     UpdateModuleBytecode(process);
-
-                    processData.moduleContextMainDataLocation = DebugHelpers.ReadPointerVariable(process, "nullcModuleContextMainDataAddress").GetValueOrDefault(0);
                 }
             }
 
@@ -838,20 +899,41 @@ namespace nullc_debugger_component
                 return DkmSuccessEvaluationResult.Create(inspectionContext, stackFrame, name, fullName, flags, value, editableValue, type.name, category, access, storage, typeModifiers, dataAddress, null, null, dataItem);
             }
 
-            bool PrepareContext(DkmProcess process, out string error)
+            bool PrepareContext(DkmProcess process, Guid RuntimeInstanceId, out string error)
             {
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(process);
 
-                if (!processData.UpdateContextData(process))
+                if (processData.bytecode == null)
                 {
-                    error = "Missing nullc context";
+                    error = "Missing nullc bytecode";
                     return false;
                 }
 
-                if (!processData.UpdateCallStack(process))
+                processData.UpdateContextData(process);
+
+                if (RuntimeInstanceId == DebugHelpers.NullcVmRuntimeGuid)
                 {
-                    error = "Missing nullc call stack";
-                    return false;
+                    if (processData.vmContext.dataStackBase == 0)
+                    {
+                        error = "Missing nullc context";
+                        return false;
+                    }
+
+                    processData.dataStackBase = processData.vmContext.dataStackBase;
+
+                    // VM call stack is currently not required in the debug component
+                }
+                else
+                {
+                    if (processData.jitContext.dataStackBase == 0)
+                    {
+                        error = "Missing nullc context";
+                        return false;
+                    }
+
+                    processData.dataStackBase = processData.jitContext.dataStackBase;
+
+                    processData.callStack.UpdateFrom(process, processData.jitContext.callStackBase, processData.jitContext.callStackTop, processData.bytecode);
                 }
 
                 error = null;
@@ -866,7 +948,12 @@ namespace nullc_debugger_component
 
                 if (stackFrame.Annotations != null)
                 {
-                    var actualFunction = processData.bytecode.GetFunctionAtNativeAddress(stackFrame.InstructionAddress.CPUInstructionPart.InstructionPointer);
+                    NullcFuncInfo actualFunction;
+
+                    if (stackFrame.InstructionAddress.RuntimeInstance.Id.RuntimeType == DebugHelpers.NullcVmRuntimeGuid)
+                        actualFunction = processData.bytecode.GetFunctionAtAddress((int)(stackFrame.InstructionAddress as DkmCustomInstructionAddress).Offset);
+                    else
+                        actualFunction = processData.bytecode.GetFunctionAtNativeAddress(stackFrame.InstructionAddress.CPUInstructionPart.InstructionPointer);
 
                     var dataBase = stackFrame.Annotations.FirstOrDefault((x) => x.Id == DebugHelpers.NullcCallStackDataBaseGuid);
 
@@ -880,7 +967,7 @@ namespace nullc_debugger_component
                 }
 
                 // Best-effort based fallback: find the first matching function
-                if (activeEntry == null)
+                if (activeEntry == null && stackFrame.InstructionAddress.RuntimeInstance.Id.RuntimeType != DebugHelpers.NullcVmRuntimeGuid)
                 {
                     var function = processData.bytecode.GetFunctionAtNativeAddress(stackFrame.InstructionAddress.CPUInstructionPart.InstructionPointer);
 
@@ -901,7 +988,7 @@ namespace nullc_debugger_component
             {
                 var process = stackFrame.Process;
 
-                if (!PrepareContext(process, out string error))
+                if (!PrepareContext(process, inspectionContext.RuntimeInstance.Id.RuntimeType, out string error))
                 {
                     completionRoutine(new DkmEvaluateExpressionAsyncResult(DkmFailedEvaluationResult.Create(inspectionContext, stackFrame, expression.Text, expression.Text, error, DkmEvaluationResultFlags.Invalid, null)));
                     return;
@@ -1192,7 +1279,7 @@ namespace nullc_debugger_component
             {
                 var process = stackFrame.Process;
 
-                if (!PrepareContext(process, out string error))
+                if (!PrepareContext(process, inspectionContext.RuntimeInstance.Id.RuntimeType, out string error))
                 {
                     completionRoutine(new DkmGetFrameLocalsAsyncResult(DkmEvaluationResultEnumContext.Create(0, stackFrame, inspectionContext, null)));
                     return;
@@ -1227,7 +1314,7 @@ namespace nullc_debugger_component
             {
                 var process = stackFrame.Process;
 
-                if (!PrepareContext(process, out string error))
+                if (!PrepareContext(process, inspectionContext.RuntimeInstance.Id.RuntimeType, out string error))
                 {
                     completionRoutine(new DkmGetFrameArgumentsAsyncResult(new DkmEvaluationResult[0]));
                     return;
