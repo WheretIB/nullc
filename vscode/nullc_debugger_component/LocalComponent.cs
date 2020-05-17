@@ -122,7 +122,7 @@ namespace nullc_debugger_component
 
                 DkmModuleInstance nullcModuleInstance;
 
-                if (isVmModule)
+                if (isVmModule && DebugHelpers.checkVmModuleDocuments)
                 {
                     nullcModuleInstance = module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
                 }
