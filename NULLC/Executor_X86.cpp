@@ -812,6 +812,14 @@ bool ExecutorX86::InitExecution()
 	}
 #endif
 
+	if(!exLinker->fullLinkerData.empty())
+	{
+		nullcModuleStartAddress = uintptr_t(binCode);
+		nullcModuleEndAddress = uintptr_t(binCode + binCodeSize);
+
+		nullcJitContextMainDataAddress = uintptr_t(&vmState.dataStackBase);
+	}
+
 	return true;
 }
 
@@ -1813,14 +1821,6 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	assert(binCodeSize < binCodeReserved);
 
 	binCodeSize = unsigned(code - binCode);
-
-	if(!exLinker->fullLinkerData.empty())
-	{
-		nullcModuleStartAddress = uintptr_t(binCode);
-		nullcModuleEndAddress = uintptr_t(binCode + binCodeSize);
-
-		nullcJitContextMainDataAddress = uintptr_t(&vmState.dataStackBase);
-	}
 
 #ifndef __linux
 
