@@ -60,6 +60,9 @@ const char*	nullcEnumerateModules(unsigned id);
 /*	Compiles and links code	*/
 nullres		nullcBuild(const char* code);
 
+/*	Compiles and links code with an additional module name info	*/
+nullres		nullcBuildWithModuleName(const char* code, const char* moduleName);
+
 /*	Run global code	*/
 nullres		nullcRun();
 /*	Run function code	*/
@@ -172,6 +175,9 @@ void		nullcClean();
 	Type or function redefinition generates an error.
 	Global variables with the same name are ok. */
 nullres		nullcLinkCode(const char *bytecode);
+
+/*	Link new chunk of code with an additional module name info	*/
+nullres		nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName);
 
 /************************************************************************/
 /*							Internal testing functions					*/

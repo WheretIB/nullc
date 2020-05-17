@@ -50,6 +50,7 @@ void Linker::CleanCode()
 	exSource.clear();
 	exDependencies.clear();
 	exImportPaths.clear();
+	exMainModuleName.clear();
 
 	exRegVmCode.clear();
 	exRegVmSourceInfo.clear();
@@ -96,8 +97,6 @@ void Linker::CleanCode()
 
 bool Linker::LinkCode(const char *code, const char *moduleName)
 {
-	(void)moduleName;
-
 	linkError[0] = 0;
 
 	unsigned dependeciesBase = exDependencies.size();
@@ -106,7 +105,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 		printf("  ");
 
-	printf("Linking %s (dependencies base %d).\r\n", moduleName, dependeciesBase);
+	printf("Linking %s (dependencies base %d).\r\n", moduleName ? moduleName : "(unnamed)", dependeciesBase);
 #endif
 
 	debugOutputIndent++;
@@ -741,6 +740,12 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			exImportPaths.push_back(path, strlen(path));
 			exImportPaths.push_back(';');
 		}
+	}
+
+	if(moduleName)
+	{
+		exMainModuleName.clear();
+		exMainModuleName.push_back(moduleName, strlen(moduleName));
 	}
 
 #ifdef NULLC_LLVM_SUPPORT

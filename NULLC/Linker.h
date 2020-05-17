@@ -41,6 +41,7 @@ public:
 	FastVector<char>				exSource;
 	FastVector<unsigned int>		exDependencies;
 	FastVector<char>				exImportPaths;
+	FastVector<char>				exMainModuleName;
 
 	FastVector<RegVmCmd>			exRegVmCode;
 	FastVector<ExternSourceInfo>	exRegVmSourceInfo;

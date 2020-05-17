@@ -652,13 +652,18 @@ void nullcClean()
 
 nullres nullcLinkCode(const char *bytecode)
 {
+	return nullcLinkCodeWithModuleName(bytecode, NULL);
+}
+
+nullres nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName)
+{
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
 	TRACE_SCOPE("nullc", "nullcLinkCode");
 
 #ifndef NULLC_NO_EXECUTOR
-	if(!linker->LinkCode(bytecode, "main"))
+	if(!linker->LinkCode(bytecode, moduleName))
 	{
 		nullcLastError = linker->GetLinkError();
 		return false;
@@ -692,6 +697,8 @@ nullres nullcLinkCode(const char *bytecode)
 	}
 #else
 	(void)bytecode;
+	(void)moduleName;
+
 	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
 #endif
 
@@ -737,6 +744,11 @@ nullres nullcLinkCode(const char *bytecode)
 
 nullres nullcBuild(const char* code)
 {
+	return nullcBuildWithModuleName(code, NULL);
+}
+
+nullres nullcBuildWithModuleName(const char* code, const char* moduleName)
+{
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
@@ -751,7 +763,7 @@ nullres nullcBuild(const char* code)
 	nullcGetBytecode(&bytecode);
 	nullcClean();
 
-	if(!nullcLinkCode(bytecode))
+	if(!nullcLinkCodeWithModuleName(bytecode, moduleName))
 	{
 		delete[] bytecode;
 		return false;
