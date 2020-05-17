@@ -49,6 +49,7 @@ void Linker::CleanCode()
 	exModules.clear();
 	exSource.clear();
 	exDependencies.clear();
+	exImportPaths.clear();
 
 	exRegVmCode.clear();
 	exRegVmSourceInfo.clear();
@@ -728,6 +729,17 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			cmd.code = rviLoadImm;
 			cmd.argument = typeRemap[cmd.argument];
 			break;
+		}
+	}
+
+	{
+		exImportPaths.clear();
+
+		unsigned pos = 0;
+		while(const char* path = BinaryCache::EnumImportPath(pos++))
+		{
+			exImportPaths.push_back(path, strlen(path));
+			exImportPaths.push_back(';');
 		}
 	}
 

@@ -40,6 +40,7 @@ public:
 	FastVector<char>				exSymbols;
 	FastVector<char>				exSource;
 	FastVector<unsigned int>		exDependencies;
+	FastVector<char>				exImportPaths;
 
 	FastVector<RegVmCmd>			exRegVmCode;
 	FastVector<ExternSourceInfo>	exRegVmSourceInfo;
