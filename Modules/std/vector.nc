@@ -23,52 +23,67 @@ void vector:vector()
 void vector:push_back(T val)
 {
 	if(count == data.size)
-		this.grow();
+		this.grow(count);
+
 	data[count++] = val;
 }
+
 void vector:pop_back()
 {
 	assert(count);
 	count--;
 }
+
 auto vector:back()
 {
 	assert(count);
 	return &data[count - 1];
 }
+
 auto vector:front()
 {
 	assert(count);
 	return &data[0];
 }
+
 auto operator[](vector<generic> ref v, int index)
 {
 	assert(index < v.count);
 	return &v.data[index];
 }
-void vector:grow()
+
+void vector:grow(int targetSize)
 {
 	int nReserved = data.size + (data.size >> 1) + 1;
+
+	if (targetSize > nReserved)
+		nReserved = targetSize;
+
 	T[] nArr = new T[nReserved];
 	array_copy(nArr, data);
 	data = nArr;
 }
+
 auto vector:size()
 {
 	return count;
 }
+
 auto vector:capacity()
 {
 	return data.size;
 }
+
 void vector:reserve(int size)
 {
 	assert(size >= 0);
-	if(size < data.size)
+
+	if(size <= data.size)
 		return;
-	while(data.size < size)
-		grow();
+
+	grow(size);
 }
+
 void vector:resize(int size)
 {
 	assert(size >= 0);
@@ -84,6 +99,7 @@ void vector:clear()
 {
 	count = 0;
 }
+
 void vector:destroy()
 {
 	count = 0;
