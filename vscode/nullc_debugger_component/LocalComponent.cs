@@ -101,6 +101,7 @@ namespace nullc_debugger_component
         {
             public NullcBytecode bytecode;
             public ulong moduleBase;
+            public bool isVmModule;
 
             public int moduleIndex;
         }
@@ -117,15 +118,21 @@ namespace nullc_debugger_component
 
             DkmResolvedDocument[] IDkmSymbolDocumentCollectionQuery.FindDocuments(DkmModule module, DkmSourceFileId sourceFileId)
             {
-                if (module.Name != "nullc.embedded.code")
-                    return module.FindDocuments(sourceFileId);
+                bool isVmModule = module.Name == "nullc.vm.code";
 
                 DkmModuleInstance nullcModuleInstance;
 
-                if (DebugHelpers.useNativeInterfaces)
-                    nullcModuleInstance = module.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
-                else
+                if (isVmModule)
+                {
                     nullcModuleInstance = module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                }
+                else
+                {
+                    if (DebugHelpers.useNativeInterfaces)
+                        nullcModuleInstance = module.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                    else
+                        nullcModuleInstance = module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                }
 
                 if (nullcModuleInstance == null)
                     return module.FindDocuments(sourceFileId);
@@ -140,6 +147,7 @@ namespace nullc_debugger_component
 
                     dataItem.bytecode = processData.bytecode;
                     dataItem.moduleBase = nullcModuleInstance.BaseAddress;
+                    dataItem.isVmModule = isVmModule;
 
                     DkmResolvedDocument[] MatchAgainstModule(string moduleName, int moduleIndex)
                     {
@@ -223,20 +231,27 @@ namespace nullc_debugger_component
                     if (instruction == 0)
                         continue;
 
-                    ulong nativeInstruction = documentData.bytecode.ConvertInstructionToNativeAddress(instruction);
-
-                    Debug.Assert(nativeInstruction >= documentData.moduleBase);
-
                     var sourceFileId = DkmSourceFileId.Create(resolvedDocument.DocumentName, null, null, null);
 
                     var resultSpan = new DkmTextSpan(line, line, 0, 0);
 
                     symbolLocation = new DkmSourcePosition[1] { DkmSourcePosition.Create(sourceFileId, resultSpan) };
 
-                    if (DebugHelpers.useNativeInterfaces)
-                        return new DkmInstructionSymbol[1] { DkmNativeInstructionSymbol.Create(resolvedDocument.Module, (uint)(nativeInstruction - documentData.moduleBase)) };
+                    if (documentData.isVmModule)
+                    {
+                        return new DkmInstructionSymbol[1] { DkmCustomInstructionSymbol.Create(resolvedDocument.Module, DebugHelpers.NullcRuntimeGuid, null, (ulong)instruction, null) };
+                    }
                     else
-                        return new DkmInstructionSymbol[1] { DkmCustomInstructionSymbol.Create(resolvedDocument.Module, DebugHelpers.NullcRuntimeGuid, null, nativeInstruction, null) };
+                    {
+                        ulong nativeInstruction = documentData.bytecode.ConvertInstructionToNativeAddress(instruction);
+
+                        Debug.Assert(nativeInstruction >= documentData.moduleBase);
+
+                        if (DebugHelpers.useNativeInterfaces)
+                            return new DkmInstructionSymbol[1] { DkmNativeInstructionSymbol.Create(resolvedDocument.Module, (uint)(nativeInstruction - documentData.moduleBase)) };
+                        else
+                            return new DkmInstructionSymbol[1] { DkmCustomInstructionSymbol.Create(resolvedDocument.Module, DebugHelpers.NullcRuntimeGuid, null, nativeInstruction, null) };
+                    }
                 }
 
                 return resolvedDocument.FindSymbols(textSpan, text, out symbolLocation);
