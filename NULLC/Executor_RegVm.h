@@ -62,14 +62,14 @@ private:
 	FastVector<ExternFuncInfo>	&exFunctions;
 	char			*symbols;
 
-	RegVmCmd	*codeBase;
-
-	unsigned	minStackSize;
-
+	// Placement and layout of dataStack, codeBase and callStack members is used in nullc_debugger_component
 	FastVector<char, true, true>	dataStack;
+
+	RegVmCmd	*codeBase;
 
 	FastVector<RegVmCmd*>	callStack;
 
+	unsigned	minStackSize;
 	unsigned	lastFinalReturn;
 
 	// Stack for call argument/return result data

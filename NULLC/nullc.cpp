@@ -54,6 +54,7 @@ namespace NULLC
 	CompilerContext *compilerCtx = NULL;
 
 	bool enableLogFiles = false;
+	bool enableExternalDebugger = false;
 
 	void* (*openStream)(const char* name) = OutputContext::FileOpen;
 	void (*writeStream)(void *stream, const char *data, unsigned size) = OutputContext::FileWrite;
@@ -250,6 +251,11 @@ void nullcSetEnableTimeTrace(int enable)
 void nullcSetModuleAnalyzeMemoryLimit(unsigned bytes)
 {
 	NULLC::moduleAnalyzeMemoryLimit = bytes;
+}
+
+void nullcSetEnableExternalDebugger(int enable)
+{
+	NULLC::enableExternalDebugger = enable;
 }
 
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
@@ -733,6 +739,9 @@ nullres nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName
 #ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_REG_VM)
 		executorRegVm->UpdateInstructionPointer();
+
+	if(enableExternalDebugger)
+		linker->CollectDebugInfo(&executorX86->instAddress);
 #endif
 
 #ifndef NULLC_NO_EXECUTOR

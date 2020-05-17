@@ -97,6 +97,14 @@ typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY
 
 #endif
 
+extern "C"
+{
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleStartAddress = 0;
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleEndAddress = 0;
+
+	NULLC_DEBUG_EXPORT uintptr_t nullcJitContextMainDataAddress = 0;
+}
+
 namespace NULLC
 {
 	ExecutorX86	*currExecutor = NULL;
@@ -1805,6 +1813,14 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	assert(binCodeSize < binCodeReserved);
 
 	binCodeSize = unsigned(code - binCode);
+
+	if(!exLinker->fullLinkerData.empty())
+	{
+		nullcModuleStartAddress = uintptr_t(binCode);
+		nullcModuleEndAddress = uintptr_t(binCode + binCodeSize);
+
+		nullcJitContextMainDataAddress = uintptr_t(&vmState.dataStackBase);
+	}
 
 #ifndef __linux
 

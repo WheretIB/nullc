@@ -496,6 +496,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcSetEnableTimeTrace(1);
 #endif
 
+	nullcSetEnableExternalDebugger(1);
+
 	char modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);
 
@@ -1874,10 +1876,14 @@ void IdeRun(bool debug)
 		runRes.finished = true;
 		return;
 	}
+
 	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
 	if(id == richEdits.size())
 		return;
-	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
+
+	TabbedFiles::TabInfo &mainTabInfo = TabbedFiles::GetTabInfo(hTabs, id);
+
+	HWND wnd = mainTabInfo.window;
 	mainCodeWnd = wnd;
 	const char *source = RichTextarea::GetAreaText(wnd);
 	RichTextarea::ResetLineStyle(wnd);
@@ -1914,7 +1920,7 @@ void IdeRun(bool debug)
 
 	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_REG_VM);
 
-	nullres good = nullcBuild(source);
+	nullres good = nullcBuildWithModuleName(source, mainTabInfo.last);
 
 	if(!good)
 	{

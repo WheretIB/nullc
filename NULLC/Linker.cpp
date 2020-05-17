@@ -13,9 +13,35 @@
 	#endif
 #endif
 
+extern "C"
+{
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleBytecodeLocation = 0;
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleBytecodeSize = 0;
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleBytecodeVersion = 0;
+}
+
 namespace NULLC
 {
 	extern bool enableLogFiles;
+
+	template<typename T>
+	unsigned GetArrayDataSize(const FastVector<T> &arr)
+	{
+		return arr.count * sizeof(arr.data[0]);
+	}
+
+	template<typename T>
+	unsigned WriteArraySizeAndData(unsigned char *target, const FastVector<T> &arr)
+	{
+		memcpy(target, &arr.count, sizeof(unsigned));
+		unsigned size = sizeof(unsigned);
+		target += sizeof(unsigned);
+
+		memcpy(target, arr.data, arr.count * sizeof(arr.data[0]));
+		size += arr.count * sizeof(arr.data[0]);
+
+		return size;
+	}
 }
 
 Linker::Linker(): exTypes(128), exTypeExtra(256), exTypeConstants(256), exVariables(128), exFunctions(256), exLocals(1024), exSymbols(8192), regVmJumpTargets(1024)
@@ -914,6 +940,77 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 	output.Flush();
 
 	return true;
+}
+
+void Linker::CollectDebugInfo(FastVector<unsigned char*> *instAddress)
+{
+	nullcModuleBytecodeSize = 0;
+
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exTypes);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exTypeExtra);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exTypeConstants);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exVariables);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exFunctions);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exFunctionExplicitTypeArrayOffsets);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exFunctionExplicitTypes);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exLocals);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exModules);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exSymbols);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exSource);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exDependencies);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exImportPaths);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exMainModuleName);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exRegVmCode);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exRegVmSourceInfo);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exRegVmConstants);
+
+	if(instAddress)
+		nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(*instAddress);
+	else
+		nullcModuleBytecodeSize += sizeof(unsigned);
+
+	nullcModuleBytecodeSize += sizeof(unsigned); // exLinker->globalVarSize
+
+	fullLinkerData.resize((unsigned)nullcModuleBytecodeSize);
+
+	unsigned char *pos = fullLinkerData.data;
+
+	pos += NULLC::WriteArraySizeAndData(pos, exTypes);
+	pos += NULLC::WriteArraySizeAndData(pos, exTypeExtra);
+	pos += NULLC::WriteArraySizeAndData(pos, exTypeConstants);
+	pos += NULLC::WriteArraySizeAndData(pos, exVariables);
+	pos += NULLC::WriteArraySizeAndData(pos, exFunctions);
+	pos += NULLC::WriteArraySizeAndData(pos, exFunctionExplicitTypeArrayOffsets);
+	pos += NULLC::WriteArraySizeAndData(pos, exFunctionExplicitTypes);
+	pos += NULLC::WriteArraySizeAndData(pos, exLocals);
+	pos += NULLC::WriteArraySizeAndData(pos, exModules);
+	pos += NULLC::WriteArraySizeAndData(pos, exSymbols);
+	pos += NULLC::WriteArraySizeAndData(pos, exSource);
+	pos += NULLC::WriteArraySizeAndData(pos, exDependencies);
+	pos += NULLC::WriteArraySizeAndData(pos, exImportPaths);
+	pos += NULLC::WriteArraySizeAndData(pos, exMainModuleName);
+	pos += NULLC::WriteArraySizeAndData(pos, exRegVmCode);
+	pos += NULLC::WriteArraySizeAndData(pos, exRegVmSourceInfo);
+	pos += NULLC::WriteArraySizeAndData(pos, exRegVmConstants);
+
+	if(instAddress)
+	{
+		pos += NULLC::WriteArraySizeAndData(pos, *instAddress);
+	}
+	else
+	{
+		unsigned zero = 0;
+		memcpy(pos, &zero, sizeof(zero));
+		pos += sizeof(zero);
+	}
+
+
+	memcpy(pos, &globalVarSize, sizeof(globalVarSize));
+	pos += sizeof(globalVarSize);
+
+	nullcModuleBytecodeLocation = uintptr_t(fullLinkerData.data);
+
+	nullcModuleBytecodeVersion += 1;
 }
 
 const char*	Linker::GetLinkError()

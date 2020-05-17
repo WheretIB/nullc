@@ -18,6 +18,11 @@
 #include "../external/dyncall/dyncall.h"
 #endif
 
+extern "C"
+{
+	NULLC_DEBUG_EXPORT uintptr_t nullcVmContextMainDataAddress = 0;
+}
+
 namespace
 {
 	long long vmLoadLong(void* target)
@@ -140,6 +145,11 @@ void ExecutorRegVm::InitExecution()
 		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
 	}
 #endif
+
+	if(!exLinker->fullLinkerData.empty())
+	{
+		nullcVmContextMainDataAddress = uintptr_t(&dataStack);
+	}
 }
 
 void ExecutorRegVm::Run(unsigned functionID, const char *arguments)

@@ -90,6 +90,7 @@ struct CodeGenRegVmStateContext
 	void (*errorNoReturnWrap)(CodeGenRegVmStateContext *vmState);
 	void (*errorInvalidFunctionPointer)(CodeGenRegVmStateContext *vmState);
 
+	// Placement and layout of dataStack*** and callStack*** members is used in nullc_debugger_component
 	char *dataStackBase;
 	char *dataStackTop;
 	char *dataStackEnd;

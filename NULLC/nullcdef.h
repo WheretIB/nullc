@@ -83,6 +83,9 @@ struct NULLCAutoArray
 
 //#define NULLC_LLVM_SUPPORT
 
+// Library will export some publicly visible functions and variables required for external debuggers to read debug information
+#define NULLC_EXPORT_EXTERNAL_DEBUGGER_SYMBOLS
+
 typedef unsigned char nullres;
 
 #define NULLC_REG_VM	0
@@ -110,6 +113,13 @@ typedef unsigned char nullres;
 	#define NULLC_PRINT_FORMAT_CHECK(format, args) __attribute__((__format__(__printf__, format, args)))
 #else
 	#define NULLC_PRINT_FORMAT_CHECK(format, args)
+#endif
+
+
+#if defined(NULLC_EXPORT_EXTERNAL_DEBUGGER_SYMBOLS)
+	#define NULLC_DEBUG_EXPORT NULLC_BIND
+#else
+	#define NULLC_DEBUG_EXPORT
 #endif
 
 #endif

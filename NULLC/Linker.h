@@ -22,6 +22,8 @@ public:
 	bool	LinkCode(const char *bytecode, const char *moduleName);
 	bool	SaveRegVmListing(OutputContext &output, bool withProfileInfo);
 
+	void	CollectDebugInfo(FastVector<unsigned char*> *instAddress);
+
 	const char*	GetLinkError();
 
 	void	FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize);
@@ -76,6 +78,8 @@ public:
 
 	HashMap<unsigned int>		typeMap;
 	HashMap<unsigned int>		funcMap;
+
+	FastVector<unsigned char>	fullLinkerData;
 
 	unsigned debugOutputIndent;
 };
