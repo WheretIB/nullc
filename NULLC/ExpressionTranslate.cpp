@@ -1037,7 +1037,9 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 
 void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDefinition *expression)
 {
-	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->variable->name->name));
+	VariableData *variable = expression->variable->variable;
+
+	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(variable->name->name));
 
 	if(expression->initializer)
 	{
@@ -1071,9 +1073,46 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 			Translate(ctx, expression->initializer);
 		}
 	}
-	else
+	else if(variable->isVmAlloca || variable->lookupOnly || variable->scope->ownerNamespace)
 	{
 		Print(ctx, "0");
+	}
+	else
+	{
+		TypeBase *type = variable->type;
+
+		if(isType<TypeBool>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = false");
+		}
+		else if(isType<TypeChar>(type) || isType<TypeShort>(type) || isType<TypeInt>(type) || isType<TypeLong>(type) || isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeNullptr>(type) || isType<TypeRef>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = 0");
+		}
+		else if(isType<TypeFloat>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = 0.0f");
+		}
+		else if(isType<TypeDouble>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = 0.0");
+		}
+		else if(isType<TypeAutoRef>(type) || isType<TypeAutoArray>(type) || isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) || isType<TypeFunction>(type) || isType<TypeClass>(type) || isType<TypeEnum>(type))
+		{
+			Print(ctx, "memset(&");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ", 0, sizeof(");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, "))");
+		}
+		else
+		{
+			assert(!"unknown type");
+		}
 	}
 }
 
