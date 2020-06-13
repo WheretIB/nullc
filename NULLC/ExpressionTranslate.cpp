@@ -71,6 +71,26 @@ bool UseNonStaticTemplate(ExpressionTranslateContext &ctx, FunctionData *functio
 	return false;
 }
 
+void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *function);
+
+void PrintEscapedTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
+{
+	if(TypeClass *typeClass = getType<TypeClass>(type))
+	{
+		if(typeClass->scope->ownerFunction)
+		{
+			TranslateFunctionName(ctx, typeClass->scope->ownerFunction);
+			Print(ctx, "_");
+		}
+
+		PrintEscapedName(ctx, typeClass->name);
+	}
+	else
+	{
+		PrintEscapedName(ctx, type->name);
+	}
+}
+
 void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 {
 	if(isType<TypeVoid>(type))
@@ -168,7 +188,7 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
-		PrintEscapedName(ctx, typeClass->name);
+		PrintEscapedTypeName(ctx, typeClass);
 	}
 	else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
 	{
@@ -270,7 +290,7 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 			TranslateTypeDefinition(ctx, curr->variable->type);
 
 		Print(ctx, "struct ");
-		PrintEscapedName(ctx, typeClass->name);
+		PrintEscapedTypeName(ctx, typeClass);
 		PrintLine(ctx);
 
 		PrintIndentedLine(ctx, "{");
@@ -351,17 +371,20 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 	{
 		if(name.length() > function->scope->ownerType->name.length() + 2)
 		{
-			InplaceStr operatorName = GetOperatorName(InplaceStr(name.begin + function->scope->ownerType->name.length() + 2, name.end));
+			InplaceStr namePart = InplaceStr(name.begin + function->scope->ownerType->name.length() + 2, name.end);
+			InplaceStr operatorName = GetOperatorName(namePart);
 
 			if(!operatorName.empty())
 			{
-				PrintEscapedName(ctx, function->scope->ownerType->name);
+				PrintEscapedTypeName(ctx, function->scope->ownerType);
 				Print(ctx, "__");
 				PrintEscapedName(ctx, operatorName);
 			}
 			else
 			{
-				PrintEscapedName(ctx, name);
+				PrintEscapedTypeName(ctx, function->scope->ownerType);
+				Print(ctx, "__");
+				PrintEscapedName(ctx, namePart);
 			}
 		}
 		else
@@ -372,7 +395,7 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
 		{
 			Print(ctx, "_");
-			PrintEscapedName(ctx, alias->type->name);
+			PrintEscapedTypeName(ctx, alias->type);
 			Print(ctx, "_");
 		}
 
@@ -386,7 +409,7 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
 		{
 			Print(ctx, "_");
-			PrintEscapedName(ctx, alias->type->name);
+			PrintEscapedTypeName(ctx, alias->type);
 			Print(ctx, "_");
 		}
 
@@ -400,7 +423,7 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
 		{
 			Print(ctx, "_");
-			PrintEscapedName(ctx, alias->type->name);
+			PrintEscapedTypeName(ctx, alias->type);
 			Print(ctx, "_");
 		}
 
@@ -1993,7 +2016,7 @@ void TranslateModuleTypePrototypes(ExpressionTranslateContext &ctx)
 		if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
 			Print(ctx, "struct ");
-			PrintEscapedName(ctx, typeStruct->name);
+			PrintEscapedTypeName(ctx, typeStruct);
 			Print(ctx, ";");
 			PrintLine(ctx);
 		}
