@@ -115,7 +115,7 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(isType<TypeNullptr>(type))
 	{
-		Print(ctx, "__nullptr");
+		Print(ctx, "_nullptr");
 	}
 	else if(isType<TypeGeneric>(type))
 	{

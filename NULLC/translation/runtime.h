@@ -191,6 +191,7 @@ void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID);
 NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr);
 
 typedef int __function;
+typedef void* _nullptr;
 
 bool operator ==(const NULLCRef& a, const NULLCRef& b);
 bool operator !=(const NULLCRef& a, const NULLCRef& b);
