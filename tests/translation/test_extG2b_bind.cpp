@@ -1,9 +1,14 @@
 #include "runtime.h"
 
-struct Zomg{ char a; int b; };
+struct Zomg
+{
+	char x;
+	char pad_1[3];
+	int y;
+};
 
 Zomg Call_Zomg_ref_Zomg_(Zomg x, void* __context)
 {
-	x.a = x.a == -1 && x.b == -2;
+	x.x = x.x == -1 && x.y == -2;
 	return x;
 }
