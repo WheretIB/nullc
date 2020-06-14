@@ -2162,9 +2162,20 @@ void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
 		if(variable->isVmAlloca)
 			continue;
 
+		InplaceStr name = variable->name->name;
+
 		if(variable->importModule)
 		{
 			Print(ctx, "extern ");
+			TranslateTypeName(ctx, variable->type);
+			Print(ctx, " ");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ";");
+			PrintLine(ctx);
+		}
+		else if(name.length() >= 5 && InplaceStr(name.begin, name.begin + 5) == InplaceStr("$temp"))
+		{
+			Print(ctx, "static ");
 			TranslateTypeName(ctx, variable->type);
 			Print(ctx, " ");
 			TranslateVariableName(ctx, variable);
