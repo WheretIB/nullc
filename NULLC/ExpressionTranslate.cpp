@@ -729,6 +729,12 @@ void TranslateUnaryOp(ExpressionTranslateContext &ctx, ExprUnaryOp *expression)
 
 void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression)
 {
+	if(isType<TypeEnum>(expression->type))
+	{
+		TranslateTypeName(ctx, expression->type);
+		Print(ctx, "(");
+	}
+
 	if(expression->op == SYN_BINARY_OP_POW)
 	{
 		Print(ctx, "__nullcPow((");
@@ -846,6 +852,11 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 
 		if(isType<TypeEnum>(expression->rhs->type))
 			Print(ctx, ".value");
+	}
+
+	if(isType<TypeEnum>(expression->type))
+	{
+		Print(ctx, ")");
 	}
 }
 
