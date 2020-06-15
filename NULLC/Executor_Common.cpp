@@ -827,7 +827,7 @@ namespace GC
 		if(!elementType.pointerCount)
 			return;
 
-		// Check every array element is it's either array, pointer of class
+		// Check every array element
 		switch(elementType.subCat)
 		{
 		case ExternTypeInfo::CAT_NONE:
