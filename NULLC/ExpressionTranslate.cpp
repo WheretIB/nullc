@@ -1113,9 +1113,11 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 	}
 	else
 	{
-		TypeBase *type = variable->type;
-
-		if(isType<TypeBool>(type))
+		if(isType<TypeVoid>(type))
+		{
+			Print(ctx, "0");
+		}
+		else if(isType<TypeBool>(type))
 		{
 			TranslateVariableName(ctx, variable);
 			Print(ctx, " = false");
@@ -1180,6 +1182,12 @@ void TranslateVariableDefinitions(ExpressionTranslateContext &ctx, ExprVariableD
 
 void TranslateVariableAccess(ExpressionTranslateContext &ctx, ExprVariableAccess *expression)
 {
+	if(expression->variable->type == ctx.ctx.typeVoid)
+	{
+		Print(ctx, "void()");
+		return;
+	}
+
 	TranslateVariableName(ctx, expression->variable);
 }
 
@@ -1276,6 +1284,9 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 			}
 
 			if(isArgument || variable == expression->contextArgument->variable->variable)
+				continue;
+
+			if(variable->type == ctx.ctx.typeVoid)
 				continue;
 
 			PrintIndent(ctx);
@@ -2172,6 +2183,9 @@ void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
 
 		// Don't need variables allocated by intermediate vm compilation
 		if(variable->isVmAlloca)
+			continue;
+
+		if(variable->type == ctx.ctx.typeVoid)
 			continue;
 
 		InplaceStr name = variable->name->name;
