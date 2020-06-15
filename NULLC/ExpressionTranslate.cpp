@@ -82,6 +82,10 @@ void PrintEscapedTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 			TranslateFunctionName(ctx, typeClass->scope->ownerFunction);
 			Print(ctx, "_");
 		}
+		else if(typeClass->scope != ctx.ctx.globalScope && !typeClass->scope->ownerType && !typeClass->scope->ownerFunction && !typeClass->scope->ownerNamespace)
+		{
+			Print(ctx, "scope_%d_", typeClass->scope->uniqueId);
+		}
 
 		PrintEscapedName(ctx, typeClass->name);
 	}
