@@ -71,6 +71,17 @@ bool UseNonStaticTemplate(ExpressionTranslateContext &ctx, FunctionData *functio
 	return false;
 }
 
+unsigned GetNaturalClassAlignment(TypeClass *type)
+{
+	unsigned maximumAlignment = 0;
+
+	// Additional padding may apply to preserve the alignment of members
+	for(MemberHandle *curr = type->members.head; curr; curr = curr->next)
+		maximumAlignment = maximumAlignment > curr->variable->alignment ? maximumAlignment : curr->variable->alignment;
+
+	return maximumAlignment;
+}
+
 void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *function);
 
 void PrintEscapedTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
@@ -1320,7 +1331,29 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 				continue;
 
 			PrintIndent(ctx);
+
+			if(TypeClass *typeClass = getType<TypeClass>(variable->type))
+			{
+				if(GetNaturalClassAlignment(typeClass) != variable->alignment)
+					Print(ctx, "NULLC_ALIGN_MSVC(%d) ", variable->alignment);
+			}
+			else if(variable->type->alignment != variable->alignment)
+			{
+				Print(ctx, "NULLC_ALIGN_MSVC(%d) ", variable->alignment);
+			}
+
 			TranslateTypeName(ctx, variable->type);
+
+			if(TypeClass *typeClass = getType<TypeClass>(variable->type))
+			{
+				if(GetNaturalClassAlignment(typeClass) != variable->alignment)
+					Print(ctx, " NULLC_ALIGN_GCC(%d)", variable->alignment);
+			}
+			else if(variable->type->alignment != variable->alignment)
+			{
+				Print(ctx, " NULLC_ALIGN_GCC(%d)", variable->alignment);
+			}
+
 			Print(ctx, " ");
 			TranslateVariableName(ctx, variable);
 			Print(ctx, ";");

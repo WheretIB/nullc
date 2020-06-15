@@ -125,6 +125,23 @@ struct NULLCFuncInfo
 #define NULLC_TYPE_FLAG_HAS_FINALIZER 1 << 0
 #define NULLC_TYPE_FLAG_IS_EXTENDABLE 1 << 1
 
+#if defined(__GNUC__)
+
+#define NULLC_ALIGN_GCC(x) __attribute__((aligned(x)))
+#define NULLC_ALIGN_MSVC(x)
+
+#elif defined(_MSC_VER)
+
+#define NULLC_ALIGN_GCC(x)
+#define NULLC_ALIGN_MSVC(x) __declspec(align(x))
+
+#else
+
+#define NULLC_ALIGN_GCC(x)
+#define NULLC_ALIGN_MSVC(x)
+
+#endif
+
 namespace FunctionCategory
 {
 	enum placeholder
