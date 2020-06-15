@@ -634,7 +634,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -I../NULLC/translation");
 		pos += strlen(pos);
 
-		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++");
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++ -lm");
 		pos += strlen(pos);
 
 		for(unsigned i = 0; i < translationDependencyCount; i++)
