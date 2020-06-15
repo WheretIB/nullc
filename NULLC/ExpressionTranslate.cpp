@@ -1542,8 +1542,10 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 
 void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	unsigned loopContinueId = ctx.nextLoopContinueId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
+	ctx.loopContinueIdStack.push_back(loopContinueId);
 
 	Translate(ctx, expression->initializer);
 	Print(ctx, ";");
@@ -1565,7 +1567,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 
 	PrintLine(ctx);
 
-	Print(ctx, "continue_%d:;", loopId);
+	Print(ctx, "continue_%d:;", loopContinueId);
 	PrintLine(ctx);
 
 	PrintIndentedLine(ctx, "// Increment");
@@ -1579,17 +1581,20 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
+	ctx.loopContinueIdStack.pop_back();
 }
 
 void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	unsigned loopContinueId = ctx.nextLoopContinueId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
+	ctx.loopContinueIdStack.push_back(loopContinueId);
 
 	Print(ctx, "while(");
 	Translate(ctx, expression->condition);
@@ -1604,24 +1609,27 @@ void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 
 	Print(ctx, ";");
 
-	Print(ctx, "continue_%d:;", loopId);
+	Print(ctx, "continue_%d:;", loopContinueId);
 	PrintLine(ctx);
 
 	PrintLine(ctx);
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
+	ctx.loopContinueIdStack.pop_back();
 }
 
 void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	unsigned loopContinueId = ctx.nextLoopContinueId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
+	ctx.loopContinueIdStack.push_back(loopContinueId);
 
 	Print(ctx, "do");
 	PrintLine(ctx);
@@ -1635,7 +1643,7 @@ void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 	Print(ctx, ";");
 	PrintLine(ctx);
 
-	Print(ctx, "continue_%d:;", loopId);
+	Print(ctx, "continue_%d:;", loopContinueId);
 	PrintLine(ctx);
 
 	ctx.depth--;
@@ -1647,17 +1655,18 @@ void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 	Print(ctx, ");");
 	PrintLine(ctx);
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
+	ctx.loopContinueIdStack.pop_back();
 }
 
 void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
 
 	Print(ctx, "{");
 	PrintLine(ctx);
@@ -1680,33 +1689,36 @@ void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 		PrintLine(ctx);
 
 		ctx.depth++;
-		PrintIndentedLine(ctx, "goto switch_%d_case_%d;", loopId, i);
+		PrintIndentedLine(ctx, "goto switch_%d_case_%d;", loopBreakId, i);
 		ctx.depth--;
 	}
 
-	if(expression->defaultBlock)
-		PrintIndentedLine(ctx, "goto switch_%d_default;", loopId);
+	PrintIndentedLine(ctx, "goto switch_%d_default;", loopBreakId);
 
 	i = 0;
 	for(ExprBase *curr = expression->blocks.head; curr; curr = curr->next, i++)
 	{
-		Print(ctx, "switch_%d_case_%d:", loopId, i);
+		Print(ctx, "switch_%d_case_%d:", loopBreakId, i);
 		PrintLine(ctx);
 
 		PrintIndent(ctx);
 		Translate(ctx, curr);
 
-		if(curr->next || expression->defaultBlock)
+		if(curr->next)
 			PrintLine(ctx);
 	}
 
+	Print(ctx, "switch_%d_default:", loopBreakId);
+	PrintLine(ctx);
+
 	if(expression->defaultBlock)
 	{
-		Print(ctx, "switch_%d_default:", loopId);
-		PrintLine(ctx);
-
 		PrintIndent(ctx);
 		Translate(ctx, expression->defaultBlock);
+	}
+	else
+	{
+		PrintIndentedLine(ctx, ";");
 	}
 
 	PrintLine(ctx);
@@ -1714,11 +1726,11 @@ void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
 }
 
 void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
@@ -1734,7 +1746,7 @@ void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
 		}
 	}
 
-	Print(ctx, "goto break_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
+	Print(ctx, "goto break_%d;", ctx.loopBreakIdStack[ctx.loopBreakIdStack.size() - expression->depth]);
 }
 
 void TranslateContinue(ExpressionTranslateContext &ctx, ExprContinue *expression)
@@ -1750,7 +1762,7 @@ void TranslateContinue(ExpressionTranslateContext &ctx, ExprContinue *expression
 		}
 	}
 
-	Print(ctx, "goto continue_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
+	Print(ctx, "goto continue_%d;", ctx.loopContinueIdStack[ctx.loopContinueIdStack.size() - expression->depth]);
 }
 
 void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
