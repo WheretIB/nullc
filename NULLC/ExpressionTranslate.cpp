@@ -863,6 +863,10 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 void TranslateGetAddress(ExpressionTranslateContext &ctx, ExprGetAddress *expression)
 {
 	Print(ctx, "&");
+
+	if(expression->variable->variable->scope == ctx.ctx.globalScope)
+		Print(ctx, "::");
+
 	TranslateVariableName(ctx, expression->variable->variable);
 }
 
@@ -1187,6 +1191,9 @@ void TranslateVariableAccess(ExpressionTranslateContext &ctx, ExprVariableAccess
 		Print(ctx, "void()");
 		return;
 	}
+
+	if(expression->variable->scope == ctx.ctx.globalScope)
+		Print(ctx, "::");
 
 	TranslateVariableName(ctx, expression->variable);
 }
