@@ -567,7 +567,7 @@ void __nullcRegisterMembers(unsigned id, unsigned count, ...)
 	va_start(args, count);
 	__nullcTypeList[id].members = __nullcTypePart.size();
 
-	for(unsigned i = 0; i < count * 3; i++)
+	for(unsigned i = 0; i < count; i++)
 	{
 		NULLCMemberInfo member;
 

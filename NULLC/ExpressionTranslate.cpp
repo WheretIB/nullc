@@ -2393,7 +2393,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 
 			for(TypeHandle *curr = typeFunction->arguments.head; curr; curr = curr->next)
 			{
-				Print(ctx, ", __nullcTR[%d], 0", curr->type->typeIndex);
+				Print(ctx, ", __nullcTR[%d]", curr->type->typeIndex);
 				Print(ctx, ", 0");
 				Print(ctx, ", \"\"");
 			}
