@@ -208,6 +208,32 @@ TEST("Group of tests 5", testMissingTests5a, "2")
 	CHECK_LONG("b4", 0, 0, lastFailed);
 }
 
+const char	*testMissingTests6 =
+"int operator-(char[] a, b){ return int(a) - int(b); }\r\n\
+int operator*(char[] a, b){ return int(a) * int(b); }\r\n\
+int operator/(char[] a, b){ return int(a) / int(b); }\r\n\
+int operator%(char[] a, b){ return int(a) % int(b); }\r\n\
+int operator**(char[] a, b){ return int(a) ** int(b); }\r\n\
+int operator<<(char[] a, b){ return int(a) << int(b); }\r\n\
+int operator>>(char[] a, b){ return int(a) >> int(b); }\r\n\
+int operator&(char[] a, b){ return int(a) & int(b); }\r\n\
+int operator|(char[] a, b){ return int(a) | int(b); }\r\n\
+int operator^(char[] a, b){ return int(a) ^ int(b); }\r\n\
+\r\n\
+assert((\"22\" - \"5\") == (22 - 5));\r\n\
+assert((\"22\" * \"5\") == (22 * 5));\r\n\
+assert((\"22\" / \"5\") == (22 / 5));\r\n\
+assert((\"22\" % \"5\") == (22 % 5));\r\n\
+assert((\"22\" ** \"5\") == (22 ** 5));\r\n\
+assert((\"22\" << \"5\") == (22 << 5));\r\n\
+assert((\"22\" >> \"1\") == (22 >> 1));\r\n\
+assert((\"22\" & \"5\") == (22 & 5));\r\n\
+assert((\"22\" | \"5\") == (22 | 5));\r\n\
+assert((\"22\" ^ \"5\") == (22 ^ 5));\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Group of tests 6", testMissingTests6, "1");
+
 const char	*testStaticIf1 =
 "int a = 4;\r\n\
 @if(typeof(a) != int)\r\n\
