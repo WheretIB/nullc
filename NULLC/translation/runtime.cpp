@@ -1739,6 +1739,16 @@ NULLCFuncInfo* __nullcGetFunctionInfo(unsigned id)
 
 #define NULLC_PTR_SIZE sizeof(void*)
 
+namespace
+{
+	const uintptr_t OBJECT_VISIBLE = 1 << 0;
+	const uintptr_t OBJECT_FREED = 1 << 1;
+	const uintptr_t OBJECT_FINALIZABLE = 1 << 2;
+	const uintptr_t OBJECT_FINALIZED = 1 << 3;
+	const uintptr_t OBJECT_ARRAY = 1 << 4;
+	const uintptr_t OBJECT_MASK = OBJECT_VISIBLE | OBJECT_FREED;
+}
+
 namespace GC
 {
 	unsigned int	objectName = __nullcGetStringHash("auto ref");
@@ -1747,12 +1757,6 @@ namespace GC
 	void PrintMarker(markerType marker)
 	{
 		GC_DEBUG_PRINT("\tMarker is 0x%2x [", marker);
-
-		const uintptr_t OBJECT_VISIBLE		= 1 << 0;
-		const uintptr_t OBJECT_FREED		= 1 << 1;
-		const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
-		const uintptr_t OBJECT_FINALIZED	= 1 << 3;
-		const uintptr_t OBJECT_ARRAY		= 1 << 4;
 
 		if(marker & OBJECT_VISIBLE)
 			GC_DEBUG_PRINT("visible");
@@ -1781,6 +1785,7 @@ namespace GC
 	{
 		// We have pointer to stack that has a pointer inside, so 'ptr' is really a pointer to pointer
 		char **rPtr = (char**)ptr;
+
 		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
 		if(*rPtr > (char*)0x00010000 && (*rPtr < unmanageableBase || *rPtr > unmanageableTop))
 		{
@@ -1789,24 +1794,34 @@ namespace GC
 
 			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(*rPtr);
+
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(!basePtr)
 				return;
+
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+
 			// Marker is 4 bytes before the block
 			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
 
 			PrintMarker(*marker);
 
 			// If block is unmarked
-			if(!(*marker & 1))
+			if(!(*marker & OBJECT_VISIBLE))
 			{
 				// Mark block as used
-				*marker |= 1;
+				*marker |= OBJECT_VISIBLE;
+
 				GC_DEBUG_PRINT("Type near memory %d, type %d (%d)\n", *marker >> 8, type.subTypeID, takeSubtype);
+
+				unsigned targetSubType = type.subTypeID;
+
+				if(takeSubtype && targetSubType == 0)
+					targetSubType = unsigned(*marker >> 8);
+
 				// And if type is not simple, check memory to which pointer points to
 				if(type.category != NULLC_NONE)
-					CheckVariable(*rPtr, takeSubtype ? __nullcTypeList[/*type.subTypeID*/*marker >> 8] : type);
+					CheckVariable(*rPtr, takeSubtype ? __nullcTypeList[targetSubType] : type);
 			}
 			else if(takeSubtype && __nullcTypeList[type.subTypeID].category == NULLC_POINTER)
 			{
@@ -1815,11 +1830,35 @@ namespace GC
 		}
 	}
 
+	void CheckArrayElements(char* ptr, unsigned size, const NULLCTypeInfo& elementType)
+	{
+		// Check every array element
+		switch(elementType.category)
+		{
+		case NULLC_ARRAY:
+			for(unsigned int i = 0; i < size; i++, ptr += elementType.size)
+				CheckArray(ptr, elementType);
+			break;
+		case NULLC_POINTER:
+			for(unsigned int i = 0; i < size; i++, ptr += elementType.size)
+				MarkPointer(ptr, elementType, true);
+			break;
+		case NULLC_CLASS:
+			for(unsigned int i = 0; i < size; i++, ptr += elementType.size)
+				CheckClass(ptr, elementType);
+			break;
+		case NULLC_FUNCTION:
+			for(unsigned int i = 0; i < size; i++, ptr += elementType.size)
+				CheckFunction(ptr);
+			break;
+		}
+	}
+
 	// Function that checks arrays for pointers
 	void CheckArray(char* ptr, const NULLCTypeInfo& type)
 	{
 		// Get array element type
-		NULLCTypeInfo *subType = type.hash == autoArrayName ? NULL : &__nullcTypeList[type.subTypeID];
+		NULLCTypeInfo *subType = &__nullcTypeList[type.subTypeID];
 		// Real array size (changed for unsized arrays)
 		unsigned int size = type.memberCount;
 		// If array type is an unsized array, check pointer that points to actual array contents
@@ -1837,6 +1876,10 @@ namespace GC
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 
+			// If there is no base, this pointer points to memory that is not GCs memory
+			if(!basePtr)
+				return;
+
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
 			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
@@ -1844,10 +1887,11 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || (*marker & 1))
+			if((*marker & OBJECT_VISIBLE))
 				return;
+
 			// Mark memory as used
-			*marker |= 1;
+			*marker |= OBJECT_VISIBLE;
 		}else if(type.hash == autoArrayName){
 			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 			// Get real variable type
@@ -1862,26 +1906,8 @@ namespace GC
 			// Get array size
 			size = data->len;
 		}
-		// Otherwise, check every array element is it's either array, pointer of class
-		switch(subType->category)
-		{
-		case NULLC_ARRAY:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckArray(ptr, *subType);
-			break;
-		case NULLC_POINTER:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				MarkPointer(ptr, *subType, true);
-			break;
-		case NULLC_CLASS:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckClass(ptr, *subType);
-			break;
-		case NULLC_FUNCTION:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckFunction(ptr);
-			break;
-		}
+
+		CheckArrayElements(ptr, size, *subType);
 	}
 
 	// Function that checks classes for pointers
@@ -1903,6 +1929,10 @@ namespace GC
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 
+			// If there is no base, this pointer points to memory that is not GCs memory
+			if(!basePtr)
+				return;
+
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
 			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
@@ -1910,10 +1940,11 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || (*marker & 1))
+			if((*marker & OBJECT_VISIBLE))
 				return;
+
 			// Mark memory as used
-			*marker |= 1;
+			*marker |= OBJECT_VISIBLE;
 			// Fixup target
 			CheckVariable(ptr, *realType);
 			// Exit
@@ -2008,16 +2039,44 @@ void MarkUsedBlocks()
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(basePtr)
 			{
-				markerType *marker = (markerType*)(basePtr)-1;
-				// If block is unmarked, mark it as used
-				if((*marker & 0xff) == 0)
+				markerType *marker = (markerType*)(basePtr) - 1;
+
+				// Might step on a left-over pointer in stale registers
+				if(*marker & OBJECT_FREED)
 				{
-					*marker |= 1;
-					GC_DEBUG_PRINT("Found %s type %d on stack at %p\n", __nullcTypeList[*marker >> 8].name, *marker >> 8, ptr);
-					GC::CheckVariable(ptr, __nullcTypeList[*marker >> 8]);
+					tempStackBase += 4;
+					continue;
+				}
+
+				// If block is unmarked, mark it as used
+				if(!(*marker & OBJECT_VISIBLE))
+				{
+					NULLCTypeInfo &type = __nullcTypeList[*marker >> 8];
+
+					*marker |= OBJECT_VISIBLE;
+					GC_DEBUG_PRINT("Found %s type %d on stack at %p\n", type.name, *marker >> 8, ptr);
+
+					if(*marker & OBJECT_ARRAY)
+					{
+						unsigned arrayPadding = type.alignment > 4 ? type.alignment : 4;
+
+						char *elements = (char*)basePtr + arrayPadding;
+
+						unsigned size;
+						memcpy(&size, elements - sizeof(unsigned), sizeof(unsigned));
+
+						GC::CheckArrayElements(elements, size, type);
+					}
+					else
+					{
+						// And if type is not simple, check memory to which pointer points to
+						if(type.category != NULLC_NONE)
+							GC::CheckVariable(ptr, type);
+					}
 				}
 			}
 		}
+
 		tempStackBase += 4;
 	}
 }
@@ -2039,16 +2098,9 @@ void __nullcRegisterBase(void* ptr)
 
 namespace NULLC
 {
-	static uintptr_t OBJECT_VISIBLE		= 1 << 0;
-	static uintptr_t OBJECT_FREED		= 1 << 1;
-	static uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
-	static uintptr_t OBJECT_FINALIZED	= 1 << 3;
-	static uintptr_t OBJECT_ARRAY		= 1 << 4;
-	static uintptr_t OBJECT_MASK		= OBJECT_VISIBLE | OBJECT_FREED;
-
 	void FinalizeObject(markerType& marker, char* base)
 	{
-		if(marker & NULLC::OBJECT_ARRAY)
+		if(marker & OBJECT_ARRAY)
 		{
 			NULLCTypeInfo *typeInfo = __nullcGetTypeInfo((unsigned)marker >> 8);
 
@@ -2069,7 +2121,7 @@ namespace NULLC
 			NULLC::finalizeList.push_back(r);
 		}
 
-		marker |= NULLC::OBJECT_FINALIZED;
+		marker |= OBJECT_FINALIZED;
 	}
 }
 
@@ -2128,7 +2180,7 @@ public:
 		if(freeBlocks && freeBlocks != &lastBlock)
 		{
 			result = freeBlocks;
-			freeBlocks = (MySmallBlock*)((intptr_t)freeBlocks->next & ~NULLC::OBJECT_MASK);
+			freeBlocks = (MySmallBlock*)((intptr_t)freeBlocks->next & ~OBJECT_MASK);
 		}else{
 			if(lastNum == countInBlock)
 			{
@@ -2157,7 +2209,7 @@ public:
 		if(!ptr)
 			return;
 		MySmallBlock* freedBlock = static_cast<MySmallBlock*>(static_cast<void*>(ptr));
-		freedBlock->next = (MySmallBlock*)((intptr_t)freeBlocks | NULLC::OBJECT_FREED);
+		freedBlock->next = (MySmallBlock*)((intptr_t)freeBlocks | OBJECT_FREED);
 		freeBlocks = freedBlock;
 	}
 	bool IsBasePointer(void* ptr)
@@ -2209,7 +2261,7 @@ public:
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				curr->page[i].marker = (curr->page[i].marker & ~NULLC::OBJECT_VISIBLE) | number;
+				curr->page[i].marker = (curr->page[i].marker & ~OBJECT_VISIBLE) | number;
 			}
 			curr = curr->next;
 		}
@@ -2222,9 +2274,9 @@ public:
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				if(!(curr->page[i].marker & (NULLC::OBJECT_VISIBLE | NULLC::OBJECT_FREED)))
+				if(!(curr->page[i].marker & (OBJECT_VISIBLE | OBJECT_FREED)))
 				{
-					if((curr->page[i].marker & NULLC::OBJECT_FINALIZABLE) && !(curr->page[i].marker & NULLC::OBJECT_FINALIZED))
+					if((curr->page[i].marker & OBJECT_FINALIZABLE) && !(curr->page[i].marker & OBJECT_FINALIZED))
 					{
 						NULLC::FinalizeObject(curr->page[i].marker, curr->page[i].data);
 					}else{
@@ -2447,7 +2499,7 @@ NULLCArray<int> NULLC::AllocArray(int size, int count, unsigned typeID)
 void NULLC::MarkBlock(Range& curr)
 {
 	markerType *marker = (markerType*)((char*)curr.start + 4);
-	*marker = (*marker & ~NULLC::OBJECT_VISIBLE) | currentMark;
+	*marker = (*marker & ~OBJECT_VISIBLE) | currentMark;
 }
 
 void NULLC::MarkMemory(unsigned int number)
@@ -2532,9 +2584,9 @@ void NULLC::CollectBlock(Range& curr)
 	void *block = curr.start;
 
 	markerType &marker = *(markerType*)((char*)block + 4);
-	if(!(marker & NULLC::OBJECT_VISIBLE))
+	if(!(marker & OBJECT_VISIBLE))
 	{
-		if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
+		if((marker & OBJECT_FINALIZABLE) && !(marker & OBJECT_FINALIZED))
 		{
 			NULLC::FinalizeObject(marker, (char*)block + 4);
 		}else{
@@ -2629,7 +2681,7 @@ void NULLC::FinalizeBlock(Range& curr)
 	void *block = curr.start;
 
 	markerType &marker = *(markerType*)((char*)block + 4);
-	if(!(marker & NULLC::OBJECT_VISIBLE) && (marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
+	if(!(marker & OBJECT_VISIBLE) && (marker & OBJECT_FINALIZABLE) && !(marker & OBJECT_FINALIZED))
 		NULLC::FinalizeObject(marker, (char*)block + 4);
 }
 
