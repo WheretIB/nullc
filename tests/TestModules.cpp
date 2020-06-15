@@ -32,13 +32,13 @@ NULLC_BIND int myFoo(int x){ return x + 15; }
 const char	*testFunctionAutobinding =
 "int myFoo(int x);\r\n\
 return myFoo(5);";
-TEST_RESULT_SIMPLE("Automatic function binding", testFunctionAutobinding, "20");
+TEST_RESULT_SIMPLE("Automatic function binding [skip_c]", testFunctionAutobinding, "20");
 
 LOAD_MODULE(test_Autobind, "test.autobind", "int myFoo(int x);");
 const char	*testFunctionAutobinding2 =
 "import test.autobind;\r\n\
 return myFoo(2);";
-TEST_RESULT("Automatic function binding 2", testFunctionAutobinding2, "17");
+TEST_RESULT("Automatic function binding 2 [skip_c]", testFunctionAutobinding2, "17");
 
 #endif
 

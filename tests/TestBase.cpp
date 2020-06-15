@@ -601,7 +601,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	varInfo = nullcDebugVariableInfo(&variableCount);
 	symbols = nullcDebugSymbols(NULL);
 
-	if(executor == NULLC_REG_VM && !execShouldFail && doTranslation)
+	if(executor == NULLC_REG_VM && !execShouldFail && doTranslation && !(message && strstr(message, "skip_c")))
 	{
 		testsCount[TEST_TYPE_TRANSLATION]++;
 

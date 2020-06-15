@@ -46,7 +46,7 @@ return a;";
 			if(!Tests::testExecutor[t])
 				continue;
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testEval, testTarget[t], "59705", "Dynamic code. eval()", false, ""))
+			if(Tests::RunCodeSimple(testEval, testTarget[t], "59705", "Dynamic code. eval() [skip_c]", false, ""))
 				testsPassed[t]++;
 			printf("Eval test finished in %f\n", myGetPreciseTime() - evalStart);
 		}
@@ -80,7 +80,7 @@ for(int i = 0; i < 200; i++)\r\n\
 	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
 int y = foo();\r\n\
 return x * 10 + y;";
-TEST_SIMPLE("Coroutine and dynamic code. eval()", testCoroutineAndEval, "12")
+TEST_SIMPLE("Coroutine and dynamic code. eval() [skip_c]", testCoroutineAndEval, "12")
 {
 }
 
@@ -111,7 +111,7 @@ return x * 10 + y;";
 				continue;
 
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testVariableImportCorrectness, testTarget[t], "48", "Variable import correctness", false, ""))
+			if(Tests::RunCodeSimple(testVariableImportCorrectness, testTarget[t], "48", "Variable import correctness [skip_c]", false, ""))
 				testsPassed[t]++;
 		}
 	}

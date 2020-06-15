@@ -437,7 +437,7 @@ auto foo(int x)\r\n\
 foo(5)() + k();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT_SIMPLE("Unused upvalues GC test 2", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "128" : "64");
+TEST_RESULT_SIMPLE("Unused upvalues GC test 2 [skip_c]", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "128" : "64");
 
 const char	*testDoubleMemoryRemovalGC2 =
 "import std.gc;\r\n\
