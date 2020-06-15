@@ -353,7 +353,7 @@ InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr baseName)
 
 InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index)
 {
-	if(*functionName.begin <= '@' && *functionName.begin != '$')
+	if((*functionName.begin <= '@' && *functionName.begin != '$') || *functionName.begin == '|' || *functionName.begin == '^' || *functionName.begin == '~')
 	{
 		InplaceStr operatorName = GetOperatorName(functionName);
 
@@ -387,7 +387,7 @@ InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *
 {
 	InplaceStr functionName = function->name->name;
 
-	if(*functionName.begin <= '@' && *functionName.begin != '$')
+	if((*functionName.begin <= '@' && *functionName.begin != '$') || *functionName.begin == '|' || *functionName.begin == '^' || *functionName.begin == '~')
 	{
 		InplaceStr operatorName = GetOperatorName(functionName);
 
@@ -466,7 +466,7 @@ InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *
 
 	InplaceStr functionName = function ? function->name->name : InplaceStr("global");
 
-	if(*functionName.begin <= '@' && *functionName.begin != '$')
+	if((*functionName.begin <= '@' && *functionName.begin != '$') || *functionName.begin == '|' || *functionName.begin == '^' || *functionName.begin == '~')
 	{
 		InplaceStr operatorName = GetOperatorName(functionName);
 
