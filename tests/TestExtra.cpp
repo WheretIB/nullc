@@ -234,6 +234,14 @@ assert((\"22\" ^ \"5\") == (22 ^ 5));\r\n\
 return 1;";
 TEST_RESULT("Group of tests 6", testMissingTests6, "1");
 
+const char	*testMissingTests7 =
+"class Test{ int x = 0; void Test(int a){ x = a; } }\r\n\
+\r\n\
+int operator^^(Test a, b){ return !!a.x != !!b.x; }\r\n\
+\r\n\
+return (Test(0) ^^ Test(0)) == 0 && (Test(1) ^^ Test(0)) == 1 && (Test(0) ^^ Test(1)) == 1 && (Test(1) ^^ Test(1)) == 0;";
+TEST_RESULT("Group of tests 7", testMissingTests7, "1");
+
 const char	*testStaticIf1 =
 "int a = 4;\r\n\
 @if(typeof(a) != int)\r\n\

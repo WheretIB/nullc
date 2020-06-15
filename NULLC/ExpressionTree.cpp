@@ -2888,6 +2888,13 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, NULL, rhs, GetTemporaryFunctionName(ctx)), true, false, true))
 				return result;
 		}
+
+		// For ^^ try to find a function before generic condition casts to bool
+		if(op == SYN_BINARY_OP_LOGICAL_XOR && isType<TypeClass>(lhs->type))
+		{
+			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true, false, true))
+				return result;
+		}
 	}
 
 	// Promotion to bool for some types
