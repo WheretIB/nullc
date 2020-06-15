@@ -1079,8 +1079,24 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 
 	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(variable->name->name));
 
+	TypeBase *type = variable->type;
+
 	if(expression->initializer)
 	{
+		// Zero-initialize classes beforehand (if they are stored in a real local)
+		bool zeroInitialize = !(variable->isVmAlloca || variable->lookupOnly) && isType<TypeClass>(type);
+
+		if(zeroInitialize)
+		{
+			assert(!(variable->isVmAlloca || variable->lookupOnly));
+
+			Print(ctx, "(memset(&");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ", 0, sizeof(");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ")), ");
+		}
+
 		if(ExprBlock *blockInitializer = getType<ExprBlock>(expression->initializer))
 		{
 			// Translate block initializer as a sequence
@@ -1110,6 +1126,9 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 		{
 			Translate(ctx, expression->initializer);
 		}
+
+		if(zeroInitialize)
+			Print(ctx, ")");
 	}
 	else if(variable->isVmAlloca || variable->lookupOnly || variable->scope->ownerNamespace)
 	{
