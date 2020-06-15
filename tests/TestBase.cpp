@@ -698,6 +698,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 #else
 			FILE *resPipe = popen("./runnable", "r");
 #endif
+			strcpy(buf, "no return value");
 			fgets(buf, 256, resPipe);
 
 #if defined(_MSC_VER)
