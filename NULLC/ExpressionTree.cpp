@@ -11811,19 +11811,16 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 			if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
 			{
-				//if(typeName.begin[0] == '_')
+				bool duplicate = isType<TypeGenericClassProto>(prevType);
+
+				if(TypeClass *typeClass = getType<TypeClass>(prevType))
 				{
-					bool duplicate = isType<TypeGenericClassProto>(prevType);
-
-					if(TypeClass *typeClass = getType<TypeClass>(prevType))
-					{
-						if(typeClass->generics.empty())
-							duplicate = true;
-					}
-
-					if(duplicate)
-						Stop(ctx, source, "ERROR: type '%.*s' in module '%.*s' is already defined in module '%.*s'", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
+					if(typeClass->generics.empty())
+						duplicate = true;
 				}
+
+				if(duplicate)
+					Stop(ctx, source, "ERROR: type '%.*s' in module '%.*s' is already defined in module '%.*s'", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
 			}
 
 			moduleCtx.types[i] = prevType;
