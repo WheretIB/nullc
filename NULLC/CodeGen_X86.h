@@ -94,6 +94,7 @@ struct CodeGenGenericContext
 
 	x86Reg GetReg();
 	void LockReg(x86Reg reg);
+	void LockAndInvalidateReg(x86Reg reg);
 	bool IsRegLocked(x86Reg reg);
 	x86XmmReg GetXmmReg();
 	void LockXmmReg(x86XmmReg reg);

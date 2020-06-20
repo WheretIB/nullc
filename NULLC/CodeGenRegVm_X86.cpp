@@ -2815,7 +2815,7 @@ void GenCodeCmdMod(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB, true);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
@@ -2828,7 +2828,7 @@ void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2847,7 +2847,7 @@ void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB, true);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
@@ -2860,7 +2860,7 @@ void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2879,7 +2879,7 @@ void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB, true);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
@@ -2892,7 +2892,7 @@ void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2911,7 +2911,7 @@ void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB, true);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
@@ -2924,7 +2924,7 @@ void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2943,7 +2943,7 @@ void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB, true);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
@@ -2956,7 +2956,7 @@ void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -2975,7 +2975,7 @@ void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = GenCodeLoadInt32FromRegister(ctx, cmd.rB, true);
 	x86Reg rhsReg = GenCodeLoadInt32FromPointerIntoRegister(ctx, cmd.rC, cmd.argument);
@@ -2988,7 +2988,7 @@ void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
 
@@ -3007,7 +3007,7 @@ void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdShl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3021,7 +3021,7 @@ void GenCodeCmdShl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3040,7 +3040,7 @@ void GenCodeCmdShl(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 void GenCodeCmdShr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = ctx.ctx.GetReg();
 
@@ -3054,7 +3054,7 @@ void GenCodeCmdShr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, lhsReg); // Store int to target
 #else
-	ctx.ctx.LockReg(rECX);
+	ctx.ctx.LockAndInvalidateReg(rECX);
 
 	x86Reg lhsReg = ctx.ctx.GetReg();
 

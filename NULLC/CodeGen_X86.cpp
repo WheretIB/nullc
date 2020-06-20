@@ -609,6 +609,12 @@ void CodeGenGenericContext::LockReg(x86Reg reg)
 		assert(!"too many register locks");
 }
 
+void CodeGenGenericContext::LockAndInvalidateReg(x86Reg reg)
+{
+	LockReg(reg);
+	InvalidateDependand(reg);
+}
+
 bool CodeGenGenericContext::IsRegLocked(x86Reg reg)
 {
 	return reg == lockedRegA || reg == lockedRegB;
