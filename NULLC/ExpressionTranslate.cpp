@@ -301,6 +301,9 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
+		if(typeClass->importModule && typeClass->isInternal)
+			return;
+
 		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			TranslateTypeDefinition(ctx, curr->variable->type);
 
@@ -2112,6 +2115,12 @@ void TranslateModuleTypePrototypes(ExpressionTranslateContext &ctx)
 
 		if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
+			if(TypeClass *typeClass = getType<TypeClass>(type))
+			{
+				if(typeClass->importModule && typeClass->isInternal)
+					continue;
+			}
+
 			Print(ctx, "struct ");
 			PrintEscapedTypeName(ctx, typeStruct);
 			Print(ctx, ";");
