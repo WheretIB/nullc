@@ -346,7 +346,7 @@ unsigned int __nullcGetStringHash(const char *str);
 typedef void* __nullcFunction;
 typedef __nullcFunction* __nullcFunctionArray;
 __nullcFunctionArray* __nullcGetFunctionTable();
-unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType);
+unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType, bool unique);
 NULLCFuncInfo* __nullcGetFunctionInfo(unsigned id);
 
 void __nullcRegisterGlobal(void* ptr, unsigned typeID);

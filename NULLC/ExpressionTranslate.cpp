@@ -2564,13 +2564,19 @@ void TranslateModuleGlobalFunctionInformation(ExpressionTranslateContext &ctx)
 			Print(ctx, ", -1");
 
 		if(function->scope->ownerType)
-			Print(ctx, ", FunctionCategory::THISCALL);");
+			Print(ctx, ", FunctionCategory::THISCALL");
 		else if(function->coroutine)
-			Print(ctx, ", FunctionCategory::COROUTINE);");
+			Print(ctx, ", FunctionCategory::COROUTINE");
 		else if(function->contextType != ctx.ctx.typeVoid->refType)
-			Print(ctx, ", FunctionCategory::LOCAL);");
+			Print(ctx, ", FunctionCategory::LOCAL");
 		else
-			Print(ctx, ", FunctionCategory::NORMAL);");
+			Print(ctx, ", FunctionCategory::NORMAL");
+
+		if(*function->name->name.begin == '$')
+			Print(ctx, ", true);");
+		else
+			Print(ctx, ", false);");
+
 		PrintLine(ctx);
 	}
 

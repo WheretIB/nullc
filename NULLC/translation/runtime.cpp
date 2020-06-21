@@ -1703,14 +1703,17 @@ unsigned int __nullcGetStringHash(const char *str)
 	return hash;
 }
 
-unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType)
+unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType, bool unique)
 {
 	unsigned hash = __nullcGetStringHash(name);
 
-	for(unsigned int i = 0; i < funcTable.size(); i++)
+	if(!unique)
 	{
-		if(funcTableExt[i].hash == hash)
-			return i;
+		for(unsigned int i = 0; i < funcTable.size(); i++)
+		{
+			if(funcTableExt[i].hash == hash)
+				return i;
+		}
 	}
 
 	funcTable.push_back(fPtr);
