@@ -149,8 +149,6 @@ bool IsPressed_bool_ref_VK_(VK key, void* __context)
 #else
 	unsigned char arr[256];
 	::GetKeyboardState(arr);
-	if(arr[key & 0xff] > 1)
-		key = key;
 	return !!(arr[unsigned(key.value) & 0xff] & 0x80);
 #endif
 }

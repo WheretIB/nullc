@@ -317,8 +317,6 @@ namespace NULLCIO
 #if defined(_MSC_VER)
 		unsigned char arr[256];
 		::GetKeyboardState(arr);
-		if(arr[key & 0xff] > 1)
-			key = key;
 		return !!(arr[key & 0xff] & 0x80);
 #elif defined(EMSCRIPTEN)
 		int numKeys = 0;
