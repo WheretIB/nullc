@@ -25,6 +25,8 @@
 
 #include <iostream>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include "../NULLC/nullc.h"
 #include "../NULLC/nullbind.h"
@@ -1832,6 +1834,45 @@ unsigned int ConvertLineToInstruction(const char *source, unsigned int line, con
 	return 0;
 }
 
+std::vector<std::string>	activeDependencies;
+
+void RegisterDependency(const char *fileName)
+{
+	activeDependencies.push_back(fileName);
+}
+
+bool CheckFile(const char *name)
+{
+	if(FILE *file = fopen(name, "r"))
+	{
+		fclose(file);
+		return true;
+	}
+
+	return false;
+}
+
+std::string ResolveSourceFile(const char* name)
+{
+	char tmp[256];
+	sprintf(tmp, "%s", name);
+
+	if(CheckFile(tmp))
+		return tmp;
+
+	sprintf(tmp, "translation/%s", name);
+
+	if(CheckFile(tmp))
+		return tmp;
+
+	sprintf(tmp, "../NULLC/translation/%s", name);
+
+	if(CheckFile(tmp))
+		return tmp;
+
+	return "";
+}
+
 void IdeSetBreakpoints()
 {
 	nullcDebugClearBreakpoints();
@@ -1866,6 +1907,48 @@ void IdeSetBreakpoints()
 		}
 	}
 }
+
+TabbedFiles::TabInfo* IdePrepareActiveSourceForBuild()
+{
+	unsigned id = TabbedFiles::GetCurrentTab(hTabs);
+
+	if(id == richEdits.size())
+		return NULL;
+
+	TabbedFiles::TabInfo &mainTabInfo = TabbedFiles::GetTabInfo(hTabs, id);
+
+	RichTextarea::ResetLineStyle(mainTabInfo.window);
+
+	for(unsigned int i = 0; i < richEdits.size(); i++)
+	{
+		if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
+			continue;
+
+		if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window))
+		{
+			TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
+			RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
+			InvalidateRect(hTabs, NULL, true);
+		}
+	}
+
+	// Remove all non-base modules
+	id = 0;
+	while(const char* moduleName = nullcEnumerateModules(id))
+	{
+		if(std::find(baseModules.begin(), baseModules.end(), NULLC::GetStringHash(moduleName)) == baseModules.end())
+		{
+			nullcRemoveModule(moduleName);
+		}
+		else
+		{
+			id++;
+		}
+	}
+
+	return &mainTabInfo;
+}
+
 void IdeRun(bool debug)
 {
 	if(!runRes.finished)
@@ -1877,65 +1960,42 @@ void IdeRun(bool debug)
 		return;
 	}
 
-	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-	if(id == richEdits.size())
-		return;
-
-	TabbedFiles::TabInfo &mainTabInfo = TabbedFiles::GetTabInfo(hTabs, id);
-
-	HWND wnd = mainTabInfo.window;
-	mainCodeWnd = wnd;
-	const char *source = RichTextarea::GetAreaText(wnd);
-	RichTextarea::ResetLineStyle(wnd);
-
-	for(unsigned int i = 0; i < richEdits.size(); i++)
-	{
-		if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
-			continue;
-		if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window))
-		{
-			TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
-			RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
-			InvalidateRect(hTabs, NULL, true);
-		}
-	}
 #ifndef _DEBUG
 	FreeConsole();
 #endif
-
-	// Remove all non-base modules
-	id = 0;
-	while(const char* moduleName = nullcEnumerateModules(id))
-	{
-		if(std::find(baseModules.begin(), baseModules.end(), NULLC::GetStringHash(moduleName)) == baseModules.end())
-		{
-			nullcRemoveModule(moduleName);
-		}else{
-			id++;
-		}
-	}
 
 	SetWindowText(hCode, "");
 	SetWindowText(hResult, "");
 
 	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_REG_VM);
 
-	nullres good = nullcBuildWithModuleName(source, mainTabInfo.last);
-
-	if(!good)
+	if(TabbedFiles::TabInfo *activeTab = IdePrepareActiveSourceForBuild())
 	{
-		SetWindowText(hCode, GetLastNullcErrorWindows());
-		TabbedFiles::SetCurrentTab(hDebugTabs, 0);
-	}else{
-		if(debug)
+		mainCodeWnd = activeTab->window;
+		const char *source = RichTextarea::GetAreaText(activeTab->window);
+
+		nullres good = nullcBuildWithModuleName(source, activeTab->last);
+
+		if(!good)
 		{
-			// Cache all source code in linear form
-			for(unsigned int i = 0; i < richEdits.size(); i++)
-				RichTextarea::GetAreaText(richEdits[i]);
-			IdeSetBreakpoints();
+			SetWindowText(hCode, GetLastNullcErrorWindows());
+
+			TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 		}
-		SetWindowText(hButtonCalc, "Abort");
-		calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
+		else
+		{
+			if(debug)
+			{
+				// Cache all source code in linear form
+				for(unsigned int i = 0; i < richEdits.size(); i++)
+					RichTextarea::GetAreaText(richEdits[i]);
+
+				IdeSetBreakpoints();
+			}
+
+			SetWindowText(hButtonCalc, "Abort");
+			calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
+		}
 	}
 }
 
@@ -2863,6 +2923,101 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					fprintf(fHTML, "</span>");
 				fprintf(fHTML, "</pre>\r\n</body>\r\n</html>");
 				fclose(fHTML);
+			}
+				break;
+			case ID_FILE_TRANSLATETOC:
+			{
+				if(TabbedFiles::TabInfo *activeTab = IdePrepareActiveSourceForBuild())
+				{
+					const char *source = RichTextarea::GetAreaText(activeTab->window);
+
+					if(!nullcCompile(source))
+					{
+						SetWindowText(hCode, GetLastNullcErrorWindows());
+
+						TabbedFiles::SetCurrentTab(hDebugTabs, 0);
+						break;
+					}
+
+					// Create file name
+					char cleanName[1024];
+					safeprintf(cleanName, 1024, "%s", activeTab->last);
+
+					if(char* pos = strrchr(cleanName, '.'))
+						*pos = 0;
+
+					safeprintf(result, 1024, "%s.cpp", cleanName);
+
+					activeDependencies.clear();
+
+					if(!nullcTranslateToC(result, "main", RegisterDependency))
+					{
+						nullcClean();
+
+						SetWindowText(hCode, GetLastNullcErrorWindows());
+
+						TabbedFiles::SetCurrentTab(hDebugTabs, 0);
+					}
+					else
+					{
+						nullcClean();
+
+						std::string cmdLine;
+
+						cmdLine += "g++ -g ";
+						cmdLine += result;
+						cmdLine += " -lstdc++";
+						cmdLine += " -Itranslation";
+						cmdLine += " -I../NULLC/translation";
+						cmdLine += " -O2";
+
+						std::string runtimeLocation = ResolveSourceFile("runtime.cpp");
+
+						if(runtimeLocation.empty())
+						{
+							SetWindowText(hCode, "Failed to find 'runtime.cpp' input file");
+							break;
+						}
+
+						cmdLine += " " + runtimeLocation;
+
+						for(unsigned i = 0; i < activeDependencies.size(); i++)
+						{
+							std::string dependency = activeDependencies[i];
+
+							cmdLine += " " + dependency;
+
+							if(strstr(dependency.c_str(), "import_"))
+							{
+								char tmp[1024];
+								safeprintf(tmp, 1024, "%s", dependency.c_str() + strlen("import_"));
+
+								if(char *pos = strstr(tmp, "_nc.cpp"))
+									strcpy(pos, "_bind.cpp");
+
+								std::string bindLocation = ResolveSourceFile(tmp);
+
+								if(!bindLocation.empty())
+									cmdLine += " " + bindLocation;
+							}
+						}
+
+						safeprintf(result, 1024, "%s.cmdline.txt", cleanName);
+
+						if(FILE *fCmdLine = fopen(result, "wb"))
+						{
+							fprintf(fCmdLine, "%s", cmdLine.c_str());
+							fclose(fCmdLine);
+						}
+						else
+						{
+							char msg[1024];
+							safeprintf(msg, 1024, "Failed to save '%s' file", result);
+
+							SetWindowText(hCode, msg);
+						}
+					}
+				}
 			}
 				break;
 			case ID_CLOSE_TAB:

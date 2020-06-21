@@ -30,6 +30,8 @@
 #define ID_DEBUG_STEP_OUT               32785
 #define ID_SAVE_AS_HTML                 32787
 #define ID_CLOSE_TAB                    32789
+#define ID_FILE_TRANSLATETOC            32791
+#define ID_FILE_SAVEAS                  32792
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -38,7 +40,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        139
-#define _APS_NEXT_COMMAND_VALUE         32791
+#define _APS_NEXT_COMMAND_VALUE         32794
 #define _APS_NEXT_CONTROL_VALUE         1000
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
