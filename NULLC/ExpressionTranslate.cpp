@@ -2260,10 +2260,22 @@ void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
 		if(variable->type == ctx.ctx.typeVoid)
 			continue;
 
+		bool isInternalFunctionContext = false;
+
+		if(TypeRef *typeRef = getType<TypeRef>(variable->type))
+		{
+			if(TypeClass *typeClass = getType<TypeClass>(typeRef->subType))
+				isInternalFunctionContext = typeClass->isInternal;
+		}
+
 		InplaceStr name = variable->name->name;
 
 		if(variable->importModule)
 		{
+			// Skip internal function context
+			if(isInternalFunctionContext)
+				continue;
+
 			Print(ctx, "extern ");
 			TranslateTypeName(ctx, variable->type);
 			Print(ctx, " ");
@@ -2282,6 +2294,10 @@ void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
 		}
 		else if(variable->scope == ctx.ctx.globalScope || variable->scope->ownerNamespace)
 		{
+			// Do not export internal function context
+			if(isInternalFunctionContext)
+				Print(ctx, "static ");
+
 			TranslateTypeName(ctx, variable->type);
 			Print(ctx, " ");
 			TranslateVariableName(ctx, variable);
