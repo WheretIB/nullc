@@ -1016,7 +1016,7 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 	}
 
 #if !defined(NULLC_NO_EXECUTOR) && defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
-	if(currExec == NULLC_REG_VM && enableLogFiles)
+	if(currExec == NULLC_REG_VM && functionID == ~0u && enableLogFiles)
 	{
 		OutputContext outputCtx;
 
