@@ -64,3 +64,15 @@ for(i in xx)\r\n\
 \r\n\
 return 5;";
 TEST_RESULT("Test for JiT error 6", testJiTError6, "5");
+
+const char *testJiTError7 =
+"auto make_move(char[16] board, int side_to_move, int move)\r\n\
+{\r\n\
+	board[move] = side_to_move;\r\n\
+	return board;\r\n\
+}\r\n\
+\r\n\
+char[16] board;\r\n\
+board = make_move(board, 1, 0);\r\n\
+return board[0];";
+TEST_RESULT("Test for JiT error 7 (extended byte move registers)", testJiTError7, "1");

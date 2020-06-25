@@ -1758,7 +1758,18 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 #ifdef NULLC_OPTIMIZE_X86
 	ctx.RedirectAddressComputation(index, multiplier, base, shift);
 
-	reg2 = ctx.RedirectRegister(reg2);
+	x86Reg redirect = ctx.RedirectRegister(reg2);
+
+	// On x86 it is impossible to move extra registers into a byte of memory, so some redirections are ignored
+	if(sizeof(void*) == 4 && size == sBYTE)
+	{
+		if(redirect <= rEDX)
+			reg2 = redirect;
+	}
+	else
+	{
+		reg2 = redirect;
+	}
 
 	if(size == sDWORD && ctx.genReg[reg2].type == x86Argument::argNumber)
 	{
