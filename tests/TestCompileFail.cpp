@@ -560,7 +560,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo x;", "ERROR: type 'Foo' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a = new Foo;", "ERROR: type 'Foo' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a; auto x = *a;", "ERROR: type 'Foo' is not fully defined");
-	TEST_FOR_FAIL("class prototype", "class Foo; return 1;", "ERROR: type 'Foo' is not fully defined");
 
 	TEST_FOR_FAIL("class undefined", "class bar{ bar[12] arr; }", "ERROR: type 'bar' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class foo; foo[1] f;", "ERROR: type 'foo' is not fully defined");

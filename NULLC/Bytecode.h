@@ -24,7 +24,8 @@ struct ExternTypeInfo
 		TYPE_HAS_FINALIZER = 1 << 0,
 		TYPE_DEPENDS_ON_GENERIC = 1 << 1,
 		TYPE_IS_EXTENDABLE = 1 << 2,
-		TYPE_INTERNAL = 1 << 3
+		TYPE_IS_INTERNAL = 1 << 3,
+		TYPE_IS_COMPLETED = 1 << 4
 	};
 
 	unsigned char	defaultAlign;

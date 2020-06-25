@@ -195,3 +195,22 @@ class int4 : int2{ int z, w; void int4(){} }\r\n\
 auto x = new int3(1, 2, new int4, 4);\r\n\
 return x.z;";
 TEST_RESULT("Derived type import preserves base class information 3", testDerivedTypeImport3, "2");
+
+LOAD_MODULE(test_fwddecl1a, "test.fwddecl1a", "class Node; Node ref a;");
+LOAD_MODULE(test_fwddecl1b, "test.fwddecl1b", "import test.fwddecl1a; class Node{ int x = 2; int y = 3; int sum(){ return x + y; } }");
+const char	*testForwardDecl1 =
+"import test.fwddecl1a;\r\n\
+import test.fwddecl1b;\r\n\
+import std.typeinfo;\r\n\
+a = new Node();\r\n\
+a.y = 10;\r\n\
+return sizeof(*a) + a.y + typeid(a).memberCount() == 20;";
+TEST_RESULT("Forward declaration import 1", testForwardDecl1, "1");
+
+LOAD_MODULE(test_fwddecl1c, "test.fwddecl1c", "import test.fwddecl1a; import test.fwddecl1b; a = new Node(); a.y = 10; auto aa = a;");
+const char	*testForwardDecl2 =
+"import test.fwddecl1c;\r\n\
+auto b = new Node();\r\n\
+b.y = 20;\r\n\
+return sizeof(*aa) + aa.y == 18 && sizeof(*b) + b.y == 28;";
+TEST_RESULT("Forward declaration import 2", testForwardDecl2, "1");

@@ -237,8 +237,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	}
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
-		printf("Function remap table is extended to %d functions (%d modules, %d new)\r\n", bCode->functionCount, moduleFuncCount, bCode->functionCount - moduleFuncCount);
+	printf("Function remap table is extended to %d functions (%d modules, %d new)\r\n", bCode->functionCount, moduleFuncCount, bCode->functionCount - moduleFuncCount);
 #endif
+
 	funcRemap.resize(bCode->functionCount);
 	for(unsigned int i = moduleFuncCount; i < bCode->functionCount; i++)
 		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - moduleFuncCount : 0) + i;
@@ -312,13 +313,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	{
 		unsigned int *lastType = typeMap.find(tInfo->nameHash);
 
-		if(lastType && exTypes[*lastType].size != tInfo->size)
-		{
-			debugOutputIndent--;
-
-			NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[*lastType].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[*lastType].size, tInfo->size);
-			return false;
-		}
 		if(!lastType)
 		{
 			typeRemap.push_back(exTypes.size());
@@ -327,6 +321,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			
 			if(exTypes.back().subCat == ExternTypeInfo::CAT_ARRAY || exTypes.back().subCat == ExternTypeInfo::CAT_POINTER)
 				exTypes.back().subType = typeRemap[exTypes.back().subType];
+
 			if(tInfo->subCat == ExternTypeInfo::CAT_FUNCTION || tInfo->subCat == ExternTypeInfo::CAT_CLASS)
 			{
 				exTypes.back().memberOffset = exTypeExtra.size();
@@ -339,7 +334,36 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				exTypes.back().constantOffset = exTypeConstants.size();
 				exTypeConstants.push_back(constantList + tInfo->constantOffset, tInfo->constantCount);
 			}
-		}else{
+		}
+		else
+		{
+			ExternTypeInfo &lastTypeInfo = exTypes[*lastType];
+
+			if((lastTypeInfo.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) == 0 && (tInfo->typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+			{
+				assert(tInfo->subCat == ExternTypeInfo::CAT_CLASS);
+
+				lastTypeInfo = *tInfo;
+				lastTypeInfo.offsetToName += oldSymbolSize;
+
+				lastTypeInfo.memberOffset = exTypeExtra.size();
+				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount);
+
+				// Additional list of members with pointer
+				if(tInfo->pointerCount)
+					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount);
+
+				lastTypeInfo.constantOffset = exTypeConstants.size();
+				exTypeConstants.push_back(constantList + tInfo->constantOffset, tInfo->constantCount);
+			}
+			else if(lastTypeInfo.size != tInfo->size)
+			{
+				debugOutputIndent--;
+
+				NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", lastTypeInfo.offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, lastTypeInfo.size, tInfo->size);
+				return false;
+			}
+
 			typeRemap.push_back(*lastType);
 		}
 
@@ -362,6 +386,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		exTypeConstants[i].type = typeRemap[exTypeConstants[i].type];
 
 #ifdef VERBOSE_DEBUG_OUTPUT
+	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+		printf("  ");
+
 	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);
 #endif
 
@@ -377,7 +404,11 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		exVariables.back().type = typeRemap[vInfo->type];
 		exVariables.back().offsetToName += oldSymbolSize;
 		exVariables.back().offset += oldGlobalSize;
+
 #ifdef VERBOSE_DEBUG_OUTPUT
+		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+			printf("  ");
+
 		printf("Variable %s %s at %d\r\n", &exSymbols[0] + exTypes[exVariables.back().type].offsetToName, &exSymbols[0] + exVariables.back().offsetToName, exVariables.back().offset);
 #endif
 		vInfo++;
@@ -794,29 +825,27 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 #ifdef VERBOSE_DEBUG_OUTPUT
 	unsigned int size = 0;
 	printf("Data managed by linker.\r\n");
-	printf("Types: %db, ", exTypes.size() * sizeof(ExternTypeInfo));
+	printf("Types: %db, ", exTypes.size() * (unsigned)sizeof(ExternTypeInfo));
 	size += exTypes.size() * sizeof(ExternTypeInfo);
-	printf("Variables: %db, ", exVariables.size() * sizeof(ExternVarInfo));
+	printf("Variables: %db, ", exVariables.size() * (unsigned)sizeof(ExternVarInfo));
 	size += exVariables.size() * sizeof(ExternVarInfo);
-	printf("Functions: %db, ", exFunctions.size() * sizeof(ExternFuncInfo));
+	printf("Functions: %db, ", exFunctions.size() * (unsigned)sizeof(ExternFuncInfo));
 	size += exFunctions.size() * sizeof(ExternFuncInfo);
-	printf("Function explicit type array offsets: %db, ", exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned));
+	printf("Function explicit type array offsets: %db, ", exFunctionExplicitTypeArrayOffsets.size() * (unsigned)sizeof(unsigned));
 	size += exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned);
-	printf("Function explicit types: %db, ", exFunctionExplicitTypes.size() * sizeof(unsigned));
+	printf("Function explicit types: %db, ", exFunctionExplicitTypes.size() * (unsigned)sizeof(unsigned));
 	size += exFunctionExplicitTypes.size() * sizeof(unsigned);
-	printf("VM Code: %db\r\n", exVmCode.size() * sizeof(VMCmd));
-	size += exVmCode.size() * sizeof(VMCmd);
-	printf("Reg VM Code: %db\r\n", exRegVmCode.size() * sizeof(RegVmCmd));
+	printf("Reg VM Code: %db\r\n", exRegVmCode.size() * (unsigned)sizeof(RegVmCmd));
 	size += exRegVmCode.size() * sizeof(RegVmCmd);
-	printf("Symbols: %db, ", exSymbols.size() * sizeof(char));
+	printf("Symbols: %db, ", exSymbols.size() * (unsigned)sizeof(char));
 	size += exSymbols.size() * sizeof(char);
-	printf("Locals: %db, ", exLocals.size() * sizeof(ExternLocalInfo));
+	printf("Locals: %db, ", exLocals.size() * (unsigned)sizeof(ExternLocalInfo));
 	size += exLocals.size() * sizeof(ExternLocalInfo);
-	printf("Modules: %db, ", exModules.size() * sizeof(ExternModuleInfo));
+	printf("Modules: %db, ", exModules.size() * (unsigned)sizeof(ExternModuleInfo));
 	size += exModules.size() * sizeof(ExternModuleInfo);
-	printf("Source info: %db, ", exSourceInfo.size() * sizeof(ExternSourceInfo));
-	size += exSourceInfo.size() * sizeof(ExternSourceInfo);
-	printf("Source: %db\r\n", exSource.size() * sizeof(char));
+	printf("Source info: %db, ", exRegVmSourceInfo.size() * (unsigned)sizeof(ExternSourceInfo));
+	size += exRegVmSourceInfo.size() * sizeof(ExternSourceInfo);
+	printf("Source: %db\r\n", exSource.size() * (unsigned)sizeof(char));
 	size += exSource.size() * sizeof(char);
 	printf("Overall: %d bytes\r\n\r\n", size);
 #endif

@@ -1204,7 +1204,10 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 					target.typeFlags |= ExternTypeInfo::TYPE_HAS_FINALIZER;
 
 				if(typeClass->isInternal)
-					target.typeFlags |= ExternTypeInfo::TYPE_INTERNAL;
+					target.typeFlags |= ExternTypeInfo::TYPE_IS_INTERNAL;
+
+				if(typeClass->completed)
+					target.typeFlags |= ExternTypeInfo::TYPE_IS_COMPLETED;
 
 				if(typeClass->baseClass)
 					target.baseType = typeClass->baseClass->typeIndex;

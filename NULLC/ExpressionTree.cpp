@@ -4310,6 +4310,12 @@ ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 		if(isType<TypeVoid>(type->subType))
 			Stop(ctx, syntax, "ERROR: cannot dereference type '%.*s'", FMT_ISTR(value->type->name));
 
+		if(TypeClass *typeClass = getType<TypeClass>(type->subType))
+		{
+			if(!typeClass->completed)
+				Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(typeClass->name));
+		}
+
 		return new (ctx.get<ExprDereference>()) ExprDereference(syntax, type->subType, value);
 	}
 
@@ -11804,20 +11810,21 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
 
+		TypeClass *forwardDeclaration = NULL;
+
 		// Skip existing types
 		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
 		{
 			TypeBase *prevType = *prev;
 
+			TypeClass *prevTypeClass = getType<TypeClass>(prevType);
+
 			if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
 			{
 				bool duplicate = isType<TypeGenericClassProto>(prevType);
 
-				if(TypeClass *typeClass = getType<TypeClass>(prevType))
-				{
-					if(typeClass->generics.empty())
-						duplicate = true;
-				}
+				if(prevTypeClass && prevTypeClass->generics.empty())
+					duplicate = true;
 
 				if(duplicate)
 					Stop(ctx, source, "ERROR: type '%.*s' in module '%.*s' is already defined in module '%.*s'", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
@@ -11825,8 +11832,15 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 			moduleCtx.types[i] = prevType;
 
-			currentConstant += type.constantCount;
-			continue;
+			if(prevTypeClass && !prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+			{
+				forwardDeclaration = prevTypeClass;
+			}
+			else
+			{
+				currentConstant += type.constantCount;
+				continue;
+			}
 		}
 
 		switch(type.subCat)
@@ -11942,6 +11956,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					ExternTypedefInfo &alias = aliasList[k];
 
+					// TODO: aliases should be delayed
 					if(alias.parentType == i)
 					{
 						InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
@@ -11951,7 +11966,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						TypeBase *targetType = moduleCtx.types[alias.targetType];
 
 						if(!targetType)
-							Stop(ctx, source, "ERROR: can't find alias '%s' target type in module %.*s", symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
+							Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 						isGeneric |= targetType->isGeneric;
 
@@ -11987,6 +12002,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
+					assert(!forwardDeclaration);
+
 					TypeBase *proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
 
 					if(!proto)
@@ -12007,9 +12024,10 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					{
 						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
-						classType->completed = true;
+						if(type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED)
+							classType->completed = true;
 
-						if(type.typeFlags & ExternTypeInfo::TYPE_INTERNAL)
+						if(type.typeFlags & ExternTypeInfo::TYPE_IS_INTERNAL)
 							classType->isInternal = true;
 
 						importedType = classType;
@@ -12026,6 +12044,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.definitionOffsetStart != ~0u)
 				{
+					assert(!forwardDeclaration);
+
 					assert(type.definitionOffsetStart < importModule->lexStreamSize);
 					Lexeme *start = type.definitionOffsetStart + importModule->lexStream;
 
@@ -12048,6 +12068,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.type != ExternTypeInfo::TYPE_COMPLEX)
 				{
+					assert(!forwardDeclaration);
+
 					TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(identifier, locationSource, ctx.scope);
 
 					importedType = enumType;
@@ -12060,16 +12082,32 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					IntrusiveList<MatchData> actualGenerics;
 
-					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+					TypeClass *classType = NULL;
 
-					classType->completed = true;
+					if(forwardDeclaration)
+					{
+						classType = forwardDeclaration;
 
-					if(type.typeFlags & ExternTypeInfo::TYPE_INTERNAL)
+						classType->source = locationSource;
+						classType->scope = ctx.scope;
+						classType->extendable = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0;
+						classType->baseClass = baseType;
+					}
+					else
+					{
+						classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+					}
+
+					if(type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED)
+						classType->completed = true;
+
+					if(type.typeFlags & ExternTypeInfo::TYPE_IS_INTERNAL)
 						classType->isInternal = true;
 
 					importedType = classType;
 
-					ctx.AddType(importedType);
+					if(!forwardDeclaration)
+						ctx.AddType(importedType);
 
 					classType->aliases = aliases;
 				}
@@ -12837,20 +12875,6 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 		expressions.push_back(AnalyzeStatement(ctx, expr));
 
 	ClosePendingUpvalues(ctx, NULL);
-
-	for(unsigned i = 0; i < ctx.types.size(); i++)
-	{
-		if(TypeStruct *typeStruct = getType<TypeStruct>(ctx.types[i]))
-		{
-			if(TypeClass *typeClass = getType<TypeClass>(typeStruct))
-			{
-				if(!typeClass->completed)
-					Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(typeClass->name));
-			}
-
-			assert(typeStruct->typeScope);
-		}
-	}
 
 	// Don't create wrappers in ill-formed module
 	if(ctx.errorCount == 0)
