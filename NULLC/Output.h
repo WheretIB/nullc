@@ -128,7 +128,7 @@ struct OutputContext
 			{
 				const char *tmpPos = pos + 1;
 
-				bool leadingZeroes = true;
+				bool leadingZeroes = false;
 
 				if(*tmpPos == '0')
 				{
