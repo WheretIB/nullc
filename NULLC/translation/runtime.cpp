@@ -542,9 +542,26 @@ unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, uns
 {
 	for(unsigned int i = 0; i < __nullcTypeList.size(); i++)
 	{
-		if(__nullcTypeList[i].hash == hash)
+		NULLCTypeInfo &type = __nullcTypeList[i];
+
+		if(type.hash == hash)
+		{
+			if((type.flags & NULLC_TYPE_FLAG_FORWARD_DECLARATION) != 0)
+			{
+				type.hash = hash;
+				type.name = name;
+				type.size = size;
+				type.subTypeID = subTypeID;
+				type.memberCount = memberCount;
+				type.category = category;
+				type.alignment = alignment;
+				type.flags = flags;
+			}
+
 			return i;
+		}
 	}
+
 	__nullcTypeList.push_back(NULLCTypeInfo());
 	__nullcTypeList.back().hash = hash;
 	__nullcTypeList.back().name = name;

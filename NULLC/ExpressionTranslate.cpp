@@ -304,6 +304,9 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 		if(typeClass->importModule && typeClass->isInternal)
 			return;
 
+		if(!typeClass->completed)
+			return;
+
 		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			TranslateTypeDefinition(ctx, curr->variable->type);
 
@@ -2398,13 +2401,27 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 			Print(ctx, "__nullcTR[%d], ", typeClass->baseClass ? typeClass->baseClass->typeIndex : 0);
 			Print(ctx, "%d, NULLC_CLASS, %d, ", count, typeClass->alignment);
 
-			if(typeClass->hasFinalizer && typeClass->extendable)
-				Print(ctx, "NULLC_TYPE_FLAG_HAS_FINALIZER | NULLC_TYPE_FLAG_IS_EXTENDABLE");
-			else if(typeClass->hasFinalizer)
+			bool hasFlags = false;
+
+			if(typeClass->hasFinalizer)
+			{
 				Print(ctx, "NULLC_TYPE_FLAG_HAS_FINALIZER");
-			else if(typeClass->extendable)
-				Print(ctx, "NULLC_TYPE_FLAG_IS_EXTENDABLE");
-			else
+				hasFlags = true;
+			}
+
+			if(typeClass->extendable)
+			{
+				Print(ctx, "%sNULLC_TYPE_FLAG_IS_EXTENDABLE", hasFlags ? " | " : "");
+				hasFlags = true;
+			}
+
+			if(!typeClass->completed)
+			{
+				Print(ctx, "%sNULLC_TYPE_FLAG_FORWARD_DECLARATION", hasFlags ? " | " : "");
+				hasFlags = true;
+			}
+
+			if(!hasFlags)
 				Print(ctx, "0");
 
 			Print(ctx, ");");
