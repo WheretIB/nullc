@@ -11950,14 +11950,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				IntrusiveList<TypeHandle> generics;
 				IntrusiveList<MatchData> actualGenerics;
 
-				IntrusiveList<MatchData> aliases;
-
 				for(unsigned k = 0; k < bCode->typedefCount; k++)
 				{
 					ExternTypedefInfo &alias = aliasList[k];
 
-					// TODO: aliases should be delayed
-					if(alias.parentType == i)
+					if(alias.parentType == i && generics.size() < type.genericTypeCount)
 					{
 						InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
 
@@ -11971,11 +11968,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						isGeneric |= targetType->isGeneric;
 
 						generics.push_back(new (ctx.get<TypeHandle>()) TypeHandle(targetType));
-
-						if(actualGenerics.size() < type.genericTypeCount)
-							actualGenerics.push_back(new (ctx.get<MatchData>()) MatchData(aliasNameIdentifier, targetType));
-						else
-							aliases.push_back(new (ctx.get<MatchData>()) MatchData(aliasNameIdentifier, targetType));
+						actualGenerics.push_back(new (ctx.get<MatchData>()) MatchData(aliasNameIdentifier, targetType));
 					}
 				}
 
@@ -12034,8 +12027,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						ctx.AddType(importedType);
 
-						classType->aliases = aliases;
-
 						assert(type.genericTypeCount == generics.size());
 
 						if(!generics.empty())
@@ -12076,7 +12067,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					ctx.AddType(importedType);
 
-					assert(generics.empty() && aliases.empty());
+					assert(generics.empty());
 				}
 				else
 				{
@@ -12108,8 +12099,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					if(!forwardDeclaration)
 						ctx.AddType(importedType);
-
-					classType->aliases = aliases;
 				}
 
 				moduleCtx.types[i] = importedType;
@@ -12151,11 +12140,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		{
 		case ExternTypeInfo::CAT_CLASS:
 			{
-				InplaceStr className = InplaceStr(symbols + type.offsetToName);
+				InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
 
 				TypeBase *importedType = moduleCtx.types[delayedType.index];
 
-				const char *memberNames = className.end + 1;
+				const char *memberNames = typeName.end + 1;
 
 				if(TypeStruct *structType = getType<TypeStruct>(importedType))
 				{
@@ -12223,6 +12212,37 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 
 					ctx.PopScope(SCOPE_TYPE);
+				}
+
+				if(TypeClass *typeClass = getType<TypeClass>(importedType))
+				{
+					unsigned genericsFound = 0;
+
+					IntrusiveList<MatchData> aliases;
+
+					for(unsigned k = 0; k < bCode->typedefCount; k++)
+					{
+						ExternTypedefInfo &alias = aliasList[k];
+
+						if(alias.parentType == delayedType.index)
+						{
+							InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+
+							SynIdentifier *aliasNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(aliasName);
+
+							TypeBase *targetType = moduleCtx.types[alias.targetType];
+
+							if(!targetType)
+								Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
+
+							if(genericsFound < type.genericTypeCount)
+								genericsFound++;
+							else
+								aliases.push_back(new (ctx.get<MatchData>()) MatchData(aliasNameIdentifier, targetType));
+						}
+					}
+
+					typeClass->aliases = aliases;
 				}
 			}
 			break;

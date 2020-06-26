@@ -234,3 +234,17 @@ class Node2 : Node\r\n\
 }\r\n\
 return Node2().sum() == 405;";
 TEST_RESULT("Transitive module import 2", testTransitiveImport2, "1");
+
+LOAD_MODULE(test_typedef_import, "test.typedef_import", "class Instance<T>{ T a; } void operator=(Instance ref a, int b){ a.a = b; } class Test{ typedef Instance<int> A; A x = 2; } Test t;");
+const char	*testClassTypedefImportOrder1 =
+"import test.typedef_import;\r\n\
+Test x;\r\n\
+return t.x.a + x.x.a;";
+TEST_RESULT("Class typedef import order test 1", testClassTypedefImportOrder1, "4");
+
+const char	*testClassTypedefImportOrder2 =
+"import test.typedef_import;\r\n\
+int Test.y(){ A b = x; return b.a * 2; }\r\n\
+Test x;\r\n\
+return t.y + x.y;";
+TEST_RESULT("Class typedef import order test 2", testClassTypedefImportOrder2, "8");
