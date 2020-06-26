@@ -11692,7 +11692,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 		for(unsigned k = 0; k < moduleCtx.dependencyDepth; k++)
 			printf("  ");
-		printf("  importing module %.*s as dependency #%d\n", FMT_ISTR(pathNoImport), ctx.dependencies.size() + 1);
+		printf("  importing module %s as dependency #%d\n", moduleFileName, ctx.dependencies.size() + 1);
 #endif
 
 		ModuleData *moduleData = new (ctx.get<ModuleData>()) ModuleData(source, InplaceStr(moduleFileName));
@@ -12621,7 +12621,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	TRACE_SCOPE("analyze", "ImportModule");
 
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-	printf("  importing module %.*s as dependency #%d\n", FMT_ISTR(name), ctx.imports.size() + 1, ctx.dependencies.size() + 1);
+	printf("  importing module %.*s (import #%d) as dependency #%d\n", FMT_ISTR(name), ctx.imports.size() + 1, ctx.dependencies.size() + 1);
 #endif
 
 	assert(bytecode);
@@ -12694,6 +12694,51 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 		Stop(ctx, syntax, "ERROR: module import is not implemented");
 
 	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, lexStreamSize, moduleName);
+}
+
+void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
+{
+	// Find which transitive dependencies haven't been imported explicitly
+	for(unsigned i = 0; i < ctx.dependencies.size(); i++)
+	{
+		bool hasImport = false;
+
+		for(unsigned k = 0; k < ctx.imports.size(); k++)
+		{
+			if(ctx.imports[k]->bytecode == ctx.dependencies[i]->bytecode)
+			{
+				hasImport = true;
+				break;
+			}
+		}
+
+		if(hasImport)
+			continue;
+
+		bool hasImplicitImport = false;
+
+		for(unsigned k = 0; k < ctx.implicitImports.size(); k++)
+		{
+			if(ctx.implicitImports[k]->bytecode == ctx.dependencies[i]->bytecode)
+			{
+				hasImplicitImport = true;
+				break;
+			}
+		}
+
+		if(hasImplicitImport)
+			continue;
+
+		ctx.implicitImports.push_back(ctx.dependencies[i]);
+	}
+
+	// Import additional modules
+	for(unsigned i = 0; i < ctx.implicitImports.size(); i++)
+	{
+		ModuleData *moduleData = ctx.implicitImports[i];
+
+		ImportModule(ctx, moduleData->source, moduleData->bytecode, moduleData->lexStream, moduleData->lexStreamSize, moduleData->name);
+	}
 }
 
 void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
@@ -12868,6 +12913,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 
 	for(SynModuleImport *import = syntax->imports.head; import; import = getType<SynModuleImport>(import->next))
 		AnalyzeModuleImport(ctx, import);
+
+	AnalyzeImplicitModuleImports(ctx);
 
 	IntrusiveList<ExprBase> expressions;
 

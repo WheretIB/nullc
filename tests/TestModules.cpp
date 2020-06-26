@@ -207,10 +207,30 @@ a.y = 10;\r\n\
 return sizeof(*a) + a.y + typeid(a).memberCount() == 20;";
 TEST_RESULT("Forward declaration import 1", testForwardDecl1, "1");
 
-LOAD_MODULE(test_fwddecl1c, "test.fwddecl1c", "import test.fwddecl1a; import test.fwddecl1b; a = new Node(); a.y = 10; auto aa = a;");
+LOAD_MODULE(test_fwddecl1c, "test.fwddecl1c", "import test.fwddecl1a; import test.fwddecl1b; a = new Node(); a.y = 10;");
 const char	*testForwardDecl2 =
 "import test.fwddecl1c;\r\n\
 auto b = new Node();\r\n\
 b.y = 20;\r\n\
-return sizeof(*aa) + aa.y == 18 && sizeof(*b) + b.y == 28;";
+return sizeof(*a) + a.y == 18 && sizeof(*b) + b.y == 28;";
 TEST_RESULT("Forward declaration import 2", testForwardDecl2, "1");
+
+LOAD_MODULE(test_fwddecl2a, "test.fwddecl2a", "class Node; Node ref a;");
+LOAD_MODULE(test_fwddecl2b, "test.fwddecl2b", "import test.fwddecl2a; class Node extendable { int x = 2; int y = 3; int sum(){ return x + y; } }");
+LOAD_MODULE(test_fwddecl2c, "test.fwddecl2c", "import test.fwddecl2a; import test.fwddecl2b; a = new Node(); a.y = 10;");
+const char	*testTransitiveImport1 =
+"import test.fwddecl2c;\r\n\
+auto b = new Node();\r\n\
+b.y = 20; \r\n\
+return a.sum() == 12 && b.sum() == 22 && typeid(b) == Node;";
+TEST_RESULT("Transitive module import 1", testTransitiveImport1, "1");
+
+const char	*testTransitiveImport2 =
+"import test.fwddecl2c;\r\n\
+class Node2 : Node\r\n\
+{\r\n\
+	int z = 400;\r\n\
+	int sum(){ return x + y + z; }\r\n\
+}\r\n\
+return Node2().sum() == 405;";
+TEST_RESULT("Transitive module import 2", testTransitiveImport2, "1");

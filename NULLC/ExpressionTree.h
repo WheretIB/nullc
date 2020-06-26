@@ -246,6 +246,7 @@ struct ExpressionContext
 
 	SmallArray<ModuleData*, 128> dependencies;
 	SmallArray<ModuleData*, 128> imports;
+	SmallArray<ModuleData*, 128> implicitImports;
 	SmallArray<NamespaceData*, 128> namespaces;
 	SmallArray<TypeBase*, 128> types;
 	SmallArray<FunctionData*, 128> functions;
