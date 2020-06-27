@@ -1560,6 +1560,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 					Lexeme *itemBegin = curr->source->begin, *itemEnd = curr->source->end;
 
+					if(!itemBegin || !itemEnd)
+						continue;
+
 					DocumentSymbol item;
 
 					item.name = std::string(curr->variable->name->name.begin, curr->variable->name->name.end);
@@ -1590,6 +1593,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 						continue;
 
 					Lexeme *itemBegin = curr->name->begin, *itemEnd = curr->name->end;
+
+					if(!itemBegin || !itemEnd)
+						continue;
 
 					DocumentSymbol item;
 
@@ -1626,6 +1632,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 						continue;
 
 					Lexeme *itemBegin = curr->name->begin, *itemEnd = curr->name->end;
+
+					if(!itemBegin || !itemEnd)
+						continue;
 
 					DocumentSymbol item;
 
