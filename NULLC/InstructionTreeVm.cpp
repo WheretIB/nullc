@@ -2997,6 +2997,9 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	if(tempAddress)
 		return CheckType(ctx, node, CreateLoad(ctx, module, node->source, node->falseBlock->type, tempAddress, 0));
 
+	if(node->type->size == 0)
+		return CreateConstantStruct(ctx.allocator, node->source, NULL, 0, node->type);
+
 	VmValue *phi = CreatePhi(module, node->source, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
 
 	return CheckType(ctx, node, phi);

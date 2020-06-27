@@ -1292,3 +1292,13 @@ int foo(int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)\r\n\
 \r\n\
 return foo(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);";
 TEST_RESULT("Register kill info overflow", testRegisterKillInfoOverflow, "136");
+
+const char	*testZeroSizeConditional =
+"class LexemeRef{}\r\n\
+class SynNothing{ void SynNothing(LexemeRef end){} }\r\n\
+LexemeRef Current(){ return LexemeRef(); }\r\n\
+LexemeRef Previous(){ return LexemeRef(); }\r\n\
+bool CheckConsume(){ return false; }\r\n\
+auto ParseType(){ return new SynNothing(CheckConsume() ? Previous() : Current()); }\r\n\
+return 1;";
+TEST_RESULT("Handle zero size structs in conditional expressions (do not merge result in a phi)", testZeroSizeConditional, "1");
