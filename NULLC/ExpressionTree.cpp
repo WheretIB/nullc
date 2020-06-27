@@ -4410,9 +4410,34 @@ ExprBase* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 		}
 		else
 		{
-			Report(ctx, syntax, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
+			TypeRef *trueBlockTypeRef = getType<TypeRef>(trueBlock->type);
+			TypeRef *falseBlockTypeRef = getType<TypeRef>(falseBlock->type);
 
-			resultType = ctx.GetErrorType();
+			if(trueBlockTypeRef && falseBlockTypeRef)
+			{
+				TypeClass *trueBlockTypeClass = getType<TypeClass>(trueBlockTypeRef->subType);
+				TypeClass *falseBlockTypeClass = getType<TypeClass>(falseBlockTypeRef->subType);
+
+				if(IsDerivedFrom(trueBlockTypeClass, falseBlockTypeClass))
+				{
+					resultType = falseBlockTypeRef;
+
+					trueBlock = CreateCast(ctx, syntax->trueBlock, trueBlock, resultType, false);
+				}
+				else if(IsDerivedFrom(falseBlockTypeClass, trueBlockTypeClass))
+				{
+					resultType = trueBlockTypeRef;
+
+					falseBlock = CreateCast(ctx, syntax->falseBlock, falseBlock, resultType, false);
+				}
+			}
+
+			if(!resultType)
+			{
+				Report(ctx, syntax, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
+
+				resultType = ctx.GetErrorType();
+			}
 		}
 	}
 

@@ -726,6 +726,8 @@ while instantiating generic function foo(generic)\n\
 	TEST_FOR_FAIL("not extendable", "class A{ int x; } class B : A{ int y; }", "ERROR: type 'A' is not extendable");
 	TEST_FOR_FAIL("no object slicing", "class A extendable {} class B : A{ int y; } B b; A a = b;", "ERROR: cannot convert 'B' to 'A'");
 
+	TEST_FOR_FAIL("no common type", "class A extendable{} class B: A{} class C: A{} auto b = new B(); auto c = new C(); return (b == c ? b : c) == c;", "ERROR: can't find common type between 'B ref' and 'C ref'");
+
 	TEST_FOR_FAIL("unknown type for operation", "return -nullptr;", "ERROR: unary operation '-' is not supported on '__nullptr'");
 	TEST_FOR_FAIL("unknown type for operation", "return ~nullptr;", "ERROR: unary operation '~' is not supported on '__nullptr'");
 	TEST_FOR_FAIL("unknown type for operation", "return !nullptr;", "ERROR: unary operation '!' is not supported on '__nullptr'");

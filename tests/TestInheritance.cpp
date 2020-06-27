@@ -640,3 +640,23 @@ bool t4 = b == c;\r\n\
 \r\n\
 return t1 && t2 && t3 && t4;";
 TEST_RESULT("Inheritance test 50 - pointer comparison between classes in the same hierarchy", testInheritance50, "1");
+
+const char	*testInheritance51 =
+"class A extendable{}\r\n\
+class B: A{}\r\n\
+\r\n\
+auto a = new A();\r\n\
+auto b = new B();\r\n\
+\r\n\
+return (a == b ? a : b) == b && (a != b ? b : a) == b;";
+TEST_RESULT("Inheritance test 51 - common type between base/derived classes in conditional expression 1", testInheritance51, "1");
+
+const char	*testInheritance52 =
+"class A extendable{}\r\n\
+class B: A{}\r\n\
+\r\n\
+auto a = new A();\r\n\
+auto b = new B();\r\n\
+\r\n\
+return typeof(a == b ? a : b) == A ref && typeof(a != b ? b : a) == A ref;";
+TEST_RESULT("Inheritance test 51 - common type between base/derived classes in conditional expression 2", testInheritance52, "1");
