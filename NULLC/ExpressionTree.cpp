@@ -2419,24 +2419,6 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		}
 	}
 
-	if(TypeClass *target = getType<TypeClass>(type))
-	{
-		if(IsDerivedFrom(getType<TypeClass>(value->type), target))
-		{
-			SynBase *sourceInternal = ctx.MakeInternal(source);
-
-			VariableData *storage = AllocateTemporary(ctx, sourceInternal, value->type);
-
-			ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(sourceInternal, storage->type, CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false)), value);
-
-			ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
-
-			ExprBase *result = new (ctx.get<ExprDereference>()) ExprDereference(sourceInternal, type, new (ctx.get<ExprTypeCast>()) ExprTypeCast(sourceInternal, ctx.GetReferenceType(type), CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false)), EXPR_CAST_REINTERPRET));
-
-			return CreateSequence(ctx, source, definition, result);
-		}
-	}
-
 	return ReportExpected(ctx, source, type, "ERROR: cannot convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 }
 

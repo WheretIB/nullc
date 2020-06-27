@@ -724,6 +724,7 @@ while instantiating generic function foo(generic)\n\
 	TEST_FOR_FAIL("ambiguity (generic, named)", "class Test{ auto foo(generic i){ return -i; } auto foo(generic i, int j = 2){ return i + j; } } auto ref x = new Test; return x.foo(1);", "ERROR: ambiguity, there is more than one overloaded function available for the call:");
 
 	TEST_FOR_FAIL("not extendable", "class A{ int x; } class B : A{ int y; }", "ERROR: type 'A' is not extendable");
+	TEST_FOR_FAIL("no object slicing", "class A extendable {} class B : A{ int y; } B b; A a = b;", "ERROR: cannot convert 'B' to 'A'");
 
 	TEST_FOR_FAIL("unknown type for operation", "return -nullptr;", "ERROR: unary operation '-' is not supported on '__nullptr'");
 	TEST_FOR_FAIL("unknown type for operation", "return ~nullptr;", "ERROR: unary operation '~' is not supported on '__nullptr'");
