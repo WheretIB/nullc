@@ -2895,9 +2895,44 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	bool hasBuiltIn = false;
 
 	hasBuiltIn |= ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type);
-	hasBuiltIn |= lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
-	hasBuiltIn |= isType<TypeRef>(lhs->type) && lhs->type == rhs->type && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
 	hasBuiltIn |= isType<TypeEnum>(lhs->type) && lhs->type == rhs->type;
+
+	TypeBase *commonBaseClass = NULL;
+
+	if(op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL)
+	{
+		if(lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID)
+			hasBuiltIn = true;
+
+		if(isType<TypeRef>(lhs->type) && isType<TypeRef>(rhs->type))
+		{
+			TypeRef *lhsTypeRef = getType<TypeRef>(lhs->type);
+			TypeRef *rhsTypeRef = getType<TypeRef>(rhs->type);
+
+			if(lhs->type == rhs->type)
+			{
+				hasBuiltIn = true;
+			}
+			else if(isType<TypeClass>(lhsTypeRef->subType) && isType<TypeClass>(rhsTypeRef->subType))
+			{
+				TypeClass *lhsTypeClass = getType<TypeClass>(lhsTypeRef->subType);
+				TypeClass *rhsTypeClass = getType<TypeClass>(rhsTypeRef->subType);
+
+				while(lhsTypeClass->baseClass)
+					lhsTypeClass = lhsTypeClass->baseClass;
+
+				while(rhsTypeClass->baseClass)
+					rhsTypeClass = rhsTypeClass->baseClass;
+
+				if(lhsTypeClass == rhsTypeClass)
+				{
+					hasBuiltIn = true;
+
+					commonBaseClass = lhsTypeClass;
+				}
+			}
+		}
+	}
 
 	if(!skipOverload)
 	{
@@ -2931,6 +2966,13 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	{
 		// Numeric operations promote both operands to a common type
 		TypeBase *commonType = ctx.GetBinaryOpResultType(lhs->type, rhs->type);
+
+		lhs = CreateCast(ctx, source, lhs, commonType, false);
+		rhs = CreateCast(ctx, source, rhs, commonType, false);
+	}
+	else if(commonBaseClass)
+	{
+		TypeBase *commonType = ctx.GetReferenceType(commonBaseClass);
 
 		lhs = CreateCast(ctx, source, lhs, commonType, false);
 		rhs = CreateCast(ctx, source, rhs, commonType, false);

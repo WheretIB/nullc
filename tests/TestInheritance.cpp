@@ -619,3 +619,24 @@ auto ref x = a;\r\n\
 vec3 b = x;\r\n\
 return b.x;";
 TEST_RESULT("Inheritance test 49 - constructor availability", testInheritance49, "1");
+
+const char	*testInheritance50 =
+"class A extendable{}\r\n\
+class B: A{}\r\n\
+class C: B{}\r\n\
+\r\n\
+auto a = new A();\r\n\
+auto b = new B();\r\n\
+auto c = new C();\r\n\
+\r\n\
+bool t1 = a != b;\r\n\
+bool t2 = b != c;\r\n\
+\r\n\
+a = c;\r\n\
+b = c;\r\n\
+\r\n\
+bool t3 = a == b;\r\n\
+bool t4 = b == c;\r\n\
+\r\n\
+return t1 && t2 && t3 && t4;";
+TEST_RESULT("Inheritance test 50 - pointer comparison between classes in the same hierarchy", testInheritance50, "1");
