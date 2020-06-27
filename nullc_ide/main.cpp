@@ -1969,6 +1969,8 @@ void IdeRun(bool debug)
 
 	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_REG_VM);
 
+	nullcSetExecutorStackSize(8 * 1024 * 1024);
+
 	if(TabbedFiles::TabInfo *activeTab = IdePrepareActiveSourceForBuild())
 	{
 		mainCodeWnd = activeTab->window;
