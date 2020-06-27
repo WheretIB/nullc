@@ -6907,9 +6907,21 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 		}
 
-		assert(ctx.errorHandlerActive);
+		if(ctx.errorHandlerNested)
+		{
+			assert(ctx.errorHandlerActive);
 
-		longjmp(ctx.errorHandler, 1);
+			longjmp(ctx.errorHandler, 1);
+		}
+
+		ctx.errorCount++;
+
+		IntrusiveList<ExprBase> errorArguments;
+
+		for(unsigned i = 0; i < arguments.size(); i++)
+			errorArguments.push_back(new (ctx.get<ExprPassthrough>()) ExprPassthrough(arguments[i].value->source, arguments[i].value->type, arguments[i].value));
+
+		return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType()), errorArguments);
 	}
 
 	return NULL;
