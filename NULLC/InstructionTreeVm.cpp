@@ -5825,9 +5825,10 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 
 				phi->canBeRemoved = false;
 
-				for(unsigned userPos = 0; userPos < phi->users.size(); userPos++)
+				// Remove from all phi users (since this is an unused phi node, all remaining users are circular references from other phi nodes)
+				while(!phi->users.empty())
 				{
-					VmInstruction *user = getType<VmInstruction>(phi->users[userPos]);
+					VmInstruction *user = getType<VmInstruction>(phi->users.back());
 
 					assert(user->cmd == VM_INST_PHI);
 

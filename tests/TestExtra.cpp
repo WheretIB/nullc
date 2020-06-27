@@ -1302,3 +1302,51 @@ bool CheckConsume(){ return false; }\r\n\
 auto ParseType(){ return new SynNothing(CheckConsume() ? Previous() : Current()); }\r\n\
 return 1;";
 TEST_RESULT("Handle zero size structs in conditional expressions (do not merge result in a phi)", testZeroSizeConditional, "1");
+
+const char	*testUnusedPhiUserRemoval =
+"enum LexemeType{ lex_obracket, lex_ref }\r\n\
+class LexemeRef{ int x; }\r\n\
+class RefList<T>{ void push_back(T ref value){} }\r\n\
+class SynBase extendable{}\r\n\
+class SynNothing : SynBase{ void SynNothing(LexemeRef begin, LexemeRef end){} }\r\n\
+\r\n\
+class ParseContext\r\n\
+{\r\n\
+	LexemeRef previousLexeme;\r\n\
+	LexemeRef currentLexeme;\r\n\
+	bool At(LexemeType type){ return false; }\r\n\
+	bool Consume(LexemeType type){ return false; }\r\n\
+	LexemeRef Current(){ return currentLexeme; }\r\n\
+	LexemeRef Previous(){ return currentLexeme; }\r\n\
+}\r\n\
+\r\n\
+SynBase ref ParseTerminalType(){ return nullptr; }\r\n\
+SynBase ref ParseTernaryExpr(){ return nullptr; }\r\n\
+bool CheckConsume(){ return false; }\r\n\
+\r\n\
+SynBase ref ParseType(ParseContext ref ctx)\r\n\
+{\r\n\
+	LexemeRef start = ctx.currentLexeme;\r\n\
+	SynBase ref base = ParseTerminalType();\r\n\
+	while(ctx.At(LexemeType.lex_obracket))\r\n\
+	{\r\n\
+		if(ctx.At(LexemeType.lex_obracket))\r\n\
+		{\r\n\
+			RefList<SynBase> sizes;\r\n\
+			while(ctx.Consume(LexemeType.lex_obracket))\r\n\
+			{\r\n\
+				SynBase ref size = ParseTernaryExpr();\r\n\
+				bool hasClose = CheckConsume();\r\n\
+				if(size)\r\n\
+					sizes.push_back(size);\r\n\
+				else\r\n\
+					sizes.push_back(new SynNothing(start, hasClose ? ctx.Previous() : ctx.Current()));\r\n\
+			}\r\n\
+			base = new SynNothing(start, ctx.Previous());\r\n\
+		}\r\n\
+		else if(ctx.Consume(LexemeType.lex_ref)){}\r\n\
+	}\r\n\
+	return base; \r\n\
+}\r\n\
+return 1;";
+TEST_RESULT("Unused phi instruction removal must visit all users", testUnusedPhiUserRemoval, "1");
