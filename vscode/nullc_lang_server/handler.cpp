@@ -2741,17 +2741,27 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 			{
 				Diagnostic diagnostic;
 
-				diagnostic.range = Range(Position(el->begin->line, el->begin->column), Position(el->end->line, el->end->column + el->end->length));
+				ErrorInfo *mainError = el;
+
+				// Change order of error reports if the error source is in a diffrent module and last related error is in the current module
+				if(mainError->parentModule != nullptr && !el->related.empty() && el->related.back()->parentModule == nullptr)
+					mainError = el->related.back();
+
+				diagnostic.range = Range(Position(mainError->begin->line, mainError->begin->column), Position(mainError->end->line, mainError->end->column + mainError->end->length));
 
 				diagnostic.severity = DiagnosticSeverity::Error;
 				diagnostic.code = "analysis";
 				diagnostic.source = "nullc";
 
-				diagnostic.message = std::string(el->messageStart, el->messageEnd);
+				diagnostic.message = std::string(mainError->messageStart, mainError->messageEnd);
 
 				for(auto &&extra : el->related)
 				{
 					DiagnosticRelatedInformation info;
+
+					// If order was changed, place original error here
+					if(extra == mainError)
+						extra = el;
 
 					info.location = Location(document.uri, Range(Position(extra->begin->line, extra->begin->column), Position(extra->end->line, extra->end->column + extra->end->length)));
 
