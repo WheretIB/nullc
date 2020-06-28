@@ -857,6 +857,14 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 {
 	unsigned line = 0, lastLine = ~0u;
 
+	unsigned long long total = 0;
+
+	if(withProfileInfo)
+	{
+		for(unsigned i = 0; i < 256; i++)
+			total += exRegVmInstructionExecCount[i];
+	}
+
 	ExternSourceInfo *info = (ExternSourceInfo*)exRegVmSourceInfo.data;
 	unsigned infoSize = exRegVmSourceInfo.size();
 
@@ -918,11 +926,22 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 			if(found)
 			{
 				output.Printf("//            %4d:\n", i);
-				output.Printf("// (%8d)      ", exRegVmExecCount[i]);
+
+				double percent = double(exRegVmExecCount[i]) / total * 100.0;
+
+				if (percent > 0.1)
+					output.Printf("// (%8d %4.1f)      ", exRegVmExecCount[i], percent);
+				else
+					output.Printf("// (%8d     )      ", exRegVmExecCount[i]);
 			}
 			else
 			{
-				output.Printf("// (%8d) %4d ", exRegVmExecCount[i], i);
+				double percent = double(exRegVmExecCount[i]) / total * 100.0;
+
+				if(percent > 0.1)
+					output.Printf("// (%8d %4.1f) %4d ", exRegVmExecCount[i], percent, i);
+				else
+					output.Printf("// (%8d     ) %4d ", exRegVmExecCount[i], i);
 			}
 		}
 		else
@@ -951,11 +970,6 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 	if(withProfileInfo)
 	{
 		output.Printf("\n");
-
-		unsigned long long total = 0;
-
-		for(unsigned i = 0; i < 256; i++)
-			total += exRegVmInstructionExecCount[i];
 
 		for(unsigned i = 0; i < 256; i++)
 		{
