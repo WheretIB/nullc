@@ -2864,13 +2864,6 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 	if(!skipOverload)
 	{
-		// For && and || try to find a function that accepts a wrapped right-hand-side evaluation
-		if((op == SYN_BINARY_OP_LOGICAL_AND || op == SYN_BINARY_OP_LOGICAL_OR) && isType<TypeClass>(lhs->type))
-		{
-			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, NULL, rhs, GetTemporaryFunctionName(ctx)), true, false, true))
-				return result;
-		}
-
 		// For ^^ try to find a function before generic condition casts to bool
 		if(op == SYN_BINARY_OP_LOGICAL_XOR && isType<TypeClass>(lhs->type))
 		{
