@@ -2720,6 +2720,15 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 					DiagnosticRelatedInformation info;
 
 					info.location = Location(document.uri, Range(Position(extra->begin->line, extra->begin->column), Position(extra->end->line, extra->end->column + extra->end->length)));
+
+					if(extra->parentModule)
+					{
+						auto path = GetModuleFileName(ctx, extra->parentModule);
+
+						if(!path.empty())
+							info.location.uri = std::string("file:///") + UrlEncode(path);
+					}
+
 					info.message = std::string(extra->messageStart, extra->messageEnd);
 
 					diagnostic.relatedInformation.push_back(info);
@@ -2745,6 +2754,15 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 					DiagnosticRelatedInformation info;
 
 					info.location = Location(document.uri, Range(Position(extra->begin->line, extra->begin->column), Position(extra->end->line, extra->end->column + extra->end->length)));
+
+					if(extra->parentModule)
+					{
+						auto path = GetModuleFileName(ctx, extra->parentModule);
+
+						if(!path.empty())
+							info.location.uri = std::string("file:///") + UrlEncode(path);
+					}
+
 					info.message = std::string(extra->messageStart, extra->messageEnd);
 
 					diagnostic.relatedInformation.push_back(info);
