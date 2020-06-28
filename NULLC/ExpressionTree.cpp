@@ -11,11 +11,38 @@
 #endif
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize);
+ModuleData* FindModuleWithSourceLocation(ExpressionContext &ctx, const char *position);
 InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position);
 const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char *position);
 
 namespace
 {
+	void AddRelatedErrorInfoWithLocation(ExpressionContext &ctx, SynBase *source, const char *messageStart, const char *messageEnd)
+	{
+		ctx.errorInfo.back()->related.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->pos.begin));
+
+		if(const char *code = FindModuleCodeWithSourceLocation(ctx, source->pos.begin))
+		{
+			AddErrorLocationInfo(code, source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			if(code != ctx.code)
+			{
+				ModuleData *parentModule = FindModuleWithSourceLocation(ctx, source->pos.begin);
+
+				if(parentModule)
+				{
+					NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), " [in module '%.*s']\n", FMT_ISTR(parentModule->name));
+
+					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+					ctx.errorInfo.back()->related.back()->parentModule = parentModule;
+				}
+			}
+		}
+	}
+
 	void ReportAt(ExpressionContext &ctx, SynBase *source, const char *pos, const char *msg, va_list args)
 	{
 		if(ctx.errorBuf && ctx.errorBufSize)
@@ -3111,11 +3138,7 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 
 			const char *messageEnd = errorCurr;
 
-			ctx.errorInfo.back()->related.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->pos.begin));
-
-			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
-
-			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+			AddRelatedErrorInfoWithLocation(ctx, source, messageStart, messageEnd);
 		}
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
@@ -6718,11 +6741,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 			const char *messageEnd = errorCurr;
 
-			ctx.errorInfo.back()->related.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->pos.begin));
-
-			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
-
-			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+			AddRelatedErrorInfoWithLocation(ctx, source, messageStart, messageEnd);
 		}
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));

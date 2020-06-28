@@ -394,13 +394,21 @@ bool HasSourceCode(ByteCode *bytecode, const char *position)
 	return false;
 }
 
-InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position)
+ModuleData* FindModuleWithSourceLocation(ExpressionContext &ctx, const char *position)
 {
 	for(unsigned i = 0; i < ctx.imports.size(); i++)
 	{
 		if(HasSourceCode(ctx.imports[i]->bytecode, position))
-			return ctx.imports[i]->name;
+			return ctx.imports[i];
 	}
+
+	return NULL;
+}
+
+InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position)
+{
+	if(ModuleData *moduleData = FindModuleWithSourceLocation(ctx, position))
+		return moduleData->name;
 
 	return InplaceStr();
 }

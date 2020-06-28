@@ -10,6 +10,8 @@ struct CompilerContext;
 
 struct ByteCode;
 
+struct ModuleData;
+
 struct SynBase;
 struct SynIdentifier;
 
@@ -89,6 +91,7 @@ struct ErrorInfo
 {
 	ErrorInfo(Allocator *allocator, const char* messageStart, const char* messageEnd, Lexeme* begin, Lexeme* end, const char* pos): messageStart(messageStart), messageEnd(messageEnd), begin(begin), end(end), pos(pos), related(allocator)
 	{
+		parentModule = NULL;
 	}
 
 	const char* messageStart;
@@ -98,6 +101,8 @@ struct ErrorInfo
 	Lexeme* end;
 
 	const char* pos;
+
+	ModuleData* parentModule;
 
 	SmallArray<ErrorInfo*, 4> related;
 };
