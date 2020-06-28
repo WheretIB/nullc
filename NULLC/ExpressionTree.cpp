@@ -17,9 +17,9 @@ const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char 
 
 namespace
 {
-	void AddRelatedErrorInfoWithLocation(ExpressionContext &ctx, SynBase *source, const char *messageStart, const char *messageEnd)
+	void AddErrorInfoWithLocation(ExpressionContext &ctx, SmallArray<ErrorInfo*, 4> &errorList, SynBase *source, const char *messageStart, const char *messageEnd)
 	{
-		ctx.errorInfo.back()->related.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->pos.begin));
+		errorList.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->pos.begin));
 
 		if(const char *code = FindModuleCodeWithSourceLocation(ctx, source->pos.begin))
 		{
@@ -37,10 +37,20 @@ namespace
 
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-					ctx.errorInfo.back()->related.back()->parentModule = parentModule;
+					errorList.back()->parentModule = parentModule;
 				}
 			}
 		}
+	}
+
+	void AddErrorInfoWithLocation(ExpressionContext &ctx, SynBase *source, const char *messageStart, const char *messageEnd)
+	{
+		AddErrorInfoWithLocation(ctx, ctx.errorInfo, source, messageStart, messageEnd);
+	}
+
+	void AddRelatedErrorInfoWithLocation(ExpressionContext &ctx, SynBase *source, const char *messageStart, const char *messageEnd)
+	{
+		AddErrorInfoWithLocation(ctx, ctx.errorInfo.back()->related, source, messageStart, messageEnd);
 	}
 
 	void ReportAt(ExpressionContext &ctx, SynBase *source, const char *pos, const char *msg, va_list args)
@@ -6334,9 +6344,7 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 
 	const char *messageEnd = ctx.errorBufLocation;
 
-	ctx.errorInfo.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->begin->pos));
-
-	AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
+	AddErrorInfoWithLocation(ctx, source, messageStart, messageEnd);
 }
 
 bool IsVirtualFunctionCall(ExpressionContext &ctx, FunctionData *function, TypeBase *type)
@@ -7499,11 +7507,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 				const char *messageEnd = ctx.errorBufLocation;
 
-				ctx.errorInfo.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->pos.begin));
-
-				AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
-
-				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+				AddErrorInfoWithLocation(ctx, source, messageStart, messageEnd);
 			}
 
 			if(ctx.errorHandlerNested)
