@@ -1350,3 +1350,37 @@ SynBase ref ParseType(ParseContext ref ctx)\r\n\
 }\r\n\
 return 1;";
 TEST_RESULT("Unused phi instruction removal must visit all users", testUnusedPhiUserRemoval, "1");
+
+const char	*testPhiWebColorToRegisterMapping =
+"class SynIdentifier{ char[] name; }\r\n\
+class TypeBase{ bool isGeneric; }\r\n\
+class TypeGenericAlias{ SynIdentifier baseName; }\r\n\
+class RefList<T>{ T ref head; T ref tail; }\r\n\
+class ExpressionContext{ TypeBase ref GetUnsizedArrayType(TypeBase ref type){ return new TypeBase(); } }\r\n\
+class MatchData{ MatchData ref next; SynIdentifier name; TypeBase ref type; }\r\n\
+TypeBase ref MatchGenericType(ExpressionContext ref ctx, TypeBase ref matchType, TypeBase ref argType, RefList<MatchData> aliases, bool strict)\r\n\
+{\r\n\
+	if(!matchType.isGeneric)\r\n\
+	{\r\n\
+		if(argType.isGeneric)\r\n\
+		{\r\n\
+			if(TypeBase ref improved = MatchGenericType(ctx, argType, matchType, aliases, true))\r\n\
+				argType = improved;\r\n\
+		}\r\n\
+		return argType; \r\n\
+	}\r\n\
+	if(TypeGenericAlias ref lhs = new TypeGenericAlias())\r\n\
+	{\r\n\
+		if(!strict)\r\n\
+			argType = ctx.GetUnsizedArrayType(matchType);\r\n\
+		for(MatchData ref curr = aliases.head; curr; curr = curr.next)\r\n\
+		{\r\n\
+			if(curr.name.name == lhs.baseName.name)\r\n\
+				return curr.type;\r\n\
+		}\r\n\
+		return argType; \r\n\
+	}\r\n\
+	return nullptr; \r\n\
+}\r\n\
+return 1;";
+TEST_RESULT("Dominator tree sub-trees might have separate phi webs with the same color and diffrent registers", testPhiWebColorToRegisterMapping, "1");

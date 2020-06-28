@@ -3338,6 +3338,25 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 
 		assert(lowFunction->registerUsers[reg]);
 		lowFunction->registerUsers[reg]--;
+
+		// When last register use of a colored virtual register expires (stepping out of the block where it lives), reset mapping between color and physical register since a different assignment is possible
+		if(lowFunction->registerUsers[reg] == 0)
+		{
+			for(unsigned colorPos = 0; colorPos < lowFunction->colorRegisters.size(); colorPos++)
+			{
+				if(VmInstruction *inst = lowFunction->colorRegisters[colorPos])
+				{
+					for(unsigned regPos = 0; regPos < inst->regVmRegisters.size(); regPos++)
+					{
+						if(inst->regVmRegisters[regPos] == reg)
+						{
+							lowFunction->colorRegisters[colorPos] = NULL;
+							break;
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -3472,6 +3491,9 @@ RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, RegVmLoweredMod
 	memset(lowFunction->colorRegisters.data, 0, lowFunction->colorRegisters.size() * sizeof(lowFunction->colorRegisters[0]));
 
 	AllocateLiveInOutRegisters(ctx, lowFunction, vmFunction->firstBlock);
+
+	for(unsigned i = 0; i < lowFunction->colorRegisters.size(); i++)
+		assert(lowFunction->colorRegisters[i] == NULL);
 
 	for(unsigned i = 0; i < 256; i++)
 		assert(lowFunction->registerUsers[i] == 0);
