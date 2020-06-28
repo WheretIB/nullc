@@ -485,6 +485,11 @@ public:
 			}
 		}
 
+		// Restore original selected line
+		data->currLine = data->firstLine;
+		for(unsigned int i = 0; i < data->cursorCharY; i++)
+			data->currLine = data->currLine->next;
+
 		// Remove snapshot
 		if(lastShot->prevShot)
 		{
