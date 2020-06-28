@@ -9716,9 +9716,11 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 {
 	for(MemberHandle *el = classType->members.head; el; el = el->next)
 	{
+		SynBase *memberSource = el->source ? el->source : source;
+
 		VariableData *variable = el->variable;
 
-		ExprBase *access = CreateVariableAccess(ctx, source, variable, true);
+		ExprBase *access = CreateVariableAccess(ctx, memberSource, variable, true);
 
 		ExprBase *member = CreateGetAddress(ctx, source, access);
 
@@ -9726,20 +9728,20 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 		{
 			if(classType->baseClass)
 			{
-				assert(HasDefaultConstructor(ctx, source, classType->baseClass));
+				assert(HasDefaultConstructor(ctx, memberSource, classType->baseClass));
 
-				ExprBase *thisAccess = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"), false);
+				ExprBase *thisAccess = CreateVariableAccess(ctx, memberSource, IntrusiveList<SynIdentifier>(), InplaceStr("this"), false);
 
 				if(!thisAccess)
-					Stop(ctx, source, "ERROR: 'this' variable is not available");
+					Stop(ctx, memberSource, "ERROR: 'this' variable is not available");
 
-				ExprBase *cast = CreateCast(ctx, source, thisAccess, ctx.GetReferenceType(classType->baseClass), true);
+				ExprBase *cast = CreateCast(ctx, memberSource, thisAccess, ctx.GetReferenceType(classType->baseClass), true);
 
-				if(ExprBase *call = CreateDefaultConstructorCall(ctx, source, classType->baseClass, cast))
+				if(ExprBase *call = CreateDefaultConstructorCall(ctx, memberSource, classType->baseClass, cast))
 					expressions.push_back(call);
 			}
 
-			expressions.push_back(CreateAssignment(ctx, source, member, new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, classType)));
+			expressions.push_back(CreateAssignment(ctx, memberSource, member, new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(memberSource, ctx.typeTypeID, classType)));
 			continue;
 		}
 
@@ -9766,9 +9768,9 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 				expressions.push_back(CreateAssignment(ctx, initializer->source, access, initializer));
 			}
 		}
-		else if(HasDefaultConstructor(ctx, source, variable->type))
+		else if(HasDefaultConstructor(ctx, memberSource, variable->type))
 		{
-			if(ExprBase *call = CreateDefaultConstructorCall(ctx, source, variable->type, member))
+			if(ExprBase *call = CreateDefaultConstructorCall(ctx, memberSource, variable->type, member))
 				expressions.push_back(call);
 		}
 	}
