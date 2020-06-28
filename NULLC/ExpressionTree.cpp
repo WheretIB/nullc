@@ -9027,7 +9027,19 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
 	if(conflict)
+	{
 		Report(ctx, errorLocation, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
+
+		char *errorCurr = ctx.errorBuf + strlen(ctx.errorBuf);
+
+		const char *messageStart = errorCurr;
+
+		errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "previous definition here");
+
+		const char *messageEnd = errorCurr;
+
+		AddRelatedErrorInfoWithLocation(ctx, conflict->source, messageStart, messageEnd);
+	}
 
 	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition, contextVariable);
 
