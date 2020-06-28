@@ -356,7 +356,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				lastTypeInfo.constantOffset = exTypeConstants.size();
 				exTypeConstants.push_back(constantList + tInfo->constantOffset, tInfo->constantCount);
 			}
-			else if(lastTypeInfo.size != tInfo->size)
+			else if(lastTypeInfo.size != tInfo->size && (tInfo->typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
 			{
 				debugOutputIndent--;
 
