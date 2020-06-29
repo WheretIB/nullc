@@ -2666,7 +2666,7 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	PrintIndentedLine(ctx, "return 0;");
 	ctx.depth--;
 
-	PrintIndentedLine(ctx, "static int pointerSizeTest[sizeof(void*) == %d ? 1 : -1];", sizeof(void*));
+	PrintIndentedLine(ctx, "static int pointerSizeTest[sizeof(void*) == %d ? 1 : -1];", int(sizeof(void*)));
 
 	PrintIndentedLine(ctx, "__nullcFM = __nullcGetFunctionTable();");
 	PrintIndentedLine(ctx, "int __local = 0;");
