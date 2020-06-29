@@ -1467,7 +1467,26 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 		auto &type = types[reference.type];
 
-		if(type.subCat == ExternTypeInfo::CAT_CLASS)
+		if(reference.type == NULLC_TYPE_AUTO_REF)
+		{
+			if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+			{
+				data.variables.push_back(GetVariableInfo(ctx, NULLC_TYPE_TYPEID, "[type]", reference.ptr, showHex));
+
+				unsigned targetType = *(unsigned*)(reference.ptr);
+
+				// Search for reference type
+				for(unsigned i = 0; i < typeCount; i++)
+				{
+					if(types[i].subCat == ExternTypeInfo::CAT_POINTER && types[i].subType == targetType)
+					{
+						data.variables.push_back(GetVariableInfo(ctx, i, "[ptr]", reference.ptr + 4, showHex));
+						break;
+					}
+				}
+			}
+		}
+		else if(type.subCat == ExternTypeInfo::CAT_CLASS)
 		{
 			bool isExtendable = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0;
 
