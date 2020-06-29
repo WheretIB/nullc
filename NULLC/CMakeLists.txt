@@ -65,6 +65,7 @@ add_library (NULLC
 "includes/typeinfo.cpp" "includes/typeinfo.h"
 "includes/vector.cpp" "includes/vector.h"
 "includes/window.cpp" "includes/window.h"
+"includes/memory.cpp" "includes/memory.h"
 
 "../external/pugixml/pugixml.cpp"
 )

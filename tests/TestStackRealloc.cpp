@@ -11,6 +11,7 @@
 #include "../NULLC/includes/dynamic.h"
 #include "../NULLC/includes/gc.h"
 #include "../NULLC/includes/time.h"
+#include "../NULLC/includes/memory.h"
 
 #include "../NULLC/includes/canvas.h"
 #include "../NULLC/includes/window.h"
@@ -170,6 +171,7 @@ struct TestRestore : TestQueue
 		nullcInitRandomModule();
 		nullcInitDynamicModule();
 		nullcInitGCModule();
+		nullcInitMemoryModule();
 		nullcInitIOModule();
 		nullcInitCanvasModule();
 #if defined(_MSC_VER)

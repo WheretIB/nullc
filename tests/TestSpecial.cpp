@@ -1077,3 +1077,153 @@ BigInt e = b / a / a / a / a;\r\n\
 \r\n\
 return (a == BigInt(3108372260l)) + (long(a) == 3108372260l) + (b - a > a) + (long(c) == 310837226l) + (long(e) == 41 * 41);";
 TEST_RESULT("Big integer value passing", testBigIntValues, "5");
+
+const char	*testMemoryLib =
+"import std.memory;\r\n\
+\r\n\
+char[256] buffer;\r\n\
+int offset = 0;\r\n\
+\r\n\
+bool sb = true;\r\n\
+char sc = 'v';\r\n\
+short ss = 0x1234;\r\n\
+int si = 0x12345678;\r\n\
+long sl = 0x1234567898765432l;\r\n\
+float sf = 2.5f;\r\n\
+double sd = 1.13;\r\n\
+\r\n\
+bool[2] sab = true;\r\n\
+char[2] sac = 'v';\r\n\
+short[2] sas = 0x1234;\r\n\
+int[2] sai = 0x12345678;\r\n\
+long[2] sal = 0x1234567898765432l;\r\n\
+float[2] saf = 2.5f;\r\n\
+double[2] sad = 1.13;\r\n\
+\r\n\
+void write(@T ref value){ memory.write(buffer, offset, *value); offset += sizeof(T); }\r\n\
+void write(@T[] value){ memory.write(buffer, offset, value); offset += sizeof(T) * value.size; }\r\n\
+void read(@T ref value){ memory.read(buffer, offset, value); offset += sizeof(T); }\r\n\
+void read(@T[] value){ memory.read(buffer, offset, value); offset += sizeof(T) * value.size; }\r\n\
+bool compare(@T[] a, @T[] b){ if(a.size != b.size) return false; for(i in a, j in b) if(i != j) return false; return true; }\r\n\
+\r\n\
+write(sb);\r\n\
+write(sc);\r\n\
+write(ss);\r\n\
+write(si);\r\n\
+write(sl);\r\n\
+write(sf);\r\n\
+write(sd);\r\n\
+write(sab);\r\n\
+write(sac);\r\n\
+write(sas);\r\n\
+write(sai);\r\n\
+write(sal);\r\n\
+write(saf);\r\n\
+write(sad);\r\n\
+\r\n\
+double dd;\r\n\
+float df;\r\n\
+long dl;\r\n\
+int di;\r\n\
+short ds;\r\n\
+char dc;\r\n\
+bool db;\r\n\
+\r\n\
+double[2] dad;\r\n\
+float[2] daf;\r\n\
+long[2] dal;\r\n\
+int[2] dai;\r\n\
+short[2] das;\r\n\
+char[2] dac;\r\n\
+bool[2] dab;\r\n\
+\r\n\
+offset = 0;\r\n\
+\r\n\
+read(db);\r\n\
+read(dc);\r\n\
+read(ds);\r\n\
+read(di);\r\n\
+read(dl);\r\n\
+read(df);\r\n\
+read(dd);\r\n\
+read(dab);\r\n\
+read(dac);\r\n\
+read(das);\r\n\
+read(dai);\r\n\
+read(dal);\r\n\
+read(daf);\r\n\
+read(dad);\r\n\
+\r\n\
+assert(sb == db);\r\n\
+assert(sc == dc);\r\n\
+assert(ss == ds);\r\n\
+assert(si == di);\r\n\
+assert(sl == dl);\r\n\
+assert(sf == df);\r\n\
+assert(sd == dd);\r\n\
+\r\n\
+assert(compare(sab, dab));\r\n\
+assert(compare(sac, dac));\r\n\
+assert(compare(sas, das));\r\n\
+assert(compare(sai, dai));\r\n\
+assert(compare(sal, dal));\r\n\
+assert(compare(saf, daf));\r\n\
+assert(compare(sad, dad));\r\n\
+\r\n\
+double dd2;\r\n\
+float df2;\r\n\
+long dl2;\r\n\
+int di2;\r\n\
+short ds2;\r\n\
+char dc2;\r\n\
+bool db2;\r\n\
+\r\n\
+double[] dad2;\r\n\
+float[] daf2;\r\n\
+long[] dal2;\r\n\
+int[] dai2;\r\n\
+short[] das2;\r\n\
+char[] dac2;\r\n\
+bool[] dab2;\r\n\
+\r\n\
+offset = 0;\r\n\
+\r\n\
+db2 = memory.read_bool(buffer, offset); offset += sizeof(db2);\r\n\
+dc2 = memory.read_char(buffer, offset); offset += sizeof(dc2);\r\n\
+ds2 = memory.read_short(buffer, offset); offset += sizeof(ds2);\r\n\
+di2 = memory.read_int(buffer, offset); offset += sizeof(di2);\r\n\
+dl2 = memory.read_long(buffer, offset); offset += sizeof(dl2);\r\n\
+df2 = memory.read_float(buffer, offset); offset += sizeof(df2);\r\n\
+dd2 = memory.read_double(buffer, offset); offset += sizeof(dd2);\r\n\
+dab2 = memory.read_bool_array(buffer, offset, 2); offset += sizeof(db2) * 2;\r\n\
+dac2 = memory.read_char_array(buffer, offset, 2); offset += sizeof(dc2) * 2;\r\n\
+das2 = memory.read_short_array(buffer, offset, 2); offset += sizeof(ds2) * 2;\r\n\
+dai2 = memory.read_int_array(buffer, offset, 2); offset += sizeof(di2) * 2;\r\n\
+dal2 = memory.read_long_array(buffer, offset, 2); offset += sizeof(dl2) * 2;\r\n\
+daf2 = memory.read_float_array(buffer, offset, 2); offset += sizeof(df2) * 2;\r\n\
+dad2 = memory.read_double_array(buffer, offset, 2); offset += sizeof(dd2) * 2;\r\n\
+\r\n\
+assert(sb == db2);\r\n\
+assert(sc == dc2);\r\n\
+assert(ss == ds2);\r\n\
+assert(si == di2);\r\n\
+assert(sl == dl2);\r\n\
+assert(sf == df2);\r\n\
+assert(sd == dd2);\r\n\
+\r\n\
+assert(compare(sab, dab2));\r\n\
+assert(compare(sac, dac2));\r\n\
+assert(compare(sas, das2));\r\n\
+assert(compare(sai, dai2));\r\n\
+assert(compare(sal, dal2));\r\n\
+assert(compare(saf, daf2));\r\n\
+assert(compare(sad, dad2));\r\n\
+\r\n\
+assert(memory.as_float(memory.as_int(34.7f)) == 34.7f);\r\n\
+assert(memory.as_double(memory.as_long(34.7)) == 34.7);\r\n\
+\r\n\
+char[256] buffer2;\r\n\
+memory.copy(buffer2, 128, buffer, 0, 128);\r\n\
+\r\n\
+return memory.compare(buffer2, 128, buffer, 0, 128) == 0;";
+TEST_RESULT("std.memory test", testMemoryLib, "1");

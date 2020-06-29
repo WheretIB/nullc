@@ -47,6 +47,7 @@
 #include "../NULLC/includes/random.h"
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/gc.h"
+#include "../NULLC/includes/memory.h"
 
 #include "../NULLC/includes/window.h"
 
@@ -559,6 +560,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init std.time module\r\n");
 	if(!nullcInitGCModule())
 		strcat(initError, "ERROR: Failed to init std.gc module\r\n");
+	if(!nullcInitMemoryModule())
+		strcat(initError, "ERROR: Failed to init std.memory module\r\n");
 
 	if(!nullcInitPugiXMLModule())
 		strcat(initError, "ERROR: Failed to init ext.pugixml module\r\n");

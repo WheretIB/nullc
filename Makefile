@@ -131,7 +131,8 @@ STDLIB_TARGETS = \
   temp/lib/string.o \
   temp/lib/time.o \
   temp/lib/typeinfo.o \
-  temp/lib/vector.o
+  temp/lib/vector.o \
+  temp/lib/memory.o
 
 PUGIXML_TARGETS = \
   temp/pugixml.o

@@ -12,6 +12,7 @@
 #include "../NULLC/includes/dynamic.h"
 #include "../NULLC/includes/gc.h"
 #include "../NULLC/includes/time.h"
+#include "../NULLC/includes/memory.h"
 
 #include "../NULLC/includes/canvas.h"
 #include "../NULLC/includes/window.h"
@@ -43,6 +44,7 @@ void	SpeedTestText(const char* name, const char* text)
 	nullcInitRandomModule();
 	nullcInitDynamicModule();
 	nullcInitGCModule();
+	nullcInitMemoryModule();
 	nullcInitIOModule();
 	nullcInitCanvasModule();
 	nullcInitTimeModule();

@@ -206,6 +206,9 @@
     <ClCompile Include="Instruction_X86.cpp">
       <Filter>Executor_X86</Filter>
     </ClCompile>
+    <ClCompile Include="includes\memory.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -403,6 +406,9 @@
     <ClInclude Include="CodeGenRegVm_X86.h">
       <Filter>Executor_X86</Filter>
     </ClInclude>
+    <ClInclude Include="includes\memory.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Modules\std\algorithm.nc">
@@ -475,6 +481,9 @@
       <Filter>Modules\std</Filter>
     </None>
     <None Include="..\nullc.natvis" />
+    <None Include="..\Modules\std\memory.nc">
+      <Filter>Modules\std</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="..\external\dyncall\dyncall_call_x64_generic_masm.asm">
