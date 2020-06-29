@@ -33,6 +33,10 @@
 #include "debug.h"
 #include "schema.h"
 
+#if defined(_WIN32)
+#include <Windows.h>
+#endif
+
 NULLC_PRINT_FORMAT_CHECK(1, 2) std::string ToString(const char *format, ...)
 {
 	va_list args;
@@ -486,6 +490,11 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		auto pos = ctx.launchArgs.program->find_last_of('/') != std::string::npos ? ctx.launchArgs.program->find_last_of('/') : ctx.launchArgs.program->find_last_of('\\');
 
 		ctx.rootPath = ctx.launchArgs.program->substr(0, pos + 1);
+
+#if defined(_WIN32)
+		if (!ctx.rootPath.empty())
+			SetCurrentDirectoryA(ctx.rootPath.c_str());
+#endif
 	}
 
 	// Initialize nullc with target module path
