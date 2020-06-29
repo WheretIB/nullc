@@ -79,13 +79,13 @@ void SendResponse(Context& ctx, rapidjson::Document &doc)
 	fflush(stdout);
 }
 
-bool RespondWithError(Context& ctx, rapidjson::Document &doc, const char *message)
+bool RespondWithError(Context& ctx, rapidjson::Document &doc, const std::string& message)
 {
 	if(ctx.infoMode)
-		fprintf(stderr, "INFO: RespondWithError('%s')\r\n", message);
+		fprintf(stderr, "INFO: RespondWithError('%s')\r\n", message.c_str());
 
 	doc.AddMember("success", false, doc.GetAllocator());
-	doc.AddMember("message", std::string(message), doc.GetAllocator());
+	doc.AddMember("message", message, doc.GetAllocator());
 
 	SendResponse(ctx, doc);
 
@@ -631,9 +631,13 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 	// Compile nullc program
 	if(!nullcBuild(source))
 	{
+		std::string error = "failed to compile source file:\n";
+
+		error += nullcGetLastError();
+
 		nullcTerminate();
 
-		return RespondWithError(ctx, response, "failed to compile source file");
+		return RespondWithError(ctx, response, error);
 	}
 
 	response.AddMember("success", true, response.GetAllocator());
