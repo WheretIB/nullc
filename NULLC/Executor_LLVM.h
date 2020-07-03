@@ -34,6 +34,11 @@ public:
 	void*		GetStackStart();
 	void*		GetStackEnd();
 
+public:
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+	DCCallVM		*dcCallVM;
+#endif
+
 private:
 	bool	codeRunning;
 
@@ -44,8 +49,6 @@ private:
 	Linker		*exLinker;
 
 	LlvmExecutionContext *ctx;
-
-	DCCallVM	*dcCallVM;
 
 	void operator=(ExecutorLLVM& r);
 };

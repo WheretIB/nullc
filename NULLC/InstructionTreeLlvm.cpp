@@ -2266,6 +2266,146 @@ LLVMValueRef CompileLlvm(LlvmCompilationContext &ctx, ExprBase *expression)
 	return NULL;
 }
 
+LLVMValueRef CompileLlvmExternalFunctionWrapper(LlvmCompilationContext &ctx, FunctionData *functionData)
+{
+	LLVMValueRef function = ctx.functions[functionData->functionIndex];
+
+	// Store state
+	LLVMValueRef currentFunction = ctx.currentFunction;
+	FunctionData *currentFunctionSource = ctx.currentFunctionSource;
+
+	// Switch to new function
+	ctx.currentFunction = function;
+	ctx.currentFunctionSource = functionData;
+
+	LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "start");
+
+	LLVMPositionBuilderAtEnd(ctx.builder, block);
+
+	// Create argument buffer
+	LLVMValueRef argBuffer = LLVMBuildAlloca(ctx.builder, LLVMArrayType(LLVMInt8TypeInContext(ctx.context), unsigned(functionData->argumentsSize)), "arg_buffer");
+
+	// Return small numeric types as 'int'
+	TypeBase *returnType = functionData->type->returnType;
+
+	if(isType<TypeBool>(returnType) || isType<TypeChar>(returnType) || isType<TypeShort>(returnType))
+		returnType = ctx.ctx.typeInt;
+
+	// Create return buffer
+	LLVMValueRef retBuffer = returnType == ctx.ctx.typeVoid ? NULL : LLVMBuildAlloca(ctx.builder, LLVMArrayType(LLVMInt8TypeInContext(ctx.context), unsigned(returnType->size)), "ret_buffer");
+
+	// Copy all arguments into argument buffer
+	unsigned argIndex = 0;
+	unsigned argBufferPos = 0;
+
+	if(IsStructReturnType(functionData->type->returnType))
+		argIndex++;
+
+	for(VariableHandle *curr = functionData->argumentVariables.head; curr; curr = curr->next)
+	{
+		VariableData *variable = curr->variable;
+
+		LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), LLVMConstInt(LLVMInt32TypeInContext(ctx.context), argBufferPos, true) };
+
+		LLVMValueRef address = LLVMBuildGEP(ctx.builder, argBuffer, indices, 2, "");
+
+		TypeBase *argumentType = variable->type;
+
+		// Pass small numeric types as 'int'
+		if(isType<TypeBool>(argumentType) || isType<TypeChar>(argumentType) || isType<TypeShort>(argumentType))
+			argumentType = ctx.ctx.typeInt;
+
+		LLVMValueRef target = LLVMBuildPointerCast(ctx.builder, address, LLVMPointerType(CompileLlvmType(ctx, argumentType), 0), "arg_buffer_pos");
+
+		if(IsStructArgumentType(argumentType))
+		{
+			LLVMValueRef argument = LLVMGetParam(function, argIndex++);
+
+			LLVMBuildStore(ctx.builder, LLVMBuildLoad(ctx.builder, argument, ""), target);
+		}
+		else
+		{
+			LLVMValueRef argument = LLVMGetParam(function, argIndex++);
+
+			if(argumentType != variable->type)
+				argument = LLVMBuildSExt(ctx.builder, argument, CompileLlvmType(ctx, argumentType), "");
+
+			LLVMBuildStore(ctx.builder, argument, target);
+		}
+
+		argBufferPos += unsigned(argumentType->size);
+	}
+
+	if(VariableData *variable = functionData->contextArgument)
+	{
+		LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), LLVMConstInt(LLVMInt32TypeInContext(ctx.context), argBufferPos, true) };
+
+		LLVMValueRef address = LLVMBuildGEP(ctx.builder, argBuffer, indices, 2, "");
+
+		LLVMValueRef argument = LLVMGetParam(function, argIndex++);
+
+		argument = LLVMBuildPointerCast(ctx.builder, argument, CompileLlvmType(ctx, functionData->contextType), "context_reinterpret");
+
+		LLVMBuildStore(ctx.builder, argument, LLVMBuildPointerCast(ctx.builder, address, LLVMPointerType(CompileLlvmType(ctx, variable->type), 0), "arg_buffer_pos"));
+
+		argBufferPos += unsigned(variable->type->size);
+	}
+
+	assert(argBufferPos == unsigned(functionData->argumentsSize));
+
+	assert(!functionData->coroutine);
+
+	// Call helper function
+	{
+		SmallArray<LLVMValueRef, 3> arguments(ctx.allocator);
+
+		arguments.push_back(LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), functionData->functionIndex, true));
+		arguments.push_back(LLVMBuildPointerCast(ctx.builder, argBuffer, CompileLlvmType(ctx, ctx.ctx.typeNullPtr), "arg_buffer_raw_ptr"));
+
+		if(retBuffer)
+			arguments.push_back(LLVMBuildPointerCast(ctx.builder, retBuffer, CompileLlvmType(ctx, ctx.ctx.typeNullPtr), "ret_buffer_raw_ptr"));
+		else
+			arguments.push_back(LLVMConstPointerNull(CompileLlvmType(ctx, ctx.ctx.typeNullPtr)));
+
+		LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmExternalCall"), arguments.data, arguments.count, "");
+	}
+
+	if(functionData->type->returnType == ctx.ctx.typeVoid)
+	{
+		LLVMBuildRetVoid(ctx.builder);
+	}
+	else if(IsStructReturnType(functionData->type->returnType))
+	{
+		LLVMValueRef result = LLVMBuildLoad(ctx.builder, LLVMBuildPointerCast(ctx.builder, retBuffer, LLVMPointerType(CompileLlvmType(ctx, functionData->type->returnType), 0), "result_ptr"), "result");
+
+		LLVMValueRef argument = LLVMGetParam(function, 0);
+
+		LLVMBuildStore(ctx.builder, result, argument);
+
+		LLVMBuildRetVoid(ctx.builder);
+	}
+	else
+	{
+		LLVMValueRef result = LLVMBuildLoad(ctx.builder, LLVMBuildPointerCast(ctx.builder, retBuffer, LLVMPointerType(CompileLlvmType(ctx, returnType), 0), "result_ptr"), "result");
+
+		if(returnType != functionData->type->returnType)
+			result = LLVMBuildTrunc(ctx.builder, result, CompileLlvmType(ctx, functionData->type->returnType), "");
+
+		LLVMBuildRet(ctx.builder, result);
+	}
+
+	CheckFunction(ctx, ctx.currentFunction, functionData->name->name);
+
+	if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
+		LLVMRunFunctionPassManager(ctx.functionPassManager, function);
+
+	// Restore state
+	ctx.currentFunction = currentFunction;
+	ctx.currentFunctionSource = currentFunctionSource;
+
+	return NULL;
+}
+
 LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 {
 	TRACE_SCOPE("InstructionTreeLlvm", "CompileLlvm");
@@ -2364,6 +2504,13 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
+	{
+		TypeBase* arguments[] = { ctx.ctx.typeInt, ctx.ctx.typeNullPtr, ctx.ctx.typeNullPtr };
+
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmExternalCall", CompileLlvmFunctionType(ctx, ctx.ctx.typeVoid, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
+	}
+
 	// Generate functions
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
 	{
@@ -2389,6 +2536,10 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 		}
 
 		ctx.functions[function->functionIndex] = llvmFunction;
+
+		// Create an external function call wrapper
+		if(function->isPrototype)
+			CompileLlvmExternalFunctionWrapper(ctx, function);
 	}
 
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)

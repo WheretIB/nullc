@@ -1,6 +1,7 @@
 #include "Executor_LLVM.h"
 
 #include "nullc.h"
+#include "Linker.h"
 
 #ifdef NULLC_LLVM_SUPPORT
 
@@ -50,6 +51,37 @@ enum LLVMReturnType
 	LLVM_DOUBLE,
 };
 
+struct LlvmExecutionContext
+{
+	LlvmExecutionContext()
+	{
+		context = NULL;
+
+		executionEngine = NULL;
+
+		module = NULL;
+
+		llvmVm = NULL;
+
+		linker = NULL;
+	}
+
+	LLVMContextRef context;
+
+	LLVMExecutionEngineRef executionEngine;
+	LLVMModuleRef module;
+
+	SmallArray<LLVMModuleRef, 16> modules;
+
+	SmallArray<const char*, 16> functionNames;
+
+	FastVector<char> globalVars;
+
+	ExecutorLLVM *llvmVm;
+
+	Linker *linker;
+};
+
 namespace
 {
 	LLVMReturnType llvmReturnedType = LLVM_NONE;
@@ -59,7 +91,7 @@ namespace
 
 	void *llvmStackTop = NULL;
 
-	Linker* currentLinker = NULL;
+	LlvmExecutionContext *currentCtx = NULL; // TODO: pass from global inside the bytecode
 
 	void llvmAbortNoReturn()
 	{
@@ -68,21 +100,23 @@ namespace
 
 	void* llvmConvertPtr(NULLCRef ref, unsigned typeID)
 	{
+		LlvmExecutionContext &ctx = *currentCtx;
+
 		unsigned sourceTypeID = ref.typeID;
 
 		if (sourceTypeID == typeID)
 			return (void*)ref.ptr;
 
-		while (currentLinker->exTypes[sourceTypeID].baseType)
+		while (ctx.linker->exTypes[sourceTypeID].baseType)
 		{
-			sourceTypeID = currentLinker->exTypes[sourceTypeID].baseType;
+			sourceTypeID = ctx.linker->exTypes[sourceTypeID].baseType;
 			if (sourceTypeID == typeID)
 				return (void*)ref.ptr;
 		}
 
-		const char* symbols = currentLinker->exSymbols.data;
+		const char* symbols = ctx.linker->exSymbols.data;
 
-		nullcThrowError("ERROR: cannot convert from %s ref to %s ref", symbols + currentLinker->exTypes[ref.typeID].offsetToName, symbols + currentLinker->exTypes[typeID].offsetToName);
+		nullcThrowError("ERROR: cannot convert from %s ref to %s ref", symbols + ctx.linker->exTypes[ref.typeID].offsetToName, symbols + ctx.linker->exTypes[typeID].offsetToName);
 
 		return 0;
 	}
@@ -148,6 +182,35 @@ namespace
 		llvmReturnedDouble = x;
 	}
 
+	void llvmExternalCall(unsigned functionId, char *argumentBuffer, char *returnBuffer)
+	{
+		LlvmExecutionContext &ctx = *currentCtx;
+
+		ExternFuncInfo &target = ctx.linker->exFunctions[functionId];
+
+		if(target.regVmAddress == -1)
+		{
+			if(target.funcPtrWrap)
+			{
+				target.funcPtrWrap(target.funcPtrWrapTarget, returnBuffer, argumentBuffer);
+			}
+			else
+			{
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+				RunRawExternalFunction(ctx.llvmVm->dcCallVM, target, ctx.linker->exLocals.data, ctx.linker->exTypes.data, ctx.linker->exTypeExtra.data, (unsigned*)argumentBuffer, (unsigned*)returnBuffer);
+#else
+				// TODO: handle error
+#endif
+			}
+
+			// TODO: handle error
+		}
+		else
+		{
+			// TODO: internal call
+		}
+	}
+
 	void llvmFatalErrorHandler(const char *reason)
 	{
 		printf("LLVM Fatal error: %s\n", reason);
@@ -176,29 +239,6 @@ namespace
 		return ~0u;
 	}
 }
-
-struct LlvmExecutionContext
-{
-	LlvmExecutionContext()
-	{
-		context = NULL;
-
-		executionEngine = NULL;
-
-		module = NULL;
-	}
-
-	LLVMContextRef context;
-
-	LLVMExecutionEngineRef executionEngine;
-	LLVMModuleRef module;
-
-	SmallArray<LLVMModuleRef, 16> modules;
-
-	SmallArray<const char*, 16> functionNames;
-
-	FastVector<char> globalVars;
-};
 
 ExecutorLLVM::ExecutorLLVM(Linker* linker)
 {
@@ -237,6 +277,9 @@ bool ExecutorLLVM::TranslateToNative()
 	}
 
 	ctx = new LlvmExecutionContext();
+
+	ctx->llvmVm = this;
+	ctx->linker = exLinker;
 
 	CommonSetLinker(exLinker);
 
@@ -320,6 +363,8 @@ bool ExecutorLLVM::TranslateToNative()
 		ctx->modules.push_back(moduleData);
 	}
 
+	//LLVMDumpModule(ctx->module);
+
 	LLVMLinkInMCJIT();
 
 	LLVMInitializeNativeTarget();
@@ -366,6 +411,9 @@ bool ExecutorLLVM::TranslateToNative()
 	if(LLVMValueRef function = LLVMGetNamedFunction(ctx->module, "__llvmReturnDouble"))
 		LLVMAddGlobalMapping(ctx->executionEngine, function, (void*)llvmReturnDouble);
 
+	if(LLVMValueRef function = LLVMGetNamedFunction(ctx->module, "__llvmExternalCall"))
+		LLVMAddGlobalMapping(ctx->executionEngine, function, (void*)llvmExternalCall);
+
 	ctx->functionNames.resize(exLinker->exFunctions.size());
 	memset(ctx->functionNames.data, 0, ctx->functionNames.count * sizeof(ctx->functionNames.data[0]));
 
@@ -394,12 +442,7 @@ bool ExecutorLLVM::TranslateToNative()
 		unsigned funcID = ::GetFunctionID(exLinker, name, nameLength, type, typeLength, generics);
 
 		if(funcID != ~0u)
-		{
 			ctx->functionNames[funcID] = name;
-
-			if(exLinker->exFunctions[funcID].address == ~0u)
-				LLVMAddGlobalMapping(ctx->executionEngine, function, exLinker->exFunctions[funcID].funcPtr);
-		}
 	}
 
 	if(!dcCallVM)
@@ -419,7 +462,40 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 
 		unsigned int dwordsToPop = (targetFunction.bytesToPop >> 2);
 
-		void* fPtr = targetFunction.startInByteCode == ~0u ? targetFunction.funcPtr : (void*)LLVMGetFunctionAddress(ctx->executionEngine, ctx->functionNames[functionID]);
+		/*if(targetFunction.regVmAddress == ~0u)
+		{
+			// Copy all arguments
+			memcpy(tempStackPtr, arguments, target.bytesToPop);
+
+			// Call function
+			if(target.funcPtrWrap)
+			{
+				target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
+
+				if(!callContinue)
+					errorState = true;
+			}
+			else
+			{
+				if(!RunExternalFunction(functionID, tempStackPtr))
+					errorState = true;
+			}
+
+			// This will disable NULLC code execution while leaving error check and result retrieval
+			instruction = NULL;
+		}*/
+
+		void* fPtr = NULL;
+
+		if(targetFunction.startInByteCode == ~0u)
+		{
+			//fPtr = targetFunction.funcPtr;
+		}
+		else
+		{
+
+			fPtr = (void*)LLVMGetFunctionAddress(ctx->executionEngine, ctx->functionNames[functionID]);
+		}
 
 		// Can't find target function
 		if(!fPtr)
@@ -471,7 +547,7 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	int stackHelper = 0;
 	llvmStackTop = &stackHelper;
 	GC::unmanageableTop = (char*)llvmStackTop;
-	currentLinker = exLinker;
+	currentCtx = ctx;
 
 	//char *error = NULL;
 	//LLVMTargetMachineEmitToFile(currentTarget, ctx->module, "inst_llvm_asm.txt", LLVMAssemblyFile, &error);
@@ -571,6 +647,8 @@ char* ExecutorLLVM::GetVariableData(unsigned int *count)
 
 unsigned ExecutorLLVM::GetCallStackAddress(unsigned frame)
 {
+	// TODO: call stack
+	(void)frame;
 	return 0;
 }
 
