@@ -3272,8 +3272,123 @@ VmValue* CompileVmYield(ExpressionContext &ctx, VmModule *module, ExprYield *nod
 
 VmValue* CompileVmVariableDefinition(ExpressionContext &ctx, VmModule *module, ExprVariableDefinition *node)
 {
+	VariableData *variable = node->variable->variable;
+
 	if(node->initializer)
+	{
 		CompileVm(ctx, module, node->initializer);
+	}
+	else if(!variable->isVmAlloca && !variable->lookupOnly && IsLocalScope(variable->scope))
+	{
+		VmType vmType = GetVmType(ctx, variable->type);
+
+		VmValue *address = CreateVariableAddress(module, node->source, variable, ctx.GetReferenceType(variable->type));
+
+		if(vmType == VmType::Int || vmType == VmType::Double || vmType == VmType::Long)
+		{
+			VmValue *initializer = CreateConstantZero(ctx.allocator, node->source, vmType);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_POINTER)
+		{
+			VmValue *initializer = CreateConstantPointer(module->allocator, node->source, 0, NULL, variable->type, false);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_FUNCTION_REF)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_ARRAY_REF)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_AUTO_REF)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), NULL, NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_AUTO_ARRAY)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_STRUCT)
+		{
+			if(vmType.size != 0)
+				CreateSetRange(module, node->source, address, vmType.size / 4, CreateConstantZero(ctx.allocator, node->source, VmType::Int), 4);
+		}
+		else if(vmType != VmType::Void)
+		{
+			assert(!"unknown type");
+		}
+	}
+
+	return CheckType(ctx, node, CreateVoid(module));
+}
+
+VmValue* CompileVmZeroInitialize(ExpressionContext &ctx, VmModule *module, ExprZeroInitialize *node)
+{
+	TypeRef *refType = getType<TypeRef>(node->address->type);
+
+	assert(refType);
+
+	VmValue *address = CompileVm(ctx, module, node->address);
+
+	VmType vmType = GetVmType(ctx, refType->subType);
+
+	if(vmType == VmType::Int || vmType == VmType::Double || vmType == VmType::Long)
+	{
+		VmValue *initializer = CreateConstantZero(ctx.allocator, node->source, vmType);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_POINTER)
+	{
+		VmValue *initializer = CreateConstantPointer(module->allocator, node->source, 0, NULL, refType->subType, false);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_FUNCTION_REF)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_ARRAY_REF)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_AUTO_REF)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), NULL, NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_AUTO_ARRAY)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_STRUCT)
+	{
+		if(vmType.size != 0)
+			CreateSetRange(module, node->source, address, vmType.size / 4, CreateConstantZero(ctx.allocator, node->source, VmType::Int), 4);
+	}
+	else// if(vmType != VmType::Void)
+	{
+		assert(!"unknown type");
+	}
 
 	return CheckType(ctx, node, CreateVoid(module));
 }
@@ -3909,6 +4024,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		return CompileVmYield(ctx, module, (ExprYield*)expression);
 	case ExprVariableDefinition::myTypeID:
 		return CompileVmVariableDefinition(ctx, module, (ExprVariableDefinition*)expression);
+	case ExprZeroInitialize::myTypeID:
+		return CompileVmZeroInitialize(ctx, module, (ExprZeroInitialize*)expression);
 	case ExprArraySetup::myTypeID:
 		return CompileVmArraySetup(ctx, module, (ExprArraySetup*)expression);
 	case ExprVariableDefinitions::myTypeID:

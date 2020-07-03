@@ -1563,6 +1563,19 @@ LLVMValueRef CompileLlvmVariableDefinition(LlvmCompilationContext &ctx, ExprVari
 	return CheckType(ctx, node, NULL);
 }
 
+LLVMValueRef CompileLlvmZeroInitialize(LlvmCompilationContext &ctx, ExprZeroInitialize *node)
+{
+	TypeRef *refType = getType<TypeRef>(node->address->type);
+
+	assert(refType);
+
+	LLVMValueRef address = CompileLlvm(ctx, node->address);
+
+	LLVMBuildStore(ctx.builder, LLVMConstNull(CompileLlvmType(ctx, refType->subType)), address);
+
+	return CheckType(ctx, node, NULL);
+}
+
 LLVMValueRef CompileLlvmArraySetup(LlvmCompilationContext &ctx, ExprArraySetup *node)
 {
 	TypeRef *refType = getType<TypeRef>(node->lhs->type);
@@ -2200,6 +2213,8 @@ LLVMValueRef CompileLlvm(LlvmCompilationContext &ctx, ExprBase *expression)
 		return CompileLlvmYield(ctx, (ExprYield*)expression);
 	case ExprVariableDefinition::myTypeID:
 		return CompileLlvmVariableDefinition(ctx, (ExprVariableDefinition*)expression);
+	case ExprZeroInitialize::myTypeID:
+		return CompileLlvmZeroInitialize(ctx, (ExprZeroInitialize*)expression);
 	case ExprArraySetup::myTypeID:
 		return CompileLlvmArraySetup(ctx, (ExprArraySetup*)expression);
 	case ExprVariableDefinitions::myTypeID:

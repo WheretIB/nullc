@@ -630,6 +630,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprZeroInitialize *node = getType<ExprZeroInitialize>(expression))
+	{
+		PrintEnterBlock(ctx, name, node, "ExprZeroInitialize()");
+
+		PrintGraph(ctx, node->address, "address");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
 	{
 		PrintEnterBlock(ctx, name, node, "ExprArraySetup()");

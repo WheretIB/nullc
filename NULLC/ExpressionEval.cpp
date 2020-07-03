@@ -1751,6 +1751,28 @@ ExprBase* EvaluateVariableDefinition(ExpressionEvalContext &ctx, ExprVariableDef
 	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
+ExprBase* EvaluateZeroInitialize(ExpressionEvalContext &ctx, ExprZeroInitialize *expression)
+{
+	if(!AddInstruction(ctx))
+		return NULL;
+
+	TypeRef *refType = getType<TypeRef>(expression->address->type);
+
+	assert(refType);
+
+	ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(Evaluate(ctx, expression->address));
+
+	if(!ptr)
+		return NULL;
+
+	assert(ptr->ptr);
+	assert(uintptr_t(ptr->end - ptr->ptr) == unsigned(refType->subType->size));
+
+	memset(ptr->ptr, 0, unsigned(refType->subType->size));
+
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+}
+
 ExprBase* EvaluateArraySetup(ExpressionEvalContext &ctx, ExprArraySetup *expression)
 {
 	if(!AddInstruction(ctx))
@@ -3216,6 +3238,9 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 		break;
 	case ExprVariableDefinition::myTypeID:
 		result = EvaluateVariableDefinition(ctx, (ExprVariableDefinition*)expression);
+		break;
+	case ExprZeroInitialize::myTypeID:
+		result = EvaluateZeroInitialize(ctx, (ExprZeroInitialize*)expression);
 		break;
 	case ExprArraySetup::myTypeID:
 		result = EvaluateArraySetup(ctx, (ExprArraySetup*)expression);

@@ -8315,6 +8315,17 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateGetAddress(ctx, syntax, access)))
 			initializer = call;
 	}
+	else if(ctx.scope != ctx.globalScope && ctx.scope->ownerNamespace == NULL && variable->type->size != 0)
+	{
+		ExprBase *access = CreateVariableAccess(ctx, syntax->name, variable, true);
+
+		if(ExprVariableAccess *node = getType<ExprVariableAccess>(access))
+			access = new (ctx.get<ExprGetAddress>()) ExprGetAddress(access->source, ctx.GetReferenceType(access->type), new (ctx.get<VariableHandle>()) VariableHandle(node->source, node->variable));
+		else if(ExprDereference *node = getType<ExprDereference>(access))
+			access = node->value;
+
+		initializer = new (ctx.get<ExprZeroInitialize>()) ExprZeroInitialize(syntax->initializer, ctx.typeVoid, access);
+	}
 
 	return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(syntax->name, variable), initializer);
 }
@@ -9751,9 +9762,20 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 {
 	for(MemberHandle *el = classType->members.head; el; el = el->next)
 	{
-		SynBase *memberSource = el->source ? el->source : source;
-
 		VariableData *variable = el->variable;
+
+		if(TypeClass *base = classType->baseClass)
+		{
+			bool found = false;
+
+			for(MemberHandle *baseMember = base->members.head; baseMember && !found; baseMember = baseMember->next)
+				found = variable->name->name == baseMember->variable->name->name;
+
+			if(found && variable->name->name != InplaceStr("$typeid"))
+				continue;
+		}
+
+		SynBase *memberSource = el->source ? el->source : source;
 
 		ExprBase *access = CreateVariableAccess(ctx, memberSource, variable, true);
 
@@ -9791,12 +9813,7 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 			{
 				initializer = CreateCast(ctx, initializer->source, initializer, arrType->subType, false);
 
-				if(ExprVariableAccess *node = getType<ExprVariableAccess>(access))
-					access = new (ctx.get<ExprGetAddress>()) ExprGetAddress(access->source, ctx.GetReferenceType(access->type), new (ctx.get<VariableHandle>()) VariableHandle(node->source, node->variable));
-				else if(ExprDereference *node = getType<ExprDereference>(access))
-					access = node->value;
-
-				expressions.push_back(new (ctx.get<ExprArraySetup>()) ExprArraySetup(initializer->source, ctx.typeVoid, access, initializer));
+				expressions.push_back(new (ctx.get<ExprArraySetup>()) ExprArraySetup(initializer->source, ctx.typeVoid, member, initializer));
 			}
 			else
 			{
@@ -9807,6 +9824,10 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 		{
 			if(ExprBase *call = CreateDefaultConstructorCall(ctx, memberSource, variable->type, member))
 				expressions.push_back(call);
+		}
+		else
+		{
+			expressions.push_back(new (ctx.get<ExprZeroInitialize>()) ExprZeroInitialize(memberSource, ctx.typeVoid, member));
 		}
 	}
 }
@@ -12241,8 +12262,18 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					ctx.PushScope(importedType);
 
-					if(TypeStruct *classType = getType<TypeStruct>(structType))
-						classType->typeScope = ctx.scope;
+					structType->typeScope = ctx.scope;
+
+					if(TypeClass *typeClass = getType<TypeClass>(structType))
+					{
+						if(typeClass->extendable)
+						{
+							// TODO: apart from LLVM failure, were there any issues with this member missing?
+							VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, ctx.typeTypeID, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$typeid")), 0, ctx.uniqueVariableId++);
+
+							structType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(source, member, NULL));
+						}
+					}
 
 					for(unsigned n = 0; n < type.memberCount; n++)
 					{
@@ -13229,6 +13260,10 @@ void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)
 	{
 		VisitExpressionTreeNodes(node->initializer, context, accept);
 	}
+	else if(ExprZeroInitialize *node = getType<ExprZeroInitialize>(expression))
+	{
+		VisitExpressionTreeNodes(node->address, context, accept);
+	}
 	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
 	{
 		VisitExpressionTreeNodes(node->lhs, context, accept);
@@ -13422,6 +13457,8 @@ const char* GetExpressionTreeNodeName(ExprBase *expression)
 		return "ExprYield";
 	case ExprVariableDefinition::myTypeID:
 		return "ExprVariableDefinition";
+	case ExprZeroInitialize::myTypeID:
+		return "ExprZeroInitialize";
 	case ExprArraySetup::myTypeID:
 		return "ExprArraySetup";
 	case ExprVariableDefinitions::myTypeID:

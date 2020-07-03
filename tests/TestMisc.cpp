@@ -342,3 +342,190 @@ TEST_RESULT("Test string conversion 14", testStringConversion14, "1");
 
 const char *testStringConversion15 = "short i = -32768; return i.str() == \"-32768\" && short(i.str()) == i;";
 TEST_RESULT("Test string conversion 15", testStringConversion15, "1");
+
+const char	*testInitialization1 =
+"int foo()\r\n\
+{\r\n\
+	int sum = 0;\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		int k;\r\n\
+		sum += k;\r\n\
+		k += i;\r\n\
+	}\r\n\
+	return sum;\r\n\
+}\r\n\
+return foo();";
+TEST_RESULT("Test variable initialization 1", testInitialization1, "0");
+
+const char	*testInitialization2 =
+"class Nested{ int x, y; }\r\n\
+int bar()\r\n\
+{\r\n\
+	int sum = 0;\r\n\
+\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		int y;\r\n\
+		int[1024] z;\r\n\
+		Nested w;\r\n\
+\r\n\
+		sum += y + z[55] + w.x;\r\n\
+		y += i;\r\n\
+		z[55] += i;\r\n\
+		w.x += i;\r\n\
+	}\r\n\
+\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+return bar();";
+TEST_RESULT("Test variable initialization 2", testInitialization2, "0");
+
+const char	*testInitialization3 =
+"class Nested{ int x, y; }\r\n\
+class Bar\r\n\
+{\r\n\
+	int x = 2;\r\n\
+	int y; \r\n\
+	int[128] z;\r\n\
+	Nested w;\r\n\
+}\r\n\
+\r\n\
+int bar()\r\n\
+{\r\n\
+	int sum = 0;\r\n\
+\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		Bar k;\r\n\
+		sum += k.y + k.z[55] + k.w.x;\r\n\
+		k.y += i;\r\n\
+		k.z[55] += i;\r\n\
+		k.w.x += i;\r\n\
+	}\r\n\
+\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+return bar();";
+TEST_RESULT("Test variable initialization 3", testInitialization3, "0");
+
+const char	*testInitialization4 =
+"class Nested{ int x, y; }\r\n\
+class Bar\r\n\
+{\r\n\
+	void Bar()\r\n\
+	{\r\n\
+		x = 2;\r\n\
+	}\r\n\
+	\r\n\
+	int x;\r\n\
+	int y;\r\n\
+	int[1024] z;\r\n\
+	Nested w;\r\n\
+}\r\n\
+\r\n\
+int bar()\r\n\
+{\r\n\
+	int sum = 0;\r\n\
+	\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		Bar k;\r\n\
+		\r\n\
+		sum += k.y + k.z[55] + k.w.x;\r\n\
+		k.y += i;\r\n\
+		k.z[55] += i;\r\n\
+		k.w.x += i;\r\n\
+	}\r\n\
+	\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+return bar();";
+TEST_RESULT("Test variable initialization 4", testInitialization4, "0");
+
+const char	*testInitialization5 =
+"coroutine int foo()\r\n\
+{\r\n\
+	int sum = 0;\r\n\
+\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		int k;\r\n\
+\r\n\
+		sum += k;\r\n\
+		k += i;\r\n\
+	}\r\n\
+\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+class Nested{ int x, y; }\r\n\
+class Bar\r\n\
+{\r\n\
+	int x = 2;\r\n\
+	int y;\r\n\
+	int[1024] z;\r\n\
+	Nested w;\r\n\
+}\r\n\
+\r\n\
+coroutine int bar()\r\n\
+{\r\n\
+	int sum = 0;\r\n\
+\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		Bar k;\r\n\
+		int[1024] z;\r\n\
+		Nested w;\r\n\
+\r\n\
+		sum += k.y + k.z[55] + k.w.x + z[55] + w.x;\r\n\
+		k.y += i;\r\n\
+		k.z[55] += i;\r\n\
+		k.w.x += i;\r\n\
+		z[55] += i;\r\n\
+		w.x += i;\r\n\
+	}\r\n\
+\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+return foo() + bar();";
+TEST_RESULT("Test variable initialization 5", testInitialization5, "0");
+
+const char	*testInitialization6 =
+"coroutine int foo(){ int k; yield k++; yield k++; yield k++; return 0; }\r\n\
+int sum; for(i in foo) sum += i; for(i in foo) sum += i;\r\n\
+return sum;";
+TEST_RESULT("Test variable initialization 6", testInitialization6, "6");
+
+const char	*testInitialization7 =
+"class Foo\r\n\
+{\r\n\
+	void Foo()\r\n\
+	{\r\n\
+		y = x;\r\n\
+		x = 2;\r\n\
+	}\r\n\
+\r\n\
+	int x, y;\r\n\
+}\r\n\
+\r\n\
+int foo()\r\n\
+{\r\n\
+	int sum = 0;\r\n\
+\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		Foo f;\r\n\
+\r\n\
+		sum += f.y;\r\n\
+	}\r\n\
+\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+return foo();";
+TEST_RESULT("Test variable initialization 7", testInitialization7, "0");

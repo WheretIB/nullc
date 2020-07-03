@@ -660,3 +660,12 @@ auto b = new B();\r\n\
 \r\n\
 return typeof(a == b ? a : b) == A ref && typeof(a != b ? b : a) == A ref;";
 TEST_RESULT("Inheritance test 51 - common type between base/derived classes in conditional expression 2", testInheritance52, "1");
+
+const char	*testInheritance53 =
+"int x;\r\n\
+class Counter{ void Counter(){ x++; } }\r\n\
+class Test extendable{ Counter a; }\r\n\
+class Test2 : Test{}\r\n\
+Test2 t;\r\n\
+return x;";
+TEST_RESULT_SIMPLE("Inheritance test 53 - class members should be initialized only once", testInheritance53, "1");

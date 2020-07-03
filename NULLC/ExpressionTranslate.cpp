@@ -1196,6 +1196,54 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 	}
 }
 
+void TranslateZeroInitialize(ExpressionTranslateContext &ctx, ExprZeroInitialize *expression)
+{
+	TypeRef *refType = getType<TypeRef>(expression->address->type);
+
+	assert(refType);
+
+	TypeBase *type = refType->subType;
+
+	if(isType<TypeVoid>(type))
+	{
+		Print(ctx, "0");
+	}
+	else if(isType<TypeBool>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = false");
+	}
+	else if(isType<TypeChar>(type) || isType<TypeShort>(type) || isType<TypeInt>(type) || isType<TypeLong>(type) || isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeNullptr>(type) || isType<TypeRef>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = 0");
+	}
+	else if(isType<TypeFloat>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = 0.0f");
+	}
+	else if(isType<TypeDouble>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = 0.0");
+	}
+	else if(isType<TypeAutoRef>(type) || isType<TypeAutoArray>(type) || isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) || isType<TypeFunction>(type) || isType<TypeClass>(type) || isType<TypeEnum>(type))
+	{
+		Print(ctx, "memset(");
+		Translate(ctx, expression->address);
+		Print(ctx, ", 0, %d)", unsigned(type->size));
+	}
+	else
+	{
+		assert(!"unknown type");
+	}
+}
+
 void TranslateArraySetup(ExpressionTranslateContext &ctx, ExprArraySetup *expression)
 {
 	TypeRef *refType = getType<TypeRef>(expression->lhs->type);
@@ -2783,6 +2831,8 @@ void Translate(ExpressionTranslateContext &ctx, ExprBase *expression)
 		TranslateYield(ctx, expr);
 	else if(ExprVariableDefinition *expr = getType<ExprVariableDefinition>(expression))
 		TranslateVariableDefinition(ctx, expr);
+	else if(ExprZeroInitialize *expr = getType<ExprZeroInitialize>(expression))
+		TranslateZeroInitialize(ctx, expr);
 	else if(ExprArraySetup *expr = getType<ExprArraySetup>(expression))
 		TranslateArraySetup(ctx, expr);
 	else if(ExprVariableDefinitions *expr = getType<ExprVariableDefinitions>(expression))

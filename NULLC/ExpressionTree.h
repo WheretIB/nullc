@@ -405,6 +405,7 @@ namespace ExprNode
 		ExprReturn,
 		ExprYield,
 		ExprVariableDefinition,
+		ExprZeroInitialize,
 		ExprArraySetup,
 		ExprVariableDefinitions,
 		ExprVariableAccess,
@@ -845,6 +846,18 @@ struct ExprVariableDefinition: ExprBase
 	ExprBase* initializer;
 
 	static const unsigned myTypeID = ExprNode::ExprVariableDefinition;
+};
+
+struct ExprZeroInitialize : ExprBase
+{
+	ExprZeroInitialize(SynBase *source, TypeBase *type, ExprBase *address) : ExprBase(myTypeID, source, type), address(address)
+	{
+		assert(isType<TypeRef>(address->type));
+	}
+
+	ExprBase *address;
+
+	static const unsigned myTypeID = ExprNode::ExprZeroInitialize;
 };
 
 struct ExprArraySetup: ExprBase
