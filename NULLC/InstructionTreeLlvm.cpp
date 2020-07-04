@@ -2333,7 +2333,7 @@ LLVMValueRef CompileLlvmExternalFunctionWrapper(LlvmCompilationContext &ctx, Fun
 			LLVMBuildStore(ctx.builder, argument, target);
 		}
 
-		argBufferPos += unsigned(argumentType->size);
+		argBufferPos += argumentType->size == 0 ? 4u : unsigned(argumentType->size);
 	}
 
 	if(VariableData *variable = functionData->contextArgument)
@@ -2349,6 +2349,10 @@ LLVMValueRef CompileLlvmExternalFunctionWrapper(LlvmCompilationContext &ctx, Fun
 		LLVMBuildStore(ctx.builder, argument, LLVMBuildPointerCast(ctx.builder, address, LLVMPointerType(CompileLlvmType(ctx, variable->type), 0), "arg_buffer_pos"));
 
 		argBufferPos += unsigned(variable->type->size);
+	}
+	else
+	{
+		argBufferPos += NULLC_PTR_SIZE;
 	}
 
 	assert(argBufferPos == unsigned(functionData->argumentsSize));
