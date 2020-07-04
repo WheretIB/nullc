@@ -546,7 +546,7 @@ LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext &ctx, TypeFunction *f
 LLVMValueRef ConvertToStackType(LlvmCompilationContext &ctx, LLVMValueRef value, TypeBase *valueType)
 {
 	if(valueType == ctx.ctx.typeBool)
-		return LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, ctx.ctx.typeInt), "");
+		return LLVMBuildZExt(ctx.builder, value, CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 
 	if(valueType == ctx.ctx.typeChar)
 		return LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, ctx.ctx.typeInt), "");
@@ -854,7 +854,10 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 				if(node->value->type == ctx.ctx.typeLong)
 					return CheckType(ctx, node, LLVMBuildTrunc(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
-				if(node->value->type == ctx.ctx.typeBool || node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort)
+				if(node->value->type == ctx.ctx.typeBool)
+					return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
+
+				if(node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort)
 					return CheckType(ctx, node, LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
 				if(node->value->type == ctx.ctx.typeFloat || node->value->type == ctx.ctx.typeDouble)
@@ -862,7 +865,10 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 			}
 			else if(resultStackType == ctx.ctx.typeLong)
 			{
-				if(node->value->type == ctx.ctx.typeBool || node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort || node->value->type == ctx.ctx.typeInt)
+				if(node->value->type == ctx.ctx.typeBool)
+					return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
+
+				if(node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort || node->value->type == ctx.ctx.typeInt)
 					return CheckType(ctx, node, LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
 				if(node->value->type == ctx.ctx.typeFloat || node->value->type == ctx.ctx.typeDouble)
@@ -2328,7 +2334,12 @@ LLVMValueRef CompileLlvmExternalFunctionWrapper(LlvmCompilationContext &ctx, Fun
 			LLVMValueRef argument = LLVMGetParam(function, argIndex++);
 
 			if(argumentType != variable->type)
-				argument = LLVMBuildSExt(ctx.builder, argument, CompileLlvmType(ctx, argumentType), "");
+			{
+				if(isType<TypeBool>(variable->type))
+					argument = LLVMBuildZExt(ctx.builder, argument, CompileLlvmType(ctx, argumentType), "");
+				else
+					argument = LLVMBuildSExt(ctx.builder, argument, CompileLlvmType(ctx, argumentType), "");
+			}
 
 			LLVMBuildStore(ctx.builder, argument, target);
 		}
