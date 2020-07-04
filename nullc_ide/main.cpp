@@ -71,7 +71,7 @@ HWND hWnd;			// Main window
 HWND hButtonCalc;	// Run/Abort button
 HWND hContinue;		// Button that continues an interrupted execution
 HWND hShowTemporaries;	// Show temporary variables
-HWND hJITEnabled;	// JiT enable check box
+HWND hExecutionType; // Target selection
 HWND hTabs;	
 HWND hNewTab, hNewFilename, hNewFile;
 HWND hResult;		// label with execution result
@@ -737,10 +737,24 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	SendMessage(hContinue, WM_SETFONT, (WPARAM)fontDefault, 0);
 
-	hJITEnabled = CreateWindow("BUTTON", "Use JiT", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
-	if(!hJITEnabled)
+	hExecutionType = CreateWindow("COMBOBOX", "TEST", WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_CHILD, 800-140, 185, 130, 300, hWnd, NULL, hInstance, NULL);
+	if(!hExecutionType)
 		return 0;
-	SendMessage(hJITEnabled, WM_SETFONT, (WPARAM)fontDefault, 0);
+	SendMessage(hExecutionType, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	ComboBox_AddString(hExecutionType, "VM");
+	ComboBox_AddString(hExecutionType, "JiT");
+
+#if defined(NULLC_LLVM_SUPPORT)
+	ComboBox_AddString(hExecutionType, "LLVM");
+#else
+	ComboBox_AddString(hExecutionType, "LLVM (Not Available)");
+#endif
+
+	ComboBox_AddString(hExecutionType, "Expression Eval");
+	ComboBox_AddString(hExecutionType, "Instruction Eval");
+
+	ComboBox_SetCurSel(hExecutionType, 0);
 
 	hShowTemporaries = CreateWindow("BUTTON", "Show temps", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-280, 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hShowTemporaries)
@@ -1970,8 +1984,6 @@ void IdeRun(bool debug)
 	SetWindowText(hCode, "");
 	SetWindowText(hResult, "");
 
-	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_REG_VM);
-
 	nullcSetExecutorStackSize(8 * 1024 * 1024);
 
 	if(TabbedFiles::TabInfo *activeTab = IdePrepareActiveSourceForBuild())
@@ -1979,7 +1991,88 @@ void IdeRun(bool debug)
 		mainCodeWnd = activeTab->window;
 		const char *source = RichTextarea::GetAreaText(activeTab->window);
 
-		nullres good = nullcBuildWithModuleName(source, activeTab->last);
+		nullres good;
+
+		if(ComboBox_GetCurSel(hExecutionType) == 0)
+		{
+			nullcSetExecutor(NULLC_REG_VM);
+
+			good = nullcBuildWithModuleName(source, activeTab->last);
+		}
+		else if(ComboBox_GetCurSel(hExecutionType) == 1)
+		{
+			nullcSetExecutor(NULLC_X86);
+
+			good = nullcBuildWithModuleName(source, activeTab->last);
+		}
+		else if(ComboBox_GetCurSel(hExecutionType) == 2)
+		{
+			nullcSetExecutor(NULLC_LLVM);
+
+			good = nullcBuildWithModuleName(source, activeTab->last);
+		}
+		else if(ComboBox_GetCurSel(hExecutionType) == 3)
+		{
+			good = nullcCompile(source);
+
+			if(good)
+			{
+				double time = myGetPreciseTime();
+
+				RunResult &rres = runRes;
+				rres.finished = false;
+
+				char val[1024];
+				nullres goodRun = nullcTestEvaluateExpressionTree(val, 1024);
+
+				rres.time = myGetPreciseTime() - time;
+				rres.result = goodRun;
+				rres.finished = true;
+
+				if(goodRun)
+				{
+					char result[1024];
+					_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+					result[1023] = '\0';
+					SetWindowText(hResult, result);
+				}
+
+				SendMessage(rres.wnd, WM_USER + 1, 0, 0);
+
+				return;
+			}
+		}
+		else if(ComboBox_GetCurSel(hExecutionType) == 4)
+		{
+			good = nullcCompile(source);
+
+			if(good)
+			{
+				double time = myGetPreciseTime();
+
+				RunResult &rres = runRes;
+				rres.finished = false;
+
+				char val[1024];
+				nullres goodRun = nullcTestEvaluateInstructionTree(val, 1024);
+
+				rres.time = myGetPreciseTime() - time;
+				rres.result = goodRun;
+				rres.finished = true;
+
+				if(goodRun)
+				{
+					char result[1024];
+					_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+					result[1023] = '\0';
+					SetWindowText(hResult, result);
+				}
+
+				SendMessage(rres.wnd, WM_USER + 1, 0, 0);
+
+				return;
+			}
+		}
 
 		if(!good)
 		{
@@ -2527,7 +2620,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hTabs, SW_SHOW);
 				ShowWindow(hButtonCalc, SW_SHOW);
 				ShowWindow(hResult, SW_SHOW);
-				ShowWindow(hJITEnabled, SW_SHOW);
+				ShowWindow(hExecutionType, SW_SHOW);
 				ShowWindow(hShowTemporaries, SW_SHOW);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
 
@@ -2835,7 +2928,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hTabs, SW_HIDE);
 				ShowWindow(hButtonCalc, SW_HIDE);
 				ShowWindow(hResult, SW_HIDE);
-				ShowWindow(hJITEnabled, SW_HIDE);
+				ShowWindow(hExecutionType, SW_HIDE);
 				ShowWindow(hShowTemporaries, SW_HIDE);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
 
@@ -3179,8 +3272,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(hContinue)
 				SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
 
-			if(hJITEnabled)
-				SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+			if(hExecutionType)
+				SetWindowPos(hExecutionType,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, 300, NULL);
 
 			if(hShowTemporaries)
 				SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - buttonWidth - subPadding, middleOffsetY, buttonWidth, middleHeight, NULL);
@@ -3224,8 +3317,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(hResult)
 				InvalidateRect(hResult, NULL, true);
 
-			if(hJITEnabled)
-				InvalidateRect(hJITEnabled, NULL, true);
+			if(hExecutionType)
+				InvalidateRect(hExecutionType, NULL, true);
 
 			if(hShowTemporaries)
 				InvalidateRect(hShowTemporaries, NULL, true);
