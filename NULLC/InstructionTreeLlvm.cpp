@@ -2553,7 +2553,7 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 		ctx.functions[function->functionIndex] = llvmFunction;
 
 		// Create an external function call wrapper
-		if(function->isPrototype)
+		if(function->importModule == NULL && function->isPrototype)
 			CompileLlvmExternalFunctionWrapper(ctx, function);
 	}
 
