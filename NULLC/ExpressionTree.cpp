@@ -13165,6 +13165,9 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 
 	NULLC::TraceLeaveTo(traceDepth);
 
+	if(ctx.memoryLimit != 0)
+		ctx.allocator->clear_limit();
+
 	assert(ctx.errorPos != NULL);
 
 	return NULL;
