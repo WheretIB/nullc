@@ -3128,8 +3128,15 @@ SynModule* ParseModule(ParseContext &ctx)
 
 	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
-	if(!ctx.Consume(lex_none))
+	while(!ctx.Consume(lex_none))
+	{
 		Report(ctx, ctx.Current(), "ERROR: unexpected symbol");
+
+		ctx.Skip();
+
+		while(SynBase* expression = ParseExpression(ctx))
+			expressions.push_back(expression);
+	}
 
 	if(expressions.empty())
 	{
