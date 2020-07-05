@@ -255,7 +255,7 @@ void nullcSetModuleAnalyzeMemoryLimit(unsigned bytes)
 
 void nullcSetEnableExternalDebugger(int enable)
 {
-	NULLC::enableExternalDebugger = enable;
+	NULLC::enableExternalDebugger = enable != 0;
 }
 
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
