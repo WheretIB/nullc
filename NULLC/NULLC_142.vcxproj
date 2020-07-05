@@ -334,6 +334,7 @@
     <None Include="..\Modules\std\list.nc" />
     <None Include="..\Modules\std\map.nc" />
     <None Include="..\Modules\std\math.nc" />
+    <None Include="..\Modules\std\math_swizzle.nc" />
     <None Include="..\Modules\std\memory.nc" />
     <None Include="..\Modules\std\random.nc" />
     <None Include="..\Modules\std\range.nc" />

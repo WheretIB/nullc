@@ -481,6 +481,9 @@
     <None Include="..\Modules\std\memory.nc">
       <Filter>Modules\std</Filter>
     </None>
+    <None Include="..\Modules\std\math_swizzle.nc">
+      <Filter>Modules\std</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="..\external\dyncall\dyncall_call_x64_generic_masm.asm">

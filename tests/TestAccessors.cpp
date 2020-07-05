@@ -26,6 +26,7 @@ const char	*testPropertyAfterFunctionCall =
 import std.typeinfo;\r\n\
 float4 u = float4(1, 2, 3, 4);\r\n\
 if(sizeof(u) == 16) u.x = 5; else u.x = 6;\r\n\
+float3 float4.xyz(){ return float3(x, y, z); }\r\n\
 return typeid(u.xyz).size;";
 TEST_RESULT("Property access after function call", testPropertyAfterFunctionCall, "12");
 
