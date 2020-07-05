@@ -1991,6 +1991,22 @@ void IdeRun(bool debug)
 		mainCodeWnd = activeTab->window;
 		const char *source = RichTextarea::GetAreaText(activeTab->window);
 
+		nullcClearImportPaths();
+
+		nullcAddImportPath("Modules/");
+		nullcAddImportPath("../Modules/");
+
+		if(const char *pos = strrchr(activeTab->name, '\\'))
+		{
+			char path[512];
+			NULLC::SafeSprintf(path, 1024, "%.*s", unsigned(pos - activeTab->name) + 1, activeTab->name);
+
+			for(int i = 0; i < strlen(path); i++)
+				path[i] = path[i] == '\\' ? '/' : path[i];
+
+			nullcAddImportPath(path);
+		}
+
 		nullres good = false;
 
 		if(ComboBox_GetCurSel(hExecutionType) == 0)
