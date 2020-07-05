@@ -1991,7 +1991,7 @@ void IdeRun(bool debug)
 		mainCodeWnd = activeTab->window;
 		const char *source = RichTextarea::GetAreaText(activeTab->window);
 
-		nullres good;
+		nullres good = false;
 
 		if(ComboBox_GetCurSel(hExecutionType) == 0)
 		{
