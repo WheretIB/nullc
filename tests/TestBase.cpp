@@ -396,13 +396,12 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 	lastMessage = message;
 
-	if(message && messageVerbose && executor == NULLC_REG_VM)
-		printf("%4d/%4d %s %s\n", testsPassed[NULLC_REG_VM], testsCount[NULLC_REG_VM] - 1, message, variant);
+	const char *executorName = executor == NULLC_X86 ? "X86" : (executor == NULLC_LLVM ? "LLVM" : "REGVM");
+
+	if(message && messageVerbose)
+		printf("%4d/%4d %s %s [%s]\n", testsPassed[executor], testsCount[executor] - 1, message, variant, executorName);
 
 	nullcSetExecutor(executor);
-
-	char buf[256];
-	sprintf(buf, "%s", executor == NULLC_X86 ? "X86" : (executor == NULLC_LLVM ? "LLVM" : "REGVM"));
 
 	double time = myGetPreciseTime();
 
@@ -415,7 +414,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	{
 		if(message && !messageVerbose)
 			printf("%s\n", message);
-		printf("%s Compilation failed: %s\r\n", buf, nullcGetLastError());
+		printf("%s Compilation failed: %s\r\n", executorName, nullcGetLastError());
 		return false;
 	}
 	else
@@ -453,7 +452,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			{
 				if(message && !messageVerbose)
 					printf("%s\n", message);
-				printf("%s Translation failed: %s\r\n", buf, nullcGetLastError());
+				printf("%s Translation failed: %s\r\n", executorName, nullcGetLastError());
 				return false;
 			}
 		}
@@ -505,7 +504,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		{
 			if(message && !messageVerbose)
 				printf("%s\n", message);
-			printf("%s Link failed: %s\r\n", buf, nullcGetLastError());
+			printf("%s Link failed: %s\r\n", executorName, nullcGetLastError());
 			return false;
 		}
 
@@ -519,7 +518,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			{
 				if(message && !messageVerbose)
 					printf("%s\n", message);
-				printf("%s Execution should have failed with %s\r\n", buf, expected);
+				printf("%s Execution should have failed with %s\r\n", executorName, expected);
 				return false;
 			}
 
@@ -532,7 +531,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			{
 				if(message && !messageVerbose)
 					printf("%s\n", message);
-				printf("%s Failed (%s != %s)\r\n", buf, val, expected);
+				printf("%s Failed (%s != %s)\r\n", executorName, val, expected);
 				return false;
 			}
 
@@ -592,7 +591,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		{
 			if(message && !messageVerbose)
 				printf("%s\n", message);
-			printf("%s Execution failed: %s\r\n", buf, nullcGetLastError());
+			printf("%s Execution failed: %s\r\n", executorName, nullcGetLastError());
 			return false;
 		}
 	}
@@ -698,6 +697,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 #else
 			FILE *resPipe = popen("./runnable", "r");
 #endif
+			char buf[256];
 			strcpy(buf, "no return value");
 			fgets(buf, 256, resPipe);
 
