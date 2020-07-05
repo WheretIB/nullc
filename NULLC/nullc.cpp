@@ -1075,6 +1075,12 @@ void nullcThrowError(const char* error, ...)
 	{
 		executorRegVm->Stop(buf);
 	}
+	else if(currExec == NULLC_LLVM)
+	{
+#ifdef NULLC_LLVM_SUPPORT
+		executorLLVM->Stop(buf);
+#endif
+	}
 }
 
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
