@@ -825,6 +825,9 @@ bool ExecutorX86::InitExecution()
 
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
+	if(exRegVmCode.empty())
+		return Stop("ERROR: module contains no code");
+
 	bool firstRun = !codeRunning || functionID == ~0u;
 
 	if(firstRun)

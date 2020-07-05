@@ -154,6 +154,9 @@ void ExecutorRegVm::InitExecution()
 
 void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 {
+	if(exLinker->exRegVmCode.empty())
+		return Stop("ERROR: module contains no code");
+
 	if(!codeRunning || functionID == ~0u)
 		InitExecution();
 
