@@ -521,6 +521,8 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 			stackStart += 1;
 		}
 
+		currentCtx = ctx;
+
 		switch(targetFunction.retType)
 		{
 		case ExternFuncInfo::RETURN_VOID:
@@ -540,6 +542,8 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 			llvmReturnedLong = dcCallLongLong(dcCallVM, fPtr);
 			break;
 		}
+
+		currentCtx = NULL;
 
 		return;
 	}
@@ -562,6 +566,8 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 
 		LLVMRunFunction(ctx->executionEngine, function, 0, NULL);
 	}
+
+	currentCtx = NULL;
 
 	ctx->globalVars.resize(exLinker->globalVarSize);
 
