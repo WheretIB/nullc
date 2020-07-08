@@ -38,6 +38,8 @@ void BinaryCache::RemoveImportPath(const char* path)
 	{
 		if(strcmp(importPaths[i], path) == 0)
 		{
+			NULLC::dealloc(importPaths[i]);
+
 			importPaths[i] = importPaths.back();
 			importPaths.pop_back();
 			return;
