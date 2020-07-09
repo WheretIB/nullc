@@ -244,6 +244,8 @@ struct ExpressionContext
 	const char *code;
 	const char *codeEnd;
 
+	const char *moduleRoot;
+
 	SmallArray<ModuleData*, 128> dependencies;
 	SmallArray<ModuleData*, 128> imports;
 	SmallArray<ModuleData*, 128> implicitImports;
@@ -1218,6 +1220,6 @@ T* getType(ExprBase *node)
 	return 0;
 }
 
-ExprModule* Analyze(ExpressionContext &context, SynModule *syntax, const char *code);
+ExprModule* Analyze(ExpressionContext &context, SynModule *syntax, const char *code, const char *moduleRoot);
 void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child));
 const char* GetExpressionTreeNodeName(ExprBase *expression);

@@ -2064,6 +2064,18 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			bytecodeFile = true;
 		}
 
+		const unsigned nextModuleRootLength = 1024;
+		char nextModuleRootBuf[nextModuleRootLength];
+
+		const char *nextModuleRoot = NULL;
+
+		if(const char *pos = data->name.rfind('/'))
+		{
+			NULLC::SafeSprintf(nextModuleRootBuf, nextModuleRootLength, "%.*s", unsigned(pos - data->name.begin), data->name.begin);
+
+			nextModuleRoot = nextModuleRootBuf;
+		}
+
 		CompilerContext compilerCtx(ctx.allocator, 0, ArrayView<InplaceStr>());
 
 		compilerCtx.errorBuf = ctx.errorBuf;
@@ -2079,10 +2091,15 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		compilerCtx.outputCtx.tempBuf = ctx.output.tempBuf;
 		compilerCtx.outputCtx.tempBufSize = ctx.output.tempBufSize;
 
-		ExprModule* nestedModule = AnalyzeModuleFromSource(compilerCtx, fileContent);
+		compilerCtx.code = fileContent;
+		compilerCtx.moduleRoot = nextModuleRoot;
+
+		ExprModule* nestedModule = AnalyzeModuleFromSource(compilerCtx);
 
 		if(!nestedModule)
 		{
+			compilerCtx.code = NULL;
+
 			if(ctx.errorPos)
 				ctx.errorPos = compilerCtx.errorPos;
 
@@ -2097,6 +2114,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 
 			return false;
 		}
+
+		compilerCtx.code = NULL;
 
 		ExpressionTranslateContext nested(compilerCtx.exprCtx, compilerCtx.outputCtx, compilerCtx.allocator);
 

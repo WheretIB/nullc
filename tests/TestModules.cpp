@@ -248,3 +248,25 @@ int Test.y(){ A b = x; return b.a * 2; }\r\n\
 Test x;\r\n\
 return t.y + x.y;";
 TEST_RESULT("Class typedef import order test 2", testClassTypedefImportOrder2, "8");
+
+LOAD_MODULE(test_nested_nested_a, "test.nested.nested_a", "int foo(int x){ return -x; }");
+LOAD_MODULE(test_nested_nested_b, "test.nested.nested_b", "import std.vector; import nested_a; int bar(int x){ return foo(x) * 2; }");
+const char	*testNestedModuleSearch1 =
+"import test.nested.nested_b;\r\n\
+return bar(4) == -8;";
+TEST_RESULT("Nested module search 1", testNestedModuleSearch1, "1");
+
+LOAD_MODULE(test_nested_a, "test.nested_a", "assert(false, \"wasn't imported\"); int foo(int x){ return x; }");
+const char	*testNestedModuleSearch2 =
+"import test.nested.nested_b;\r\n\
+return bar(4) == -8;";
+TEST_RESULT("Nested module search 2 (unrelated file in outer folder)", testNestedModuleSearch2, "1");
+
+LOAD_MODULE(test_nested_deep_nested_a, "test.nested.deep.nested_a", "int foo(int x){ return -x; }");
+LOAD_MODULE(test_nested_deep_nested_b, "test.nested.deep.nested_b", "import nested_a; int bar(int x){ return foo(x) * 2; }");
+LOAD_MODULE(test_nested_nested_c, "test.nested.nested_c", "import deep.nested_b; int test(int x){ return bar(-x) * 2; }");
+LOAD_MODULE(test_nested_nested_d, "test.nested.nested_d", "import nested_c; int test2(int x){ return test(x * 10); }");
+const char	*testNestedModuleSearch3 =
+"import test.nested.nested_d;\r\n\
+return test2(4) == 160;";
+TEST_RESULT("Nested module search 3 (multiple levels)", testNestedModuleSearch3, "1");

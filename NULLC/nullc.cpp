@@ -70,6 +70,7 @@ namespace NULLC
 }
 
 unsigned nullcFindFunctionIndex(const char* name);
+nullres	nullcCompileWithModuleRoot(const char* code, const char *moduleRoot);
 
 #define NULLC_CHECK_INITIALIZED(retval) if(!initialized){ nullcLastError = "ERROR: NULLC is not initialized"; return retval; }
 
@@ -369,7 +370,19 @@ nullres nullcLoadModuleBySource(const char* module, const char* code)
 	TRACE_SCOPE("nullc", "nullcLoadModuleBySource");
 	TRACE_LABEL(module);
 
-	if(!nullcCompile(code))
+	const unsigned moduleRootLength = 1024;
+	char moduleRoot[moduleRootLength];
+	*moduleRoot = 0;
+
+	if(const char *pos = strrchr(module, '.'))
+	{
+		NULLC::SafeSprintf(moduleRoot, moduleRootLength, "%.*s", unsigned(pos - module), module);
+
+		for(unsigned i = 0, e = unsigned(strlen(moduleRoot)); i < e; i++)
+			moduleRoot[i] = moduleRoot[i] == '.' ? '/' : moduleRoot[i];
+	}
+
+	if(!nullcCompileWithModuleRoot(code, *moduleRoot ? moduleRoot : NULL))
 		return false;
 
 	if(strlen(module) > 512)
@@ -489,7 +502,9 @@ nullres nullcAnalyze(const char* code)
 
 	compilerCtx->exprMemoryLimit = moduleAnalyzeMemoryLimit;
 
-	if(!AnalyzeModuleFromSource(*compilerCtx, code))
+	compilerCtx->code = code;
+
+	if(!AnalyzeModuleFromSource(*compilerCtx))
 	{
 		if(compilerCtx->errorPos)
 			nullcLastError = compilerCtx->errorBuf;
@@ -503,6 +518,11 @@ nullres nullcAnalyze(const char* code)
 }
 
 nullres	nullcCompile(const char* code)
+{
+	return nullcCompileWithModuleRoot(code, NULL);
+}
+
+nullres	nullcCompileWithModuleRoot(const char* code, const char *moduleRoot)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
@@ -538,7 +558,10 @@ nullres	nullcCompile(const char* code)
 	compilerCtx->outputCtx.tempBuf = tempOutputBuf;
 	compilerCtx->outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
 
-	if(!CompileModuleFromSource(*compilerCtx, code))
+	compilerCtx->code = code;
+	compilerCtx->moduleRoot = moduleRoot;
+
+	if(!CompileModuleFromSource(*compilerCtx))
 	{
 		if(compilerCtx->errorPos)
 			nullcLastError = compilerCtx->errorBuf;
@@ -669,7 +692,7 @@ nullres nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName
 	TRACE_SCOPE("nullc", "nullcLinkCode");
 
 #ifndef NULLC_NO_EXECUTOR
-	if(!linker->LinkCode(bytecode, moduleName))
+	if(!linker->LinkCode(bytecode, moduleName, true))
 	{
 		nullcLastError = linker->GetLinkError();
 		return false;

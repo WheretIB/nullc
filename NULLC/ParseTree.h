@@ -138,7 +138,9 @@ struct ParseContext
 
 	const char *code;
 
-	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
+	const char *moduleRoot;
+
+	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
 
 	Lexer lexer;
 
@@ -1145,7 +1147,7 @@ struct SynModule: SynBase
 
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynBase* ParseClassDefinition(ParseContext &ctx);
-SynModule* Parse(ParseContext &context, const char *code);
+SynModule* Parse(ParseContext &context, const char *code, const char *moduleRoot);
 
 void VisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child));
 const char* GetParseTreeNodeName(SynBase *syntax);
@@ -1154,4 +1156,4 @@ const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);
 const char* GetOpName(SynModifyAssignType type);
 
-InplaceStr GetModuleName(Allocator *allocator, IntrusiveList<SynIdentifier> parts);
+InplaceStr GetModuleName(Allocator *allocator, const char *moduleRoot, IntrusiveList<SynIdentifier> parts);

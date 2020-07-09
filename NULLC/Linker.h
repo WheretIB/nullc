@@ -19,7 +19,7 @@ public:
 	~Linker();
 
 	void	CleanCode();
-	bool	LinkCode(const char *bytecode, const char *moduleName);
+	bool	LinkCode(const char *bytecode, const char *moduleName, bool rootModule);
 	bool	SaveRegVmListing(OutputContext &output, bool withProfileInfo);
 
 	void	CollectDebugInfo(FastVector<unsigned char*> *instAddress);

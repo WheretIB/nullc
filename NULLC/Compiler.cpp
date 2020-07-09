@@ -210,7 +210,7 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 	const char *errorPos = NULL;
 	char errorBuf[256];
 
-	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>()))
+	if(!BuildModuleFromSource(allocator, "$base$.nc", NULL, nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>()))
 	{
 		assert(!"Failed to compile base NULLC module");
 		return false;
@@ -427,11 +427,9 @@ const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char 
 	return NULL;
 }
 
-ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
+ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx)
 {
 	TRACE_SCOPE("compiler", "AnalyzeModuleFromSource");
-
-	ctx.code = code;
 
 	ParseContext &parseCtx = ctx.parseCtx;
 
@@ -440,7 +438,7 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	parseCtx.errorBuf = ctx.errorBuf;
 	parseCtx.errorBufSize = ctx.errorBufSize;
 
-	ctx.synModule = Parse(parseCtx, ctx.code);
+	ctx.synModule = Parse(parseCtx, ctx.code, ctx.moduleRoot);
 
 	if(ctx.enableLogFiles && ctx.synModule)
 	{
@@ -485,7 +483,7 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 		exprCtx.errorBufSize -= errorLength;
 	}
 
-	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code);
+	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code, ctx.moduleRoot);
 
 	if(ctx.enableLogFiles && ctx.exprModule)
 	{
@@ -520,11 +518,11 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	return ctx.exprModule;
 }
 
-bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
+bool CompileModuleFromSource(CompilerContext &ctx)
 {
 	TRACE_SCOPE("compiler", "CompileModuleFromSource");
 
-	if(!AnalyzeModuleFromSource(ctx, code))
+	if(!AnalyzeModuleFromSource(ctx))
 		return false;
 
 	ExpressionContext &exprCtx = ctx.exprCtx;
@@ -1973,7 +1971,7 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 	return true;
 }
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *moduleRoot, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
 {
 	TRACE_SCOPE("compiler", "BuildModuleFromSource");
 	TRACE_LABEL(modulePath);
@@ -1983,7 +1981,10 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 	ctx.errorBuf = errorBuf;
 	ctx.errorBufSize = errorBufSize;
 
-	if(!CompileModuleFromSource(ctx, code))
+	ctx.code = code;
+	ctx.moduleRoot = moduleRoot;
+
+	if(!CompileModuleFromSource(ctx))
 	{
 		*errorPos = ctx.errorPos;
 
@@ -2018,7 +2019,38 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 	return bytecode;
 }
 
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+const char* FindFileContentInImportPaths(InplaceStr moduleName, const char *moduleRoot, bool addExtension, char *resultPathBuf, unsigned resultPathBufSize, unsigned &fileSize)
+{
+	const char *fileContent = NULL;
+
+	unsigned modulePathPos = 0;
+	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
+	{
+		char *pathEnd = resultPathBuf + NULLC::SafeSprintf(resultPathBuf, resultPathBufSize, "%s%s%s%.*s", modulePath, moduleRoot ? moduleRoot : "", moduleRoot ? "/" : "", moduleName.length(), moduleName.begin);
+
+		if(addExtension)
+		{
+			char *pathNoImport = resultPathBuf + strlen(modulePath);
+
+			for(unsigned i = 0, e = (unsigned)strlen(pathNoImport); i != e; i++)
+			{
+				if(pathNoImport[i] == '.')
+					pathNoImport[i] = '/';
+			}
+
+			NULLC::SafeSprintf(pathEnd, resultPathBufSize - int(pathEnd - resultPathBuf), ".nc");
+		}
+
+		fileContent = NULLC::fileLoad(resultPathBuf, &fileSize);
+
+		if(fileContent)
+			break;
+	}
+
+	return fileContent;
+}
+
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
 {
 	NULLC::TraceDump();
 
@@ -2032,34 +2064,45 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 	else
 		assert(strstr(moduleName.begin, ".nc") != NULL);
 
-	unsigned fileSize = 0;
-	const char *fileContent = NULL;
+	const unsigned nextModuleRootLength = 1024;
+	char nextModuleRootBuf[nextModuleRootLength];
+
+	const char *nextModuleRoot = moduleRoot;
 
 	const unsigned pathLength = 1024;
 	char path[pathLength];
 
-	unsigned modulePathPos = 0;
-	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
+	unsigned fileSize = 0;
+	const char *fileContent = NULL;
+
+	if(moduleRoot)
 	{
-		char *pathEnd = path + NULLC::SafeSprintf(path, pathLength, "%s%.*s", modulePath, moduleName.length(), moduleName.begin);
-
-		if(addExtension)
-		{
-			char *pathNoImport = path + strlen(modulePath);
-
-			for(unsigned i = 0, e = (unsigned)strlen(pathNoImport); i != e; i++)
-			{
-				if(pathNoImport[i] == '.')
-					pathNoImport[i] = '/';
-			}
-
-			NULLC::SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
-		}
-
-		fileContent = NULLC::fileLoad(path, &fileSize);
+		fileContent = FindFileContentInImportPaths(moduleName, moduleRoot, addExtension, path, pathLength, fileSize);
 
 		if(fileContent)
-			break;
+		{
+			if(const char *pos = moduleName.rfind('/'))
+			{
+				NULLC::SafeSprintf(nextModuleRootBuf, nextModuleRootLength, "%s/%.*s", moduleRoot, unsigned(pos - moduleName.begin), moduleName.begin);
+
+				nextModuleRoot = nextModuleRootBuf;
+			}
+		}
+	}
+
+	if(!fileContent)
+	{
+		fileContent = FindFileContentInImportPaths(moduleName, NULL, addExtension, path, pathLength, fileSize);
+
+		if(fileContent)
+		{
+			if(const char *pos = moduleName.rfind('/'))
+			{
+				NULLC::SafeSprintf(nextModuleRootBuf, nextModuleRootLength, "%.*s", unsigned(pos - moduleName.begin), moduleName.begin);
+
+				nextModuleRoot = nextModuleRootBuf;
+			}
+		}
 	}
 
 	if(!fileContent)
@@ -2072,7 +2115,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 		return NULL;
 	}
 
-	char *bytecode = BuildModuleFromSource(allocator, path, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports);
+	char *bytecode = BuildModuleFromSource(allocator, path, nextModuleRoot, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports);
 
 	NULLC::fileFree(fileContent);
 
@@ -2085,7 +2128,7 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(
 
 	// Create module if not found
 	if(!bytecode)
-		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), true, errorPos, errorBuf, errorBufSize, optimizationLevel, ArrayView<InplaceStr>());
+		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), NULL, true, errorPos, errorBuf, errorBufSize, optimizationLevel, ArrayView<InplaceStr>());
 
 	if(!bytecode)
 		return false;

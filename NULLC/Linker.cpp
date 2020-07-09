@@ -121,7 +121,7 @@ void Linker::CleanCode()
 	NULLC::ClearMemory();
 }
 
-bool Linker::LinkCode(const char *code, const char *moduleName)
+bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 {
 	linkError[0] = 0;
 
@@ -159,9 +159,40 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				break;
 			}
 		}
+
+		const unsigned nestedModuleFileNameLength = 1024;
+		char nestedModuleFileName[nestedModuleFileNameLength];
+		*nestedModuleFileName = 0;
+
+		// Search from parent folder
+		if(loadedId == -1 && moduleName)
+		{
+			if(const char *folderPos = strrchr(moduleName, '/'))
+			{
+				NULLC::SafeSprintf(nestedModuleFileName, nestedModuleFileNameLength, "%.*s/%s", unsigned(folderPos - moduleName), moduleName, path);
+
+				for(unsigned int n = 0; n < exModules.size(); n++)
+				{
+					if(exModules[n].nameHash == NULLC::GetStringHash(nestedModuleFileName))
+					{
+						loadedId = n;
+						break;
+					}
+				}
+			}
+		}
+
 		if(loadedId == -1)
 		{
 			const char *bytecode = BinaryCache::FindBytecode(path, false);
+
+			// Search from parent folder
+			if(!bytecode && *nestedModuleFileName)
+			{
+				path = nestedModuleFileName;
+
+				bytecode = BinaryCache::FindBytecode(nestedModuleFileName, false);
+			}
 
 			unsigned dependencySlot = exDependencies.size();
 			exDependencies.push_back(~0u);
@@ -171,7 +202,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			{
 				if(bytecode)
 				{
-					if(!LinkCode(bytecode, path))
+					if(!LinkCode(bytecode, path, false))
 					{
 						debugOutputIndent--;
 
@@ -253,12 +284,15 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	unsigned int oldConstantSize = exTypeConstants.size();
 
 	mInfo = FindFirstModule(bCode);
+
 	// Fixup function table
 	for(unsigned int i = 0; i < bCode->dependsCount; i++)
 	{
 		const char *path = FindSymbols(bCode) + mInfo->nameOffset;
-		//Search for it in loaded modules
+
+		// Search for it in loaded modules
 		int loadedId = -1;
+
 		for(unsigned int n = 0; n < exModules.size(); n++)
 		{
 			if(exModules[n].nameHash == NULLC::GetStringHash(path))
@@ -267,6 +301,36 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				break;
 			}
 		}
+
+		// Search from parent folder
+		if(loadedId == -1 && moduleName)
+		{
+			if(const char *folderPos = strrchr(moduleName, '/'))
+			{
+				const unsigned nestedModuleFileNameLength = 1024;
+				char nestedModuleFileName[nestedModuleFileNameLength];
+
+				NULLC::SafeSprintf(nestedModuleFileName, nestedModuleFileNameLength, "%.*s/%s", unsigned(folderPos - moduleName), moduleName, path);
+
+				for(unsigned int n = 0; n < exModules.size(); n++)
+				{
+					if(exModules[n].nameHash == NULLC::GetStringHash(nestedModuleFileName))
+					{
+						loadedId = n;
+						break;
+					}
+				}
+			}
+		}
+
+		if(loadedId == -1)
+		{
+			debugOutputIndent--;
+
+			NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: Failed to find module '%s' after it was linked in", path);
+			return false;
+		}
+
 		ExternModuleInfo *rInfo = &exModules[loadedId];
 		for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
 			funcRemap[n] = rInfo->funcStart + n - mInfo->funcStart;
@@ -799,7 +863,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		}
 	}
 
-	if(moduleName)
+	if(rootModule && moduleName)
 	{
 		exMainModuleName.clear();
 		exMainModuleName.push_back(moduleName, (unsigned)strlen(moduleName));

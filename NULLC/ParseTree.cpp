@@ -319,6 +319,8 @@ ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayVie
 {
 	code = NULL;
 
+	moduleRoot = NULL;
+
 	bytecodeBuilder = NULL;
 
 	firstLexeme = NULL;
@@ -2962,14 +2964,29 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
-const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream)
 {
-	InplaceStr moduleName = GetModuleName(ctx.allocator, parts);
+	InplaceStr moduleName = GetModuleName(ctx.allocator, ctx.moduleRoot, parts);
 
 	TRACE_SCOPE("parser", "GetBytecodeFromPath");
 	TRACE_LABEL2(moduleName.begin, moduleName.end);
 
 	const char *bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
+
+	if(!bytecode)
+	{
+		moduleName = GetModuleName(ctx.allocator, NULL, parts);
+
+		bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
+	}
+
+	for(unsigned i = 0; i < ctx.activeImports.size(); i++)
+	{
+		if(ctx.activeImports[i] == moduleName)
+			Stop(ctx, start, "ERROR: found cyclic dependency on module '%.*s'", moduleName.length(), moduleName.begin);
+	}
+
+	ctx.activeImports.push_back(moduleName);
 
 	lexCount = 0;
 	lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexCount);
@@ -2988,7 +3005,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 		const char *messageStart = ctx.errorBufLocation;
 
 		const char *pos = NULL;
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), optimizationLevel, activeImports);
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports);
 
 		if(!bytecode)
 		{
@@ -3077,20 +3094,10 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
 
-		InplaceStr moduleName = GetModuleName(ctx.allocator, path);
-
-		for(unsigned i = 0; i < ctx.activeImports.size(); i++)
-		{
-			if(ctx.activeImports[i] == moduleName)
-				Stop(ctx, start, "ERROR: found cyclic dependency on module '%.*s'", moduleName.length(), moduleName.begin);
-		}
-
-		ctx.activeImports.push_back(moduleName);
-
 		unsigned lexCount = 0;
 		Lexeme *lexStream = NULL;
 
-		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream, ctx.optimizationLevel, ctx.activeImports))
+		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream))
 		{
 			ImportModuleNamespaces(ctx, start, (ByteCode*)binary);
 
@@ -3148,11 +3155,13 @@ SynModule* ParseModule(ParseContext &ctx)
 	return new (ctx.get<SynModule>()) SynModule(start, ctx.Previous(), imports, expressions);
 }
 
-SynModule* Parse(ParseContext &ctx, const char *code)
+SynModule* Parse(ParseContext &ctx, const char *code, const char *moduleRoot)
 {
 	TRACE_SCOPE("parser", "Parse");
 
 	ctx.code = code;
+
+	ctx.moduleRoot = moduleRoot;
 
 	ctx.lexer.Lexify(code);
 
@@ -3174,6 +3183,8 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 
 		ctx.code = NULL;
 
+		ctx.moduleRoot = NULL;
+
 		return module;
 	}
 
@@ -3182,6 +3193,8 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 	assert(ctx.errorPos);
 
 	ctx.code = NULL;
+
+	ctx.moduleRoot = NULL;
 
 	return NULL;
 }
@@ -3774,9 +3787,12 @@ const char* GetOpName(SynModifyAssignType type)
 	return "";
 }
 
-InplaceStr GetModuleName(Allocator *allocator, IntrusiveList<SynIdentifier> parts)
+InplaceStr GetModuleName(Allocator *allocator, const char *moduleRoot, IntrusiveList<SynIdentifier> parts)
 {
 	unsigned pathLength = unsigned(parts.size() - 1 + strlen(".nc"));
+
+	if(moduleRoot)
+		pathLength += unsigned(strlen(moduleRoot)) + 1;
 
 	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
 		pathLength += part->name.length();
@@ -3784,6 +3800,14 @@ InplaceStr GetModuleName(Allocator *allocator, IntrusiveList<SynIdentifier> part
 	char *path = (char*)allocator->alloc(pathLength + 1);
 
 	char *pos = path;
+
+	if(moduleRoot)
+	{
+		strcpy(pos, moduleRoot);
+		pos += strlen(moduleRoot);
+
+		*pos++ = '/';
+	}
 
 	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
 	{

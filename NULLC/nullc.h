@@ -152,10 +152,10 @@ int			nullcInitDynamicModule();
 /************************************************************************/
 /*							Extended functions							*/
 
-/*	Analyzes the code and returns 1 on success	*/
+/*	Analyzes the code and returns 1 on success. Pointer to code string must be available until nullcClean is called */
 nullres		nullcAnalyze(const char* code);
 
-/*	Compiles the code and returns 1 on success	*/
+/*	Compiles the code and returns 1 on success. Pointer to code string must be available until nullcClean is called */
 nullres		nullcCompile(const char* code);
 
 /*	compiled bytecode to be used for linking and executing can be retrieved with this function

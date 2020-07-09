@@ -890,6 +890,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	code = NULL;
 	codeEnd = NULL;
 
+	moduleRoot = NULL;
+
 	baseModuleFunctionCount = 0;
 
 	dependencies.set_allocator(allocator);
@@ -11779,7 +11781,7 @@ struct ModuleContext
 	unsigned dependencyDepth;
 };
 
-void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, ByteCode *moduleBytecode)
+void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, ByteCode *moduleBytecode, InplaceStr parentName)
 {
 	TRACE_SCOPE("analyze", "ImportModuleDependencies");
 
@@ -11795,11 +11797,25 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		const char *bytecode = BinaryCache::FindBytecode(moduleFileName, false);
 
-		unsigned lexStreamSize = 0;
-		Lexeme *lexStream = BinaryCache::FindLexems(moduleFileName, false, lexStreamSize);
+		// Search from parent folder
+		if(!bytecode)
+		{
+			if(const char *folderPos = parentName.rfind('/'))
+			{
+				char *nestedModuleFileName = (char*)ctx.allocator->alloc(unsigned(folderPos - parentName.begin) + 1 + unsigned(strlen(moduleFileName)) + 1);
+				sprintf(nestedModuleFileName, "%.*s/%s", unsigned(folderPos - parentName.begin), parentName.begin, moduleFileName);
+
+				moduleFileName = nestedModuleFileName;
+
+				bytecode = BinaryCache::FindBytecode(moduleFileName, false);
+			}
+		}
 
 		if(!bytecode)
 			Stop(ctx, source, "ERROR: module dependency import is not implemented");
+
+		unsigned lexStreamSize = 0;
+		Lexeme *lexStream = BinaryCache::FindLexems(moduleFileName, false, lexStreamSize);
 
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 		for(unsigned k = 0; k < moduleCtx.dependencyDepth; k++)
@@ -11830,7 +11846,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		moduleCtx.dependencyDepth++;
 
-		ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode);
+		ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode, InplaceStr(moduleFileName));
 
 		moduleCtx.dependencyDepth--;
 	}
@@ -12805,7 +12821,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 	moduleCtx.data = moduleData;
 
-	ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode);
+	ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode, name);
 
 	ImportModuleNamespaces(ctx, source, moduleCtx);
 
@@ -12822,12 +12838,19 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 {
-	InplaceStr moduleName = GetModuleName(ctx.allocator, syntax->path);
+	InplaceStr moduleName = GetModuleName(ctx.allocator, ctx.moduleRoot, syntax->path);
 
 	TRACE_SCOPE("analyze", "AnalyzeModuleImport");
 	TRACE_LABEL2(moduleName.begin, moduleName.end);
 
 	const char *bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
+
+	if(!bytecode)
+	{
+		moduleName = GetModuleName(ctx.allocator, NULL, syntax->path);
+
+		bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
+	}
 
 	unsigned lexStreamSize = 0;
 	Lexeme *lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexStreamSize);
@@ -13086,7 +13109,7 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 	return module;
 }
 
-ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
+ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code, const char *moduleRoot)
 {
 	TRACE_SCOPE("analyze", "Analyze");
 
@@ -13094,6 +13117,8 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 
 	ctx.code = code;
 	ctx.codeEnd = code + strlen(code);
+
+	ctx.moduleRoot = moduleRoot;
 
 	ctx.PushScope(SCOPE_EXPLICIT);
 	ctx.globalScope = ctx.scope;
@@ -13160,6 +13185,11 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 
 		assert(ctx.scope == NULL);
 
+		ctx.code = NULL;
+		ctx.codeEnd = NULL;
+
+		ctx.moduleRoot = NULL;
+
 		return module;
 	}
 
@@ -13169,6 +13199,11 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 		ctx.allocator->clear_limit();
 
 	assert(ctx.errorPos != NULL);
+
+	ctx.code = NULL;
+	ctx.codeEnd = NULL;
+
+	ctx.moduleRoot = NULL;
 
 	return NULL;
 }
