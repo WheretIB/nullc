@@ -1966,6 +1966,25 @@ TabbedFiles::TabInfo* IdePrepareActiveSourceForBuild()
 	return &mainTabInfo;
 }
 
+void IdeUpdateModuleImportPaths(TabbedFiles::TabInfo *info)
+{
+	nullcClearImportPaths();
+
+	nullcAddImportPath("Modules/");
+	nullcAddImportPath("../Modules/");
+
+	if(const char *pos = strrchr(info->name, '\\'))
+	{
+		char path[512];
+		NULLC::SafeSprintf(path, 1024, "%.*s", unsigned(pos - info->name) + 1, info->name);
+
+		for(unsigned i = 0; i < unsigned(strlen(path)); i++)
+			path[i] = path[i] == '\\' ? '/' : path[i];
+
+		nullcAddImportPath(path);
+	}
+}
+
 void IdeRun(bool debug)
 {
 	if(!runRes.finished)
@@ -1991,21 +2010,7 @@ void IdeRun(bool debug)
 		mainCodeWnd = activeTab->window;
 		const char *source = RichTextarea::GetAreaText(activeTab->window);
 
-		nullcClearImportPaths();
-
-		nullcAddImportPath("Modules/");
-		nullcAddImportPath("../Modules/");
-
-		if(const char *pos = strrchr(activeTab->name, '\\'))
-		{
-			char path[512];
-			NULLC::SafeSprintf(path, 1024, "%.*s", unsigned(pos - activeTab->name) + 1, activeTab->name);
-
-			for(int i = 0; i < strlen(path); i++)
-				path[i] = path[i] == '\\' ? '/' : path[i];
-
-			nullcAddImportPath(path);
-		}
+		IdeUpdateModuleImportPaths(activeTab);
 
 		nullres good = false;
 
@@ -3045,6 +3050,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				{
 					const char *source = RichTextarea::GetAreaText(activeTab->window);
 
+					IdeUpdateModuleImportPaths(activeTab);
+
 					if(!nullcCompile(source))
 					{
 						SetWindowText(hCode, GetLastNullcErrorWindows());
@@ -3066,9 +3073,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 					if(!nullcTranslateToC(result, "main", RegisterDependency))
 					{
-						nullcClean();
-
 						SetWindowText(hCode, GetLastNullcErrorWindows());
+
+						nullcClean();
 
 						TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 					}
@@ -3196,31 +3203,36 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
 
 			TabbedFiles::TabInfo &info = stateRemote ? TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)) : TabbedFiles::GetTabInfo(hTabs, id);
-			HWND wnd = info.window;
-			if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
+
+			if(!RichTextarea::NeedUpdate(info.window) || (GetTickCount()-lastUpdate < 100))
 				break;
+
 			if(info.name[0] != '?')
 				SetWindowText(hCode, "");
 
-			RichTextarea::ResetUpdate(wnd);
+			RichTextarea::ResetUpdate(info.window);
 			needTextUpdate = false;
 			lastUpdate = GetTickCount();
 
+			const char *source = RichTextarea::GetAreaText(info.window);
+
+			IdeUpdateModuleImportPaths(&info);
+
 			const char *compileErr = NULL;
-			if(!nullcCompile((char*)RichTextarea::GetAreaText(wnd)))
+			if(!nullcCompile(source))
 				compileErr = GetLastNullcErrorWindows();
 
-			RichTextarea::BeginStyleUpdate(wnd);
+			RichTextarea::BeginStyleUpdate(info.window);
 
-			colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection);
+			colorer->ColorText(info.window, (char*)source, RichTextarea::SetStyleToSelection);
 
 			if(compileErr)
 			{
 				SetWindowText(hCode, compileErr);
 				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 			}
-			RichTextarea::EndStyleUpdate(wnd);
-			RichTextarea::UpdateArea(wnd);
+			RichTextarea::EndStyleUpdate(info.window);
+			RichTextarea::UpdateArea(info.window);
 		}
 			break;
 		case WM_GETMINMAXINFO:
