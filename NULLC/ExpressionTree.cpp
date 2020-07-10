@@ -10267,6 +10267,49 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	AnalyzeClassFunctionElements(ctx, classDefinition, syntax);
 }
 
+unsigned AddBaseClassMemberVariables(ExpressionContext &ctx, SynBase *syntax, TypeClass *baseClass, TypeClass *newClass)
+{
+	unsigned skipBaseMembers = 0;
+
+	if(baseClass->baseClass)
+		skipBaseMembers = AddBaseClassMemberVariables(ctx, syntax, baseClass->baseClass, newClass);
+
+	unsigned skipMembers = 0;
+
+	for(MemberHandle *el = baseClass->members.head; el; el = el->next)
+	{
+		if(el->variable->name->name == InplaceStr("$typeid"))
+			continue;
+
+		skipMembers++;
+
+		if(skipBaseMembers > 0)
+		{
+			skipBaseMembers--;
+			continue;
+		}
+
+		bool conflict = CheckVariableConflict(ctx, syntax, el->variable->name->name);
+
+		unsigned offset = AllocateVariableInScope(ctx, syntax, el->variable->alignment, el->variable->type);
+
+		assert(offset == el->variable->offset);
+
+		VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, el->variable->alignment, el->variable->type, el->variable->name, offset, ctx.uniqueVariableId++);
+
+		if(!conflict)
+			ctx.AddVariable(member, true);
+
+		newClass->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(el->variable->source, member, NULL));
+	}
+
+	// Add padding from base class
+	newClass->typeScope->dataSize += baseClass->padding;
+	newClass->size += baseClass->padding;
+
+	return skipMembers;
+}
+
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
 	CheckTypeConflict(ctx, syntax, syntax->name->name);
@@ -10437,24 +10480,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			classType->aliases.push_back(new (ctx.get<MatchData>()) MatchData(el->name, el->type));
 		}
 
-		for(MemberHandle *el = baseClass->members.head; el; el = el->next)
-		{
-			if(el->variable->name->name == InplaceStr("$typeid"))
-				continue;
-
-			bool conflict = CheckVariableConflict(ctx, syntax, el->variable->name->name);
-
-			unsigned offset = AllocateVariableInScope(ctx, syntax, el->variable->alignment, el->variable->type);
-
-			assert(offset == el->variable->offset);
-
-			VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, el->variable->alignment, el->variable->type, el->variable->name, offset, ctx.uniqueVariableId++);
-
-			if(!conflict)
-				ctx.AddVariable(member, true);
-
-			classType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(el->variable->source, member, NULL));
-		}
+		AddBaseClassMemberVariables(ctx, syntax, baseClass, classType);
 
 		for(ConstantData *el = baseClass->constants.head; el; el = el->next)
 			classType->constants.push_back(new (ctx.get<ConstantData>()) ConstantData(el->name, el->value));

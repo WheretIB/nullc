@@ -669,3 +669,26 @@ class Test2 : Test{}\r\n\
 Test2 t;\r\n\
 return x;";
 TEST_RESULT_SIMPLE("Inheritance test 53 - class members should be initialized only once", testInheritance53, "1");
+
+const char	*testInheritance54 =
+"class Base extendable{ align(8) long x = 1; int y = 2; }\r\n\
+class Derived: Base{ int z = 3; }\r\n\
+class Derived2: Derived{ int w = 4; }\r\n\
+Derived2 t;\r\n\
+int s = t.x * 1000 + t.y * 100 + t.z * 10 + t.w;\r\n\
+t.x = 4; t.y = 3; t.z = 2; t.w = 1;\r\n\
+int s2 = t.x * 1000 + t.y * 100 + t.z * 10 + t.w;\r\n\
+return s + s2;";
+TEST_RESULT_SIMPLE("Inheritance test 54 - base class tail padding 1", testInheritance54, "5555");
+
+const char	*testInheritance55 =
+"class Base extendable{ align(8) int x = 1; int y = 2; }\r\n\
+class Derived: Base{ int z = 3; }\r\n\
+class Derived2: Derived{ int w = 4; }\r\n\
+class Derived3: Derived2{ int a = 5; }\r\n\
+Derived3 t;\r\n\
+int s = t.x * 10000 + t.y * 1000 + t.z * 100 + t.w * 10 + t.a;\r\n\
+t.x = 5; t.y = 4; t.z = 3; t.w = 2; t.a = 1;\r\n\
+int s2 = t.x * 10000 + t.y * 1000 + t.z * 100 + t.w * 10 + t.a;\r\n\
+return s + s2;";
+TEST_RESULT_SIMPLE("Inheritance test 54 - base class tail padding 2", testInheritance55, "66666");
