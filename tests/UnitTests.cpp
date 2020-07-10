@@ -245,10 +245,12 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	nullcInit();
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc);
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
@@ -263,10 +265,12 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	nullcInit();
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc);
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);

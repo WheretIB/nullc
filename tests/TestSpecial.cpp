@@ -1227,3 +1227,51 @@ memory.copy(buffer2, 128, buffer, 0, 128);\r\n\
 \r\n\
 return memory.compare(buffer2, 128, buffer, 0, 128) == 0;";
 TEST_RESULT("std.memory test", testMemoryLib, "1");
+
+const char	*testNullcInNullc =
+"import nullc_in_nullc.parser;\r\n\
+\r\n\
+import nullc_in_nullc.analyzer;\r\n\
+import nullc_in_nullc.expressioneval;\r\n\
+\r\n\
+char[] code = @\"class Test{\r\n\
+int x, y;\r\n\
+int sum{ get{ return x + y; } };\r\n\
+int[2] xy{ get{ return {x, y}; } set{ x = r[0]; y = r[1]; } };\r\n\
+double doubleX{ get{ return x; } set(value){ x = value; return y; } };\r\n\
+}\r\n\
+Test a;\r\n\
+a.x = 14;\r\n\
+a.y = 15;\r\n\
+int c = a.sum;\r\n\
+a.xy = { 5, 1 };\r\n\
+double b;\r\n\
+b = a.doubleX = 5.0;\r\n\
+return a.sum;\";\r\n\
+\r\n\
+ParseContext syntaxCtx;\r\n\
+\r\n\
+auto syntaxModule = Parse(syntaxCtx, code);\r\n\
+\r\n\
+if(syntaxModule)\r\n\
+{\r\n\
+	ExpressionContext expressionCtx;\r\n\
+\r\n\
+	auto expressionModule = Analyze(expressionCtx, syntaxModule, code);\r\n\
+\r\n\
+	if(expressionModule)\r\n\
+	{\r\n\
+		char[256] errorBuf;\r\n\
+		char[] result = TestEvaluation(expressionCtx, expressionModule, errorBuf);\r\n\
+\r\n\
+		if(result != nullptr)\r\n\
+			return int(result);\r\n\
+\r\n\
+		return -3;\r\n\
+	}\r\n\
+\r\n\
+	return -2;\r\n\
+}\r\n\
+\r\n\
+return -1;";
+TEST_RESULT_SIMPLE("nullc compiler", testNullcInNullc, "6");

@@ -17,6 +17,7 @@ double myGetPreciseTime();
 
 #define MODULE_PATH_A FILE_PATH "Modules/"
 #define MODULE_PATH_B FILE_PATH "../Modules/"
+#define MODULE_PATH_C FILE_PATH "tests/"
 
 enum TestTypeIndex
 {

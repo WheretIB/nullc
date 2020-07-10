@@ -160,6 +160,7 @@ struct TestRestore : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
+		nullcAddImportPath(MODULE_PATH_C);
 		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
