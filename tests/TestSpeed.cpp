@@ -20,8 +20,7 @@
 
 #include "../NULLC/includes/pugi.h"
 
-double speedTestTimeThreshold = 5000;	// how long, in ms, to run a speed test
-#define RUN_GC_TESTS
+double speedTestTimeThreshold = 1000;	// how long, in ms, to run a speed test
 
 void TestDrawRect(int, int, int, int, int)
 {
@@ -121,7 +120,6 @@ void	SpeedTestFile(const char* file)
 void RunSpeedTests()
 {
 	#ifdef SPEED_TEST
-#ifdef RUN_GC_TESTS
 const char	*testGarbageCollection =
 "import std.random;\r\n\
 import std.io;\r\n\
@@ -159,13 +157,9 @@ double markTimeBegin = GC.MarkTime();\r\n\
 double collectTimeBegin = GC.CollectTime();\r\n\
 io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 int WS = 0;\r\n\
-int ws = WS;\r\n"
-#if defined(__CELLOS_LV2__)
-"int d = 20;\r\n"
-#else
-"int d = 23;\r\n"
-#endif
-"arr = new Aref[1 << d];\r\n\
+int ws = WS;\r\n\
+int d = 21;\r\n\
+arr = new Aref[1 << d];\r\n\
 A ref a = Create(d);\r\n\
 int minToCollect = (WS - ws) / 2;\r\n\
 io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
@@ -177,7 +171,7 @@ GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
-return GC.UsedMemory() - memStart;";
+return 1;";
 
 	printf("Garbage collection\r\n");
 	for(int t = 0; t < TEST_TARGET_COUNT; t++)
@@ -187,16 +181,15 @@ return GC.UsedMemory() - memStart;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection, testTarget[t], sizeof(void*) == 8 ? "400" : "296"))
+		if(Tests::RunCode(testGarbageCollection, testTarget[t], "1", "GC Speed Test 1"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
 
-const char	*testGarbageCollection2 =
+	const char	*testGarbageCollection2 =
 "import std.random;\r\n\
 import std.io;\r\n\
 import std.gc;\r\n\
-int memStart = GC.UsedMemory();\r\n\
 \r\n\
 class A\r\n\
 {\r\n\
@@ -207,9 +200,8 @@ class A\r\n\
 int count;\r\n\
 long oldms;\r\n\
 typedef A ref Aref;\r\n\
-A ref[] arr;\r\n\
 \r\n\
-A ref Create(int level)\r\n\
+A ref Create(A ref[] arr, int level)\r\n\
 {\r\n\
     if(level == 0)\r\n\
 	{\r\n\
@@ -217,8 +209,8 @@ A ref Create(int level)\r\n\
     }else{\r\n\
         A ref a = new A;\r\n\
         arr[count] = a;\r\n\
-        a.ra = Create(level - 1);\r\n\
-        a.rb = Create(level - 1);\r\n\
+        a.ra = Create(arr, level - 1);\r\n\
+        a.rb = Create(arr, level - 1);\r\n\
         if (count > 0) {\r\n\
             a.rrt = arr[rand(count - 1)];\r\n\
 			a.rc = new A ref[2];\r\n\
@@ -231,27 +223,22 @@ A ref Create(int level)\r\n\
 }\r\n\
 double markTimeBegin = GC.MarkTime();\r\n\
 double collectTimeBegin = GC.CollectTime();\r\n\
+int memStart = GC.UsedMemory();\r\n\
 io.out << \"Started (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
-int WS = 0;\r\n\
-int ws = WS;\r\n"
-#if defined(__CELLOS_LV2__)
-"int d = 20;\r\n"
-#else
-"int d = 21;\r\n"
-#endif
-"arr = new Aref[1 << d];\r\n\
-A ref a = Create(d);\r\n\
-int minToCollect = (WS - ws) / 2;\r\n\
-io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
-io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
-ws = WS;\r\n\
-a = nullptr;\r\n\
-arr = nullptr;\r\n\
+void test()\r\n\
+{\r\n\
+	int d = 21;\r\n\
+	A ref[] arr = new Aref[1 << d];\r\n\
+	A ref a = Create(arr, d);\r\n\
+	io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
+	io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
+}\r\n\
+test();\r\n\
 GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
-return GC.UsedMemory() - memStart;";
+return 1;";
 
 	printf("Garbage collection 2 \r\n");
 	for(int t = 0; t < TEST_TARGET_COUNT; t++)
@@ -261,7 +248,7 @@ return GC.UsedMemory() - memStart;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection2, testTarget[t], sizeof(void*) == 8 ? "400" : "296"))
+		if(Tests::RunCode(testGarbageCollection2, testTarget[t], "1", "GC Speed Test 2"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
@@ -293,7 +280,7 @@ GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
-return GC.UsedMemory() - memStart;";
+return 1;";
 
 	printf("Garbage collection 3\r\n");
 	for(int t = 0; t < TEST_TARGET_COUNT; t++)
@@ -303,15 +290,13 @@ return GC.UsedMemory() - memStart;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection3, testTarget[t], sizeof(void*) == 8 ? "400" : "296"))
+		if(Tests::RunCode(testGarbageCollection3, testTarget[t], "1", "GC Speed Test 3"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
-#endif
-#if defined(_MSC_VER)
+
 	const char	*testCompileSpeed =
 "import img.canvas;\r\n\
-import win.window;\r\n\
 import std.io;\r\n\
 \r\n\
 int width = 256;\r\n\
@@ -387,8 +372,6 @@ void render(float[] from, float[] to)\r\n\
 \r\n\
 float[] bufA = a, bufB = b, temp;\r\n\
 \r\n\
-Window main = Window(\"Test\", 400, 300, 260, 275);\r\n\
-\r\n\
 int seed = 10;\r\n\
 int rand()\r\n\
 {\r\n\
@@ -396,8 +379,6 @@ int rand()\r\n\
 	return (seed / 65536) % 32768;\r\n\
 }\r\n\
 \r\n\
-char[256] keys;\r\n\
-do\r\n\
 {\r\n\
 	int randPosX = rand() % 200; randPosX = randPosX < 0 ? -randPosX : randPosX;\r\n\
 	int randPosY = rand() % 200; randPosY = randPosY < 0 ? -randPosY : randPosY;\r\n\
@@ -409,23 +390,27 @@ do\r\n\
 \r\n\
 	render(bufA, data);\r\n\
 \r\n\
-	main.DrawCanvas(&img, -1, -1);\r\n\
-	\r\n\
 	process(bufA, bufB);\r\n\
 	temp = bufA;\r\n\
 	bufA = bufB;\r\n\
 	bufB = temp;\r\n\
-\r\n\
-	main.Update();\r\n\
-	GetKeyboardState(keys);\r\n\
-}while(!(keys[0x1B] & 0x80000000));\r\n\
-main.Close();\r\n\
+}\r\n\
 \r\n\
 return 0;";
 
 	SpeedTestText("ripples.nc inlined", testCompileSpeed);
 
-#endif
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
+	{
+		if(!Tests::testExecutor[t])
+			continue;
+
+		testsCount[t]++;
+		double tStart = myGetPreciseTime();
+		if(Tests::RunCode(testCompileSpeed, testTarget[t], "0", "ripples.nc inlined"))
+			testsPassed[t]++;
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
+	}
 
 const char	*testCompileSpeed2 =
 "import test.rect;\r\n\
@@ -521,15 +506,13 @@ return 0;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testCompileSpeed2, testTarget[t], "0"))
+		if(Tests::RunCode(testCompileSpeed2, testTarget[t], "0", "progressbar.nc inlined"))
 			testsPassed[t]++;
-		printf("%s finished in %f (single run is %f)\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart, (myGetPreciseTime() - tStart) / 10000.0);
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
 
-#if defined(_MSC_VER)
 const char	*testCompileSpeed3 =
 "import img.canvas;\r\n\
-import win.window;\r\n\
 import std.time;\r\n\
 import std.io;\r\n\
 import std.math;\r\n\
@@ -545,8 +528,6 @@ double power = 12;\r\n\
 \r\n\
 int width = size;\r\n\
 int height = size;\r\n\
-\r\n\
-Window main = Window(\"Raytrace example\", 400, 300, width + 4, height + 20);\r\n\
 \r\n\
 class Material\r\n\
 {\r\n\
@@ -774,8 +755,6 @@ setup();\r\n\
 \r\n\
 double lastTime = clock();\r\n\
 \r\n\
-char[256] keys;\r\n\
-do\r\n\
 {\r\n\
 	// Draw\r\n\
 	int mouseX, mouseY;\r\n\
@@ -785,22 +764,26 @@ do\r\n\
 	time = clock() * 0.001;\r\n\
 	draw();\r\n\
 \r\n\
-	main.DrawCanvas(&screen, -1, -1);\r\n\
-	\r\n\
 	double time = clock() - lastTime;\r\n\
 	lastTime = clock();\r\n\
 	int fps = 1000.0 / time;\r\n\
-	main.SetTitle(\"FPS is \" + fps.str());\r\n\
-\r\n\
-	main.Update();\r\n\
-	GetKeyboardState(keys);\r\n\
-}while(!(keys[0x1B] & 0x80000000));	// While Escape is not pressed\r\n\
-main.Close();\r\n\
+}\r\n\
 \r\n\
 return 0;";
 
 	SpeedTestText("raytrace.nc inlined", testCompileSpeed3);
-#endif
+
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
+	{
+		if(!Tests::testExecutor[t])
+			continue;
+
+		testsCount[t]++;
+		double tStart = myGetPreciseTime();
+		if(Tests::RunCode(testCompileSpeed3, testTarget[t], "0", "raytrace.nc inlined"))
+			testsPassed[t]++;
+		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
+	}
 
 	speedTestTimeThreshold = 1000;
 	char *tmp = new char[64*1024];
