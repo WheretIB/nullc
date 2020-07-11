@@ -983,7 +983,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 }
 
 // zero-terminated safe sprintf
-int	safeprintf(char* dst, size_t size, const char* src, ...)
+size_t safeprintf(char* dst, size_t size, const char* src, ...)
 {
 	if(size == 0)
 		return 0;
@@ -992,11 +992,11 @@ int	safeprintf(char* dst, size_t size, const char* src, ...)
 	va_start(args, src);
 
 	int result = vsnprintf(dst, size, src, args);
-	dst[size-1] = '\0';
+	dst[size - 1] = '\0';
 
 	va_end(args);
 
-	return result;
+	return result == -1 ? 0 : (result > size ? size : result);
 }
 
 ExternVarInfo	*codeVars = NULL;
