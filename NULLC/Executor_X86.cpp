@@ -292,7 +292,7 @@ namespace NULLC
 #if defined(_M_X64)
 		uintptr_t address = uintptr_t(((ucontext_t*)ucontext)->uc_mcontext.gregs[REG_RIP]);
 #else
-		uintptr_t address = uintptr_t(((ucontext_t*)ucontext->uc_mcontext.gregs[REG_EIP]);
+		uintptr_t address = uintptr_t(((ucontext_t*)ucontext)->uc_mcontext.gregs[REG_EIP]);
 #endif
 
 		// Check that exception happened in NULLC code
