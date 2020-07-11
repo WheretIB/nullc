@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Allocator.h"
+#include "Array.h"
 #include "Pool.h"
 
 template<typename Value>
@@ -18,7 +19,7 @@ public:
 		Node			*next;
 	};
 
-	HashMap(Allocator *allocator = 0): allocator(allocator)
+	HashMap(Allocator *allocator = 0): allocator(allocator), freeList(allocator)
 	{
 		entries = NULL;
 	}
@@ -54,6 +55,8 @@ public:
 		assert(entries == NULL);
 
 		this->allocator = newAllocator;
+
+		freeList.set_allocator(newAllocator);
 	}
 
 	void reset()
@@ -79,12 +82,28 @@ public:
 	void insert(unsigned int hash, Value value)
 	{
 		unsigned int bucket = hash & bucketMask;
-		Node *n = (Node*)(allocator ? allocator->alloc(sizeof(Node)) : nodePool.Allocate(sizeof(Node)));
+
+		Node *n = NULL;
+
+		if(!freeList.empty())
+		{
+			n = freeList.back();
+			freeList.pop_back();
+		}
+		else
+		{
+			if(allocator)
+				n = (Node*)allocator->alloc(sizeof(Node));
+			else
+				n = (Node*)nodePool.Allocate(sizeof(Node));
+		}
+
 		n->value = value;
 		n->hash = hash;
 		n->next = entries[bucket];
 		entries[bucket] = n;
 	}
+
 	void remove(unsigned int hash, Value value)
 	{
 		unsigned int bucket = hash & bucketMask;
@@ -96,7 +115,11 @@ public:
 			prev = curr;
 			curr = curr->next;
 		}
+
 		assert(curr);
+
+		freeList.push_back(curr);
+
 		if(prev)
 			prev->next = curr->next;
 		else
@@ -153,4 +176,6 @@ private:
 	Node	**entries;
 
 	Allocator *allocator;
+
+	SmallArray<Node*, 32> freeList;
 };
