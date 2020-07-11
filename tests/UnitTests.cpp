@@ -258,7 +258,9 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 
 	nullcInitTypeinfoModule();
 	nullcInitDynamicModule();
+
 	RunInterfaceTests();
+	RunUtilityTests();
 
 	// Init NULLC for test set
 #ifdef NO_CUSTOM_ALLOCATOR

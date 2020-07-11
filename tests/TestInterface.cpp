@@ -1,7 +1,9 @@
 #include "TestInterface.h"
 
 #include "TestBase.h"
+
 #include "../NULLC/nullc_debug.h"
+#include "../NULLC/Array.h"
 
 bool	initialized;
 
@@ -671,4 +673,69 @@ void RunInterfaceTests()
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is already initialized");
 	nullcTerminate();
 	TEST_COMPARES(nullcGetLastError(), "");
+}
+
+void RunUtilityTests()
+{
+	{
+		if(Tests::messageVerbose)
+			printf("FastVector test 1\r\n");
+
+		testsCount[TEST_TYPE_EXTRA]++;
+
+		FastVector<unsigned> arr;
+
+		arr.push_back(1);
+
+		for(unsigned i = 0; i < 1024; i++)
+		{
+			arr.push_back(arr[arr.size() - 1]);
+			arr.back()++;
+		}
+
+		for(unsigned i = 0; i < 1024; i++)
+		{
+			if(arr[i] != i + 1)
+			{
+				if(!Tests::messageVerbose)
+					printf("FastVector test 1\r\n");
+
+				printf("Failed %d != %d\n", arr[i], i + 1);
+				return;
+			}
+		}
+
+		testsPassed[TEST_TYPE_EXTRA]++;
+	}
+
+	{
+		if(Tests::messageVerbose)
+			printf("FastVector test 2\r\n");
+
+		testsCount[TEST_TYPE_EXTRA]++;
+
+		FastVector<unsigned> arr;
+
+		arr.push_back(1);
+
+		for(unsigned i = 0; i < 1024; i++)
+		{
+			arr.push_back(arr[arr.size() - 1]);
+			arr.back()++;
+		}
+
+		for(unsigned i = 0; i < 1024; i++)
+		{
+			if(arr[i] != i + 1)
+			{
+				if(!Tests::messageVerbose)
+					printf("FastVector test 2\r\n");
+
+				printf("Failed %d != %d\n", arr[i], i + 1);
+				return;
+			}
+		}
+
+		testsPassed[TEST_TYPE_EXTRA]++;
+	}
 }

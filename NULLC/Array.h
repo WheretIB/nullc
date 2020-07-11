@@ -75,7 +75,10 @@ public:
 	__forceinline void push_back(const T& val)
 	{
 		if(count == max)
-			grow(count);
+		{
+			grow_and_add(count, val);
+			return;
+		}
 
 		data[count++] = val;
 	}
@@ -83,7 +86,10 @@ public:
 	__forceinline void push_back(const T* valPtr, unsigned elem)
 	{
 		if(count + elem >= max)
-			grow(count + elem);
+		{
+			grow_and_add(count + elem, valPtr, elem);
+			return;
+		}
 
 		for(unsigned i = 0; i < elem; i++)
 			data[count++] = valPtr[i];
@@ -146,7 +152,7 @@ public:
 			grow(resSize);
 	}
 
-	__inline void grow(unsigned newSize)
+	void grow_no_destroy(unsigned newSize)
 	{
 		if(max + (max >> 1) > newSize)
 			newSize = max + (max >> 1);
@@ -166,17 +172,63 @@ public:
 			memset(newData, 0, newSize * sizeof(T));
 
 		if(data)
-		{
 			memcpy(newData, data, max * sizeof(T));
-
-			if(!skipConstructor)
-				NULLC::destruct(data, max);
-			else
-				NULLC::alignedDealloc(data);
-		}
 
 		data = newData;
 		max = newSize;
+	}
+
+	void grow(unsigned newSize)
+	{
+		T* oldData = data;
+		unsigned oldMax = max;
+
+		grow_no_destroy(newSize);
+
+		if(oldData)
+		{
+			if(!skipConstructor)
+				NULLC::destruct(oldData, oldMax);
+			else
+				NULLC::alignedDealloc(oldData);
+		}
+	}
+
+	void grow_and_add(unsigned newSize, const T& val)
+	{
+		T* oldData = data;
+		unsigned oldMax = max;
+
+		grow_no_destroy(newSize);
+
+		data[count++] = val;
+
+		if(oldData)
+		{
+			if(!skipConstructor)
+				NULLC::destruct(oldData, oldMax);
+			else
+				NULLC::alignedDealloc(oldData);
+		}
+	}
+
+	void grow_and_add(unsigned newSize, const T* valPtr, unsigned elem)
+	{
+		T* oldData = data;
+		unsigned oldMax = max;
+
+		grow_no_destroy(newSize);
+
+		for(unsigned i = 0; i < elem; i++)
+			data[count++] = valPtr[i];
+
+		if(oldData)
+		{
+			if(!skipConstructor)
+				NULLC::destruct(oldData, oldMax);
+			else
+				NULLC::alignedDealloc(oldData);
+		}
 	}
 
 	T *data;
