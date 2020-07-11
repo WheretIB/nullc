@@ -76,7 +76,9 @@ private:
 	RegVmRegister	lastResult;
 
 	char	execError[REGVM_X86_ERROR_BUFFER_SIZE];
-	char	execResult[64];
+
+	static const unsigned execResultSize = 512;
+	char	execResult[execResultSize];
 
 	// Linker and linker data
 	Linker		*exLinker;

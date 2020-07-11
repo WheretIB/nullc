@@ -53,7 +53,7 @@ namespace
 ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions)
 {
 	memset(execError, 0, REGVM_ERROR_BUFFER_SIZE);
-	memset(execResult, 0, 64);
+	memset(execResult, 0, execResultSize);
 
 	codeRunning = false;
 
@@ -1668,19 +1668,19 @@ const char* ExecutorRegVm::GetResult()
 	switch(lastResultType)
 	{
 	case rvrDouble:
-		NULLC::SafeSprintf(execResult, 64, "%f", lastResult.doubleValue);
+		NULLC::SafeSprintf(execResult, execResultSize, "%f", lastResult.doubleValue);
 		break;
 	case rvrLong:
-		NULLC::SafeSprintf(execResult, 64, "%lldL", (long long)lastResult.longValue);
+		NULLC::SafeSprintf(execResult, execResultSize, "%lldL", (long long)lastResult.longValue);
 		break;
 	case rvrInt:
-		NULLC::SafeSprintf(execResult, 64, "%d", lastResult.intValue);
+		NULLC::SafeSprintf(execResult, execResultSize, "%d", lastResult.intValue);
 		break;
 	case rvrVoid:
-		NULLC::SafeSprintf(execResult, 64, "no return value");
+		NULLC::SafeSprintf(execResult, execResultSize, "no return value");
 		break;
 	case rvrStruct:
-		NULLC::SafeSprintf(execResult, 64, "complex return value");
+		NULLC::SafeSprintf(execResult, execResultSize, "complex return value");
 		break;
 	default:
 		break;
