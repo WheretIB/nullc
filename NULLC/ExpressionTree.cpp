@@ -13211,9 +13211,6 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code,
 
 		assert(ctx.scope == NULL);
 
-		ctx.code = NULL;
-		ctx.codeEnd = NULL;
-
 		ctx.moduleRoot = NULL;
 
 		return module;
@@ -13225,9 +13222,6 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code,
 		ctx.allocator->clear_limit();
 
 	assert(ctx.errorPos != NULL);
-
-	ctx.code = NULL;
-	ctx.codeEnd = NULL;
 
 	ctx.moduleRoot = NULL;
 
