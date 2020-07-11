@@ -1,12 +1,5 @@
 #include "Translator_X86.h"
 
-#ifndef __linux
-
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
-#endif
-
 #include "CodeGen_X86.h"
 #include "CodeGenRegVm_X86.h"
 #include "Output.h"
