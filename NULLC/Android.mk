@@ -12,9 +12,8 @@ LOCAL_MODULE    := nullc
 LOCAL_SRC_FILES := NULLC/BinaryCache.cpp
 LOCAL_SRC_FILES += NULLC/Bytecode.cpp
 LOCAL_SRC_FILES += NULLC/Compiler.cpp
-LOCAL_SRC_FILES += NULLC/Executor.cpp
-LOCAL_SRC_FILES += NULLC/Executor_RegVm.cpp
 LOCAL_SRC_FILES += NULLC/Executor_Common.cpp
+LOCAL_SRC_FILES += NULLC/Executor_RegVm.cpp
 LOCAL_SRC_FILES += NULLC/ExpressionEval.cpp
 LOCAL_SRC_FILES += NULLC/ExpressionGraph.cpp
 LOCAL_SRC_FILES += NULLC/ExpressionTranslate.cpp
@@ -27,8 +26,6 @@ LOCAL_SRC_FILES += NULLC/InstructionTreeVm.cpp
 LOCAL_SRC_FILES += NULLC/InstructionTreeVmCommon.cpp
 LOCAL_SRC_FILES += NULLC/InstructionTreeVmEval.cpp
 LOCAL_SRC_FILES += NULLC/InstructionTreeVmGraph.cpp
-LOCAL_SRC_FILES += NULLC/InstructionTreeVmLower.cpp
-LOCAL_SRC_FILES += NULLC/InstructionTreeVmLowerGraph.cpp
 LOCAL_SRC_FILES += NULLC/Lexer.cpp
 LOCAL_SRC_FILES += NULLC/Linker.cpp
 LOCAL_SRC_FILES += NULLC/nullc.cpp
@@ -42,7 +39,15 @@ LOCAL_SRC_FILES += NULLC/TypeTree.cpp
 # nullc x86 jit
 ifeq ($(APP_ABI),x86)
 	LOCAL_SRC_FILES += NULLC/CodeGen_X86.cpp
+	LOCAL_SRC_FILES += NULLC/CodeGenRegVm_X86.cpp
 	LOCAL_SRC_FILES += NULLC/Executor_X86.cpp
+	LOCAL_SRC_FILES += NULLC/Instruction_X86.cpp
+	LOCAL_SRC_FILES += NULLC/Translator_X86.cpp
+else ifeq ($(APP_ABI),x86_64)
+	LOCAL_SRC_FILES += NULLC/CodeGen_X86.cpp
+	LOCAL_SRC_FILES += NULLC/CodeGenRegVm_X86.cpp
+	LOCAL_SRC_FILES += NULLC/Executor_X86.cpp
+	LOCAL_SRC_FILES += NULLC/Instruction_X86.cpp
 	LOCAL_SRC_FILES += NULLC/Translator_X86.cpp
 endif
 
@@ -54,7 +59,6 @@ LOCAL_SRC_FILES += external/pugixml/pugixml.cpp
 LOCAL_SRC_FILES += NULLC/includes/canvas.cpp
 
 # old
-LOCAL_SRC_FILES += NULLC/includes/list.cpp
 LOCAL_SRC_FILES += NULLC/includes/vector.cpp
 
 # std
@@ -63,6 +67,7 @@ LOCAL_SRC_FILES += NULLC/includes/file.cpp
 LOCAL_SRC_FILES += NULLC/includes/gc.cpp
 LOCAL_SRC_FILES += NULLC/includes/io.cpp
 LOCAL_SRC_FILES += NULLC/includes/math.cpp
+LOCAL_SRC_FILES += NULLC/includes/memory.cpp
 LOCAL_SRC_FILES += NULLC/includes/random.cpp
 LOCAL_SRC_FILES += NULLC/includes/string.cpp
 LOCAL_SRC_FILES += NULLC/includes/time.cpp
