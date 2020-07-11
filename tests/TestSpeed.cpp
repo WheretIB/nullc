@@ -181,7 +181,7 @@ return 1;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection, testTarget[t], "1", "GC Speed Test 1"))
+		if(Tests::RunCodeSimple(testGarbageCollection, testTarget[t], "1", "GC Speed Test 1", false, ""))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
@@ -248,7 +248,7 @@ return 1;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection2, testTarget[t], "1", "GC Speed Test 2"))
+		if(Tests::RunCodeSimple(testGarbageCollection2, testTarget[t], "1", "GC Speed Test 2", false, ""))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
@@ -290,7 +290,7 @@ return 1;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection3, testTarget[t], "1", "GC Speed Test 3"))
+		if(Tests::RunCodeSimple(testGarbageCollection3, testTarget[t], "1", "GC Speed Test 3", false, ""))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
@@ -407,7 +407,7 @@ return 0;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testCompileSpeed, testTarget[t], "0", "ripples.nc inlined"))
+		if(Tests::RunCodeSimple(testCompileSpeed, testTarget[t], "0", "ripples.nc inlined", false, ""))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
@@ -506,7 +506,7 @@ return 0;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testCompileSpeed2, testTarget[t], "0", "progressbar.nc inlined"))
+		if(Tests::RunCodeSimple(testCompileSpeed2, testTarget[t], "0", "progressbar.nc inlined", false, ""))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
@@ -780,7 +780,7 @@ return 0;";
 
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testCompileSpeed3, testTarget[t], "0", "raytrace.nc inlined"))
+		if(Tests::RunCodeSimple(testCompileSpeed3, testTarget[t], "0", "raytrace.nc inlined", false, ""))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"), myGetPreciseTime() - tStart);
 	}
