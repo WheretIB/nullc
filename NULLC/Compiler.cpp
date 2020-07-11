@@ -571,59 +571,65 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
 #endif
 
-	// Dead code elimination is required for correct register allocation
-	if(ctx.optimizationLevel == 0)
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-
-	if(ctx.optimizationLevel >= 1)
+	for(VmFunction *function = ctx.vmModule->functions.head; function; function = function->next)
 	{
-		TRACE_SCOPE("compiler", "OptimizationLevel1");
+		if(!function->firstBlock)
+			continue;
 
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_ARRAY_TO_ELEMENTS);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-	}
+		// Dead code elimination is required for correct register allocation
+		if(ctx.optimizationLevel == 0)
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_ARRAY_VALUES);
-
-	if(ctx.optimizationLevel >= 2)
-	{
-		TRACE_SCOPE("compiler", "OptimizationLevel2");
-
-		for(unsigned i = 0; i < 6; i++)
+		if(ctx.optimizationLevel >= 1)
 		{
-			TRACE_SCOPE("compiler", "iteration");
+			TRACE_SCOPE("compiler", "OptimizationLevel1");
 
-			unsigned before = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
-
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
-
-			unsigned after = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
-
-			// Reached fixed point
-			if(before == after)
-				break;
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_PEEPHOLE);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONSTANT_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_ARRAY_TO_ELEMENTS);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		}
 
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_MEMORY_TO_REGISTER);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+		RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_LEGALIZE_ARRAY_VALUES);
 
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LATE_PEEPHOLE);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+		if(ctx.optimizationLevel >= 2)
+		{
+			TRACE_SCOPE("compiler", "OptimizationLevel2");
 
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
+			for(unsigned i = 0; i < 6; i++)
+			{
+				TRACE_SCOPE("compiler", "iteration");
+
+				unsigned before = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
+
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONSTANT_PROPAGATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_PEEPHOLE);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
+
+				unsigned after = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
+
+				// Reached fixed point
+				if(before == after)
+					break;
+			}
+
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_MEMORY_TO_REGISTER);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_LATE_PEEPHOLE);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
+		}
 	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_UPDATE_LIVE_SETS);

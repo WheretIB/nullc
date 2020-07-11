@@ -7517,3 +7517,64 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 		value->MoveEntryBlockToStart();
 	}
 }
+
+void RunVmPass(ExpressionContext &ctx, VmModule *module, VmFunction *function, VmPassType type)
+{
+	if(!function->firstBlock)
+		return;
+
+	switch(type)
+	{
+	case VM_PASS_OPT_PEEPHOLE:
+		RunPeepholeOptimizations(ctx, module, function);
+		break;
+	case VM_PASS_OPT_CONSTANT_PROPAGATION:
+		RunConstantPropagation(ctx, module, function, false);
+		break;
+	case VM_PASS_OPT_DEAD_CODE_ELIMINATION:
+		RunDeadCodeElimiation(ctx, module, function);
+		break;
+	case VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION:
+		RunControlFlowOptimization(ctx, module, function);
+		break;
+	case VM_PASS_OPT_LOAD_STORE_PROPAGATION:
+		RunLoadStorePropagation(ctx, module, function);
+		break;
+	case VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
+		RunCommonSubexpressionElimination(ctx, module, function);
+		break;
+	case VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION:
+		RunDeadAlocaStoreElimination(ctx, module, function);
+		break;
+	case VM_PASS_OPT_MEMORY_TO_REGISTER:
+		RunMemoryToRegister(ctx, module, function);
+		break;
+	case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
+		RunArrayToElements(ctx, module, function);
+		break;
+	case VM_PASS_OPT_LATE_PEEPHOLE:
+		RunLatePeepholeOptimizations(ctx, module, function);
+		break;
+	case VM_PASS_UPDATE_LIVE_SETS:
+		RunUpdateLiveSets(ctx, module, function);
+		break;
+	case VM_PASS_PREPARE_SSA_EXIT:
+		RunPrepareSsaExit(ctx, module, function);
+		break;
+	case VM_PASS_CREATE_ALLOCA_STORAGE:
+		RunCreateAllocaStorage(ctx, module, function);
+		break;
+	case VM_PASS_LEGALIZE_ARRAY_VALUES:
+		RunLegalizeArrayValues(ctx, module, function);
+		break;
+	case VM_PASS_LEGALIZE_BITCASTS:
+		RunLegalizeBitcasts(ctx, module, function);
+		break;
+	case VM_PASS_LEGALIZE_EXTRACTS:
+		RunLegalizeExtracts(ctx, module, function);
+		break;
+	}
+
+	// Preserve entry block order for execution
+	function->MoveEntryBlockToStart();
+}

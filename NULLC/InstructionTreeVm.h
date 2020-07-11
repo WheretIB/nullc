@@ -661,3 +661,4 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *code);
 
 void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type);
+void RunVmPass(ExpressionContext &ctx, VmModule *module, VmFunction *function, VmPassType type);
