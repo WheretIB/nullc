@@ -2,8 +2,11 @@
 
 #include <android/log.h>
 
+#include <assert.h>
+
 #include "nullc.h"
 #include "nullc_debug.h"
+#include "nullc_internal.h"
 
 #ifdef BUILD_TESTS
 #include "../tests/UnitTests.h"
@@ -25,18 +28,16 @@ namespace
 	jobject fileHandler = 0;
 }
 
-const void* nullcAndroidfileLoadFunc(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+const char* nullcAndroidFileLoadFunc(const char* name, unsigned int* size)
 {
 	//__android_log_print(ANDROID_LOG_INFO, "nullc", "nullcAndroidfileLoadFunc %s\n", name);
 
 	assert(name);
 	assert(size);
-	assert(nullcShouldFreePtr);
 
 	if(!env || !fileHandler)
 	{
 		*size = 0;
-		*nullcShouldFreePtr = false;
 		return NULL;
 	}
 
@@ -49,7 +50,6 @@ const void* nullcAndroidfileLoadFunc(const char* name, unsigned int* size, int* 
     if(!arr)
     {
         *size = 0;
-        *nullcShouldFreePtr = false;
         return NULL;
     }
 
@@ -63,8 +63,15 @@ const void* nullcAndroidfileLoadFunc(const char* name, unsigned int* size, int* 
 	env->ReleaseByteArrayElements(arr, arrElements, 0);
 
 	*size = arrSize;
-	*nullcShouldFreePtr = true;
 	return contents;
+}
+
+void nullcAndroidFileFreeFunc(const char* data)
+{
+	if(!data)
+		return;
+
+	NULLC::dealloc((void*)data);
 }
 
 extern "C" {
@@ -75,7 +82,7 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcInit(JNIEnv *env, jclass cl
 
 	nullcInit();
 
-	nullcSetFileReadHandler(nullcAndroidfileLoadFunc);
+	nullcSetFileReadHandler(nullcAndroidFileLoadFunc, nullcAndroidFileFreeFunc);
 
 	classBool = env->FindClass("java/lang/Boolean");
 	classBool = (jclass)env->NewGlobalRef(classBool);
@@ -662,7 +669,7 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcLinkCode(JNIEnv *env, jclas
 JNIEXPORT void JNICALL Java_org_nullc_Nullc_nullcRunTests(JNIEnv *env, jclass cls, jboolean verbose)
 {
 #ifdef BUILD_TESTS
-	RunTests(verbose, nullcAndroidfileLoadFunc);
+	RunTests(verbose, nullcAndroidFileLoadFunc, nullcAndroidFileFreeFunc, false, false, false, false, false);
 #endif
 }
 
