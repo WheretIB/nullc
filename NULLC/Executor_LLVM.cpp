@@ -242,6 +242,9 @@ namespace
 
 ExecutorLLVM::ExecutorLLVM(Linker* linker)
 {
+	execError = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	*execError = 0;
+
 	exLinker = linker;
 
 	ctx = NULL;
@@ -251,6 +254,8 @@ ExecutorLLVM::ExecutorLLVM(Linker* linker)
 
 ExecutorLLVM::~ExecutorLLVM()
 {
+	NULLC::dealloc(execError);
+
 	LLVMDisposeExecutionEngine(ctx->executionEngine);
 
 	LLVMContextDispose(ctx->context);

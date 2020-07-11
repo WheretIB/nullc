@@ -10,8 +10,6 @@ typedef struct DCCallVM_ DCCallVM;
 
 class Linker;
 
-const int REGVM_ERROR_BUFFER_SIZE = 1024;
-
 class ExecutorRegVm
 {
 public:
@@ -52,7 +50,7 @@ private:
 	RegVmReturnType	lastResultType;
 	RegVmRegister	lastResult;
 
-	char		execError[REGVM_ERROR_BUFFER_SIZE];
+	char		*execError;
 
 	static const unsigned execResultSize = 512;
 	char		execResult[execResultSize];

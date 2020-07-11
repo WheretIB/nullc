@@ -42,8 +42,7 @@ public:
 private:
 	bool	codeRunning;
 
-	static const int ERROR_BUFFER_SIZE = 1024;
-	char		execError[ERROR_BUFFER_SIZE];
+	char		*execError;
 
 	static const unsigned execResultSize = 512;
 	char		execResult[execResultSize];

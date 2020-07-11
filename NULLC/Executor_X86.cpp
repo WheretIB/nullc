@@ -384,7 +384,9 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 {
 	codeGenCtx = NULL;
 
-	memset(execError, 0, REGVM_X86_ERROR_BUFFER_SIZE);
+	execError = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	*execError = 0;
+
 	memset(execResult, 0, execResultSize);
 
 	codeRunning = false;
@@ -428,6 +430,8 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 
 ExecutorX86::~ExecutorX86()
 {
+	NULLC::dealloc(execError);
+
 	NULLC::AllowMemoryPageRead(vmState.callStackEnd);
 	NULLC::AllowMemoryPageRead(vmState.dataStackEnd);
 	NULLC::AllowMemoryPageRead(vmState.regFileArrayEnd);
@@ -1093,11 +1097,11 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		if(lastFinalReturn == 0)
 		{
 			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, REGVM_X86_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+			currPos += NULLC::SafeSprintf(currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
 			unsigned currentFrame = 0;
 			while(unsigned address = GetCallStackAddress(currentFrame++))
-				currPos += PrintStackFrame(address, currPos, REGVM_X86_ERROR_BUFFER_SIZE - int(currPos - execError), false);
+				currPos += PrintStackFrame(address, currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
 
 		lastFinalReturn = prevLastFinalReturn;
@@ -1137,7 +1141,7 @@ void ExecutorX86::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	NULLC::SafeSprintf(execError, REGVM_X86_ERROR_BUFFER_SIZE, "%s", error);
+	NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "%s", error);
 }
 
 bool ExecutorX86::SetStackSize(unsigned bytes)
@@ -2129,7 +2133,7 @@ bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
 	if(instruction > instAddress.size())
 	{
-		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 
@@ -2138,7 +2142,7 @@ bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 
 	if(instruction >= instAddress.size())
 	{
-		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 
@@ -2151,7 +2155,7 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 {
 	if(instruction > instAddress.size())
 	{
-		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 
@@ -2164,7 +2168,7 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 
 	if(index == ~0u || *instAddress[breakInstructions[index].instIndex] != 0xcc)
 	{
-		NULLC::SafeSprintf(execError, 512, "ERROR: there is no breakpoint at instruction %d", instruction);
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
 		return false;
 	}
 

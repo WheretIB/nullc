@@ -52,7 +52,9 @@ namespace
 
 ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions)
 {
-	memset(execError, 0, REGVM_ERROR_BUFFER_SIZE);
+	execError = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	*execError = 0;
+
 	memset(execResult, 0, execResultSize);
 
 	codeRunning = false;
@@ -84,6 +86,8 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 
 ExecutorRegVm::~ExecutorRegVm()
 {
+	NULLC::dealloc(execError);
+
 	NULLC::dealloc(tempStackArrayBase);
 
 	NULLC::dealloc(regFileArrayBase);
@@ -319,11 +323,11 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		if(lastFinalReturn == 0)
 		{
 			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+			currPos += NULLC::SafeSprintf(currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
 			unsigned currentFrame = 0;
 			while(unsigned address = GetCallStackAddress(currentFrame++))
-				currPos += PrintStackFrame(address, currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), false);
+				currPos += PrintStackFrame(address, currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
 
 		lastFinalReturn = prevLastFinalReturn;
@@ -363,7 +367,7 @@ void ExecutorRegVm::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "%s", error);
+	NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "%s", error);
 }
 
 bool ExecutorRegVm::SetStackSize(unsigned bytes)
@@ -1605,7 +1609,7 @@ bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruct
 
 		codeRunning = false;
 
-		NULLC::SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[typeId].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[typeId].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
 
 		return false;
 	}
@@ -1773,7 +1777,7 @@ bool ExecutorRegVm::AddBreakpoint(unsigned instruction, bool oneHit)
 {
 	if(instruction >= exLinker->exRegVmCode.size())
 	{
-		NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 
@@ -1781,7 +1785,7 @@ bool ExecutorRegVm::AddBreakpoint(unsigned instruction, bool oneHit)
 
 	if(exLinker->exRegVmCode[instruction].code == rviNop)
 	{
-		NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
 		return false;
 	}
 
@@ -1808,13 +1812,13 @@ bool ExecutorRegVm::RemoveBreakpoint(unsigned instruction)
 {
 	if(instruction > exLinker->exRegVmCode.size())
 	{
-		NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 
 	if(exLinker->exRegVmCode[instruction].code != rviNop)
 	{
-		NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
+		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
 		return false;
 	}
 

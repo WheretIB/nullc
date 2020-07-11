@@ -23,8 +23,6 @@ struct ExternFuncInfo;
 
 struct OutputContext;
 
-const int REGVM_X86_ERROR_BUFFER_SIZE = 1024;
-
 class ExecutorX86
 {
 public:
@@ -75,8 +73,6 @@ private:
 	RegVmReturnType	lastResultType;
 	RegVmRegister	lastResult;
 
-	char	execError[REGVM_X86_ERROR_BUFFER_SIZE];
-
 	static const unsigned execResultSize = 512;
 	char	execResult[execResultSize];
 
@@ -98,6 +94,8 @@ private:
 
 public:
 	CodeGenRegVmStateContext vmState;
+
+	char *execError;
 
 	unsigned char	*binCode;
 	unsigned		binCodeSize;

@@ -4368,10 +4368,13 @@ void ConvertPtrWrap(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, un
 		vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
 		vmState->callStackTop++;
 
-		char execError[REGVM_X86_ERROR_BUFFER_SIZE];
-		NULLC::SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &ctx.exSymbols[ctx.exTypes[sourceTypeId].offsetToName], &ctx.exSymbols[ctx.exTypes[targetTypeId].offsetToName]);
+		const unsigned bufSize = 1024;
+		char buf[bufSize];
 
-		ctx.x86rvm->Stop(execError);
+		NULLC::SafeSprintf(buf, bufSize, "ERROR: cannot convert from %s ref to %s ref", &ctx.exSymbols[ctx.exTypes[sourceTypeId].offsetToName], &ctx.exSymbols[ctx.exTypes[targetTypeId].offsetToName]);
+
+		ctx.x86rvm->Stop(buf);
+
 		longjmp(vmState->errorHandler, 1);
 	}
 }
