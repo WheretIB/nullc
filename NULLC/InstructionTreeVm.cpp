@@ -4693,172 +4693,176 @@ void MarkReachableBlocks(VmBlock *block)
 		MarkReachableBlocks(block->successors[i]);
 }
 
-void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* value)
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmBlock *block);
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmInstruction *inst);
+
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmFunction* function)
 {
-	if(VmFunction *function = getType<VmFunction>(value))
+	if(!function->firstBlock)
+		return;
+
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
 	{
-		if(!function->firstBlock)
-			return;
+		curr->predecessors.clear();
+		curr->successors.clear();
+	}
 
-		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+	// Get block predecessors and successors
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+	{
+		for(unsigned i = 0; i < curr->users.size(); i++)
 		{
-			curr->predecessors.clear();
-			curr->successors.clear();
-		}
+			VmValue *user = curr->users[i];
 
-		// Get block predecessors and successors
-		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
-		{
-			for(unsigned i = 0; i < curr->users.size(); i++)
+			if(VmInstruction *inst = getType<VmInstruction>(user))
 			{
-				VmValue *user = curr->users[i];
-
-				if(VmInstruction *inst = getType<VmInstruction>(user))
+				if(inst->cmd != VM_INST_PHI)
 				{
-					if(inst->cmd != VM_INST_PHI)
-					{
-						curr->predecessors.push_back(inst->parent);
-						inst->parent->successors.push_back(curr);
-					}
+					curr->predecessors.push_back(inst->parent);
+					inst->parent->successors.push_back(curr);
 				}
 			}
 		}
+	}
 
-		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
-			curr->visited = false;
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		curr->visited = false;
 
-		MarkReachableBlocks(function->firstBlock);
+	MarkReachableBlocks(function->firstBlock);
 
-		// Remove blocks that are unreachable from entry
-		for(VmBlock *curr = function->firstBlock->nextSibling; curr;)
+	// Remove blocks that are unreachable from entry
+	for(VmBlock *curr = function->firstBlock->nextSibling; curr;)
+	{
+		VmBlock *next = curr->nextSibling;
+
+		if(!curr->visited)
 		{
-			VmBlock *next = curr->nextSibling;
-
-			if(!curr->visited)
+			while(!curr->users.empty())
 			{
-				while(!curr->users.empty())
+				VmInstruction *inst = getType<VmInstruction>(curr->users.back());
+
+				if(inst->cmd == VM_INST_JUMP)
 				{
-					VmInstruction *inst = getType<VmInstruction>(curr->users.back());
+					inst->parent->RemoveInstruction(inst);
+				}
+				else if(inst->cmd == VM_INST_JUMP_NZ || inst->cmd == VM_INST_JUMP_Z)
+				{
+					if(inst->arguments[1] == curr)
+						ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[2], NULL, NULL, NULL, NULL, NULL);
+					else
+						ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[1], NULL, NULL, NULL, NULL, NULL);
+				}
+				else if(inst->cmd == VM_INST_PHI)
+				{
+					for(unsigned i = 0; i < inst->arguments.size(); i += 2)
+					{
+						VmValue *option = inst->arguments[i];
+						VmValue *edge = inst->arguments[i + 1];
 
-					if(inst->cmd == VM_INST_JUMP)
-					{
-						inst->parent->RemoveInstruction(inst);
-					}
-					else if(inst->cmd == VM_INST_JUMP_NZ || inst->cmd == VM_INST_JUMP_Z)
-					{
-						if(inst->arguments[1] == curr)
-							ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[2], NULL, NULL, NULL, NULL, NULL);
-						else
-							ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[1], NULL, NULL, NULL, NULL, NULL);
-					}
-					else if(inst->cmd == VM_INST_PHI)
-					{
-						for(unsigned i = 0; i < inst->arguments.size(); i += 2)
+						if(edge == curr)
 						{
-							VmValue *option = inst->arguments[i];
-							VmValue *edge = inst->arguments[i + 1];
+							option->RemoveUse(inst);
+							edge->RemoveUse(inst);
 
-							if(edge == curr)
-							{
-								option->RemoveUse(inst);
-								edge->RemoveUse(inst);
+							inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
+							inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
 
-								inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
-								inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
+							inst->arguments.pop_back();
+							inst->arguments.pop_back();
 
-								inst->arguments.pop_back();
-								inst->arguments.pop_back();
-
-								break;
-							}
+							break;
 						}
 					}
 				}
 			}
-
-			curr = next;
 		}
 
-		VmBlock *curr = function->firstBlock;
+		curr = next;
+	}
+
+	VmBlock *curr = function->firstBlock;
+
+	while(curr)
+	{
+		VmBlock *next = curr->nextSibling;
+		RunDeadCodeElimiation(ctx, module, curr);
+		curr = next;
+	}
+
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+	{
+		// Check that only reachable blocks remain
+		assert(curr->visited);
+
+		curr->visited = false;
+	}
+}
+
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmBlock *block)
+{
+	if(block->users.empty() && !block->HasExternalInstructionUsers())
+	{
+		module->deadCodeEliminations++;
+
+		block->parent->RemoveBlock(block);
+	}
+	else
+	{
+		VmInstruction *curr = block->firstInstruction;
 
 		while(curr)
 		{
-			VmBlock *next = curr->nextSibling;
+			VmInstruction *next = curr->nextSibling;
 			RunDeadCodeElimiation(ctx, module, curr);
 			curr = next;
 		}
+	}
+}
 
-		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmInstruction *inst)
+{
+	(void)ctx;
+
+	if(inst->users.empty() && !inst->hasSideEffects && inst->canBeRemoved)
+	{
+		module->deadCodeEliminations++;
+
+		if(inst->parent)
+			inst->parent->RemoveInstruction(inst);
+	}
+	else if(inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ)
+	{
+		// Remove conditional branches with constant condition
+		if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
 		{
-			// Check that only reachable blocks remain
-			assert(curr->visited);
-
-			curr->visited = false;
+			if(inst->cmd == VM_INST_JUMP_Z)
+				ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
+			else
+				ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
 		}
 	}
-	else if(VmBlock *block = getType<VmBlock>(value))
+	else if(inst->cmd == VM_INST_PHI)
 	{
-		if(block->users.empty() && !block->HasExternalInstructionUsers())
+		// Remove incoming branches that are never executed (phi instruction is the only user)
+		for(unsigned i = 0; i < inst->arguments.size();)
 		{
-			module->deadCodeEliminations++;
+			VmValue *option = inst->arguments[i];
+			VmValue *edge = inst->arguments[i + 1];
 
-			block->parent->RemoveBlock(block);
-		}
-		else
-		{
-			VmInstruction *curr = block->firstInstruction;
-
-			while(curr)
+			if(edge->users.size() == 1 && edge->users[0] == inst)
 			{
-				VmInstruction *next = curr->nextSibling;
-				RunDeadCodeElimiation(ctx, module, curr);
-				curr = next;
+				option->RemoveUse(inst);
+				edge->RemoveUse(inst);
+
+				inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
+				inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
+
+				inst->arguments.pop_back();
+				inst->arguments.pop_back();
 			}
-		}
-	}
-	else if(VmInstruction *inst = getType<VmInstruction>(value))
-	{
-		if(inst->users.empty() && !inst->hasSideEffects && inst->canBeRemoved)
-		{
-			module->deadCodeEliminations++;
-
-			if(inst->parent)
-				inst->parent->RemoveInstruction(inst);
-		}
-		else if(inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ)
-		{
-			// Remove conditional branches with constant condition
-			if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
+			else
 			{
-				if(inst->cmd == VM_INST_JUMP_Z)
-					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
-				else
-					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
-			}
-		}
-		else if(inst->cmd == VM_INST_PHI)
-		{
-			// Remove incoming branches that are never executed (phi instruction is the only user)
-			for(unsigned i = 0; i < inst->arguments.size();)
-			{
-				VmValue *option = inst->arguments[i];
-				VmValue *edge = inst->arguments[i + 1];
-
-				if(edge->users.size() == 1 && edge->users[0] == inst)
-				{
-					option->RemoveUse(inst);
-					edge->RemoveUse(inst);
-
-					inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
-					inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
-
-					inst->arguments.pop_back();
-					inst->arguments.pop_back();
-				}
-				else
-				{
-					i += 2;
-				}
+				i += 2;
 			}
 		}
 	}
