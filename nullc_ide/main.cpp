@@ -1024,28 +1024,29 @@ std::vector<char*> externalBlocks;
 
 const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 {
-	static char val[256];
+	const unsigned valSize = 512;
+	static char val[valSize];
 
 	switch(type.type)
 	{
 	case ExternTypeInfo::TYPE_CHAR:
 		if(codeSymbols[type.offsetToName] == 'b')
 		{
-			safeprintf(val, 256, *(unsigned char*)ptr ? "true" : "false");
+			safeprintf(val, valSize, *(unsigned char*)ptr ? "true" : "false");
 		}else{
 			if(strcmp(codeSymbols + type.offsetToName, "uchar") == 0)
-				safeprintf(val, 256, "'%c' (%u)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
+				safeprintf(val, valSize, "'%c' (%u)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
 			else if(*(unsigned char*)ptr)
-				safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(char*)ptr);
+				safeprintf(val, valSize, "'%c' (%d)", *(unsigned char*)ptr, (int)*(char*)ptr);
 			else
-				safeprintf(val, 256, "0");
+				safeprintf(val, valSize, "0");
 		}
 		break;
 	case ExternTypeInfo::TYPE_SHORT:
 		if(strcmp(codeSymbols + type.offsetToName, "ushort") == 0)
-			safeprintf(val, 256, "%u", *(unsigned short*)ptr);
+			safeprintf(val, valSize, "%u", *(unsigned short*)ptr);
 		else
-			safeprintf(val, 256, "%d", *(short*)ptr);
+			safeprintf(val, valSize, "%d", *(short*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_INT:
 		if(type.subCat == ExternTypeInfo::CAT_CLASS)
@@ -1055,24 +1056,24 @@ const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 			for(unsigned i = 0; i < type.constantCount && i < *(unsigned*)ptr; i++)
 				memberName += (unsigned)strlen(memberName) + 1;
 
-			safeprintf(val, 256, "%s (%d)", memberName, *(int*)ptr);
+			safeprintf(val, valSize, "%s (%d)", memberName, *(int*)ptr);
 		}
 		else
 		{
-			safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "uint") == 0 ? "%u" : "%d") : "0x%x", *(int*)ptr);
+			safeprintf(val, valSize, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "uint") == 0 ? "%u" : "%d") : "0x%x", *(int*)ptr);
 		}
 		break;
 	case ExternTypeInfo::TYPE_LONG:
-		safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "ulong") == 0 ? "%llu" : "%lld") : "0x%llx", *(long long*)ptr);
+		safeprintf(val, valSize, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "ulong") == 0 ? "%llu" : "%lld") : "0x%llx", *(long long*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_FLOAT:
-		safeprintf(val, 256, "%f", *(float*)ptr);
+		safeprintf(val, valSize, "%f", *(float*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_DOUBLE:
-		safeprintf(val, 256, "%f", *(double*)ptr);
+		safeprintf(val, valSize, "%f", *(double*)ptr);
 		break;
 	default:
-		safeprintf(val, 256, "not basic type");
+		safeprintf(val, valSize, "not basic type");
 	}
 	return val;
 }
