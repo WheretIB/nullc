@@ -104,8 +104,11 @@ struct Breakpoint
 std::vector<HWND>	richEdits;
 std::vector<HWND>	attachedEdits;
 
-const unsigned int INIT_BUFFER_SIZE = 4096;
-char	initError[INIT_BUFFER_SIZE];
+const unsigned initErrorBufSize = NULLC_ERROR_BUFFER_SIZE;
+char *initErrorBuf = NULL;
+
+const unsigned ideExecutionErrorBufSize = NULLC_ERROR_BUFFER_SIZE;
+char *ideExecutionErrorBuf = NULL;
 
 // for text update
 bool needTextUpdate;
@@ -354,25 +357,22 @@ double myGetPreciseTime()
 
 const char* GetLastNullcErrorWindows()
 {
-	const unsigned formattedSize = 8192;
-	static char formatted[formattedSize];
-
 	const char *src = nullcGetLastError();
-	char *dst = formatted;
+	char *dst = ideExecutionErrorBuf;
 
 	while(*src)
 	{
 		if(*src == '\n')
 		{
-			if(dst < formatted + formattedSize - 1)
+			if(dst < ideExecutionErrorBuf + ideExecutionErrorBufSize - 1)
 				*dst++ = '\r';
 
-			if(dst < formatted + formattedSize - 1)
+			if(dst < ideExecutionErrorBuf + ideExecutionErrorBufSize - 1)
 				*dst++ = '\n';
 		}
 		else
 		{
-			if(dst < formatted + formattedSize - 1)
+			if(dst < ideExecutionErrorBuf + ideExecutionErrorBufSize - 1)
 				*dst++ = *src;
 		}
 
@@ -381,7 +381,7 @@ const char* GetLastNullcErrorWindows()
 
 	*dst = 0;
 
-	return formatted;
+	return ideExecutionErrorBuf;
 }
 
 HANDLE breakResponse = NULL;
@@ -504,14 +504,18 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	char modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);
 
-	memset(initError, 0, INIT_BUFFER_SIZE);
+	initErrorBuf = new char[initErrorBufSize];
+	memset(initErrorBuf, 0, initErrorBufSize);
+
+	ideExecutionErrorBuf = new char[ideExecutionErrorBufSize];
+	memset(ideExecutionErrorBuf, 0, ideExecutionErrorBufSize);
 
 	// in possible, load precompiled modules from nullclib.ncm
 	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : "nullclib_x64.ncm", "rb");
 	if(!modulePack)
 	{
-		strcat(initError, "WARNING: Failed to open precompiled module file ");
-		strcat(initError, sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
+		strcat(initErrorBuf, "WARNING: Failed to open precompiled module file ");
+		strcat(initErrorBuf, sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
 	}else{
 		fseek(modulePack, 0, SEEK_END);
 		unsigned int fileSize = ftell(modulePack);
@@ -534,37 +538,37 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	}
 
 	if(!nullcInitTypeinfoModule())
-		strcat(initError, "ERROR: Failed to init std.typeinfo module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.typeinfo module\r\n");
 	if(!nullcInitDynamicModule())
-		strcat(initError, "ERROR: Failed to init std.dynamic module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.dynamic module\r\n");
 
 	if(!nullcInitFileModule())
-		strcat(initError, "ERROR: Failed to init std.file module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.file module\r\n");
 	if(!nullcInitIOModule())
-		strcat(initError, "ERROR: Failed to init std.io module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.io module\r\n");
 	if(!nullcInitMathModule())
-		strcat(initError, "ERROR: Failed to init std.math module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.math module\r\n");
 	if(!nullcInitStringModule())
-		strcat(initError, "ERROR: Failed to init std.string module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.string module\r\n");
 
 	if(!nullcInitCanvasModule())
-		strcat(initError, "ERROR: Failed to init img.canvas module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init img.canvas module\r\n");
 	if(!nullcInitWindowModule())
-		strcat(initError, "ERROR: Failed to init win.window module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init win.window module\r\n");
 
 	if(!nullcInitVectorModule())
-		strcat(initError, "ERROR: Failed to init old.vector module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init old.vector module\r\n");
 	if(!nullcInitRandomModule())
-		strcat(initError, "ERROR: Failed to init std.random module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule())
-		strcat(initError, "ERROR: Failed to init std.time module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.time module\r\n");
 	if(!nullcInitGCModule())
-		strcat(initError, "ERROR: Failed to init std.gc module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.gc module\r\n");
 	if(!nullcInitMemoryModule())
-		strcat(initError, "ERROR: Failed to init std.memory module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.memory module\r\n");
 
 	if(!nullcInitPugiXMLModule())
-		strcat(initError, "ERROR: Failed to init ext.pugixml module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init ext.pugixml module\r\n");
 
 	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
 	nullcBindModuleFunctionHelper("ide.debug", IDEDebugBreak, "_debugBreak", 0);
@@ -586,7 +590,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		return 0;
 
 	if(!nullcDebugSetBreakFunction(NULL, IDEDebugBreakEx))
-		strcat(initError, GetLastNullcErrorWindows());
+		strcat(initErrorBuf, GetLastNullcErrorWindows());
 
 	WORD wVersionRequested = MAKEWORD(2, 2);
 	WSADATA wsaData;
@@ -597,7 +601,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	RemoteData::localIP = inet_ntoa(*(struct in_addr *)*RemoteData::localHost->h_addr_list);
 
 	if(!InitializeCriticalSectionAndSpinCount(&pipeSection, 0x80000400))
-		strcat(initError, "Failed to create critical section for remote debugging");
+		strcat(initErrorBuf, "Failed to create critical section for remote debugging");
 
 	HACCEL hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDR_SHORTCUTS);
 
@@ -614,6 +618,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	DeleteCriticalSection(&pipeSection);
 
 	nullcTerminate();
+
+	delete[] ideExecutionErrorBuf;
+	delete[] initErrorBuf;
 
 	return (int) msg.wParam;
 }
@@ -898,7 +905,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	unsigned int width = (800 - 25) / 4;
 
-	hCode = CreateWindow("EDIT", initError, WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
+	hCode = CreateWindow("EDIT", initErrorBuf, WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
 		5, 225, width*2, 165, hWnd, NULL, hInstance, NULL);
 	if(!hCode)
 		return 0;
@@ -2381,7 +2388,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	OPENFILENAME openData = { sizeof(OPENFILENAME), hWnd, NULL, "NULLC Files\0*.nc\0All Files\0*.*\0\0", NULL, 0, 0, fileName, 512,
 		NULL, 0, NULL, NULL, OFN_ALLOWMULTISELECT | OFN_EXPLORER, 0, 0, 0, 0, 0, 0, NULL, 0, 0 };
 
-	char	result[1024];
+	char result[1024];
 
 	__try
 	{
@@ -2437,10 +2444,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				RefreshBreakpoints();
 				FillVariableInfoTree();
 				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
-			}else{
-				_snprintf(result, 1024, "%s", GetLastNullcErrorWindows());
-				result[1023] = '\0';
-				SetWindowText(hCode, result);
+			}
+			else
+			{
+				SetWindowText(hCode, GetLastNullcErrorWindows());
 				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 
 				FillVariableInfoTree();
