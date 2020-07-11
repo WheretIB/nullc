@@ -763,8 +763,14 @@ nullres nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName
 	if(currExec == NULLC_REG_VM)
 		executorRegVm->UpdateInstructionPointer();
 
+#ifdef NULLC_BUILD_X86_JIT
 	if(enableExternalDebugger)
 		linker->CollectDebugInfo(&executorX86->instAddress);
+#else
+	if(enableExternalDebugger)
+		linker->CollectDebugInfo(NULL);
+#endif
+
 #endif
 
 #ifndef NULLC_NO_EXECUTOR
