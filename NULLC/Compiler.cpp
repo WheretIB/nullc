@@ -678,9 +678,7 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 
 		if(ctx.errorBuf && ctx.errorBufSize)
 		{
-			char *errorCurr = ctx.errorBuf;
-
-			errorCurr += NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: register count overflow");
+			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: register count overflow");
 
 			if(ctx.errorPos)
 				AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx.exprCtx, ctx.errorPos), ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
