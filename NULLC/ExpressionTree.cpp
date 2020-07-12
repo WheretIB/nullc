@@ -895,6 +895,7 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	baseModuleFunctionCount = 0;
 
 	dependencies.set_allocator(allocator);
+	uniqueDependencies.set_allocator(allocator);
 	imports.set_allocator(allocator);
 	implicitImports.set_allocator(allocator);
 	namespaces.set_allocator(allocator);
@@ -1945,15 +1946,16 @@ ModuleData* ExpressionContext::GetSourceOwner(Lexeme *lexeme)
 	if(lexeme->pos >= code && lexeme->pos <= codeEnd)
 		return NULL;
 
-	for(unsigned i = 0; i < dependencies.size(); i++)
+	for(unsigned i = 0; i < uniqueDependencies.size(); i++)
 	{
-		ModuleData *moduleData = dependencies[i];
+		ModuleData *moduleData = uniqueDependencies[i];
 
 		if(lexeme >= moduleData->lexStream && lexeme <= moduleData->lexStream + moduleData->lexStreamSize)
 			return moduleData;
 	}
 
 	// Should not get here
+	assert(!"failed to find source owner");
 	return NULL;
 }
 
@@ -11822,6 +11824,30 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		const char *moduleFileName = symbols + moduleInfo.nameOffset;
 
+		bool duplicate = false;
+
+		for(unsigned k = 0; k < ctx.uniqueDependencies.size(); k++)
+		{
+			ModuleData *uniqueModuleData = ctx.uniqueDependencies[k];
+
+			if(uniqueModuleData->name == InplaceStr(moduleFileName))
+			{
+				ctx.dependencies.push_back(uniqueModuleData);
+
+				moduleCtx.dependencyDepth++;
+
+				ImportModuleDependencies(ctx, source, moduleCtx, uniqueModuleData->bytecode);
+
+				moduleCtx.dependencyDepth--;
+
+				duplicate = true;
+				break;
+			}
+		}
+
+		if(duplicate)
+			continue;
+
 		const char *bytecode = BinaryCache::FindBytecode(moduleFileName, false);
 
 		if(!bytecode)
@@ -11837,6 +11863,8 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 #endif
 
 		ModuleData *moduleData = new (ctx.get<ModuleData>()) ModuleData(source, InplaceStr(moduleFileName));
+
+		ctx.uniqueDependencies.push_back(moduleData);
 
 		ctx.dependencies.push_back(moduleData);
 		moduleData->dependencyIndex = ctx.dependencies.size();
@@ -12805,6 +12833,22 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	ctx.imports.push_back(moduleData);
 	moduleData->importIndex = ctx.imports.size();
 
+	bool duplicate = false;
+
+	for(unsigned k = 0; k < ctx.uniqueDependencies.size(); k++)
+	{
+		ModuleData *uniqueModuleData = ctx.uniqueDependencies[k];
+
+		if(uniqueModuleData->name == InplaceStr(name))
+		{
+			duplicate = true;
+			break;
+		}
+	}
+
+	if(!duplicate)
+		ctx.uniqueDependencies.push_back(moduleData);
+
 	ctx.dependencies.push_back(moduleData);
 	moduleData->dependencyIndex = ctx.dependencies.size();
 
@@ -12877,13 +12921,13 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 {
 	// Find which transitive dependencies haven't been imported explicitly
-	for(unsigned i = 0; i < ctx.dependencies.size(); i++)
+	for(unsigned i = 0; i < ctx.uniqueDependencies.size(); i++)
 	{
 		bool hasImport = false;
 
 		for(unsigned k = 0; k < ctx.imports.size(); k++)
 		{
-			if(ctx.imports[k]->bytecode == ctx.dependencies[i]->bytecode)
+			if(ctx.imports[k]->bytecode == ctx.uniqueDependencies[i]->bytecode)
 			{
 				hasImport = true;
 				break;
@@ -12897,7 +12941,7 @@ void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 
 		for(unsigned k = 0; k < ctx.implicitImports.size(); k++)
 		{
-			if(ctx.implicitImports[k]->bytecode == ctx.dependencies[i]->bytecode)
+			if(ctx.implicitImports[k]->bytecode == ctx.uniqueDependencies[i]->bytecode)
 			{
 				hasImplicitImport = true;
 				break;
@@ -12907,7 +12951,7 @@ void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 		if(hasImplicitImport)
 			continue;
 
-		ctx.implicitImports.push_back(ctx.dependencies[i]);
+		ctx.implicitImports.push_back(ctx.uniqueDependencies[i]);
 	}
 
 	// Import additional modules
