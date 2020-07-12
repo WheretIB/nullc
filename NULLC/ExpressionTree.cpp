@@ -896,6 +896,7 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 
 	dependencies.set_allocator(allocator);
 	imports.set_allocator(allocator);
+	implicitImports.set_allocator(allocator);
 	namespaces.set_allocator(allocator);
 	types.set_allocator(allocator);
 	functions.set_allocator(allocator);
