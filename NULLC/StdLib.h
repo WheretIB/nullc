@@ -1,8 +1,13 @@
 #pragma once
-#include "nullcdef.h"
-#include "Linker.h"
 
-typedef uintptr_t markerType;
+#include "nullcdef.h"
+
+class Linker;
+
+struct NULLCArray;
+struct NULLCRef;
+struct NULLCFuncPtr;
+struct NULLCAutoArray;
 
 namespace NULLC
 {
@@ -39,8 +44,8 @@ namespace NULLC
 	double		StrToDouble(NULLCArray str);
 	NULLCArray	DoubleToStr(int precision, bool exponent, double* r);
 	
-	void*		AllocObject(int size, unsigned type = 0);
-	NULLCArray	AllocArray(unsigned size, unsigned count, unsigned type = 0);
+	void*		AllocObject(int size, unsigned type);
+	NULLCArray	AllocArray(unsigned size, unsigned count, unsigned type);
 	NULLCRef	CopyObject(NULLCRef ptr);
 	void		CopyArray(NULLCAutoArray* dst, NULLCAutoArray src);
 	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);
@@ -53,6 +58,7 @@ namespace NULLC
 	bool		IsBasePointer(void* ptr);
 	void*		GetBasePointer(void* ptr);
 
+	void		SetCollectMemory(bool enabled);
 	void		CollectMemory();
 	unsigned int	UsedMemory();
 	double		MarkTime();

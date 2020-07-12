@@ -75,6 +75,7 @@ enum VmInstructionType
 	VM_INST_TYPE_ID,
 
 	VM_INST_SET_RANGE,
+	VM_INST_MEM_COPY,
 
 	VM_INST_JUMP,
 	VM_INST_JUMP_Z,
@@ -102,7 +103,24 @@ enum VmInstructionType
 	VM_INST_BIT_AND,
 	VM_INST_BIT_OR,
 	VM_INST_BIT_XOR,
-	VM_INST_LOG_XOR,
+
+	VM_INST_ADD_LOAD,
+	VM_INST_SUB_LOAD,
+	VM_INST_MUL_LOAD,
+	VM_INST_DIV_LOAD,
+	VM_INST_POW_LOAD,
+	VM_INST_MOD_LOAD,
+	VM_INST_LESS_LOAD,
+	VM_INST_GREATER_LOAD,
+	VM_INST_LESS_EQUAL_LOAD,
+	VM_INST_GREATER_EQUAL_LOAD,
+	VM_INST_EQUAL_LOAD,
+	VM_INST_NOT_EQUAL_LOAD,
+	VM_INST_SHL_LOAD,
+	VM_INST_SHR_LOAD,
+	VM_INST_BIT_AND_LOAD,
+	VM_INST_BIT_OR_LOAD,
+	VM_INST_BIT_XOR_LOAD,
 
 	VM_INST_NEG,
 	VM_INST_BIT_NOT,
@@ -117,7 +135,10 @@ enum VmInstructionType
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
 	VM_INST_UNYIELD, // Pseudo instruction to restore function execution state
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
-	VM_INST_BITCAST // Pseudo instruction to transform value type
+	VM_INST_BITCAST, // Pseudo instruction to transform value type
+	VM_INST_MOV, // Pseudo instruction to create a separate value copy
+	VM_INST_DEF, // Pseudo instruction to create a value for parallel move (used for temporary representation during SSA exit)
+	VM_INST_PARALLEL_COPY, // Pseudo instruction to move between multiple values simultaneously (used for temporary representation during SSA exit)
 };
 
 enum VmPassType
@@ -128,10 +149,19 @@ enum VmPassType
 	VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION,
 	VM_PASS_OPT_LOAD_STORE_PROPAGATION,
 	VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION,
+	VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION,
+	VM_PASS_OPT_MEMORY_TO_REGISTER,
+	VM_PASS_OPT_ARRAY_TO_ELEMENTS,
+	VM_PASS_OPT_LATE_PEEPHOLE,
+
+	VM_PASS_UPDATE_LIVE_SETS,
+	VM_PASS_PREPARE_SSA_EXIT,
 
 	VM_PASS_CREATE_ALLOCA_STORAGE,
 
-	VM_PASS_LEGALIZE_VM
+	VM_PASS_LEGALIZE_ARRAY_VALUES,
+	VM_PASS_LEGALIZE_BITCASTS,
+	VM_PASS_LEGALIZE_EXTRACTS,
 };
 
 struct VmType
@@ -193,6 +223,18 @@ struct VmType
 	}
 };
 
+namespace VmValueNode
+{
+	enum VmValueNodeId
+	{
+		VmVoid,
+		VmConstant,
+		VmInstruction,
+		VmBlock,
+		VmFunction,
+	};
+}
+
 struct VmValue
 {
 	VmValue(unsigned typeID, Allocator *allocator, VmType type, SynBase *source): typeID(typeID), type(type), source(source), users(allocator)
@@ -238,7 +280,7 @@ struct VmVoid: VmValue
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = VmValueNode::VmVoid;
 };
 
 struct VmConstant: VmValue
@@ -253,6 +295,9 @@ struct VmConstant: VmValue
 		fValue = NULL;
 
 		container = NULL;
+
+		isFloat = false;
+		isReference = false;
 	}
 
 	bool operator==(const VmConstant& rhs) const
@@ -269,17 +314,32 @@ struct VmConstant: VmValue
 
 	VariableData *container;
 
-	static const unsigned myTypeID = __LINE__;
+	bool isFloat;
+	bool isReference;
+
+	static const unsigned myTypeID = VmValueNode::VmConstant;
 };
 
 struct VmInstruction: VmValue
 {
-	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type, source), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
+	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type, source), cmd(cmd), uniqueId(uniqueId), arguments(allocator), regVmRegisters(allocator)
 	{
 		parent = NULL;
 
 		prevSibling = NULL;
 		nextSibling = NULL;
+
+		regVmAllocated = false;
+
+		regVmCompletedUsers = 0;
+
+		regVmSearchMarker = 0;
+
+		color = 0;
+		marker = 0;
+
+		idom = NULL;
+		intersectingIdom = NULL;
 	}
 
 	void AddArgument(VmValue *argument);
@@ -295,12 +355,25 @@ struct VmInstruction: VmValue
 	VmInstruction *prevSibling;
 	VmInstruction *nextSibling;
 
-	static const unsigned myTypeID = __LINE__;
+	bool regVmAllocated;
+	SmallArray<unsigned char, 8> regVmRegisters;
+
+	unsigned regVmCompletedUsers;
+
+	unsigned regVmSearchMarker;
+
+	unsigned color;
+	unsigned marker;
+
+	VmInstruction *idom;
+	VmInstruction *intersectingIdom;
+
+	static const unsigned myTypeID = VmValueNode::VmInstruction;
 };
 
 struct VmBlock: VmValue
 {
-	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId)
+	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId), predecessors(allocator), successors(allocator), dominanceFrontier(allocator), dominanceChildren(allocator), liveIn(allocator), liveOut(allocator)
 	{
 		parent = NULL;
 
@@ -313,11 +386,29 @@ struct VmBlock: VmValue
 		insertPoint = NULL;
 
 		address = ~0u;
+
+		visited = false;
+
+		controlGraphPreOrderId = ~0u;
+		controlGraphPostOrderId = ~0u;
+
+		dominanceGraphPreOrderId = ~0u;
+		dominanceGraphPostOrderId = ~0u;
+
+		idom = NULL;
+
+		hasAssignmentForId = 0;
+		hasPhiNodeForId = 0;
+
+		entryPc = NULL;
+		exitPc = NULL;
 	}
 
 	void AddInstruction(VmInstruction* instruction);
 	void DetachInstruction(VmInstruction* instruction);
 	void RemoveInstruction(VmInstruction* instruction);
+
+	bool HasExternalInstructionUsers();
 
 	InplaceStr name;
 
@@ -335,7 +426,33 @@ struct VmBlock: VmValue
 
 	unsigned address;
 
-	static const unsigned myTypeID = __LINE__;
+	// Dominator frontier creation
+	SmallArray<VmBlock*, 4> predecessors;
+	SmallArray<VmBlock*, 4> successors;
+
+	bool visited;
+
+	unsigned controlGraphPreOrderId;
+	unsigned controlGraphPostOrderId;
+
+	unsigned dominanceGraphPreOrderId;
+	unsigned dominanceGraphPostOrderId;
+
+	VmBlock *idom;
+
+	SmallArray<VmBlock*, 4> dominanceFrontier;
+	SmallArray<VmBlock*, 4> dominanceChildren;
+
+	unsigned hasAssignmentForId;
+	unsigned hasPhiNodeForId;
+
+	SmallArray<VmInstruction*, 4> liveIn;
+	SmallArray<VmInstruction*, 4> liveOut;
+
+	VmInstruction *entryPc;
+	VmInstruction *exitPc;
+
+	static const unsigned myTypeID = VmValueNode::VmBlock;
 };
 
 struct VmFunction: VmValue
@@ -351,10 +468,17 @@ struct VmFunction: VmValue
 		next = NULL;
 		listed = false;
 
-		address = ~0u;
-		codeSize = 0;
+		vmAddress = ~0u;
+		vmCodeSize = 0;
+
+		regVmAddress = ~0u;
+		regVmCodeSize = 0;
+		regVmRegisters = 0;
 
 		nextRestoreBlock = 0;
+
+		nextColor = 0;
+		nextSearchMarker = 1;
 	}
 
 	void AddBlock(VmBlock *block);
@@ -362,6 +486,9 @@ struct VmFunction: VmValue
 	void RemoveBlock(VmBlock *block);
 
 	void MoveEntryBlockToStart();
+
+	void UpdateDominatorTree(VmModule *module, bool clear);
+	void UpdateLiveSets(VmModule *module);
 
 	FunctionData *function;
 	ScopeData *scope;
@@ -377,22 +504,30 @@ struct VmFunction: VmValue
 	VmFunction *next;
 	bool listed;
 
-	unsigned address;
-	unsigned codeSize;
+	unsigned vmAddress;
+	unsigned vmCodeSize;
+
+	unsigned regVmAddress;
+	unsigned regVmCodeSize;
+	unsigned regVmRegisters;
 
 	SmallArray<VariableData*, 4> allocas;
 
 	unsigned nextRestoreBlock;
 	SmallArray<VmBlock*, 4> restoreBlocks;
 
-	static const unsigned myTypeID = __LINE__;
+	unsigned nextColor;
+	unsigned nextSearchMarker;
+
+	static const unsigned myTypeID = VmValueNode::VmFunction;
 };
 
 struct VmModule
 {
-	VmModule(Allocator *allocator, const char *code): code(code), loopInfo(allocator), loadStoreInfo(allocator), allocator(allocator)
+	VmModule(Allocator *allocator, const char *code): code(code), loopInfo(allocator), loadStoreInfo(allocator), tempUsers(allocator), tempInstructions(allocator), allocator(allocator)
 	{
-		globalCodeStart = 0;
+		vmGlobalCodeStart = 0;
+		regVmGlobalCodeStart = 0;
 
 		skipFunctionDefinitions = false;
 
@@ -405,13 +540,15 @@ struct VmModule
 		controlFlowSimplifications = 0;
 		loadStorePropagations = 0;
 		commonSubexprEliminations = 0;
+		deadAllocaStoreEliminations = 0;
 	}
 
 	const char *code;
 
 	IntrusiveList<VmFunction> functions;
 
-	unsigned globalCodeStart;
+	unsigned vmGlobalCodeStart;
+	unsigned regVmGlobalCodeStart;
 
 	bool skipFunctionDefinitions;
 
@@ -440,6 +577,7 @@ struct VmModule
 	unsigned controlFlowSimplifications;
 	unsigned loadStorePropagations;
 	unsigned commonSubexprEliminations;
+	unsigned deadAllocaStoreEliminations;
 
 	struct LoadStoreInfo
 	{
@@ -447,25 +585,49 @@ struct VmModule
 		{
 			loadInst = 0;
 			storeInst = 0;
+			copyInst = 0;
 
-			address = 0;
+			accessSize = 0;
 
-			pointer = 0;
-			offset = 0;
+			loadAddress = 0;
+
+			loadPointer = 0;
+			loadOffset = 0;
+
+			storeAddress = 0;
+
+			storePointer = 0;
+			storeOffset = 0;
+
+			noLoadOrNoContainerAlias = false;
+			noStoreOrNoContainerAlias = false;
 		}
 
 		VmInstruction *loadInst;
 		VmInstruction *storeInst;
+		VmInstruction *copyInst;
 
-		VmConstant *address;
+		unsigned accessSize;
 
-		VmValue *pointer;
-		VmConstant *offset;
+		VmConstant *loadAddress;
+
+		VmValue *loadPointer;
+		VmConstant *loadOffset;
+
+		VmConstant *storeAddress;
+
+		VmValue *storePointer;
+		VmConstant *storeOffset;
+
+		bool noLoadOrNoContainerAlias;
+		bool noStoreOrNoContainerAlias;
 	};
 
 	SmallArray<LoadStoreInfo, 32> loadStoreInfo;
 
 	SmallArray<VmValue*, 128> tempUsers;
+
+	SmallArray<VmInstruction*, 128> tempInstructions;
 
 	// Memory pool
 	Allocator *allocator;
@@ -499,3 +661,4 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *code);
 
 void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type);
+void RunVmPass(ExpressionContext &ctx, VmModule *module, VmFunction *function, VmPassType type);

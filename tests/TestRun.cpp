@@ -20,6 +20,7 @@ int main(int argc, char** argv)
 	bool testOutput = false;
 	bool testTranslationSave = false;
 	bool testTranslation = false;
+	bool testTimeTrace = false;
 
 	for(int i = 1; i < argc; i++)
 	{
@@ -33,9 +34,11 @@ int main(int argc, char** argv)
 			testTranslationSave = true;
 		else if(strcmp(argv[i], "--executable") == 0 || strcmp(argv[i], "-e") == 0)
 			testTranslation = true;
+		else if(strcmp(argv[i], "--time-trace") == 0 || strcmp(argv[i], "-r") == 0)
+			testTimeTrace = true;
 	}
 
-	return RunTests(verbose, 0, runSpeedTests, testOutput, testTranslationSave, testTranslation);
+	return RunTests(verbose, 0, 0, runSpeedTests, testOutput, testTranslationSave, testTranslation, testTimeTrace);
 }
 
 #else
@@ -55,7 +58,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	code[size] = 0;
 
 	if(!testInit)
-		nullcInit("Modules/");
+	{
+		nullcInit();
+		nullcAddImportPath("Modules/");
+	}
 
 	if(nullcCompile(code))
 	{

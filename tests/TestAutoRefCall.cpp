@@ -217,3 +217,35 @@ a.foo(4);\r\n\
 auto ref x = new Bar;\r\n\
 return x.foo(4);";
 TEST_RESULT("Getting function call through 'auto ref' issue", testAutorefCallIssue2, "8");
+
+const char	*testAutorefCallIssue3 =
+"void foo()\r\n\
+{\r\n\
+	class Foo{}\r\n\
+	int Foo:F(){ return 1; }\r\n\
+}\r\n\
+\r\n\
+auto bar()\r\n\
+{\r\n\
+	class Foo{}\r\n\
+	auto Foo:F(){ return 123; }\r\n\
+	\r\n\
+	Foo x;\r\n\
+	auto ref y = x;\r\n\
+	return y.F();\r\n\
+}\r\n\
+\r\n\
+return bar();";
+TEST_RESULT("Getting function call through 'auto ref' issue", testAutorefCallIssue3, "123");
+
+const char	*testAutorefCallIssue4 =
+"class F\r\n\
+{\r\n\
+	int f(int ref() x)\r\n\
+	{\r\n\
+		return -x();\r\n\
+	}\r\n\
+}\r\n\
+auto ref x = F();\r\n\
+return x.f(<>{ 2; });";
+TEST_RESULT("Short inline function in 'auto ref' call", testAutorefCallIssue4, "-2");

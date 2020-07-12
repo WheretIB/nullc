@@ -2,34 +2,88 @@
 
 #include "stdafx.h"
 
-enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI };
-static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi" };
+enum x86Reg
+{
+	rNONE,
 
-enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7 };
-static const char* x87RegText[] = { "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
+	rEAX,
+	rEBX,
+	rECX,
+	rEDX,
+	rESP,
+	rEDI,
+	rEBP,
+	rESI,
+
+	rRAX = rEAX,
+	rRBX = rEBX,
+	rRCX = rECX,
+	rRDX = rEDX,
+	rRSP = rESP,
+	rRDI = rEDI,
+	rRBP = rEBP,
+	rRSI = rESI,
+	rR8,
+	rR9,
+	rR10,
+	rR11,
+	rR12,
+	rR13,
+	rR14,
+	rR15,
+
+	rRegCount
+};
+
+enum x86XmmReg
+{
+	rXMM0,
+	rXMM1,
+	rXMM2,
+	rXMM3,
+	rXMM4,
+	rXMM5,
+	rXMM6,
+	rXMM7,
+	rXMM8,
+	rXMM9,
+	rXMM10,
+	rXMM11,
+	rXMM12,
+	rXMM13,
+	rXMM14,
+	rXMM15,
+
+	rXmmRegCount
+};
 
 enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD };
-static const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
 
 enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
 				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
 				condL, condNGE, condGE, condNL, condLE, condNG, condG, condNLE };
 
-const int rAX = rEAX;
-const int rAL = rEAX;
-const int rBX = rEBX;
-const int rBL = rEBX;
+const unsigned int JUMP_NEAR = (unsigned int)(1u << 31u);
+
+// jump ID markers for assembly printout
+const unsigned int LABEL_GLOBAL = 1 << 30;
 
 enum x86Command
 {
 	o_none,
+
 	o_mov,
 	o_movsx,
 	o_push,
 	o_pop,
 	o_lea,
 	o_cdq,
+	o_cqo,
 	o_rep_movsd,
+	o_rep_stosb,
+	o_rep_stosw,
+	o_rep_stosd,
+	o_rep_stosq,
 
 	o_jmp,
 	o_ja,
@@ -46,15 +100,6 @@ enum x86Command
 	o_jle,
 	o_call,
 	o_ret,
-
-	o_fld,
-	o_fild,
-	o_fistp,
-	o_fst,
-	o_fstp,
-	o_fnstsw,
-	o_fstcw,
-	o_fldcw,
 
 	o_neg,
 	o_add,
@@ -82,26 +127,23 @@ enum x86Command
 	o_setz,
 	o_setnz,
 
-	o_fadd,
-	o_faddp,
-	o_fmul,
-	o_fmulp,
-	o_fsub,
-	o_fsubr,
-	o_fsubp,
-	o_fsubrp,
-	o_fdiv,
-	o_fdivr,
-	o_fdivrp,
-	o_fchs,
-	o_fprem,
-	o_fcomp,
-	o_fldz,
-	o_fld1,
-	o_fsincos,
-	o_fptan,
-	o_fsqrt,
-	o_frndint,
+	o_movss,
+	o_movsd,
+	o_movd,
+	o_movsxd,
+	o_cvtss2sd,
+	o_cvtsd2ss,
+	o_cvttsd2si,
+	o_cvtsi2sd,
+	o_addsd,
+	o_subsd,
+	o_mulsd,
+	o_divsd,
+	o_sqrtsd,
+	o_cmpeqsd,
+	o_cmpltsd,
+	o_cmplesd,
+	o_cmpneqsd,
 
 	o_int,
 	o_label,
@@ -109,32 +151,66 @@ enum x86Command
 	o_nop,
 	o_other,
 
+	o_read_register,
+	o_kill_register,
+	o_set_tracking,
+
+	o_mov64,
+
+	o_neg64,
+	o_add64,
+	o_sub64,
+	o_imul64,
+	o_idiv64,
+	o_sal64,
+	o_sar64,
+	o_not64,
+	o_and64,
+	o_or64,
+	o_xor64,
+	o_cmp64,
+
+	o_cvttsd2si64,
+	o_cvtsi2sd64,
+
 	// Aliases
 	o_jc = o_jb,
 	o_jz = o_je,
 	o_jnz = o_jne
 };
 
-static const char* x86CmdText[] = 
-{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd",
-	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
-	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
-	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
-	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
-	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
-	"int", "dd", "label", "use32", "nop", "other"
-};
+struct CodeGenRegVmStateContext;
 
 struct x86Argument
 {
 	// Argument type
-	enum ArgType{ argNone, argNumber, argReg, argFPReg, argPtr, argPtrLabel, argLabel };
+	enum ArgType
+	{
+		argNone,
+		
+		argNumber,
+		argReg,
+		argXmmReg,
+		argPtr,
+		argPtrLabel,
+		argLabel,
+		argImm64
+	};
 
 	// no argument
-	x86Argument(){ }
+	x86Argument()
+	{
+		Empty();
+	}
 
 	// immediate number
 	explicit x86Argument(int Num)
+	{
+		Empty();
+		type = argNumber;
+		num = Num;
+	}
+	explicit x86Argument(unsigned Num)
 	{
 		Empty();
 		type = argNumber;
@@ -147,12 +223,12 @@ struct x86Argument
 		type = argReg;
 		reg = Register;
 	}
-	// fp register
-	explicit x86Argument(x87Reg fpReg)
+	// sse register
+	explicit x86Argument(x86XmmReg xmmReg)
 	{
 		Empty();
-		type = argFPReg;
-		fpArg = fpReg;
+		type = argXmmReg;
+		xmmArg = xmmReg;
 	}
 	// size [num]
 	x86Argument(x86Size Size, unsigned int Num)
@@ -182,6 +258,20 @@ struct x86Argument
 		type = argPtr;
 		ptrSize = Size; ptrBase = RegB; ptrMult = Mult; ptrIndex = RegA; ptrNum = Num;
 	}
+	// long immediate number
+	explicit x86Argument(long long Num)
+	{
+		Empty();
+		type = argImm64;
+		imm64Arg = Num;
+	}
+	// long immediate number
+	explicit x86Argument(unsigned long long Num)
+	{
+		Empty();
+		type = argImm64;
+		imm64Arg = Num;
+	}
 
 	void Empty()
 	{
@@ -201,94 +291,48 @@ struct x86Argument
 
 	union
 	{
-		x86Reg	reg;				// Used only when type == argReg
-		int		num;				// Used only when type == argNumber
-		x87Reg	fpArg;				// Used only when type == argFPReg
-		unsigned int	labelID;	// Used only when type == argLabel or argPtrLabel
-		x86Size	ptrSize;			// Used only when type == argPtr
+		x86Reg reg;				// Used only when type == argReg
+		int num;				// Used only when type == argNumber
+		x86XmmReg xmmArg;		// Used only when type == argXmmReg
+		unsigned labelID;		// Used only when type == argLabel or argPtrLabel
+		x86Size	ptrSize;		// Used only when type == argPtr
+		unsigned long long imm64Arg;		// Used only when type == argImm64
 	};
 
 	x86Reg	ptrBase, ptrIndex;
 	int		ptrMult;
 	int		ptrNum;
 
-	int	Decode(char *buf)
-	{
-		char *curr = buf;
-
-		if(type == argNumber)
-		{
-			curr += sprintf(curr, "%d", num);
-		}
-		else if(type == argReg)
-		{
-			strcpy(curr, x86RegText[reg]);
-			curr += strlen(curr);
-		}
-		else if(type == argFPReg)
-		{
-			strcpy(curr, x87RegText[fpArg]);
-			curr += strlen(curr);
-		}
-		else if(type == argLabel)
-		{
-			curr += sprintf(curr, "'0x%p'", (void*)(intptr_t)labelID);
-		}
-		else if(type == argPtrLabel)
-		{
-			curr += sprintf(curr, "['0x%p'+%d]", (void*)(intptr_t)labelID, ptrNum);
-		}
-		else if(type == argPtr)
-		{
-			strcpy(curr, x86SizeText[ptrSize]);
-			curr += strlen(curr);
-
-			*curr++ = ' ';
-			*curr++ = '[';
-			*curr = 0;
-
-			if(ptrIndex != rNONE)
-			{
-				strcpy(curr, x86RegText[ptrIndex]);
-				curr += strlen(curr);
-			}
-
-			if(ptrMult > 1)
-				curr += sprintf(curr, "*%d", ptrMult);
-
-			if(ptrBase != rNONE)
-			{
-				if(ptrIndex != rNONE)
-					curr += sprintf(curr, " + %s", x86RegText[ptrBase]);
-				else
-					curr += sprintf(curr, "%s", x86RegText[ptrBase]);
-			}
-
-			if(ptrIndex == rNONE && ptrBase == rNONE)
-				curr += sprintf(curr, "%d", ptrNum);
-			else if(ptrNum != 0)
-				curr += sprintf(curr, "%+d", ptrNum);
-
-			*curr++ = ']';
-			*curr = 0;
-		}
-
-		return (int)(curr-buf);
-	}
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize);
 };
-
-const int INST_COMMENT = 1;
 
 struct x86Instruction
 {
-	x86Instruction(){ name = o_none; }
-	explicit x86Instruction(unsigned int LabelID){ name = o_label; labelID = LabelID; }
-	explicit x86Instruction(x86Command Name){ name = Name; }
-	x86Instruction(x86Command Name, const x86Argument& a){ name = Name; argA = a; }
-	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b){ name = Name; argA = a; argB = b; }
+	x86Instruction() : name(o_none)
+	{
+	}
 
-	x86Command	name;
-	unsigned int	instID;
+	explicit x86Instruction(unsigned labelID) : name(o_label), labelID(labelID)
+	{
+	}
+
+	explicit x86Instruction(x86Command name): name(name)
+	{
+	}
+
+	x86Instruction(x86Command name, const x86Argument& a) : name(name)
+	{
+		argA = a;
+	}
+
+	x86Instruction(x86Command name, const x86Argument& a, const x86Argument& b) : name(name)
+	{
+		argA = a;
+		argB = b;
+	}
+
+	x86Command name;
+	unsigned instID;
 	x86Argument	argA, argB;
 
 	union
@@ -298,42 +342,5 @@ struct x86Instruction
 	};
 
 	// returns string length
-	int	Decode(char *buf)
-	{
-		char *curr = buf;
-
-		if(name == o_label)
-		{
-			curr += sprintf(curr, "0x%p:", (void*)(intptr_t)labelID);
-		}
-		else if(name == o_other)
-		{
-			strcpy(curr, "  ; ");
-			curr += strlen(curr);
-
-			strcpy(curr, comment);
-			curr += strlen(curr);
-		}
-		else
-		{
-			strcpy(curr, x86CmdText[name]);
-			curr += strlen(curr);
-		}
-
-		if(name != o_none)
-		{
-			if(argA.type != x86Argument::argNone)
-			{
-				curr += sprintf(curr, " ");
-				curr += argA.Decode(curr);
-			}
-			if(argB.type != x86Argument::argNone)
-			{
-				curr += sprintf(curr, ", ");
-				curr += argB.Decode(curr);
-			}
-		}
-
-		return (int)(curr-buf);
-	}
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf);
 };

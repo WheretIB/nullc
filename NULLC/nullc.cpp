@@ -4,23 +4,26 @@
 
 #include "Compiler.h"
 #include "Linker.h"
-#include "Executor.h"
+
+#include "Executor_Common.h"
 #ifdef NULLC_BUILD_X86_JIT
 	#include "Executor_X86.h"
 #endif
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	#include "Executor_LLVM.h"
 #endif
+#include "Executor_RegVm.h"
 
 #include "StdLib.h"
 #include "BinaryCache.h"
+#include "Trace.h"
 
 #include "includes/typeinfo.h"
 #include "includes/dynamic.h"
 
-class Executor;
 class ExecutorX86;
 class ExecutorLLVM;
+class ExecutorRegVm;
 
 class Linker;
 
@@ -28,13 +31,13 @@ namespace NULLC
 {
 	Linker*		linker;
 
-	Executor*		executor;
 	ExecutorX86*	executorX86;
 	ExecutorLLVM*	executorLLVM;
+	ExecutorRegVm*	executorRegVm;
 
 	const char*	nullcLastError = NULL;
 
-	unsigned currExec = 0;
+	unsigned currExec = NULLC_REG_VM;
 	char *argBuf = NULL;
 
 	bool initialized = false;
@@ -51,15 +54,23 @@ namespace NULLC
 	CompilerContext *compilerCtx = NULL;
 
 	bool enableLogFiles = false;
+	bool enableExternalDebugger = false;
 
 	void* (*openStream)(const char* name) = OutputContext::FileOpen;
 	void (*writeStream)(void *stream, const char *data, unsigned size) = OutputContext::FileWrite;
 	void (*closeStream)(void* stream) = OutputContext::FileClose;
 
 	int optimizationLevel = 2;
+
+	unsigned moduleAnalyzeMemoryLimit = 128 * 1024 * 1024;
+
+	TraceContext *traceContext = NULL;
+
+	unsigned currDebugCallStackFrame = 0;
 }
 
 unsigned nullcFindFunctionIndex(const char* name);
+nullres	nullcCompileWithModuleRoot(const char* code, const char *moduleRoot);
 
 #define NULLC_CHECK_INITIALIZED(retval) if(!initialized){ nullcLastError = "ERROR: NULLC is not initialized"; return retval; }
 
@@ -80,6 +91,10 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 		return 0;
 	}
 
+	NULLC::traceContext = TraceGetContext();
+
+	TRACE_SCOPE("nullc", "nullcInitCustomAlloc");
+
 	NULLC::alloc = allocFunc ? allocFunc : NULLC::defaultAlloc;
 	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
 	NULLC::fileLoad = NULLC::defaultFileLoad;
@@ -93,17 +108,23 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 
 #ifndef NULLC_NO_EXECUTOR
 	linker = NULLC::construct<Linker>();
-	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);
+
 	NULLC::SetGlobalLimit(NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT);
 #endif
+
 #ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
 	bool initx86 = executorX86->Initialize();
 	assert(initx86);
 	(void)initx86;
 #endif
+
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	executorLLVM = new(NULLC::alloc(sizeof(ExecutorLLVM))) ExecutorLLVM(linker);
+#endif
+
+#ifndef NULLC_NO_EXECUTOR
+	executorRegVm = new(NULLC::alloc(sizeof(ExecutorRegVm))) ExecutorRegVm(linker);
 #endif
 
 	argBuf = (char*)NULLC::alloc(64 * 1024);
@@ -138,9 +159,20 @@ void nullcAddImportPath(const char* importPath)
 	BinaryCache::AddImportPath(importPath);
 }
 
-void nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr))
+void nullcRemoveImportPath(const char* importPath)
+{
+	BinaryCache::RemoveImportPath(importPath);
+}
+
+nullres nullcHasImportPath(const char* importPath)
+{
+	return BinaryCache::HasImportPath(importPath);
+}
+
+void nullcSetFileReadHandler(const char* (*fileLoadFunc)(const char* name, unsigned* size), void (*fileFreeFunc)(const char* data))
 {
 	NULLC::fileLoad = fileLoadFunc ? fileLoadFunc : NULLC::defaultFileLoad;
+	NULLC::fileFree = fileFreeFunc ? fileFreeFunc : NULLC::defaultFileFree;
 }
 
 void nullcSetExecutor(unsigned id)
@@ -150,20 +182,29 @@ void nullcSetExecutor(unsigned id)
 	currExec = id;
 }
 
-#ifdef NULLC_BUILD_X86_JIT
-nullres nullcSetJiTStack(void* start, void* end, unsigned flagMemoryAllocated)
+nullres nullcSetExecutorStackSize(unsigned bytes)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED(false);
+	NULLC_CHECK_INITIALIZED(0);
 
-	if(!executorX86->SetStackPlacement(start, end, flagMemoryAllocated))
-	{
-		nullcLastError = executorX86->GetExecError();
+#ifndef NULLC_NO_EXECUTOR
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(!executorX86->SetStackSize(bytes))
 		return 0;
-	}
+#endif
+
+#if defined(NULLC_LLVM_SUPPORT)
+	if(!executorLLVM->SetStackSize(bytes))
+		return 0;
+#endif
+	if(!executorRegVm->SetStackSize(bytes))
+		return 0;
+#endif
+
+	(void)bytes;
 	return 1;
 }
-#endif
 
 #ifndef NULLC_NO_EXECUTOR
 void nullcSetGlobalMemoryLimit(unsigned limit)
@@ -201,16 +242,68 @@ void nullcSetOptimizationLevel(int level)
 	NULLC::optimizationLevel = level;
 }
 
+void nullcSetEnableTimeTrace(int enable)
+{
+	NULLC::traceContext = NULLC::TraceGetContext();
+	NULLC::TraceSetEnabled(enable != 0);
+}
+
+
+void nullcSetModuleAnalyzeMemoryLimit(unsigned bytes)
+{
+	NULLC::moduleAnalyzeMemoryLimit = bytes;
+}
+
+void nullcSetEnableExternalDebugger(int enable)
+{
+	NULLC::enableExternalDebugger = enable != 0;
+}
+
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+	TRACE_SCOPE("nullc", "nullcBindModuleFunction");
+	TRACE_LABEL(module);
+
 	assert(!compilerCtx);
 
 	const char *errorPos = NULL;
 
-	if(!AddModuleFunction(&allocator, module, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
+	if(!AddModuleFunction(&allocator, module, ptr, NULL, NULL, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
+	{
+		allocator.Clear();
+
+		nullcLastError = errorBuf;
+
+		return false;
+	}
+
+	allocator.Clear();
+
+	return true;
+#else
+	return false;
+#endif
+}
+
+nullres nullcBindModuleFunctionWrapper(const char* module, void *func, void (*ptr)(void *func, char* retBuf, char* argBuf), const char* name, int index)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcBindModuleFunctionWrapper");
+	TRACE_LABEL(module);
+
+	assert(!compilerCtx);
+
+	assert(func);
+
+	const char *errorPos = NULL;
+
+	if(!AddModuleFunction(&allocator, module, NULL, func, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
 	{
 		allocator.Clear();
 
@@ -224,12 +317,72 @@ nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* n
 	return true;
 }
 
+nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex, const char* name, int index)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcBindModuleFunctionBuiltin");
+	TRACE_LABEL(module);
+
+	const char *bytecode = BinaryCache::FindBytecode(module, true);
+
+	// Create module if not found
+	if(!bytecode)
+	{
+		nullcLastError = "ERROR: failed to find module";
+		return false;
+	}
+
+	unsigned hash = NULLC::GetStringHash(name);
+	ByteCode *code = (ByteCode*)bytecode;
+
+	// Find function and set pointer
+	ExternFuncInfo *fInfo = FindFirstFunc(code);
+
+	unsigned end = code->functionCount - code->moduleFunctionCount;
+
+	for(unsigned i = 0; i < end; i++, fInfo++)
+	{
+		if(hash != fInfo->nameHash)
+			continue;
+
+		if(index == 0)
+		{
+			fInfo->builtinIndex = builtinIndex;
+			return true;
+		}
+
+		index--;
+	}
+
+	NULLC::SafeSprintf(errorBuf, NULLC_ERROR_BUFFER_SIZE, "ERROR: function '%s' or one of it's overload is not found in module '%s'", name, module);
+
+	nullcLastError = errorBuf;
+	return false;
+}
+
 nullres nullcLoadModuleBySource(const char* module, const char* code)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
-	if(!nullcCompile(code))
+	TRACE_SCOPE("nullc", "nullcLoadModuleBySource");
+	TRACE_LABEL(module);
+
+	const unsigned moduleRootLength = 1024;
+	char moduleRoot[moduleRootLength];
+	*moduleRoot = 0;
+
+	if(const char *pos = strrchr(module, '.'))
+	{
+		NULLC::SafeSprintf(moduleRoot, moduleRootLength, "%.*s", unsigned(pos - module), module);
+
+		for(unsigned i = 0, e = unsigned(strlen(moduleRoot)); i < e; i++)
+			moduleRoot[i] = moduleRoot[i] == '.' ? '/' : moduleRoot[i];
+	}
+
+	if(!nullcCompileWithModuleRoot(code, *moduleRoot ? moduleRoot : NULL))
 		return false;
 
 	if(strlen(module) > 512)
@@ -265,6 +418,9 @@ nullres nullcLoadModuleByBinary(const char* module, const char* binary)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcLoadModuleByBinary");
+	TRACE_LABEL(module);
+
 	if(strlen(module) > 512)
 	{
 		nullcLastError = "ERROR: module name is too long";
@@ -298,6 +454,9 @@ void nullcRemoveModule(const char* module)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED((void)false);
 
+	TRACE_SCOPE("nullc", "nullcRemoveModule");
+	TRACE_LABEL(module);
+
 	BinaryCache::RemoveBytecode(module);
 }
 
@@ -314,6 +473,8 @@ nullres nullcAnalyze(const char* code)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcAnalyze");
+
 	nullcLastError = "";
 
 	NULLC::destruct(compilerCtx);
@@ -339,7 +500,11 @@ nullres nullcAnalyze(const char* code)
 	compilerCtx->outputCtx.tempBuf = tempOutputBuf;
 	compilerCtx->outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
 
-	if(!AnalyzeModuleFromSource(*compilerCtx, code))
+	compilerCtx->exprMemoryLimit = moduleAnalyzeMemoryLimit;
+
+	compilerCtx->code = code;
+
+	if(!AnalyzeModuleFromSource(*compilerCtx))
 	{
 		if(compilerCtx->errorPos)
 			nullcLastError = compilerCtx->errorBuf;
@@ -354,8 +519,17 @@ nullres nullcAnalyze(const char* code)
 
 nullres	nullcCompile(const char* code)
 {
+	return nullcCompileWithModuleRoot(code, NULL);
+}
+
+nullres	nullcCompileWithModuleRoot(const char* code, const char *moduleRoot)
+{
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	NULLC::TraceDump();
+
+	TRACE_SCOPE("nullc", "nullcCompile");
 
 	nullcLastError = "";
 
@@ -372,6 +546,8 @@ nullres	nullcCompile(const char* code)
 
 	compilerCtx->enableLogFiles = enableLogFiles;
 
+	compilerCtx->exprMemoryLimit = moduleAnalyzeMemoryLimit;
+
 	compilerCtx->outputCtx.openStream = openStream;
 	compilerCtx->outputCtx.writeStream = writeStream;
 	compilerCtx->outputCtx.closeStream = closeStream;
@@ -382,7 +558,10 @@ nullres	nullcCompile(const char* code)
 	compilerCtx->outputCtx.tempBuf = tempOutputBuf;
 	compilerCtx->outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
 
-	if(!CompileModuleFromSource(*compilerCtx, code))
+	compilerCtx->code = code;
+	compilerCtx->moduleRoot = moduleRoot;
+
+	if(!CompileModuleFromSource(*compilerCtx))
 	{
 		if(compilerCtx->errorPos)
 			nullcLastError = compilerCtx->errorBuf;
@@ -399,6 +578,8 @@ unsigned nullcGetBytecode(char **bytecode)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
+
+	TRACE_SCOPE("nullc", "nullcGetBytecode");
 
 	if(!compilerCtx)
 	{
@@ -418,6 +599,8 @@ unsigned nullcGetBytecodeNoCache(char **bytecode)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
+	TRACE_SCOPE("nullc", "nullcGetBytecodeNoCache");
+
 	if(!compilerCtx)
 	{
 		nullcLastError = "ERROR: there is no active compiler context";
@@ -431,6 +614,8 @@ nullres nullcSaveListing(const char *fileName)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
+
+	TRACE_SCOPE("nullc", "nullcSaveListing");
 
 	if(!compilerCtx)
 	{
@@ -452,6 +637,8 @@ nullres	nullcTranslateToC(const char *fileName, const char *mainName, void (*add
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
+	TRACE_SCOPE("nullc", "nullcTranslateToC");
+
 	if(!compilerCtx)
 	{
 		nullcLastError = "ERROR: there is no active compiler context";
@@ -472,13 +659,16 @@ void nullcClean()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED((void)0);
 
+	TRACE_SCOPE("nullc", "nullcClean");
+
 #ifndef NULLC_NO_EXECUTOR
 	linker->CleanCode();
-	executor->ClearBreakpoints();
 
 	#ifdef NULLC_BUILD_X86_JIT
 	executorX86->ClearNative();
 	#endif
+
+	executorRegVm->ClearBreakpoints();
 #endif
 
 	nullcLastError = "";
@@ -491,11 +681,18 @@ void nullcClean()
 
 nullres nullcLinkCode(const char *bytecode)
 {
+	return nullcLinkCodeWithModuleName(bytecode, NULL);
+}
+
+nullres nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName)
+{
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcLinkCode");
+
 #ifndef NULLC_NO_EXECUTOR
-	if(!linker->LinkCode(bytecode, "main"))
+	if(!linker->LinkCode(bytecode, moduleName, true))
 	{
 		nullcLastError = linker->GetLinkError();
 		return false;
@@ -517,11 +714,11 @@ nullres nullcLinkCode(const char *bytecode)
 
 	if(enableLogFiles)
 	{
-		outputCtx.stream = outputCtx.openStream("link.txt");
+		outputCtx.stream = outputCtx.openStream("link_reg_vm.txt");
 
 		if(outputCtx.stream)
 		{
-			linker->SaveListing(outputCtx);
+			linker->SaveRegVmListing(outputCtx, false);
 
 			outputCtx.closeStream(outputCtx.stream);
 			outputCtx.stream = NULL;
@@ -529,12 +726,9 @@ nullres nullcLinkCode(const char *bytecode)
 	}
 #else
 	(void)bytecode;
-	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
-#endif
+	(void)moduleName;
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		executor->UpdateInstructionPointer();
+	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
 #endif
 
 	if(currExec == NULLC_X86)
@@ -566,6 +760,20 @@ nullres nullcLinkCode(const char *bytecode)
 	}
 
 #ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		executorRegVm->UpdateInstructionPointer();
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(enableExternalDebugger)
+		linker->CollectDebugInfo(&executorX86->instAddress);
+#else
+	if(enableExternalDebugger)
+		linker->CollectDebugInfo(NULL);
+#endif
+
+#endif
+
+#ifndef NULLC_NO_EXECUTOR
 	return true;
 #else
 	return false;
@@ -574,6 +782,16 @@ nullres nullcLinkCode(const char *bytecode)
 
 nullres nullcBuild(const char* code)
 {
+	return nullcBuildWithModuleName(code, NULL);
+}
+
+nullres nullcBuildWithModuleName(const char* code, const char* moduleName)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcBuild");
+
 	using namespace NULLC;
 
 	if(!nullcCompile(code))
@@ -583,7 +801,7 @@ nullres nullcBuild(const char* code)
 	nullcGetBytecode(&bytecode);
 	nullcClean();
 
-	if(!nullcLinkCode(bytecode))
+	if(!nullcLinkCodeWithModuleName(bytecode, moduleName))
 	{
 		delete[] bytecode;
 		return false;
@@ -597,6 +815,8 @@ nullres	nullcRun()
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcRun");
 
 #ifndef NULLC_NO_EXECUTOR
 	return nullcRunFunction(NULL);
@@ -776,18 +996,8 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 
 	nullres good = true;
 
-	if(currExec == NULLC_VM)
+	if(currExec == NULLC_X86)
 	{
-#ifndef NULLC_NO_EXECUTOR
-		executor->Run(functionID, argBuf);
-		const char* error = executor->GetExecError();
-		if(error[0] != '\0')
-		{
-			good = false;
-			nullcLastError = error;
-		}
-#endif
-	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(functionID, argBuf);
 		const char* error = executorX86->GetExecError();
@@ -801,7 +1011,9 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 		nullcLastError = "X86 JIT isn't available";
 #endif
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
-	}else if(currExec == NULLC_LLVM){
+	}
+	else if(currExec == NULLC_LLVM)
+	{
 		executorLLVM->Run(functionID, argBuf);
 		const char* error = executorLLVM->GetExecError();
 		if(error[0] != '\0')
@@ -810,13 +1022,55 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 			nullcLastError = error;
 		}
 #endif
-	}else{
+	}
+	else if(currExec == NULLC_REG_VM)
+	{
+#ifndef NULLC_NO_EXECUTOR
+		executorRegVm->Run(functionID, argBuf);
+		const char* error = executorRegVm->GetExecError();
+		if(error[0] != '\0')
+		{
+			good = false;
+			nullcLastError = error;
+		}
+#endif
+	}
+	else
+	{
 		(void)functionID;
 		(void)argBuf;
 
 		good = false;
 		nullcLastError = "Unknown executor code";
 	}
+
+#if !defined(NULLC_NO_EXECUTOR) && defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
+	if(currExec == NULLC_REG_VM && functionID == ~0u && enableLogFiles)
+	{
+		OutputContext outputCtx;
+
+		outputCtx.openStream = openStream;
+		outputCtx.writeStream = writeStream;
+		outputCtx.closeStream = closeStream;
+
+		outputCtx.outputBuf = outputBuf;
+		outputCtx.outputBufSize = NULLC_OUTPUT_BUFFER_SIZE;
+
+		outputCtx.tempBuf = tempOutputBuf;
+		outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
+
+		outputCtx.stream = outputCtx.openStream("link_reg_vm_exec.txt");
+
+		if(outputCtx.stream)
+		{
+			linker->SaveRegVmListing(outputCtx, true);
+
+			outputCtx.closeStream(outputCtx.stream);
+			outputCtx.stream = NULL;
+		}
+	}
+#endif
+
 	return good;
 }
 
@@ -840,12 +1094,20 @@ void nullcThrowError(const char* error, ...)
 
 	va_end(args);
 
-	if(currExec == NULLC_VM)
+	if(currExec == NULLC_X86)
 	{
-		executor->Stop(buf);
-	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Stop(buf);
+#endif
+	}
+	else if(currExec == NULLC_REG_VM)
+	{
+		executorRegVm->Stop(buf);
+	}
+	else if(currExec == NULLC_LLVM)
+	{
+#ifdef NULLC_LLVM_SUPPORT
+		executorLLVM->Stop(buf);
 #endif
 	}
 }
@@ -867,21 +1129,26 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	if(!argBuf)
 		return false;
 	
-	if(currExec == NULLC_VM)
+	if(currExec == NULLC_X86)
 	{
-		executor->Run(ptr.id, argBuf);
-		error = executor->GetExecError();
-	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(ptr.id, argBuf);
 		error = executorX86->GetExecError();
 #endif
-	}else if(currExec == NULLC_LLVM){
+	}
+	else if(currExec == NULLC_LLVM)
+	{
 #ifdef NULLC_LLVM_SUPPORT
 		executorLLVM->Run(ptr.id, argBuf);
 		error = executorLLVM->GetExecError();
 #endif
 	}
+	else if(currExec == NULLC_REG_VM)
+	{
+		executorRegVm->Run(ptr.id, argBuf);
+		error = executorRegVm->GetExecError();
+	}
+
 	if(error && error[0] != '\0')
 	{
 		nullcLastError = error;
@@ -1011,28 +1278,43 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	unsigned index = nullcFindFunctionIndex(name);
 	if(index == ~0u)
 		return false;
+
 	if(linker->exFunctions[func.id].funcCat != ExternFuncInfo::NORMAL)
 	{
 		nullcLastError = "ERROR: source function uses context, which is unavailable";
 		return false;
 	}
-	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
+
+	if(linker->exFunctions[index].builtinIndex != 0)
 	{
-		linker->UpdateFunctionPointer(index, func.id);
-		if(linker->exFunctions[index].funcPtr && !linker->exFunctions[func.id].funcPtr)
-		{
-			nullcLastError = "Internal function cannot be overridden with external function on x86";
-			return false;
-		}
-		if(linker->exFunctions[func.id].funcPtr && !linker->exFunctions[index].funcPtr)
-		{
-			nullcLastError = "External function cannot be overridden with internal function on x86";
-			return false;
-		}
+		nullcLastError = "ERROR: can't override builtin function";
+		return false;
 	}
-	linker->exFunctions[index].address = linker->exFunctions[func.id].address;
-	linker->exFunctions[index].funcPtr = linker->exFunctions[func.id].funcPtr;
-	linker->exFunctions[index].codeSize = linker->exFunctions[func.id].codeSize;
+
+	return nullcRedirectFunction(index, func.id);
+}
+
+nullres nullcRedirectFunction(unsigned sourceId, unsigned targetId)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		executorX86->UpdateFunctionPointer(sourceId, targetId);
+#endif
+
+	ExternFuncInfo &destFunc = linker->exFunctions[sourceId];
+	ExternFuncInfo &srcFunc = linker->exFunctions[targetId];
+
+	destFunc.regVmAddress = srcFunc.regVmAddress;
+	destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
+	destFunc.regVmRegisters = srcFunc.regVmRegisters;
+
+	destFunc.funcPtrRaw = srcFunc.funcPtrRaw;
+	destFunc.funcPtrWrapTarget = srcFunc.funcPtrWrapTarget;
+	destFunc.funcPtrWrap = srcFunc.funcPtrWrap;
+
 	return true;
 }
 
@@ -1055,10 +1337,6 @@ const char* nullcGetResult()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED("");
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResult();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResult();
@@ -1067,17 +1345,19 @@ const char* nullcGetResult()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResult();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResult();
+#endif
+
 	return "unknown executor";
 }
+
 int nullcGetResultInt()
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResultInt();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultInt();
@@ -1086,17 +1366,19 @@ int nullcGetResultInt()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultInt();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultInt();
+#endif
+
 	return 0;
 }
+
 double nullcGetResultDouble()
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0.0);
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResultDouble();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultDouble();
@@ -1105,6 +1387,11 @@ double nullcGetResultDouble()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultDouble();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultDouble();
+#endif
+
 	return 0.0;
 }
 long long nullcGetResultLong()
@@ -1112,10 +1399,6 @@ long long nullcGetResultLong()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
-#ifndef NULLC_NO_EXECUTOR
-	if(currExec == NULLC_VM)
-		return executor->GetResultLong();
-#endif
 #ifdef NULLC_BUILD_X86_JIT
 	if(currExec == NULLC_X86)
 		return executorX86->GetResultLong();
@@ -1124,6 +1407,11 @@ long long nullcGetResultLong()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultLong();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultLong();
+#endif
+
 	return 0;
 }
 
@@ -1138,6 +1426,8 @@ nullres nullcFinalize()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcFinalize");
+
 	FinalizeMemory();
 
 	return 1;
@@ -1147,13 +1437,15 @@ void* nullcAllocate(unsigned size)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
-	return NULLC::AllocObject(size);
+
+	return NULLC::AllocObject(size, 0);
 }
 
 void* nullcAllocateTyped(unsigned typeID)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
+
 	return NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
 }
 
@@ -1168,11 +1460,15 @@ NULLCArray nullcAllocateArrayTyped(unsigned typeID, unsigned count)
 
 int nullcInitTypeinfoModule()
 {
+	TRACE_SCOPE("nullc", "nullcInitTypeinfoModule");
+
 	return nullcInitTypeinfoModule(NULLC::linker);
 }
 
 int nullcInitDynamicModule()
 {
+	TRACE_SCOPE("nullc", "nullcInitDynamicModule");
+
 	return nullcInitDynamicModule(NULLC::linker);
 }
 #endif
@@ -1209,13 +1505,16 @@ void nullcTerminate()
 
 	NULLC::destruct(linker);
 	linker = NULL;
-	NULLC::destruct(executor);
-	executor = NULL;
 #endif
 #ifdef NULLC_BUILD_X86_JIT
 	NULLC::destruct(executorX86);
 	executorX86 = NULL;
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	NULLC::destruct(executorRegVm);
+	executorRegVm = NULL;
+#endif
+
 #ifndef NULLC_NO_EXECUTOR
 	NULLC::ResetMemory();
 #endif
@@ -1227,6 +1526,8 @@ nullres nullcTestEvaluateExpressionTree(char *resultBuf, unsigned resultBufSize)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcTestEvaluateExpressionTree");
 
 	if(!compilerCtx)
 	{
@@ -1247,6 +1548,8 @@ nullres nullcTestEvaluateInstructionTree(char *resultBuf, unsigned resultBufSize
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcTestEvaluateInstructionTree");
 
 	if(!compilerCtx)
 	{
@@ -1270,20 +1573,25 @@ void* nullcGetVariableData(unsigned int *count)
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM)
+	if(currExec == NULLC_X86)
 	{
-#ifndef NULLC_NO_EXECUTOR
-		return executor->GetVariableData(count);
-#endif
-	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		return executorX86->GetVariableData(count);
 #endif
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
-	}else if(currExec == NULLC_LLVM){
+	}
+	else if(currExec == NULLC_LLVM)
+	{
 		return executorLLVM->GetVariableData(count);
 #endif
 	}
+	else if(currExec == NULLC_REG_VM)
+	{
+#ifndef NULLC_NO_EXECUTOR
+		return executorRegVm->GetVariableData(count);
+#endif
+	}
+
 	(void)count;
 	return NULL;
 }
@@ -1292,15 +1600,13 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 {
 	using namespace NULLC;
 
-#ifdef NULLC_BUILD_X86_JIT
+#if !defined(NULLC_NO_EXECUTOR)
 	if(exec)
-		*exec = (currExec == NULLC_VM ? (void*)executor : (currExec == NULLC_X86 ? (void*)executorX86 : (void*)executorLLVM));
-#elif !defined(NULLC_NO_EXECUTOR)
-	if(exec)
-		*exec = executor;
+		*exec = currExec == NULLC_X86 ? (void*)executorX86 : (currExec == NULLC_LLVM ? (void*)executorLLVM : (void*)executorRegVm);
 #else
 	*exec = NULL;
 #endif
+
 	return currExec;
 }
 
@@ -1326,6 +1632,15 @@ ExternMemberInfo* nullcDebugTypeExtraInfo(unsigned int *count)
 	if(count && linker)
 		*count = linker->exTypeExtra.size();
 	return linker ? linker->exTypeExtra.data : NULL;
+}
+
+ExternConstantInfo* nullcDebugTypeConstantInfo(unsigned int *count)
+{
+	using namespace NULLC;
+
+	if(count && linker)
+		*count = linker->exTypeConstants.size();
+	return linker ? linker->exTypeConstants.data : NULL;
 }
 
 ExternVarInfo* nullcDebugVariableInfo(unsigned int *count)
@@ -1376,17 +1691,8 @@ ExternSourceInfo* nullcDebugSourceInfo(unsigned int *count)
 	using namespace NULLC;
 
 	if(count && linker)
-		*count = linker->exSourceInfo.size();
-	return linker ? (ExternSourceInfo*)linker->exSourceInfo.data : NULL;
-}
-
-VMCmd* nullcDebugCode(unsigned int *count)
-{
-	using namespace NULLC;
-
-	if(count && linker)
-		*count = linker->exCode.size();
-	return linker ? (VMCmd*)linker->exCode.data : NULL;
+		*count = linker->exRegVmSourceInfo.size();
+	return linker ? (ExternSourceInfo*)linker->exRegVmSourceInfo.data : NULL;
 }
 
 ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
@@ -1403,35 +1709,52 @@ void nullcDebugBeginCallStack()
 {
 	using namespace NULLC;
 
-	if(currExec == NULLC_VM)
-	{
-#ifndef NULLC_NO_EXECUTOR
-		executor->BeginCallStack();
-#endif
-	}else if(currExec == NULLC_X86){
-#ifdef NULLC_BUILD_X86_JIT
-		executorX86->BeginCallStack();
-#endif
-	}
+	currDebugCallStackFrame = 0;
 }
 
 unsigned int nullcDebugGetStackFrame()
 {
 	using namespace NULLC;
 
-	unsigned int address = 0;
+	return nullcDebugEnumStackFrame(currDebugCallStackFrame++);
+}
+
+unsigned int nullcDebugEnumStackFrame(unsigned frame)
+{
+	using namespace NULLC;
+
+	unsigned address = 0;
+
 	// Get next address from call stack
-	if(currExec == NULLC_VM)
+	if(currExec == NULLC_X86)
 	{
-#ifndef NULLC_NO_EXECUTOR
-		address = executor->GetNextAddress();
-#endif
-	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
-		address = executorX86->GetNextAddress();
+		address = executorX86->GetCallStackAddress(frame);
 #endif
 	}
+	else if(currExec == NULLC_REG_VM)
+	{
+#ifndef NULLC_NO_EXECUTOR
+		address = executorRegVm->GetCallStackAddress(frame);
+#endif
+	}
+
+	(void)frame;
+
 	return address;
+}
+
+unsigned int nullcDebugGetStackFrameCount()
+{
+	using namespace NULLC;
+
+	unsigned callStackSize = 0;
+
+	unsigned currentFrame = 0;
+	while(nullcDebugEnumStackFrame(currentFrame++))
+		callStackSize++;
+
+	return callStackSize;
 }
 
 #ifndef NULLC_NO_EXECUTOR
@@ -1439,12 +1762,6 @@ nullres nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, un
 {
 	using namespace NULLC;
 
-	if(!executor)
-	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	executor->SetBreakFunction(context, callback);
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
@@ -1453,6 +1770,14 @@ nullres nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, un
 	}
 	executorX86->SetBreakFunction(context, callback);
 #endif
+
+	if(!executorRegVm)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	executorRegVm->SetBreakFunction(context, callback);
+
 	return true;
 }
 
@@ -1460,12 +1785,6 @@ nullres nullcDebugClearBreakpoints()
 {
 	using namespace NULLC;
 
-	if(!executor)
-	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	executor->ClearBreakpoints();
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
@@ -1474,6 +1793,14 @@ nullres nullcDebugClearBreakpoints()
 	}
 	executorX86->ClearBreakpoints();
 #endif
+
+	if(!executorRegVm)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	executorRegVm->ClearBreakpoints();
+
 	return true;
 }
 
@@ -1481,28 +1808,37 @@ nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 {
 	using namespace NULLC;
 
-	if(!executor)
-	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executor->AddBreakpoint(instruction, oneHit))
-	{
-		nullcLastError = executor->GetExecError();
-		return false;
-	}
 #ifdef NULLC_BUILD_X86_JIT
-	if(!executorX86)
+	if(currExec == NULLC_X86)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executorX86->AddBreakpoint(instruction, oneHit))
-	{
-		nullcLastError = executorX86->GetExecError();
-		return false;
+		if(!executorX86)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+		if(!executorX86->AddBreakpoint(instruction, oneHit))
+		{
+			nullcLastError = executorX86->GetExecError();
+			return false;
+		}
 	}
 #endif
+
+	if(currExec == NULLC_REG_VM)
+	{
+		if(!executorRegVm)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+
+		if(!executorRegVm->AddBreakpoint(instruction, oneHit))
+		{
+			nullcLastError = executorRegVm->GetExecError();
+			return false;
+		}
+	}
+
 	return true;
 }
 
@@ -1520,39 +1856,337 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 {
 	using namespace NULLC;
 
-	if(!executor)
-	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executor->RemoveBreakpoint(instruction))
-	{
-		nullcLastError = executor->GetExecError();
-		return false;
-	}
 #ifdef NULLC_BUILD_X86_JIT
-	if(!executorX86)
+	if(currExec == NULLC_X86)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executorX86->RemoveBreakpoint(instruction))
-	{
-		nullcLastError = executorX86->GetExecError();
-		return false;
+		if(!executorX86)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+		if(!executorX86->RemoveBreakpoint(instruction))
+		{
+			nullcLastError = executorX86->GetExecError();
+			return false;
+		}
 	}
 #endif
+
+	if(currExec == NULLC_REG_VM)
+	{
+		if(!executorRegVm)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+		if(!executorRegVm->RemoveBreakpoint(instruction))
+		{
+			nullcLastError = executorRegVm->GetExecError();
+			return false;
+		}
+	}
+
 	return true;
 }
 
 ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncInfo* codeFunctions, unsigned functionCount)
 {
+	using namespace NULLC;
+
 	for(unsigned i = 0; i < functionCount; i++)
 	{
-		if(instruction >= codeFunctions[i].address && instruction < (codeFunctions[i].address + codeFunctions[i].codeSize))
-			return&codeFunctions[i];
+		if(instruction >= codeFunctions[i].regVmAddress && instruction < (codeFunctions[i].regVmAddress + codeFunctions[i].regVmCodeSize))
+			return &codeFunctions[i];
 	}
+
 	return NULL;
+}
+
+namespace
+{
+	struct OutputBuffer
+	{
+		char buf[4096];
+		unsigned pos;
+	};
+
+	void BufferWriteStream(void *stream, const char *data, unsigned size)
+	{
+		OutputBuffer *buffer = (OutputBuffer*)stream;
+
+		for(unsigned i = 0; i < size; i++)
+		{
+			if(buffer->pos < 4096 - 1)
+				buffer->buf[buffer->pos++] = data[i];
+		}
+	}
+}
+
+const char* nullcDebugGetInstructionSourceLocation(unsigned instruction)
+{
+	unsigned infoSize = 0;
+	ExternSourceInfo *sourceInfo = nullcDebugSourceInfo(&infoSize);
+
+	if(!infoSize)
+		return NULL;
+
+	const char *fullSource = nullcDebugSource();
+
+	for(unsigned i = 0; i < infoSize; i++)
+	{
+		if(instruction == sourceInfo[i].instruction)
+			return fullSource + sourceInfo[i].sourceOffset;
+
+		if(i + 1 < infoSize && instruction < sourceInfo[i + 1].instruction)
+			return fullSource + sourceInfo[i].sourceOffset;
+	}
+
+	return fullSource + sourceInfo[infoSize - 1].sourceOffset;
+}
+
+unsigned nullcDebugGetSourceLocationModuleIndex(const char *sourceLocation)
+{
+	if(!sourceLocation)
+		return ~0u;
+
+	unsigned moduleCount = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleCount);
+
+	const char* fullSource = nullcDebugSource();
+
+	for(unsigned i = 0; i < moduleCount; i++)
+	{
+		ExternModuleInfo &moduleInfo = modules[i];
+
+		const char *start = fullSource + moduleInfo.sourceOffset;
+		const char *end = start + moduleInfo.sourceSize;
+
+		if(sourceLocation >= start && sourceLocation < end)
+			return i;
+	}
+
+	return ~0u;
+}
+
+unsigned nullcDebugGetSourceLocationLineAndColumn(const char *sourceLocation, unsigned moduleIndex, unsigned &column)
+{
+	unsigned moduleCount = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleCount);
+
+	const char* fullSource = nullcDebugSource();
+
+	const char *sourceStart = fullSource + (moduleIndex < moduleCount ? modules[moduleIndex].sourceOffset : modules[moduleCount - 1].sourceOffset + modules[moduleCount - 1].sourceSize);
+
+	unsigned line = 0;
+
+	const char *pos = sourceStart;
+	const char *lastLineStart = pos;
+
+	while(pos < sourceLocation)
+	{
+		if(*pos == '\r')
+		{
+			line++;
+
+			pos++;
+
+			if(*pos == '\n')
+				pos++;
+
+			lastLineStart = pos;
+		}
+		else if(*pos == '\n')
+		{
+			line++;
+
+			pos++;
+
+			lastLineStart = pos;
+		}
+		else
+		{
+			pos++;
+		}
+	}
+
+	column = int(pos - lastLineStart);
+
+	return line;
+}
+
+unsigned nullcDebugConvertNativeAddressToInstruction(void *address)
+{
+	using namespace NULLC;
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86 && executorX86)
+		return executorX86->GetInstructionAtAddress(address);
+#endif
+
+	return ~0u;
+}
+
+unsigned nullcDebugGetReversedStackDataBase(unsigned framePos)
+{
+	using namespace NULLC;
+
+	unsigned callStackSize = nullcDebugGetStackFrameCount();
+
+	if(framePos > callStackSize)
+		return 0;
+
+	unsigned targetFrame = callStackSize - framePos;
+
+	unsigned offset = 0;
+
+	unsigned currentFrame = 0;
+	while(unsigned instruction = nullcDebugEnumStackFrame(currentFrame++))
+	{
+		if(targetFrame == 0)
+			return offset;
+
+		targetFrame--;
+
+		unsigned functionCount = 0;
+		ExternFuncInfo *functions = nullcDebugFunctionInfo(&functionCount);
+
+		if(ExternFuncInfo *targetFunction = nullcDebugConvertAddressToFunction(instruction, functions, functionCount))
+			offset += (targetFunction->stackSize + 0xf) & ~0xf;
+		else
+			offset += (linker->globalVarSize + 0xf) & ~0xf;
+	}
+
+	return offset;
+}
+
+const char* nullcDebugGetVmAddressLocation(unsigned instruction, unsigned full)
+{
+	using namespace NULLC;
+
+	static OutputBuffer buffer;
+
+	// Reset position
+	buffer.pos = 0;
+
+	OutputContext output;
+
+	output.stream = &buffer;
+	output.writeStream = BufferWriteStream;
+
+	unsigned functionCount = 0;
+	ExternFuncInfo *functions = nullcDebugFunctionInfo(&functionCount);
+
+	char *symbols = nullcDebugSymbols(NULL);
+
+	char *fullSource = nullcDebugSource();
+
+	unsigned moduleCount = 0;
+	ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleCount);
+
+	const char *sourceLocation = nullcDebugGetInstructionSourceLocation(instruction);
+
+	unsigned moduleIndex = nullcDebugGetSourceLocationModuleIndex(sourceLocation);
+
+	if(full)
+	{
+		if(moduleIndex < moduleCount)
+			output.Printf("{%s} ", symbols + modules[moduleIndex].nameOffset);
+		else
+			output.Printf("{root} ");
+	}
+
+	ExternFuncInfo *targetFunction = nullcDebugConvertAddressToFunction(instruction, functions, functionCount);
+
+	if(targetFunction)
+	{
+		output.Printf("%s(", symbols + targetFunction->offsetToName);
+
+		unsigned exTypesSize = 0;
+		ExternTypeInfo *exTypes = nullcDebugTypeInfo(&exTypesSize);
+
+		unsigned exLocalsSize = 0;
+		ExternLocalInfo *exLocals = nullcDebugLocalInfo(&exLocalsSize);
+
+		for(unsigned i = 0; i < targetFunction->paramCount; i++)
+		{
+			ExternLocalInfo &lInfo = exLocals[targetFunction->offsetToFirstLocal + i];
+
+			if(lInfo.paramType != ExternLocalInfo::PARAMETER)
+				continue;
+
+			output.Printf("%s%s %s", i != 0 ? ", " : "", symbols + exTypes[lInfo.type].offsetToName, symbols + lInfo.offsetToName);
+		}
+
+		output.Print(")");
+	}
+	else
+	{
+		output.Print("nullcGlobal()");
+	}
+
+	// Stop if source location is missing
+	if(!sourceLocation)
+	{
+		output.Flush();
+		output.stream = NULL;
+		buffer.buf[buffer.pos] = 0;
+
+		return buffer.buf;
+	}
+
+	const char *codeStart = sourceLocation;
+
+	unsigned column = 0;
+	unsigned line = nullcDebugGetSourceLocationLineAndColumn(codeStart, moduleIndex, column);
+
+	if(full)
+	{
+		// Find beginning of the line
+		while(codeStart != fullSource && *(codeStart - 1) != '\n')
+			codeStart--;
+
+		// Skip whitespace
+		while(*codeStart == ' ' || *codeStart == '\t')
+			codeStart++;
+
+		const char *codeEnd = codeStart;
+
+		// Find ending of the line
+		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
+			codeEnd++;
+
+		int codeLength = int(codeEnd - codeStart);
+		output.Printf(" Line %d at '%.*s'", line + 1, codeLength, codeStart);
+	}
+	else
+	{
+		output.Printf(" Line %d", line + 1);
+	}
+
+	output.Flush();
+	output.stream = NULL;
+	buffer.buf[buffer.pos] = 0;
+
+	return buffer.buf;
+}
+
+const char* nullcDebugGetNativeAddressLocation(void *address, unsigned full)
+{
+	using namespace NULLC;
+
+	unsigned instruction = nullcDebugConvertNativeAddressToInstruction(address);
+
+	if(instruction == ~0u)
+	{
+#ifdef NULLC_BUILD_X86_JIT
+		if(currExec == NULLC_X86 && executorX86 && executorX86->IsCodeLaunchHeader(address))
+			return "[Transition to nullc]";
+#endif
+
+		return NULL;
+	}
+
+	return nullcDebugGetVmAddressLocation(instruction, full);
 }
 
 #endif
@@ -1564,10 +2198,14 @@ CompilerContext* nullcGetCompilerContext()
 
 void nullcVisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child))
 {
+	TRACE_SCOPE("nullc", "nullcVisitParseTreeNodes");
+
 	VisitParseTreeNodes(syntax, context, accept);
 }
 
 void nullcVisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child))
 {
+	TRACE_SCOPE("nullc", "nullcVisitExpressionTreeNodes");
+
 	VisitExpressionTreeNodes(expression, context, accept);
 }

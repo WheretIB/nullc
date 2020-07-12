@@ -198,17 +198,9 @@ void LLVMAddAttributeAtIndex(LLVMValueRef, LLVMAttributeIndex, LLVMAttributeRef)
 #include "ExpressionTree.h"
 #include "DenseMap.h"
 
-struct UnsignedHasher
-{
-	unsigned operator()(unsigned value) const
-	{
-		return value * 2654435769u;
-	}
-};
-
 struct LlvmCompilationContext
 {
-	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), types(ctx.allocator), functions(ctx.allocator), allocator(ctx.allocator)
+	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), types(ctx.allocator), functions(ctx.allocator), currentRestoreBlocks(ctx.allocator), loopInfo(ctx.allocator), allocator(ctx.allocator)
 	{
 		enableOptimization = false;
 
@@ -244,7 +236,7 @@ struct LlvmCompilationContext
 	SmallArray<LLVMTypeRef, 128> types;
 	SmallArray<LLVMValueRef, 128> functions;
 
-	SmallDenseMap<unsigned, LLVMValueRef, UnsignedHasher, 128> variables;
+	SmallDenseMap<unsigned, LLVMValueRef, SmallDenseMapUnsignedHasher, 128> variables;
 
 	bool skipFunctionDefinitions;
 
@@ -433,9 +425,9 @@ LLVMTypeRef CompileLlvmType(LlvmCompilationContext &ctx, TypeBase *type)
 	{
 		ctx.types[type->typeIndex] = LLVMStructCreateNamed(ctx.context, CreateLlvmName(ctx, typeClass->name));
 
-		SmallArray<LLVMTypeRef, 8> members;
+		SmallArray<LLVMTypeRef, 32> members(ctx.allocator);
 
-		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			members.push_back(CompileLlvmType(ctx, curr->variable->type));
 
 		// TODO: create packed type with custom padding
@@ -461,7 +453,7 @@ bool IsStructReturnType(TypeBase *type)
 
 	if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 	{
-		for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 		{
 			if(IsStructReturnType(curr->variable->type))
 				return true;
@@ -493,7 +485,7 @@ LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext& ctx, TypeBase *retur
 {
 	bool isStructReturnType = IsStructReturnType(returnType);
 
-	SmallArray<LLVMTypeRef, 8> arguments;
+	SmallArray<LLVMTypeRef, 32> arguments(ctx.allocator);
 
 	if (isStructReturnType)
 	{
@@ -541,7 +533,7 @@ LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext& ctx, TypeBase *retur
 
 LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext &ctx, TypeFunction *functionType)
 {
-	SmallArray<TypeBase*, 8> argumentTypes;
+	SmallArray<TypeBase*, 32> argumentTypes(ctx.allocator);
 
 	for(TypeHandle *curr = functionType->arguments.head; curr; curr = curr->next)
 		argumentTypes.push_back(curr->type);
@@ -554,7 +546,7 @@ LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext &ctx, TypeFunction *f
 LLVMValueRef ConvertToStackType(LlvmCompilationContext &ctx, LLVMValueRef value, TypeBase *valueType)
 {
 	if(valueType == ctx.ctx.typeBool)
-		return LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, ctx.ctx.typeInt), "");
+		return LLVMBuildZExt(ctx.builder, value, CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 
 	if(valueType == ctx.ctx.typeChar)
 		return LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, ctx.ctx.typeInt), "");
@@ -862,7 +854,10 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 				if(node->value->type == ctx.ctx.typeLong)
 					return CheckType(ctx, node, LLVMBuildTrunc(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
-				if(node->value->type == ctx.ctx.typeBool || node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort)
+				if(node->value->type == ctx.ctx.typeBool)
+					return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
+
+				if(node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort)
 					return CheckType(ctx, node, LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
 				if(node->value->type == ctx.ctx.typeFloat || node->value->type == ctx.ctx.typeDouble)
@@ -870,10 +865,13 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 			}
 			else if(resultStackType == ctx.ctx.typeLong)
 			{
-				if(node->value->type == ctx.ctx.typeBool || node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort || node->value->type == ctx.ctx.typeInt)
+				if(node->value->type == ctx.ctx.typeBool)
+					return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
+
+				if(node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort || node->value->type == ctx.ctx.typeInt)
 					return CheckType(ctx, node, LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
-				if(node->value->type == ctx.ctx.typeDouble)
+				if(node->value->type == ctx.ctx.typeFloat || node->value->type == ctx.ctx.typeDouble)
 					return CheckType(ctx, node, LLVMBuildFPToSI(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 			}
 			else if(resultStackType == ctx.ctx.typeDouble)
@@ -985,7 +983,7 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 		if(TypeRef *refType = getType<TypeRef>(node->type))
 		{
 			// TODO: use global type index values for a later remap
-			SmallArray<LLVMValueRef, 2> arguments;
+			SmallArray<LLVMValueRef, 2> arguments(ctx.allocator);
 
 			arguments.push_back(CompileArgument(ctx, ctx.ctx.typeAutoRef, value));
 			arguments.push_back(CompileArgument(ctx, ctx.ctx.typeTypeID, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeTypeID), refType->subType->typeIndex, true)));
@@ -1405,7 +1403,7 @@ LLVMValueRef CompileLlvmMemberAccess(LlvmCompilationContext &ctx, ExprMemberAcce
 	if(isType<TypeUnsizedArray>(typeStruct))
 		currMember++;
 
-	for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+	for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 	{
 		if(curr->variable == node->member->variable)
 		{
@@ -1571,6 +1569,19 @@ LLVMValueRef CompileLlvmVariableDefinition(LlvmCompilationContext &ctx, ExprVari
 	return CheckType(ctx, node, NULL);
 }
 
+LLVMValueRef CompileLlvmZeroInitialize(LlvmCompilationContext &ctx, ExprZeroInitialize *node)
+{
+	TypeRef *refType = getType<TypeRef>(node->address->type);
+
+	assert(refType);
+
+	LLVMValueRef address = CompileLlvm(ctx, node->address);
+
+	LLVMBuildStore(ctx.builder, LLVMConstNull(CompileLlvmType(ctx, refType->subType)), address);
+
+	return CheckType(ctx, node, NULL);
+}
+
 LLVMValueRef CompileLlvmArraySetup(LlvmCompilationContext &ctx, ExprArraySetup *node)
 {
 	TypeRef *refType = getType<TypeRef>(node->lhs->type);
@@ -1658,13 +1669,13 @@ LLVMValueRef CompileLlvmFunctionContextAccess(LlvmCompilationContext &ctx, ExprF
 	}
 	else
 	{
-		LLVMValueRef *variable = ctx.variables.find(node->function->contextVariable->uniqueId);
+		LLVMValueRef *variable = ctx.variables.find(node->contextVariable->uniqueId);
 
 		assert(variable);
 
 		LLVMValueRef address = *variable;
 
-		value = LLVMBuildLoad(ctx.builder, address, CreateLlvmName(ctx, node->function->contextVariable->name->name));
+		value = LLVMBuildLoad(ctx.builder, address, CreateLlvmName(ctx, node->contextVariable->name->name));
 	}
 
 	return CheckType(ctx, node, value);
@@ -2146,168 +2157,274 @@ LLVMValueRef CompileLlvmSequence(LlvmCompilationContext &ctx, ExprSequence *node
 {
 	LLVMValueRef result = NULL;
 
-	for(ExprBase *value = node->expressions.head; value; value = value->next)
-		result = CompileLlvm(ctx, value);
+	for(unsigned i = 0; i < node->expressions.size(); i++)
+		result = CompileLlvm(ctx, node->expressions[i]);
 
 	return CheckType(ctx, node, result);
 }
 
 LLVMValueRef CompileLlvm(LlvmCompilationContext &ctx, ExprBase *expression)
 {
-	if(ExprVoid *node = getType<ExprVoid>(expression))
-		return CompileLlvmVoid(ctx, node);
-
-	if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(expression))
-		return CompileLlvmBoolLiteral(ctx, node);
-
-	if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(expression))
-		return CompileLlvmCharacterLiteral(ctx, node);
-
-	if(ExprStringLiteral *node = getType<ExprStringLiteral>(expression))
-		return CompileLlvmStringLiteral(ctx, node);
-
-	if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(expression))
-		return CompileLlvmIntegerLiteral(ctx, node);
-
-	if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(expression))
-		return CompileLlvmRationalLiteral(ctx, node);
-
-	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expression))
-		return CompileLlvmTypeLiteral(ctx, node);
-
-	if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
-		return CompileLlvmNullptrLiteral(ctx, node);
-
-	if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
-		return CompileLlvmFunctionIndexLiteral(ctx, node);
-
-	if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
-		return CompileLlvmPassthrough(ctx, node);
-
-	if(ExprArray *node = getType<ExprArray>(expression))
-		return CompileLlvmArray(ctx, node);
-
-	if(ExprPreModify *node = getType<ExprPreModify>(expression))
-		return CompileLlvmPreModify(ctx, node);
-
-	if(ExprPostModify *node = getType<ExprPostModify>(expression))
-		return CompileLlvmPostModify(ctx, node);	
-
-	if(ExprTypeCast *node = getType<ExprTypeCast>(expression))
-		return CompileLlvmTypeCast(ctx, node);
-
-	if(ExprUnaryOp *node = getType<ExprUnaryOp>(expression))
-		return CompileLlvmUnaryOp(ctx, node);
-
-	if(ExprBinaryOp *node = getType<ExprBinaryOp>(expression))
-		return CompileLlvmBinaryOp(ctx, node);
-
-	if(ExprGetAddress *node = getType<ExprGetAddress>(expression))
-		return CompileLlvmGetAddress(ctx, node);
-
-	if(ExprDereference *node = getType<ExprDereference>(expression))
-		return CompileLlvmDereference(ctx, node);
-
-	if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
-		return CompileLlvmUnboxing(ctx, node);
-
-	if(ExprConditional *node = getType<ExprConditional>(expression))
-		return CompileLlvmConditional(ctx, node);
-
-	if(ExprAssignment *node = getType<ExprAssignment>(expression))
-		return CompileLlvmAssignment(ctx, node);
-
-	if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
-		return CompileLlvmMemberAccess(ctx, node);
-
-	if(ExprArrayIndex *node = getType<ExprArrayIndex>(expression))
-		return CompileLlvmArrayIndex(ctx, node);
-
-	if(ExprReturn *node = getType<ExprReturn>(expression))
-		return CompileLlvmReturn(ctx, node);
-
-	if(ExprYield *node = getType<ExprYield>(expression))
-		return CompileLlvmYield(ctx, node);
-
-	if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
-		return CompileLlvmVariableDefinition(ctx, node);
-
-	if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
-		return CompileLlvmArraySetup(ctx, node);
-
-	if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
-		return CompileLlvmVariableDefinitions(ctx, node);
-
-	if(ExprVariableAccess *node = getType<ExprVariableAccess>(expression))
-		return CompileLlvmVariableAccess(ctx, node);
-
-	if(ExprFunctionContextAccess *node = getType<ExprFunctionContextAccess>(expression))
-		return CompileLlvmFunctionContextAccess(ctx, node);
-
-	if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
-		return CompileLlvmFunctionDefinition(ctx, node);
-
-	if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
-		return CompileLlvmGenericFunctionPrototype(ctx, node);
-
-	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
-		return CompileLlvmFunctionAccess(ctx, node);
-
-	if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
-		return CompileLlvmFunctionCall(ctx, node);
-
-	if(ExprAliasDefinition *node = getType<ExprAliasDefinition>(expression))
-		return CompileLlvmAliasDefinition(ctx, node);
-
-	if(ExprClassPrototype *node = getType<ExprClassPrototype>(expression))
-		return CompileLlvmClassPrototype(ctx, node);
-
-	if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
-		return CompileLlvmGenericClassPrototype(ctx, node);
-
-	if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
-		return CompileLlvmClassDefinition(ctx, node);
-
-	if(ExprEnumDefinition *node = getType<ExprEnumDefinition>(expression))
-		return CompileLlvmEnumDefinition(ctx, node);
-
-	if(ExprIfElse *node = getType<ExprIfElse>(expression))
-		return CompileLlvmIfElse(ctx, node);
-
-	if(ExprFor *node = getType<ExprFor>(expression))
-		return CompileLlvmFor(ctx, node);
-
-	if(ExprWhile *node = getType<ExprWhile>(expression))
-		return CompileLlvmWhile(ctx, node);
-
-	if(ExprDoWhile *node = getType<ExprDoWhile>(expression))
-		return CompileLlvmDoWhile(ctx, node);
-
-	if(ExprSwitch *node = getType<ExprSwitch>(expression))
-		return CompileLlvmSwitch(ctx, node);
-
-	if(ExprBreak *node = getType<ExprBreak>(expression))
-		return CompileLlvmBreak(ctx, node);
-
-	if(ExprContinue *node = getType<ExprContinue>(expression))
-		return CompileLlvmContinue(ctx, node);
-
-	if(ExprBlock *node = getType<ExprBlock>(expression))
-		return CompileLlvmBlock(ctx, node);
-
-	if(ExprSequence *node = getType<ExprSequence>(expression))
-		return CompileLlvmSequence(ctx, node);
-
-	if(!expression)
-		return NULL;
+	switch(expression->typeID)
+	{
+	case ExprVoid::myTypeID:
+		return CompileLlvmVoid(ctx, (ExprVoid*)expression);
+	case ExprBoolLiteral::myTypeID:
+		return CompileLlvmBoolLiteral(ctx, (ExprBoolLiteral*)expression);
+	case ExprCharacterLiteral::myTypeID:
+		return CompileLlvmCharacterLiteral(ctx, (ExprCharacterLiteral*)expression);
+	case ExprStringLiteral::myTypeID:
+		return CompileLlvmStringLiteral(ctx, (ExprStringLiteral*)expression);
+	case ExprIntegerLiteral::myTypeID:
+		return CompileLlvmIntegerLiteral(ctx, (ExprIntegerLiteral*)expression);
+	case ExprRationalLiteral::myTypeID:
+		return CompileLlvmRationalLiteral(ctx, (ExprRationalLiteral*)expression);
+	case ExprTypeLiteral::myTypeID:
+		return CompileLlvmTypeLiteral(ctx, (ExprTypeLiteral*)expression);
+	case ExprNullptrLiteral::myTypeID:
+		return CompileLlvmNullptrLiteral(ctx, (ExprNullptrLiteral*)expression);
+	case ExprFunctionIndexLiteral::myTypeID:
+		return CompileLlvmFunctionIndexLiteral(ctx, (ExprFunctionIndexLiteral*)expression);
+	case ExprPassthrough::myTypeID:
+		return CompileLlvmPassthrough(ctx, (ExprPassthrough*)expression);
+	case ExprArray::myTypeID:
+		return CompileLlvmArray(ctx, (ExprArray*)expression);
+	case ExprPreModify::myTypeID:
+		return CompileLlvmPreModify(ctx, (ExprPreModify*)expression);
+	case ExprPostModify::myTypeID:
+		return CompileLlvmPostModify(ctx, (ExprPostModify*)expression);
+	case ExprTypeCast::myTypeID:
+		return CompileLlvmTypeCast(ctx, (ExprTypeCast*)expression);
+	case ExprUnaryOp::myTypeID:
+		return CompileLlvmUnaryOp(ctx, (ExprUnaryOp*)expression);
+	case ExprBinaryOp::myTypeID:
+		return CompileLlvmBinaryOp(ctx, (ExprBinaryOp*)expression);
+	case ExprGetAddress::myTypeID:
+		return CompileLlvmGetAddress(ctx, (ExprGetAddress*)expression);
+	case ExprDereference::myTypeID:
+		return CompileLlvmDereference(ctx, (ExprDereference*)expression);
+	case ExprUnboxing::myTypeID:
+		return CompileLlvmUnboxing(ctx, (ExprUnboxing*)expression);
+	case ExprConditional::myTypeID:
+		return CompileLlvmConditional(ctx, (ExprConditional*)expression);
+	case ExprAssignment::myTypeID:
+		return CompileLlvmAssignment(ctx, (ExprAssignment*)expression);
+	case ExprMemberAccess::myTypeID:
+		return CompileLlvmMemberAccess(ctx, (ExprMemberAccess*)expression);
+	case ExprArrayIndex::myTypeID:
+		return CompileLlvmArrayIndex(ctx, (ExprArrayIndex*)expression);
+	case ExprReturn::myTypeID:
+		return CompileLlvmReturn(ctx, (ExprReturn*)expression);
+	case ExprYield::myTypeID:
+		return CompileLlvmYield(ctx, (ExprYield*)expression);
+	case ExprVariableDefinition::myTypeID:
+		return CompileLlvmVariableDefinition(ctx, (ExprVariableDefinition*)expression);
+	case ExprZeroInitialize::myTypeID:
+		return CompileLlvmZeroInitialize(ctx, (ExprZeroInitialize*)expression);
+	case ExprArraySetup::myTypeID:
+		return CompileLlvmArraySetup(ctx, (ExprArraySetup*)expression);
+	case ExprVariableDefinitions::myTypeID:
+		return CompileLlvmVariableDefinitions(ctx, (ExprVariableDefinitions*)expression);
+	case ExprVariableAccess::myTypeID:
+		return CompileLlvmVariableAccess(ctx, (ExprVariableAccess*)expression);
+	case ExprFunctionContextAccess::myTypeID:
+		return CompileLlvmFunctionContextAccess(ctx, (ExprFunctionContextAccess*)expression);
+	case ExprFunctionDefinition::myTypeID:
+		return CompileLlvmFunctionDefinition(ctx, (ExprFunctionDefinition*)expression);
+	case ExprGenericFunctionPrototype::myTypeID:
+		return CompileLlvmGenericFunctionPrototype(ctx, (ExprGenericFunctionPrototype*)expression);
+	case ExprFunctionAccess::myTypeID:
+		return CompileLlvmFunctionAccess(ctx, (ExprFunctionAccess*)expression);
+	case ExprFunctionCall::myTypeID:
+		return CompileLlvmFunctionCall(ctx, (ExprFunctionCall*)expression);
+	case ExprAliasDefinition::myTypeID:
+		return CompileLlvmAliasDefinition(ctx, (ExprAliasDefinition*)expression);
+	case ExprClassPrototype::myTypeID:
+		return CompileLlvmClassPrototype(ctx, (ExprClassPrototype*)expression);
+	case ExprGenericClassPrototype::myTypeID:
+		return CompileLlvmGenericClassPrototype(ctx, (ExprGenericClassPrototype*)expression);
+	case ExprClassDefinition::myTypeID:
+		return CompileLlvmClassDefinition(ctx, (ExprClassDefinition*)expression);
+	case ExprEnumDefinition::myTypeID:
+		return CompileLlvmEnumDefinition(ctx, (ExprEnumDefinition*)expression);
+	case ExprIfElse::myTypeID:
+		return CompileLlvmIfElse(ctx, (ExprIfElse*)expression);
+	case ExprFor::myTypeID:
+		return CompileLlvmFor(ctx, (ExprFor*)expression);
+	case ExprWhile::myTypeID:
+		return CompileLlvmWhile(ctx, (ExprWhile*)expression);
+	case ExprDoWhile::myTypeID:
+		return CompileLlvmDoWhile(ctx, (ExprDoWhile*)expression);
+	case ExprSwitch::myTypeID:
+		return CompileLlvmSwitch(ctx, (ExprSwitch*)expression);
+	case ExprBreak::myTypeID:
+		return CompileLlvmBreak(ctx, (ExprBreak*)expression);
+	case ExprContinue::myTypeID:
+		return CompileLlvmContinue(ctx, (ExprContinue*)expression);
+	case ExprBlock::myTypeID:
+		return CompileLlvmBlock(ctx, (ExprBlock*)expression);
+	case ExprSequence::myTypeID:
+		return CompileLlvmSequence(ctx, (ExprSequence*)expression);
+	}
 
 	assert(!"unknown type");
 
 	return NULL;
 }
 
+LLVMValueRef CompileLlvmExternalFunctionWrapper(LlvmCompilationContext &ctx, FunctionData *functionData)
+{
+	LLVMValueRef function = ctx.functions[functionData->functionIndex];
+
+	// Store state
+	LLVMValueRef currentFunction = ctx.currentFunction;
+	FunctionData *currentFunctionSource = ctx.currentFunctionSource;
+
+	// Switch to new function
+	ctx.currentFunction = function;
+	ctx.currentFunctionSource = functionData;
+
+	LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "start");
+
+	LLVMPositionBuilderAtEnd(ctx.builder, block);
+
+	// Create argument buffer
+	LLVMValueRef argBuffer = LLVMBuildAlloca(ctx.builder, LLVMArrayType(LLVMInt8TypeInContext(ctx.context), unsigned(functionData->argumentsSize)), "arg_buffer");
+
+	// Return small numeric types as 'int'
+	TypeBase *returnType = functionData->type->returnType;
+
+	if(isType<TypeBool>(returnType) || isType<TypeChar>(returnType) || isType<TypeShort>(returnType))
+		returnType = ctx.ctx.typeInt;
+
+	// Create return buffer
+	LLVMValueRef retBuffer = returnType == ctx.ctx.typeVoid ? NULL : LLVMBuildAlloca(ctx.builder, LLVMArrayType(LLVMInt8TypeInContext(ctx.context), unsigned(returnType->size)), "ret_buffer");
+
+	// Copy all arguments into argument buffer
+	unsigned argIndex = 0;
+	unsigned argBufferPos = 0;
+
+	if(IsStructReturnType(functionData->type->returnType))
+		argIndex++;
+
+	for(VariableHandle *curr = functionData->argumentVariables.head; curr; curr = curr->next)
+	{
+		VariableData *variable = curr->variable;
+
+		LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), LLVMConstInt(LLVMInt32TypeInContext(ctx.context), argBufferPos, true) };
+
+		LLVMValueRef address = LLVMBuildGEP(ctx.builder, argBuffer, indices, 2, "");
+
+		TypeBase *argumentType = variable->type;
+
+		// Pass small numeric types as 'int'
+		if(isType<TypeBool>(argumentType) || isType<TypeChar>(argumentType) || isType<TypeShort>(argumentType))
+			argumentType = ctx.ctx.typeInt;
+
+		LLVMValueRef target = LLVMBuildPointerCast(ctx.builder, address, LLVMPointerType(CompileLlvmType(ctx, argumentType), 0), "arg_buffer_pos");
+
+		if(IsStructArgumentType(argumentType))
+		{
+			LLVMValueRef argument = LLVMGetParam(function, argIndex++);
+
+			LLVMBuildStore(ctx.builder, LLVMBuildLoad(ctx.builder, argument, ""), target);
+		}
+		else
+		{
+			LLVMValueRef argument = LLVMGetParam(function, argIndex++);
+
+			if(argumentType != variable->type)
+			{
+				if(isType<TypeBool>(variable->type))
+					argument = LLVMBuildZExt(ctx.builder, argument, CompileLlvmType(ctx, argumentType), "");
+				else
+					argument = LLVMBuildSExt(ctx.builder, argument, CompileLlvmType(ctx, argumentType), "");
+			}
+
+			LLVMBuildStore(ctx.builder, argument, target);
+		}
+
+		argBufferPos += argumentType->size == 0 ? 4u : unsigned(argumentType->size);
+	}
+
+	if(VariableData *variable = functionData->contextArgument)
+	{
+		LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), LLVMConstInt(LLVMInt32TypeInContext(ctx.context), argBufferPos, true) };
+
+		LLVMValueRef address = LLVMBuildGEP(ctx.builder, argBuffer, indices, 2, "");
+
+		LLVMValueRef argument = LLVMGetParam(function, argIndex++);
+
+		argument = LLVMBuildPointerCast(ctx.builder, argument, CompileLlvmType(ctx, functionData->contextType), "context_reinterpret");
+
+		LLVMBuildStore(ctx.builder, argument, LLVMBuildPointerCast(ctx.builder, address, LLVMPointerType(CompileLlvmType(ctx, variable->type), 0), "arg_buffer_pos"));
+
+		argBufferPos += unsigned(variable->type->size);
+	}
+	else
+	{
+		argBufferPos += NULLC_PTR_SIZE;
+	}
+
+	assert(argBufferPos == unsigned(functionData->argumentsSize));
+
+	assert(!functionData->coroutine);
+
+	// Call helper function
+	{
+		SmallArray<LLVMValueRef, 3> arguments(ctx.allocator);
+
+		arguments.push_back(LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), functionData->functionIndex, true));
+		arguments.push_back(LLVMBuildPointerCast(ctx.builder, argBuffer, CompileLlvmType(ctx, ctx.ctx.typeNullPtr), "arg_buffer_raw_ptr"));
+
+		if(retBuffer)
+			arguments.push_back(LLVMBuildPointerCast(ctx.builder, retBuffer, CompileLlvmType(ctx, ctx.ctx.typeNullPtr), "ret_buffer_raw_ptr"));
+		else
+			arguments.push_back(LLVMConstPointerNull(CompileLlvmType(ctx, ctx.ctx.typeNullPtr)));
+
+		LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmExternalCall"), arguments.data, arguments.count, "");
+	}
+
+	if(functionData->type->returnType == ctx.ctx.typeVoid)
+	{
+		LLVMBuildRetVoid(ctx.builder);
+	}
+	else if(IsStructReturnType(functionData->type->returnType))
+	{
+		LLVMValueRef result = LLVMBuildLoad(ctx.builder, LLVMBuildPointerCast(ctx.builder, retBuffer, LLVMPointerType(CompileLlvmType(ctx, functionData->type->returnType), 0), "result_ptr"), "result");
+
+		LLVMValueRef argument = LLVMGetParam(function, 0);
+
+		LLVMBuildStore(ctx.builder, result, argument);
+
+		LLVMBuildRetVoid(ctx.builder);
+	}
+	else
+	{
+		LLVMValueRef result = LLVMBuildLoad(ctx.builder, LLVMBuildPointerCast(ctx.builder, retBuffer, LLVMPointerType(CompileLlvmType(ctx, returnType), 0), "result_ptr"), "result");
+
+		if(returnType != functionData->type->returnType)
+			result = LLVMBuildTrunc(ctx.builder, result, CompileLlvmType(ctx, functionData->type->returnType), "");
+
+		LLVMBuildRet(ctx.builder, result);
+	}
+
+	CheckFunction(ctx, ctx.currentFunction, functionData->name->name);
+
+	if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
+		LLVMRunFunctionPassManager(ctx.functionPassManager, function);
+
+	// Restore state
+	ctx.currentFunction = currentFunction;
+	ctx.currentFunctionSource = currentFunctionSource;
+
+	return NULL;
+}
+
 LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 {
+	TRACE_SCOPE("InstructionTreeLlvm", "CompileLlvm");
+
 	LlvmCompilationContext ctx(exprCtx);
 
 	ctx.context = LLVMContextCreate();
@@ -2338,10 +2455,6 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 	// Generate type indexes
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
 		ctx.ctx.types[i]->typeIndex = i;
-
-	// Generate function indexes
-	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
-		ctx.ctx.functions[i]->functionIndex = i;
 
 	// Reserve types, generate as required
 	ctx.types.resize(ctx.ctx.types.size());
@@ -2406,6 +2519,13 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
+	{
+		TypeBase* arguments[] = { ctx.ctx.typeInt, ctx.ctx.typeNullPtr, ctx.ctx.typeNullPtr };
+
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmExternalCall", CompileLlvmFunctionType(ctx, ctx.ctx.typeVoid, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
+	}
+
 	// Generate functions
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
 	{
@@ -2431,6 +2551,10 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 		}
 
 		ctx.functions[function->functionIndex] = llvmFunction;
+
+		// Create an external function call wrapper
+		if(function->importModule == NULL && function->isPrototype)
+			CompileLlvmExternalFunctionWrapper(ctx, function);
 	}
 
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)

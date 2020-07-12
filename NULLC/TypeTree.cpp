@@ -117,6 +117,26 @@ InplaceStr GetOperatorName(InplaceStr name)
 	return InplaceStr();
 }
 
+char* NameWriteUnsigned(char *pos, unsigned value)
+{
+	char reverse[16];
+	char *curr = reverse;
+
+	*curr++ = (char)((value % 10) + '0');
+
+	while(value /= 10)
+		*curr++ = (char)((value % 10) + '0');
+
+	do
+	{
+		--curr;
+		*pos++ = *curr;
+	}
+	while(curr != reverse);
+
+	return pos;
+}
+
 InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 {
 	unsigned typeNameLength = unsigned(type->name.end - type->name.begin);
@@ -124,7 +144,9 @@ InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 	unsigned nameLength = unsigned(typeNameLength + 4);
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
-	memcpy(name, type->name.begin, typeNameLength);
+	if(typeNameLength)
+		memcpy(name, type->name.begin, typeNameLength);
+
 	memcpy(name + typeNameLength, " ref", 5);
 
 	return InplaceStr(name);
@@ -207,7 +229,7 @@ InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, Intr
 
 	char *pos = name;
 
-	sprintf(pos, "%.*s", FMT_ISTR(proto->name));
+	memcpy(pos, proto->name.begin, proto->name.length());
 	pos += proto->name.length();
 
 	strcpy(pos, "<");
@@ -222,7 +244,7 @@ InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, Intr
 		}
 		else
 		{
-			sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
+			memcpy(pos, arg->type->name.begin, arg->type->name.length());
 			pos += arg->type->name.length();
 		}
 
@@ -251,12 +273,12 @@ InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
 	{
-		sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
+		memcpy(pos, arg->type->name.begin, arg->type->name.length());
 		pos += arg->type->name.length();
 
 		if(arg->next)
 		{
-			sprintf(pos, " or ");
+			strcpy(pos, " or ");
 			pos += strlen(" or ");
 		}
 	}
@@ -281,7 +303,7 @@ InplaceStr GetArgumentSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
 	{
-		sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
+		memcpy(pos, arg->type->name.begin, arg->type->name.length());
 		pos += arg->type->name.length();
 
 		if(arg->next)
@@ -298,31 +320,65 @@ InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type)
 {
 	unsigned nameLength = unsigned(type->name.length() + strlen(" members"));
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "%.*s members", FMT_ISTR(type->name));
+
+	char *pos = name;
+
+	memcpy(pos, type->name.begin, type->name.length());
+	pos += type->name.length();
+
+	strcpy(pos, " members");
+	pos += strlen(" members");
+
+	*pos++ = 0;
 
 	return InplaceStr(name);
 }
-
 
 InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr baseName)
 {
 	unsigned nameLength = baseName.length() + 1;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "@%.*s", FMT_ISTR(baseName));
+
+	char *pos = name;
+
+	*pos++ = '@';
+
+	memcpy(pos, baseName.begin, baseName.length());
+	pos += baseName.length();
+
+	*pos++ = 0;
 
 	return InplaceStr(name);
 }
 
 InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index)
 {
-	InplaceStr operatorName = GetOperatorName(functionName);
+	if((*functionName.begin <= '@' && *functionName.begin != '$') || *functionName.begin == '|' || *functionName.begin == '^' || *functionName.begin == '~')
+	{
+		InplaceStr operatorName = GetOperatorName(functionName);
 
-	if(!operatorName.empty())
-		functionName = operatorName;
+		if(!operatorName.empty())
+			functionName = operatorName;
+	}
 
 	unsigned nameLength = functionName.length() + 32;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "__%.*s_%d_cls", FMT_ISTR(functionName), index);
+
+	char *pos = name;
+
+	*pos++ = '_';
+	*pos++ = '_';
+
+	memcpy(pos, functionName.begin, functionName.length());
+	pos += functionName.length();
+
+	*pos++ = '_';
+	pos = NameWriteUnsigned(pos, index);
+
+	strcpy(pos, "_cls");
+	pos += strlen("_cls");
+
+	*pos++ = 0;
 
 	return InplaceStr(name);
 }
@@ -330,14 +386,35 @@ InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functio
 InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function, unsigned index)
 {
 	InplaceStr functionName = function->name->name;
-	InplaceStr operatorName = GetOperatorName(functionName);
 
-	if(!operatorName.empty())
-		functionName = operatorName;
+	if((*functionName.begin <= '@' && *functionName.begin != '$') || *functionName.begin == '|' || *functionName.begin == '^' || *functionName.begin == '~')
+	{
+		InplaceStr operatorName = GetOperatorName(functionName);
+
+		if(!operatorName.empty())
+			functionName = operatorName;
+	}
 
 	unsigned nameLength = functionName.length() + 32;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "$%.*s_%u_%u_ext", FMT_ISTR(functionName), function->type->name.hash(), index);
+
+	char *pos = name;
+
+	*pos++ = '$';
+
+	memcpy(pos, functionName.begin, functionName.length());
+	pos += functionName.length();
+
+	*pos++ = '_';
+	pos = NameWriteUnsigned(pos, function->type->name.hash());
+
+	*pos++ = '_';
+	pos = NameWriteUnsigned(pos, index);
+
+	strcpy(pos, "_ext");
+	pos += strlen("_ext");
+
+	*pos++ = 0;
 
 	return InplaceStr(name);
 }
@@ -362,10 +439,23 @@ InplaceStr GetFunctionContextMemberName(ExpressionContext &ctx, InplaceStr prefi
 	unsigned nameLength = prefix.length() + 1 + suffix.length() + (index != 0 ? 16 : 0) + 1;
 	char *name = (char*)ctx.allocator->alloc(nameLength);
 
+	char *pos = name;
+
+	memcpy(pos, prefix.begin, prefix.length());
+	pos += prefix.length();
+
+	*pos++ = '_';
+
+	memcpy(pos, suffix.begin, suffix.length());
+	pos += suffix.length();
+
 	if(index != 0)
-		sprintf(name, "%.*s_%.*s_%d", FMT_ISTR(prefix), FMT_ISTR(suffix), index);
-	else
-		sprintf(name, "%.*s_%.*s", FMT_ISTR(prefix), FMT_ISTR(suffix));
+	{
+		*pos++ = '_';
+		pos = NameWriteUnsigned(pos, index);
+	}
+
+	*pos++ = 0;
 
 	return InplaceStr(name);
 }
@@ -375,14 +465,35 @@ InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *
 	FunctionData *function = ctx.GetFunctionOwner(variable->scope);
 
 	InplaceStr functionName = function ? function->name->name : InplaceStr("global");
-	InplaceStr operatorName = GetOperatorName(functionName);
 
-	if(!operatorName.empty())
-		functionName = operatorName;
+	if((*functionName.begin <= '@' && *functionName.begin != '$') || *functionName.begin == '|' || *functionName.begin == '^' || *functionName.begin == '~')
+	{
+		InplaceStr operatorName = GetOperatorName(functionName);
+
+		if(!operatorName.empty())
+			functionName = operatorName;
+	}
 
 	unsigned nameLength = functionName.length() + variable->name->name.length() + 24;
 	char *name = (char*)ctx.allocator->alloc(nameLength);
-	sprintf(name, "$upvalue_%.*s_%.*s_%04x", FMT_ISTR(functionName), FMT_ISTR(variable->name->name), variable->uniqueId);
+
+	char *pos = name;
+
+	strcpy(pos, "$upvalue_");
+	pos += strlen("$upvalue_");
+
+	memcpy(pos, functionName.begin, functionName.length());
+	pos += functionName.length();
+
+	*pos++ = '_';
+
+	memcpy(pos, variable->name->name.begin, variable->name->name.length());
+	pos += variable->name->name.length();
+
+	*pos++ = '_';
+	pos = NameWriteUnsigned(pos, variable->uniqueId);
+
+	*pos++ = 0;
 
 	return InplaceStr(name);
 }
@@ -417,8 +528,11 @@ InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceS
 	pos -= 1;
 	*pos = 0;
 
-	pos -= str.length();
-	memcpy(pos, str.begin, str.length());
+	if(unsigned strLength = str.length())
+	{
+		pos -= strLength;
+		memcpy(pos, str.begin, strLength);
+	}
 
 	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
@@ -466,6 +580,10 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 
 	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
+		// Temporary scope is not evaluated
+		if(curr->type == SCOPE_TEMPORARY)
+			return str;
+
 		// Function scope, just use the name
 		if(curr->ownerFunction && !foundNamespace)
 			return str;
@@ -512,6 +630,46 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 	assert(pos == name);
 
 	return InplaceStr(name);
+}
+
+InplaceStr GetTemporaryName(ExpressionContext &ctx, unsigned index, const char *suffix)
+{
+	char buf[16];
+
+	char *curr = buf;
+
+	*curr++ = (char)((index % 10) + '0');
+
+	while(index /= 10)
+		*curr++ = (char)((index % 10) + '0');
+
+	unsigned suffixLength = suffix ? (unsigned)strlen(suffix) : 0;
+
+	char *name = (char*)ctx.allocator->alloc(16 + suffixLength);
+
+	char *pos = name;
+
+	memcpy(pos, "$temp", 5);
+	pos += 5;
+
+	do
+	{
+		--curr;
+		*pos++ = *curr;
+	}
+	while(curr != buf);
+
+	if(suffix)
+	{
+		*pos++ = '_';
+
+		memcpy(pos, suffix, suffixLength);
+		pos += suffixLength;
+	}
+
+	*pos = 0;
+
+	return InplaceStr(name, pos);
 }
 
 unsigned GetAlignmentOffset(long long offset, unsigned alignment)

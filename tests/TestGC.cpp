@@ -81,17 +81,17 @@ class A\r\n\
 }\r\n\
 A ref[] arr1 = new A ref[2];\r\n\
 A ref tmp;\r\n\
-arr1[0] = tmp = new A;\r\n\
+(auto(){arr1[0] = tmp = new A;\r\n\
 tmp.d = new A;\r\n\
 tmp.e = new A;\r\n\
 tmp.f = new A;\r\n\
 arr1[1] = new A;\r\n\
 arr1[1].d = new A;\r\n\
 arr1[1].e = new A;\r\n\
-arr1[1].f = new A;\r\n\
+arr1[1].f = new A;})();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Garbage collection correctness 3.", testGarbageCollectionCorrectness3, sizeof(void*) == 8 ? "544" : "272");
+TEST_RESULT_SIMPLE("Garbage collection correctness 3.", testGarbageCollectionCorrectness3, sizeof(void*) == 8 ? "544" : "272");
 
 const char	*testStackFrameSizeX64 =
 "void test()\r\n\
@@ -412,7 +412,10 @@ auto foo(int x)\r\n\
 	GC.CollectMemory();\r\n\
 	return m;\r\n\
 }\r\n\
-return foo(5)() + k();";
+int res = foo(5)();\r\n\
+GC.CollectMemory();\r\n\
+res += k();\r\n\
+return res;";
 TEST_RESULT("Unused upvalues GC test", testUnusedUpvaluesGC, "25");
 
 const char	*testUnusedUpvaluesGC2 =
@@ -432,29 +435,9 @@ auto foo(int x)\r\n\
 	return m;\r\n\
 }\r\n\
 foo(5)() + k();\r\n\
-return GC.UsedMemory() - start;";
-TEST_RESULT_SIMPLE("Unused upvalues GC test 2", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "256" : "128");
-
-const char	*testDoubleMemoryRemovalGC =
-"import std.gc;\r\n\
-int start = GC.UsedMemory();\r\n\
-int ref() k;\r\n\
-auto foo(int x)\r\n\
-{\r\n\
-	int a; int ref() m;\r\n\
-	for(int y = 0; y < 10; y++)\r\n\
-	{\r\n\
-		m = auto(){ return y + x + a; };\r\n\
-		if(y == 6)\r\n\
-			k = m;\r\n\
-	}\r\n\
-	GC.CollectMemory();\r\n\
-	return m;\r\n\
-}\r\n\
-foo(5)() + k();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT_SIMPLE("Prevention of double memory removal", testDoubleMemoryRemovalGC, sizeof(void*) == 8 ? "128" : "64");
+TEST_RESULT_SIMPLE("Unused upvalues GC test 2 [skip_c]", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "128" : "64");
 
 const char	*testDoubleMemoryRemovalGC2 =
 "import std.gc;\r\n\
@@ -559,9 +542,9 @@ int RecallerGC3()
 
 LOAD_MODULE_BIND(test_gctransition1, "func.gctransition1", "int Recaller1(); int Recaller2(); int Recaller3();")
 {
-	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC1, "Recaller1", 0);
-	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC2, "Recaller2", 0);
-	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC3, "Recaller3", 0);
+	nullcBindModuleFunctionHelper("func.gctransition1", RecallerGC1, "Recaller1", 0);
+	nullcBindModuleFunctionHelper("func.gctransition1", RecallerGC2, "Recaller2", 0);
+	nullcBindModuleFunctionHelper("func.gctransition1", RecallerGC3, "Recaller3", 0);
 }
 
 const char	*testGCWhenTransitions =

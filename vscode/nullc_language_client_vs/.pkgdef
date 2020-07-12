@@ -30,6 +30,15 @@
 
 ; Language service (optional)
 ;   If the adapter has an associated VS Language Service, specify its GUID in the "LanguageId" property
-;"LanguageId"="{language-service-guid}"
+;"LanguageId"="{9221BA37-3FB0-483A-BD6A-0E5DD22E107E}"
 
 "LocalsScopeName"="Locals"
+
+[$RootKey$\AD7Metrics\ExpressionEvaluator\{9221BA37-3FB0-483A-BD6A-0E5DD22E107E}\{A7CB5F2B-CD45-4CF4-9CB6-61A30968EFB5}]
+"Language"="nullc"
+"Name"="nullc"
+
+[$RootKey$\AD7Metrics\ExpressionEvaluator\{9221BA37-3FB0-483A-BD6A-0E5DD22E107E}\{A7CB5F2B-CD45-4CF4-9CB6-61A30968EFB5}\Engine]
+"0"="{449EC4CC-30D2-4032-9256-EE18EB41B62B}"
+"1"="{92EF0900-2251-11D2-B72E-0000F87572EF}"
+"2"="{3B476D35-A401-11D2-AAD4-00C04F990171}"

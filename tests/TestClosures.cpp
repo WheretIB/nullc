@@ -728,7 +728,7 @@ int CheckAlignmentClosure(NULLCRef ptr, int alignment)
 
 LOAD_MODULE_BIND(test_alignment_closure, "test.alignment.closure", "int CheckAlignment(auto ref ptr, int alignment);")
 {
-	nullcBindModuleFunction("test.alignment.closure", (void(*)())CheckAlignmentClosure, "CheckAlignment", 0);
+	nullcBindModuleFunctionHelper("test.alignment.closure", CheckAlignmentClosure, "CheckAlignment", 0);
 }
 
 const char	*testClosureAlignment2 =

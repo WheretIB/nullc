@@ -11,16 +11,18 @@
 #include "InstructionTreeVm.h"
 #include "InstructionTreeVmGraph.h"
 #include "InstructionTreeVmEval.h"
-#include "InstructionTreeVmLower.h"
-#include "InstructionTreeVmLowerGraph.h"
+#include "InstructionTreeRegVmLower.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 #include "InstructionTreeLlvm.h"
 #include "Output.h"
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
+	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instRegVmFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
 	{
 		code = 0;
+
+		moduleRoot = 0;
 
 		errorPos = 0;
 		errorBuf = 0;
@@ -29,12 +31,13 @@ struct CompilerContext
 		synModule = 0;
 
 		exprModule = 0;
+		exprMemoryLimit = 0;
 
 		vmModule = 0;
 
 		llvmModule = 0;
 
-		vmLoweredModule = 0;
+		regVmLoweredModule = 0;
 
 		enableLogFiles = false;
 	}
@@ -42,6 +45,8 @@ struct CompilerContext
 	Allocator *allocator;
 
 	const char *code;
+
+	const char *moduleRoot;
 
 	const char *errorPos;
 	char *errorBuf;
@@ -54,14 +59,15 @@ struct CompilerContext
 
 	ExpressionContext exprCtx;
 	ExprModule *exprModule;
+	unsigned exprMemoryLimit;
 
 	VmModule *vmModule;
 
 	LlvmModule *llvmModule;
 
-	VmLoweredModule *vmLoweredModule;
+	RegVmLoweredModule *regVmLoweredModule;
 
-	InstructionVmFinalizeContext instFinalizeCtx;
+	InstructionRegVmFinalizeContext instRegVmFinalizeCtx;
 
 	bool enableLogFiles;
 
@@ -70,9 +76,9 @@ struct CompilerContext
 
 bool BuildBaseModule(Allocator *allocator, int optimizationLevel);
 
-ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code);
+ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx);
 
-bool CompileModuleFromSource(CompilerContext &ctx, const char *code);
+bool CompileModuleFromSource(CompilerContext &ctx);
 
 unsigned GetBytecode(CompilerContext &ctx, char **bytecode);
 
@@ -80,7 +86,7 @@ bool SaveListing(CompilerContext &ctx, const char *fileName);
 
 bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *moduleRoot, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel);
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(), void *funcWrap, void (*ptrWrap)(void *func, char* retBuf, char* argBuf), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel);

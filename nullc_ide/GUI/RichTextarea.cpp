@@ -285,8 +285,8 @@ struct TextareaData
 
 	AreaLine* ExtendSelectionFromPoint(unsigned int xPos, unsigned int yPos);
 
-	void InputChar(char ch);
-	void InputEnter();
+	void InputChar(char ch, bool updateDisplay);
+	void InputEnter(bool updateDisplay);
 
 	void OnCopyOrCut(bool cut);
 	void OnPaste();
@@ -484,6 +484,11 @@ public:
 				curr = curr->next;
 			}
 		}
+
+		// Restore original selected line
+		data->currLine = data->firstLine;
+		for(unsigned int i = 0; i < data->cursorCharY; i++)
+			data->currLine = data->currLine->next;
 
 		// Remove snapshot
 		if(lastShot->prevShot)
@@ -1007,9 +1012,21 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 	while(*text)
 	{
 		if((unsigned char)*text >= 0x20 || *text == '\t')
-			data->InputChar(*text);
+		{
+			data->InputChar(*text, false);
+		}
 		else if(*text == '\r')
-			data->InputEnter();
+		{
+			data->InputEnter(false);
+
+			if(text[1] == '\n')
+				text++;
+		}
+		else if(*text == '\n')
+		{
+			data->InputEnter(false);
+		}
+
 		text++;
 	}
 	// Colorer should update text
@@ -1020,6 +1037,8 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 	data->selectionOn = false;
 
 	data->history->ResetHistory();
+
+	InvalidateRect(data->areaWnd, NULL, false);
 }
 
 void RichTextarea::SetStatusBar(HWND status, unsigned int barWidth)
@@ -1343,7 +1362,7 @@ VOID CALLBACK RichTextarea::AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEv
 }
 
 // Function for single char insertion at the cursor position
-void TextareaData::InputChar(char ch)
+void TextareaData::InputChar(char ch, bool updateDisplay)
 {
 	// We need to reallocate line buffer if it is full
 	ExtendLine(currLine, currLine->length + 1);
@@ -1356,14 +1375,18 @@ void TextareaData::InputChar(char ch)
 	currLine->length++;
 	// Move cursor forward
 	cursorCharX++;
-	ScrollToCursor();
-	// Force redraw on the modified line
-	RECT invalid = { 0, int(cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, int(cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
-	InvalidateRect(areaWnd, &invalid, false);
+
+	if(updateDisplay)
+	{
+		ScrollToCursor();
+		// Force redraw on the modified line
+		RECT invalid = { 0, int(cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, int(cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}
 }
 
 // Function that adds line break at the cursor position
-void TextareaData::InputEnter()
+void TextareaData::InputEnter(bool updateDisplay)
 {
 	// Increment line count
 	lineCount++;
@@ -1391,9 +1414,12 @@ void TextareaData::InputEnter()
 	cursorCharY++;
 	cursorCharX = 0;
 
-	// Force redraw on the modified line and all that goes after it
-	RECT invalid = { 0, int(cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
-	InvalidateRect(areaWnd, &invalid, false);
+	if(updateDisplay)
+	{
+		// Force redraw on the modified line and all that goes after it
+		RECT invalid = { 0, int(cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
+		InvalidateRect(areaWnd, &invalid, false);
+	}
 }
 
 // Windows scrollbar can scroll beyond valid positions
@@ -1755,9 +1781,21 @@ void TextareaData::OnPaste()
 		while(*str)
 		{
 			if(*str >= 0x20 || *str == '\t')
-				InputChar(*str);
+			{
+				InputChar(*str, false);
+			}
 			else if(*str == '\r')
-				InputEnter();
+			{
+				InputEnter(false);
+
+				if(str[1] == '\n')
+					str++;
+			}
+			else if(*str == '\n')
+			{
+				InputEnter(false);
+			}
+
 			str++;
 		}
 	}
@@ -1826,7 +1864,7 @@ void TextareaData::OnCharacter(unsigned char ch)
 						// Shrink line length
 						currLine->length -= toRemove;
 					}else{	// Simply Tab, insert symbol
-						InputChar(ch);
+						InputChar(ch, false);
 					}
 					currLine = currLine->next;
 					cursorCharY++;
@@ -1866,7 +1904,7 @@ void TextareaData::OnCharacter(unsigned char ch)
 			return;
 		}
 		// Insert symbol
-		InputChar(ch);
+		InputChar(ch, true);
 	}else if(ch == '\r'){	// Line break
 		history->TakeSnapshot(currLine, HistoryManager::LINES_ADDED, 1);
 		// Remove selection
@@ -1881,11 +1919,11 @@ void TextareaData::OnCharacter(unsigned char ch)
 			characterIdent++;
 		}
 		// Insert line break
-		InputEnter();
+		InputEnter(true);
 		// Add indentation
 		while(effectiveIdent > 0)
 		{
-			InputChar('\t');
+			InputChar('\t', true);
 			effectiveIdent -= TAB_SIZE;
 		}
 		needUpdate = true;

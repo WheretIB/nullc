@@ -4,6 +4,7 @@
 
 #include "../../NULLC/nullc.h"
 #include "../../NULLC/nullc_debug.h"
+#include "../../NULLC/StrAlgo.h"
 
 #include "context.h"
 #include "handler.h"

@@ -24,7 +24,8 @@ struct ExternTypeInfo
 		TYPE_HAS_FINALIZER = 1 << 0,
 		TYPE_DEPENDS_ON_GENERIC = 1 << 1,
 		TYPE_IS_EXTENDABLE = 1 << 2,
-		TYPE_INTERNAL = 1 << 3
+		TYPE_IS_INTERNAL = 1 << 3,
+		TYPE_IS_COMPLETED = 1 << 4
 	};
 
 	unsigned char	defaultAlign;
@@ -36,7 +37,10 @@ struct ExternTypeInfo
 		unsigned int	arrSize;
 		unsigned int	memberCount;
 	};
+
 	unsigned int	constantCount;
+	unsigned int	constantOffset;
+
 	union
 	{
 		unsigned int	subType;
@@ -87,11 +91,7 @@ struct ExternLocalInfo
 	unsigned short	defaultFuncId;
 
 	unsigned int	type, size;
-	union
-	{
-		unsigned int	offset;
-		unsigned int	target;
-	};
+	unsigned int	offset;
 	unsigned int	closeListID;
 	unsigned char	alignmentLog2; // 1 << value
 
@@ -102,13 +102,27 @@ struct ExternFuncInfo
 {
 	unsigned int	offsetToName;
 
-	int				address;
-	int				codeSize;
+	int				regVmAddress;
+	int				regVmCodeSize;
+	int				regVmRegisters;
+
+	int				builtinIndex;
+
 	int				isVisible;
 
-	void			*funcPtr;
+	void			(*funcPtrRaw)();
 #ifndef _M_X64
-	unsigned int	ptrPad;
+	unsigned int	ptrRawPad;
+#endif
+
+	void			*funcPtrWrapTarget;
+#ifndef _M_X64
+	unsigned int	ptrWrapTargetPad;
+#endif
+
+	void			(*funcPtrWrap)(void*, char*, char*);
+#ifndef _M_X64
+	unsigned int	ptrWrapPad;
 #endif
 
 	enum ReturnType
@@ -130,7 +144,8 @@ struct ExternFuncInfo
 	unsigned char	funcCat;
 	unsigned char	isGenericInstance;
 	unsigned char	isOperator;
-	unsigned char	returnShift;
+	unsigned char	returnShift; // Amount of dwords to remove for result type after raw external function call
+	unsigned int	returnSize; // Return size of the wrapped external function call
 	unsigned int	funcType;	// index to the type array
 
 	unsigned int	startInByteCode;
@@ -151,8 +166,8 @@ struct ExternFuncInfo
 
 	unsigned int	namespaceHash;
 
-// For x86 function call
-	unsigned int	bytesToPop;
+	unsigned int	bytesToPop; // Arguments size
+	unsigned int	stackSize; // Including arguments
 
 	// For generic functions
 	unsigned int	genericOffsetStart; // Position in the lexeme stream of the definition
@@ -244,13 +259,18 @@ struct ByteCode
 
 	unsigned int	closureListCount;
 
-	unsigned int	infoSize;
-	unsigned int	offsetToInfo;
+	unsigned int	regVmInfoSize;
+	unsigned int	regVmOffsetToInfo;
 
-	unsigned int	codeSize;
-	unsigned int	offsetToCode;
+	unsigned int	regVmCodeSize;
+	unsigned int	regVmOffsetToCode;
+	unsigned int	regVmGlobalCodeStart;
 
-	unsigned int	globalCodeStart;
+	unsigned int	regVmConstantCount;
+	unsigned int	regVmOffsetToConstants;
+
+	unsigned int	regVmRegKillInfoCount;
+	unsigned int	regVmOffsetToRegKillInfo;
 
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
@@ -264,6 +284,7 @@ struct ByteCode
 	unsigned int	typedefCount;
 	unsigned int	offsetToTypedef;
 
+	unsigned int	constantCount;
 	unsigned int	offsetToConstants;
 
 	unsigned int	namespaceCount;
@@ -285,17 +306,21 @@ struct ByteCode
 
 //	ExternFuncInfo::Upvalue	closureLists[closureListCount];
 
-//	ExternTypedefInfo	typedefs[typedefCount]
+//	ExternTypedefInfo	typedefs[typedefCount];
 
-//	ExternNamespaceInfo	namespaces[namespaceCount]
+//	ExternNamespaceInfo	namespaces[namespaceCount];
 
-//	char			code[codeSize];
+//	char			regVmCode[regVmCodeSize];
 
-//	ExternSourceInfo	sourceInfo[infoLength]
+//	ExternSourceInfo	regVmSourceInfo[regVmInfoSize];
 
 //	char			debugSymbols[symbolLength];
 
 //	char			source[sourceSize]
+
+//	char			llvmCode[llvmSize];
+
+//	unsigned		regVmConstants[regVmConstantCount];
 };
 
 #pragma pack(pop)
@@ -309,9 +334,11 @@ ExternFuncInfo*		FindFirstFunc(ByteCode *code);
 ExternLocalInfo*	FindFirstLocal(ByteCode *code);
 ExternTypedefInfo*	FindFirstTypedef(ByteCode *code);
 ExternNamespaceInfo*FindFirstNamespace(ByteCode *code);
-char*				FindCode(ByteCode *code);
-ExternSourceInfo*	FindSourceInfo(ByteCode *code);
+char*				FindRegVmCode(ByteCode *code);
+ExternSourceInfo*	FindRegVmSourceInfo(ByteCode *code);
 char*				FindSymbols(ByteCode *code);
 char*				FindSource(ByteCode *code);
+unsigned*			FindRegVmConstants(ByteCode *code);
+unsigned char*		FindRegVmRegKillInfo(ByteCode *code);
 
 #endif

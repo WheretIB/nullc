@@ -41,11 +41,12 @@ struct NULLCAutoArray
 #define NULLC_OUTPUT_BUFFER_SIZE 8 * 1024
 #define NULLC_TEMP_OUTPUT_BUFFER_SIZE 16 * 1024
 #define NULLC_MAX_GENERIC_INSTANCE_DEPTH 64
+#define NULLC_MAX_EXPRESSION_DEPTH 2048
 #define NULLC_MAX_TYPE_SIZE	256 * 1024 * 1024
 
-//#define NULLC_VM_PROFILE_INSTRUCTIONS
 //#define NULLC_STACK_TRACE_WITH_LOCALS
-//#define NULLC_VM_CALL_STACK_UNWRAP
+
+//#define NULLC_REG_VM_PROFILE_INSTRUCTIONS
 
 #if defined(_MSC_VER) && defined(_DEBUG)
 //#define VERBOSE_DEBUG_OUTPUT
@@ -53,7 +54,17 @@ struct NULLCAutoArray
 //#define LINK_VERBOSE_DEBUG_OUTPUT
 #endif
 
-#if !defined(__CELLOS_LV2__) && !defined(__DMC__) && !defined(ANDROID)
+#if !defined(NDEBUG)
+#define NULLC_TIME_TRACE
+#else
+//#define NULLC_TIME_TRACE
+#endif
+
+#if defined(EMSCRIPTEN)
+#define NULLC_NO_RAW_EXTERNAL_CALL
+#endif
+
+#if !defined(__CELLOS_LV2__) && !defined(__DMC__) && !defined(ANDROID) && !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	#define NULLC_AUTOBINDING
 #endif
 
@@ -63,18 +74,21 @@ struct NULLCAutoArray
 	#define NULLC_BIND extern "C" __declspec(dllexport)
 #endif
 
-#if (defined(_MSC_VER) || defined(__DMC__) || defined(__linux)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR) && !defined(__x86_64__) && !defined(__arm__) && !defined(__aarch64__)
+#if (defined(_MSC_VER) || defined(__DMC__) || defined(__linux)) && !defined(NULLC_NO_EXECUTOR) && !defined(__arm__) && !defined(__aarch64__)
 	#define NULLC_BUILD_X86_JIT
 	#define NULLC_OPTIMIZE_X86
 #endif
 
 //#define NULLC_LLVM_SUPPORT
 
+// Library will export some publicly visible functions and variables required for external debuggers to read debug information
+//#define NULLC_EXPORT_EXTERNAL_DEBUGGER_SYMBOLS
+
 typedef unsigned char nullres;
 
-#define NULLC_VM	0
-#define NULLC_X86	1
-#define NULLC_LLVM	2
+#define NULLC_REG_VM	0
+#define NULLC_X86		1
+#define NULLC_LLVM		2
 
 #ifdef __x86_64__
 	#define _M_X64
@@ -97,6 +111,13 @@ typedef unsigned char nullres;
 	#define NULLC_PRINT_FORMAT_CHECK(format, args) __attribute__((__format__(__printf__, format, args)))
 #else
 	#define NULLC_PRINT_FORMAT_CHECK(format, args)
+#endif
+
+
+#if defined(NULLC_EXPORT_EXTERNAL_DEBUGGER_SYMBOLS)
+	#define NULLC_DEBUG_EXPORT NULLC_BIND
+#else
+	#define NULLC_DEBUG_EXPORT
 #endif
 
 #endif

@@ -10,6 +10,17 @@ void (*nullcDumpGraphVmModule)(VmModule*) = DumpGraph;
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
+namespace
+{
+	float DecodeFloat(int value)
+	{
+		float result;
+		assert(sizeof(int) == sizeof(float));
+		memcpy(&result, &value, sizeof(float));
+		return result;
+	}
+}
+
 NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVMGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
@@ -97,6 +108,17 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName, bo
 		}
 
 		Print(ctx, "%%%d", inst->uniqueId);
+
+		if(inst->color)
+			Print(ctx, ".c%d", inst->color);
+
+		if(!inst->regVmRegisters.empty())
+		{
+			Print(ctx, ".r");
+
+			for(unsigned i = 0; i < inst->regVmRegisters.size(); i++)
+				Print(ctx, i == 0 ? "%d" : "|%d", inst->regVmRegisters[i]);
+		}
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
@@ -108,6 +130,12 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName, bo
 			Print(ctx, "%.*s.f%04x", FMT_ISTR(fData->name->name), fData->uniqueId);
 		else
 			Print(ctx, "global");
+	}
+	else if(!value)
+	{
+		Print(ctx, "%%null%%");
+
+		noExtraInfo = true;
 	}
 	else
 	{
@@ -160,6 +188,8 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 {
 	if(constant->type == VmType::Void)
 		Print(ctx, "{}");
+	else if(constant->type == VmType::Int && constant->isFloat)
+		Print(ctx, "%ff", DecodeFloat(constant->iValue));
 	else if(constant->type == VmType::Int)
 		Print(ctx, "%d", constant->iValue);
 	else if(constant->type == VmType::Double)
@@ -172,6 +202,10 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 		Print(ctx, "0x%x", constant->container->offset + constant->iValue);
 	else if(constant->type.type == VM_TYPE_POINTER)
 		Print(ctx, "0x%x", constant->iValue);
+	else if(constant->type.type == VM_TYPE_STRUCT && constant->isReference && ctx.showContainers)
+		Print(ctx, "*(%.*s+0x%x)", FMT_ISTR(constant->container->name->name), constant->iValue);
+	else if(constant->type.type == VM_TYPE_STRUCT && constant->isReference)
+		Print(ctx, "*(0x%x)", constant->container->offset + constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
 		Print(ctx, "{ %.*s }", FMT_ISTR(constant->type.structType->name));
 	else if(constant->type.type == VM_TYPE_FUNCTION && constant->fValue->function)
@@ -259,22 +293,38 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 			Print(ctx, " ");
 		}
 
+		Print(ctx, "%%%d", instruction->uniqueId);
+
+		if(instruction->color)
+			Print(ctx, ".c%d", instruction->color);
+
+		if(!instruction->regVmRegisters.empty())
+		{
+			Print(ctx, ".r");
+
+			for(unsigned i = 0; i < instruction->regVmRegisters.size(); i++)
+				Print(ctx, i == 0 ? "%d" : "|%d", instruction->regVmRegisters[i]);
+		}
+
 		if(ctx.showComments && !instruction->comment.empty())
-			Print(ctx, "%%%d (%.*s) = ", instruction->uniqueId, FMT_ISTR(instruction->comment));
+			Print(ctx, " (%.*s) = ", FMT_ISTR(instruction->comment));
 		else
-			Print(ctx, "%%%d = ", instruction->uniqueId);
+			Print(ctx, " = ");
 	}
 
 	Print(ctx, "%s", GetInstructionName(instruction));
 
 	if(instruction->cmd == VM_INST_PHI)
 	{
+		Print(ctx, " [");
+
 		for(unsigned i = 0; i < instruction->arguments.size(); i += 2)
 		{
 			VmValue *value = instruction->arguments[i];
 			VmValue *edge = instruction->arguments[i + 1];
 
-			Print(ctx, value == instruction->arguments[0] ? " [" : ", ");
+			if(i != 0)
+				Print(ctx, ", ");
 
 			PrintName(ctx, value, false, false);
 			Print(ctx, " from ");
@@ -345,6 +395,163 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 	PrintLine(ctx, "%.*s.b%d:", FMT_ISTR(block->name), block->uniqueId);
 
 	ctx.depth++;
+
+	Print(ctx, "  // predecessor blocks: [");
+
+	for(unsigned i = 0; i < block->predecessors.size(); i++)
+	{
+		VmBlock *predecessor = block->predecessors[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(predecessor->name), predecessor->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // successor blocks: [");
+
+	for(unsigned i = 0; i < block->successors.size(); i++)
+	{
+		VmBlock *successor = block->successors[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(successor->name), successor->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // immediate dominator: [");
+
+	if(block->idom)
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(block->idom->name), block->idom->uniqueId);
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // dominance frontier: [");
+
+	for(unsigned i = 0; i < block->dominanceFrontier.size(); i++)
+	{
+		VmBlock *dominator = block->dominanceFrontier[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(dominator->name), dominator->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // dominance children: [");
+
+	for(unsigned i = 0; i < block->dominanceChildren.size(); i++)
+	{
+		VmBlock *dominator = block->dominanceChildren[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(dominator->name), dominator->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // live variables going in: [");
+
+	for(unsigned i = 0; i < block->liveIn.size(); i++)
+	{
+		VmInstruction *liveIn = block->liveIn[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		if(liveIn->cmd == VM_INST_PHI)
+		{
+			Print(ctx, "%%%d", liveIn->uniqueId);
+
+			if(liveIn->color)
+				Print(ctx, ".c%d", liveIn->color);
+
+			if(!liveIn->regVmRegisters.empty())
+			{
+				Print(ctx, ".r");
+
+				for(unsigned i = 0; i < liveIn->regVmRegisters.size(); i++)
+					Print(ctx, i == 0 ? "%d" : "|%d", liveIn->regVmRegisters[i]);
+			}
+
+			if(liveIn->comment.empty())
+				Print(ctx, " [");
+			else
+				Print(ctx, " (%.*s) [", FMT_ISTR(liveIn->comment));
+
+			for(unsigned k = 0; k < liveIn->arguments.size(); k += 2)
+			{
+				VmInstruction *value = getType<VmInstruction>(liveIn->arguments[k]);
+
+				if(k != 0)
+					Print(ctx, ", ");
+
+				if(value->comment.empty())
+					Print(ctx, "%%%d", value->uniqueId);
+				else
+					Print(ctx, "%%%d (%.*s)", value->uniqueId, FMT_ISTR(value->comment));
+			}
+
+			Print(ctx, "]");
+		}
+		else
+		{
+			Print(ctx, "%%%d", liveIn->uniqueId);
+
+			if(liveIn->color)
+				Print(ctx, ".c%d", liveIn->color);
+
+			if(!liveIn->regVmRegisters.empty())
+			{
+				Print(ctx, ".r");
+
+				for(unsigned i = 0; i < liveIn->regVmRegisters.size(); i++)
+					Print(ctx, i == 0 ? "%d" : "|%d", liveIn->regVmRegisters[i]);
+			}
+
+			if(!liveIn->comment.empty())
+				Print(ctx, " (%.*s)", FMT_ISTR(liveIn->comment));
+		}
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // live variables going out: [");
+
+	for(unsigned i = 0; i < block->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = block->liveOut[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "%%%d", liveOut->uniqueId);
+
+		if(liveOut->color)
+			Print(ctx, ".c%d", liveOut->color);
+
+		if(!liveOut->regVmRegisters.empty())
+		{
+			Print(ctx, ".r");
+
+			for(unsigned i = 0; i < liveOut->regVmRegisters.size(); i++)
+				Print(ctx, i == 0 ? "%d" : "|%d", liveOut->regVmRegisters[i]);
+		}
+
+		if(!liveOut->comment.empty())
+			Print(ctx, " (%.*s)", FMT_ISTR(liveOut->comment));
+	}
+
+	PrintLine(ctx, "]");
 
 	for(VmInstruction *value = block->firstInstruction; value; value = value->nextSibling)
 	{
@@ -431,11 +638,28 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 						bool simpleUse = false;
 
 						if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+						{
 							simpleUse = true;
+						}
 						else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+						{
 							simpleUse = true;
+						}
+						else if(inst->cmd == VM_INST_MEM_COPY && (inst->arguments[0] == user || inst->arguments[2] == user))
+						{
+							simpleUse = true;
+						}
+						else if(inst->cmd == VM_INST_RETURN || inst->cmd == VM_INST_CALL)
+						{
+							if(user->isReference)
+								simpleUse = true;
+							else
+								simpleUse = false;
+						}
 						else
+						{
 							simpleUse = false;
+						}
 
 						if(!simpleUse)
 							addressTaken = true;
@@ -485,6 +709,7 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 	PrintLine(ctx, "// Control flow simplifications: %d", module->controlFlowSimplifications);
 	PrintLine(ctx, "// Load store propagation: %d", module->loadStorePropagations);
 	PrintLine(ctx, "// Common subexpression eliminations: %d", module->commonSubexprEliminations);
+	PrintLine(ctx, "// Dead alloca store eliminations: %d", module->deadAllocaStoreEliminations);
 
 	ctx.output.Flush();
 }

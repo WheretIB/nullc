@@ -227,7 +227,14 @@ bool wrap(int a, int b)\r\n\
 }\r\n\
 \r\n\
 return wrap(3, 4);";
-TEST_RESULT("function wrapping for overloaded operator && or || might create a function with expternal access", testLogAndOperatorFunctionWrapping1, "1");
+TEST_RESULT("function wrapping for overloaded operator && or || might create a function with external access", testLogAndOperatorFunctionWrapping1, "1");
+
+const char	*testLogAndOperatorFunctionWrapping2 =
+"class Wrap{ int x; }\r\n\
+bool bool(Wrap str){ return true; }\r\n\
+auto test(Wrap name, b){ return name && (&name != &b); }\r\n\
+return test(Wrap(), Wrap());";
+TEST_RESULT("syntax function wrapping must always be used for overloaded operator && or ||", testLogAndOperatorFunctionWrapping2, "1");
 
 const char	*testInOverload1 =
 "import std.vector;\r\n\

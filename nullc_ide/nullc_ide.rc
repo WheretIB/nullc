@@ -15,48 +15,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Russian resources
+// Neutral (Default) resources
 
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_RUS)
-#ifdef _WIN32
-LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
-#pragma code_page(1251)
-#endif //_WIN32
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Icon
-//
-
-// Icon with lowest ID value placed first to ensure application icon
-// remains consistent on all systems.
-IDI_NULLC_IDE           ICON                    "nullc_ide.ico"
-IDI_SMALL               ICON                    "small.ico"
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Menu
-//
-
-IDC_NULLC_IDE MENU 
-BEGIN
-    POPUP "&File"
-    BEGIN
-        MENUITEM "Open",                        ID_FILE_LOAD
-        MENUITEM "Save",                        ID_FILE_SAVE, INACTIVE
-        MENUITEM "Save All",                    ID_FILE_SAVEALL
-        MENUITEM SEPARATOR
-        MENUITEM "E&xit",                       IDM_EXIT
-    END
-    POPUP "Debug"
-    BEGIN
-        MENUITEM "Run",                         ID_RUN_DEBUG
-        MENUITEM "Run w/out breakpoints",       ID_RUN
-        MENUITEM SEPARATOR
-        MENUITEM "Attach to process",           ID_DEBUG_ATTACHTOPROCESS
-    END
-END
-
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEUD)
+LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
+#pragma code_page(1252)
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -88,21 +51,69 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_NULLC_IDE           ICON                    "nullc_ide.ico"
+
+IDI_SMALL               ICON                    "small.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDC_NULLC_IDE MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "Open",                        ID_FILE_LOAD
+        MENUITEM "Save",                        ID_FILE_SAVE, INACTIVE
+        MENUITEM "Save All",                    ID_FILE_SAVEALL
+        MENUITEM SEPARATOR
+        POPUP "Save As"
+        BEGIN
+            MENUITEM "HTML (text)",                 ID_SAVE_AS_HTML
+            MENUITEM "C++ (code)",                  ID_FILE_TRANSLATETOC
+        END
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       IDM_EXIT
+    END
+    POPUP "Debug"
+    BEGIN
+        MENUITEM "Run",                         ID_RUN_DEBUG
+        MENUITEM "Run w/out breakpoints",       ID_RUN
+        MENUITEM SEPARATOR
+        MENUITEM "Attach to process",           ID_DEBUG_ATTACHTOPROCESS
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // Bitmap
 //
 
 IDB_LASTCALL            BITMAP                  "GUI\\lLastcall.bmp"
+
 IDB_CALL                BITMAP                  "GUI\\lCall.bmp"
+
 IDB_CURR                BITMAP                  "GUI\\lCurr.bmp"
+
 IDB_BREAK               BITMAP                  "GUI\\lBreak.bmp"
+
 IDB_UNREACHABLE         BITMAP                  "gui\\lUnreachable.bmp"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Accelerator
 //
 
-IDR_SHORTCUTS ACCELERATORS 
+IDR_SHORTCUTS ACCELERATORS
 BEGIN
     VK_F10,         ID_DEBUG_STEP,          VIRTKEY, NOINVERT
     VK_F11,         ID_DEBUG_STEP_INTO,     VIRTKEY, NOINVERT
@@ -120,13 +131,13 @@ END
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDS_APP_TITLE           "nullc IDE"
     IDC_NULLC_IDE           "NULLC_IDE"
 END
 
-#endif    // Russian resources
+#endif    // Neutral (Default) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

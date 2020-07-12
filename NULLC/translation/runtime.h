@@ -122,8 +122,26 @@ struct NULLCFuncInfo
 #define NULLC_POINTER 3
 #define NULLC_FUNCTION 4
 
-#define NULLC_TYPE_FLAG_HAS_FINALIZER 1 << 0
-#define NULLC_TYPE_FLAG_IS_EXTENDABLE 1 << 1
+#define NULLC_TYPE_FLAG_HAS_FINALIZER (1 << 0)
+#define NULLC_TYPE_FLAG_IS_EXTENDABLE (1 << 1)
+#define NULLC_TYPE_FLAG_FORWARD_DECLARATION (1 << 2)
+
+#if defined(__GNUC__)
+
+#define NULLC_ALIGN_GCC(x) __attribute__((aligned(x)))
+#define NULLC_ALIGN_MSVC(x)
+
+#elif defined(_MSC_VER)
+
+#define NULLC_ALIGN_GCC(x)
+#define NULLC_ALIGN_MSVC(x) __declspec(align(x))
+
+#else
+
+#define NULLC_ALIGN_GCC(x)
+#define NULLC_ALIGN_MSVC(x)
+
+#endif
 
 namespace FunctionCategory
 {
@@ -191,6 +209,7 @@ void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID);
 NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr);
 
 typedef int __function;
+typedef void* _nullptr;
 
 bool operator ==(const NULLCRef& a, const NULLCRef& b);
 bool operator !=(const NULLCRef& a, const NULLCRef& b);
@@ -328,7 +347,7 @@ unsigned int __nullcGetStringHash(const char *str);
 typedef void* __nullcFunction;
 typedef __nullcFunction* __nullcFunctionArray;
 __nullcFunctionArray* __nullcGetFunctionTable();
-unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType);
+unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType, bool unique);
 NULLCFuncInfo* __nullcGetFunctionInfo(unsigned id);
 
 void __nullcRegisterGlobal(void* ptr, unsigned typeID);

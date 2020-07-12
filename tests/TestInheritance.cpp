@@ -142,18 +142,6 @@ x = a;\r\n\
 return *x.z;";
 TEST_RESULT("Inheritance test 11", testInheritance11, "2");
 
-const char	*testInheritance12 =
-"class vec2 extendable{ float x, y; }\r\n\
-class vec3 : vec2{ float z; }\r\n\
-\r\n\
-vec2 x;\r\n\
-vec3 y;\r\n\
-y.x = 2; y.y = 3;\r\n\
-x = y;\r\n\
-\r\n\
-return int(x.x + x.y);";
-TEST_RESULT("Inheritance test 12", testInheritance12, "5");
-
 const char	*testInheritance13 =
 "class vec2 extendable{ float x, y; }\r\n\
 class vec3 : vec2{ float z; }\r\n\
@@ -176,28 +164,6 @@ vec2 ref x = &y;\r\n\
 int bar(vec3 ref x){ return x.z; }\r\n\
 return bar(x);";
 TEST_RESULT("Inheritance test 14", testInheritance14, "5");
-
-const char	*testInheritance15 =
-"class vec2 extendable{ float x, y; }\r\n\
-class vec3 : vec2{ float z; }\r\n\
-\r\n\
-vec2 x;\r\n\
-vec3 y; y.x = 5;\r\n\
-\r\n\
-int bar(vec2 x){ return x.x; }\r\n\
-return bar(y);";
-TEST_RESULT("Inheritance test 15", testInheritance15, "5");
-
-const char	*testInheritance16 =
-"class vec2 extendable{ float x, y; }\r\n\
-class vec3 : vec2{ float z; }\r\n\
-\r\n\
-vec2 x;\r\n\
-vec3 y;\r\n\
-x = y;\r\n\
-\r\n\
-return typeid(&y) == vec3;";
-TEST_RESULT("Inheritance test 16", testInheritance16, "1");
 
 const char	*testInheritance17 =
 "class vec2 extendable{ float x, y; }\r\n\
@@ -564,4 +530,165 @@ class int3 : int2{ int z; void int3(){ x = 1; y = 2; z = 3; } }\r\n\
 int2 ref a = new int3;\r\n\
 int3 ref b = int3 ref(a);\r\n\
 return b.z;";
-TEST_RESULT("Inheritance test 44 - manual type casts", testInheritance45, "3");
+TEST_RESULT("Inheritance test 45 - manual type casts", testInheritance45, "3");
+
+const char	*testInheritance46 =
+"class Test extendable\r\n\
+{\r\n\
+	int a;\r\n\
+	int b;\r\n\
+	int c;\r\n\
+}\r\n\
+\r\n\
+void Test:Test()\r\n\
+{\r\n\
+	a = 1;\r\n\
+	b = 2;\r\n\
+	c = 3;\r\n\
+}\r\n\
+\r\n\
+class Test2 : Test\r\n\
+{\r\n\
+	int d;\r\n\
+}\r\n\
+\r\n\
+void Test2 : Test2()\r\n\
+{\r\n\
+	d = 10;\r\n\
+}\r\n\
+\r\n\
+Test2 t;\r\n\
+\r\n\
+return t.a + t.b + t.c + t.d;";
+TEST_RESULT("Inheritance test 46 - base class default constructors", testInheritance46, "16");
+
+const char	*testInheritance47 =
+"class Test extendable\r\n\
+{\r\n\
+	int a = 1;\r\n\
+	int b = 2;\r\n\
+	int c = 3;\r\n\
+}\r\n\
+\r\n\
+class Test2 : Test\r\n\
+{\r\n\
+	int d = 10;\r\n\
+}\r\n\
+\r\n\
+Test2 t;\r\n\
+\r\n\
+return t.a + t.b + t.c + t.d;";
+TEST_RESULT("Inheritance test 47 - member initializers", testInheritance47, "16");
+
+const char	*testInheritance48 =
+"class Test\r\n\
+{\r\n\
+	int a = 1;\r\n\
+	int b = 2;\r\n\
+\r\n\
+	int foo()\r\n\
+	{\r\n\
+		Test x;\r\n\
+\r\n\
+		return x.a + x.b;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+return t.foo();";
+TEST_RESULT("Inheritance test 48 - constructor availability", testInheritance48, "3");
+
+const char	*testInheritance49 =
+"class vec2 extendable\r\n\
+{\r\n\
+	int x = 1, y = 2;\r\n\
+}\r\n\
+\r\n\
+class vec3 : vec2\r\n\
+{\r\n\
+	vec3 f()\r\n\
+	{\r\n\
+		vec3 x;\r\n\
+		return x;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+vec3 a;\r\n\
+a = a.f();\r\n\
+auto ref x = a;\r\n\
+vec3 b = x;\r\n\
+return b.x;";
+TEST_RESULT("Inheritance test 49 - constructor availability", testInheritance49, "1");
+
+const char	*testInheritance50 =
+"class A extendable{}\r\n\
+class B: A{}\r\n\
+class C: B{}\r\n\
+\r\n\
+auto a = new A();\r\n\
+auto b = new B();\r\n\
+auto c = new C();\r\n\
+\r\n\
+bool t1 = a != b;\r\n\
+bool t2 = b != c;\r\n\
+\r\n\
+a = c;\r\n\
+b = c;\r\n\
+\r\n\
+bool t3 = a == b;\r\n\
+bool t4 = b == c;\r\n\
+\r\n\
+return t1 && t2 && t3 && t4;";
+TEST_RESULT("Inheritance test 50 - pointer comparison between classes in the same hierarchy", testInheritance50, "1");
+
+const char	*testInheritance51 =
+"class A extendable{}\r\n\
+class B: A{}\r\n\
+\r\n\
+auto a = new A();\r\n\
+auto b = new B();\r\n\
+\r\n\
+return (a == b ? a : b) == b && (a != b ? b : a) == b;";
+TEST_RESULT("Inheritance test 51 - common type between base/derived classes in conditional expression 1", testInheritance51, "1");
+
+const char	*testInheritance52 =
+"class A extendable{}\r\n\
+class B: A{}\r\n\
+\r\n\
+auto a = new A();\r\n\
+auto b = new B();\r\n\
+\r\n\
+return typeof(a == b ? a : b) == A ref && typeof(a != b ? b : a) == A ref;";
+TEST_RESULT("Inheritance test 51 - common type between base/derived classes in conditional expression 2", testInheritance52, "1");
+
+const char	*testInheritance53 =
+"int x;\r\n\
+class Counter{ void Counter(){ x++; } }\r\n\
+class Test extendable{ Counter a; }\r\n\
+class Test2 : Test{}\r\n\
+Test2 t;\r\n\
+return x;";
+TEST_RESULT_SIMPLE("Inheritance test 53 - class members should be initialized only once", testInheritance53, "1");
+
+const char	*testInheritance54 =
+"class Base extendable{ align(8) long x = 1; int y = 2; }\r\n\
+class Derived: Base{ int z = 3; }\r\n\
+class Derived2: Derived{ int w = 4; }\r\n\
+Derived2 t;\r\n\
+int s = t.x * 1000 + t.y * 100 + t.z * 10 + t.w;\r\n\
+t.x = 4; t.y = 3; t.z = 2; t.w = 1;\r\n\
+int s2 = t.x * 1000 + t.y * 100 + t.z * 10 + t.w;\r\n\
+return s + s2;";
+TEST_RESULT_SIMPLE("Inheritance test 54 - base class tail padding 1", testInheritance54, "5555");
+
+const char	*testInheritance55 =
+"class Base extendable{ align(8) int x = 1; int y = 2; }\r\n\
+class Derived: Base{ int z = 3; }\r\n\
+class Derived2: Derived{ int w = 4; }\r\n\
+class Derived3: Derived2{ int a = 5; }\r\n\
+Derived3 t;\r\n\
+int s = t.x * 10000 + t.y * 1000 + t.z * 100 + t.w * 10 + t.a;\r\n\
+t.x = 5; t.y = 4; t.z = 3; t.w = 2; t.a = 1;\r\n\
+int s2 = t.x * 10000 + t.y * 1000 + t.z * 100 + t.w * 10 + t.a;\r\n\
+return s + s2;";
+TEST_RESULT_SIMPLE("Inheritance test 54 - base class tail padding 2", testInheritance55, "66666");

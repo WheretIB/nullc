@@ -36,6 +36,10 @@ int main(int argc, char **argv)
 		{
 			ctx.defaultModulePath = argv[i] + strlen("--mp=");
 		}
+		else if(strcmp(argv[i], "--debug_full_messages") == 0)
+		{
+			ctx.debugFullMessages = true;
+		}
 	}
 
 	if(ctx.infoMode)

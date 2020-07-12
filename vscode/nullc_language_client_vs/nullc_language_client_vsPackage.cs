@@ -19,7 +19,7 @@ using EnvDTE80;
 using System.Globalization;
 using Newtonsoft.Json;
 
-namespace nullc_language_client_vs
+namespace NullcLanguageClientVs
 {
     /// <summary>
     /// This is the class that implements the package exposed by this assembly.
@@ -39,12 +39,12 @@ namespace nullc_language_client_vs
     /// </para>
     /// </remarks>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-    [Guid(nullc_language_client_vsPackage.PackageGuidString)]
+    [Guid(NullcLanguageClientVsPackage.PackageGuidString)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
-    public sealed class nullc_language_client_vsPackage : AsyncPackage
+    public sealed class NullcLanguageClientVsPackage : AsyncPackage
     {
         /// <summary>
-        /// nullc_language_client_vsPackage GUID string.
+        /// NullcLanguageClientVsPackage GUID string.
         /// </summary>
         public const string PackageGuidString = "a179464d-38b7-4986-94bc-8ec0add18ab3";
 
@@ -170,7 +170,7 @@ namespace nullc_language_client_vs
 
     [ContentType("nullc")]
     [Export(typeof(ILanguageClient))]
-    public class NullcLanguageClient : ILanguageClient
+    public class NullcLanguageClient : ILanguageClient, IDisposable
     {
         public string Name => "nullc Language Extension";
 
@@ -227,18 +227,35 @@ namespace nullc_language_client_vs
         {
             return Task.CompletedTask;
         }
+
+        protected virtual void Dispose(bool disposeManaged)
+        {
+            if (disposeManaged)
+            {
+                if (process != null)
+                {
+                    process.Close();
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
     }
 
-    public class NullcContentDefinition
+    public static class NullcContentDefinition
     {
         [Export]
         [Name("nullc")]
         [BaseDefinition(CodeRemoteContentDefinition.CodeRemoteContentTypeName)]
-        internal static ContentTypeDefinition NullcContentTypeDefinition;
+        internal static ContentTypeDefinition NullcContentTypeDefinition = null;
 
         [Export]
         [FileExtension(".nc")]
         [ContentType("nullc")]
-        internal static FileExtensionToContentTypeDefinition NullcFileExtensionDefinition;
+        internal static FileExtensionToContentTypeDefinition NullcFileExtensionDefinition = null;
     }
 }

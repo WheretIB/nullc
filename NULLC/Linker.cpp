@@ -1,6 +1,8 @@
 #include "Linker.h"
+
 #include "StdLib.h"
 #include "BinaryCache.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 
 #ifdef NULLC_AUTOBINDING
 	#if defined(__linux)
@@ -11,20 +13,43 @@
 	#endif
 #endif
 
+extern "C"
+{
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleBytecodeLocation = 0;
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleBytecodeSize = 0;
+	NULLC_DEBUG_EXPORT uintptr_t nullcModuleBytecodeVersion = 0;
+}
+
 namespace NULLC
 {
 	extern bool enableLogFiles;
+
+	template<typename T>
+	unsigned GetArrayDataSize(const FastVector<T> &arr)
+	{
+		return arr.count * sizeof(arr.data[0]);
+	}
+
+	template<typename T>
+	unsigned WriteArraySizeAndData(unsigned char *target, const FastVector<T> &arr)
+	{
+		memcpy(target, &arr.count, sizeof(unsigned));
+		unsigned size = sizeof(unsigned);
+		target += sizeof(unsigned);
+
+		memcpy(target, arr.data, arr.count * sizeof(arr.data[0]));
+		size += arr.count * sizeof(arr.data[0]);
+
+		return size;
+	}
 }
 
-Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exLocals(1024), exSymbols(8192), jumpTargets(1024)
+Linker::Linker(): exTypes(128), exTypeExtra(256), exTypeConstants(256), exVariables(128), exFunctions(256), exLocals(1024), exSymbols(8192), regVmJumpTargets(1024)
 {
 	globalVarSize = 0;
-	offsetToGlobalCode = 0;
 
 	typeMap.init();
 	funcMap.init();
-
-	fptrUpdater = NULL;
 
 	debugOutputIndent = 0;
 
@@ -40,17 +65,33 @@ void Linker::CleanCode()
 {
 	exTypes.clear();
 	exTypeExtra.clear();
+	exTypeConstants.clear();
 	exVariables.clear();
 	exFunctions.clear();
 	exFunctionExplicitTypeArrayOffsets.clear();
 	exFunctionExplicitTypes.clear();
-	exCode.clear();
 	exSymbols.clear();
 	exLocals.clear();
 	exModules.clear();
-	exSourceInfo.clear();
 	exSource.clear();
 	exDependencies.clear();
+	exImportPaths.clear();
+	exMainModuleName.clear();
+
+	exRegVmCode.clear();
+	exRegVmSourceInfo.clear();
+	exRegVmExecCount.clear();
+	exRegVmConstants.clear();
+	exRegVmRegKillInfo.clear();
+	memset(exRegVmInstructionExecCount.data, 0, sizeof(exRegVmInstructionExecCount));
+
+	for(unsigned i = 0; i < expiredRegVmCode.size(); i++)
+		NULLC::dealloc(expiredRegVmCode[i]);
+	expiredRegVmCode.clear();
+
+	for(unsigned i = 0; i < expiredRegVmConstants.size(); i++)
+		NULLC::dealloc(expiredRegVmConstants[i]);
+	expiredRegVmConstants.clear();
 
 #ifdef NULLC_LLVM_SUPPORT
 	llvmModuleSizes.clear();
@@ -65,10 +106,9 @@ void Linker::CleanCode()
 	llvmFuncRemapValues.clear();
 #endif
 
-	jumpTargets.clear();
+	regVmJumpTargets.clear();
 
 	globalVarSize = 0;
-	offsetToGlobalCode = 0;
 
 	typeRemap.clear();
 	funcRemap.clear();
@@ -81,10 +121,8 @@ void Linker::CleanCode()
 	NULLC::ClearMemory();
 }
 
-bool Linker::LinkCode(const char *code, const char *moduleName)
+bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 {
-	(void)moduleName;
-
 	linkError[0] = 0;
 
 	unsigned dependeciesBase = exDependencies.size();
@@ -93,7 +131,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 		printf("  ");
 
-	printf("Linking %s (dependencies base %d).\r\n", moduleName, dependeciesBase);
+	printf("Linking %s (dependencies base %u).\r\n", moduleName ? moduleName : "(unnamed)", dependeciesBase);
 #endif
 
 	debugOutputIndent++;
@@ -102,6 +140,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 
 	ExternTypeInfo *tInfo = FindFirstType(bCode), *tStart = tInfo;
 	ExternMemberInfo *memberList = FindFirstMember(bCode);
+	ExternConstantInfo *constantList = FindFirstConstant(bCode);
 
 	unsigned int moduleFuncCount = 0;
 
@@ -120,9 +159,40 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				break;
 			}
 		}
+
+		const unsigned nestedModuleFileNameLength = 1024;
+		char nestedModuleFileName[nestedModuleFileNameLength];
+		*nestedModuleFileName = 0;
+
+		// Search from parent folder
+		if(loadedId == -1 && moduleName)
+		{
+			if(const char *folderPos = strrchr(moduleName, '/'))
+			{
+				NULLC::SafeSprintf(nestedModuleFileName, nestedModuleFileNameLength, "%.*s/%s", unsigned(folderPos - moduleName), moduleName, path);
+
+				for(unsigned int n = 0; n < exModules.size(); n++)
+				{
+					if(exModules[n].nameHash == NULLC::GetStringHash(nestedModuleFileName))
+					{
+						loadedId = n;
+						break;
+					}
+				}
+			}
+		}
+
 		if(loadedId == -1)
 		{
 			const char *bytecode = BinaryCache::FindBytecode(path, false);
+
+			// Search from parent folder
+			if(!bytecode && *nestedModuleFileName)
+			{
+				path = nestedModuleFileName;
+
+				bytecode = BinaryCache::FindBytecode(nestedModuleFileName, false);
+			}
 
 			unsigned dependencySlot = exDependencies.size();
 			exDependencies.push_back(~0u);
@@ -132,7 +202,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			{
 				if(bytecode)
 				{
-					if(!LinkCode(bytecode, path))
+					if(!LinkCode(bytecode, path, false))
 					{
 						debugOutputIndent--;
 
@@ -170,6 +240,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			exModules.back().dependencyCount = exDependencies.size() - dependencySlot;
 
 #ifdef VERBOSE_DEBUG_OUTPUT
+			for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+				printf("  ");
+
 			printf("Module %s variables are found at %d (size is %d).\r\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
 #endif
 			loadedId = exModules.size() - 1;
@@ -197,9 +270,13 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		mInfo++;
 	}
 
-#ifdef LINK_VERBOSE_DEBUG_OUTPUT
-		printf("Function remap table is extended to %d functions (%d modules, %d new)\r\n", bCode->functionCount, moduleFuncCount, bCode->functionCount - moduleFuncCount);
+#ifdef VERBOSE_DEBUG_OUTPUT
+	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+		printf("  ");
+
+	printf("Function remap table is extended to %d functions (%d modules, %d new)\r\n", bCode->functionCount, moduleFuncCount, bCode->functionCount - moduleFuncCount);
 #endif
+
 	funcRemap.resize(bCode->functionCount);
 	for(unsigned int i = moduleFuncCount; i < bCode->functionCount; i++)
 		funcRemap[i] = (exFunctions.size() ? exFunctions.size() - moduleFuncCount : 0) + i;
@@ -210,14 +287,18 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	unsigned int oldSymbolSize = exSymbols.size();
 	unsigned int oldTypeCount = exTypes.size();
 	unsigned int oldMemberSize = exTypeExtra.size();
+	unsigned int oldConstantSize = exTypeConstants.size();
 
 	mInfo = FindFirstModule(bCode);
+
 	// Fixup function table
 	for(unsigned int i = 0; i < bCode->dependsCount; i++)
 	{
 		const char *path = FindSymbols(bCode) + mInfo->nameOffset;
-		//Search for it in loaded modules
+
+		// Search for it in loaded modules
 		int loadedId = -1;
+
 		for(unsigned int n = 0; n < exModules.size(); n++)
 		{
 			if(exModules[n].nameHash == NULLC::GetStringHash(path))
@@ -226,6 +307,36 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				break;
 			}
 		}
+
+		// Search from parent folder
+		if(loadedId == -1 && moduleName)
+		{
+			if(const char *folderPos = strrchr(moduleName, '/'))
+			{
+				const unsigned nestedModuleFileNameLength = 1024;
+				char nestedModuleFileName[nestedModuleFileNameLength];
+
+				NULLC::SafeSprintf(nestedModuleFileName, nestedModuleFileNameLength, "%.*s/%s", unsigned(folderPos - moduleName), moduleName, path);
+
+				for(unsigned int n = 0; n < exModules.size(); n++)
+				{
+					if(exModules[n].nameHash == NULLC::GetStringHash(nestedModuleFileName))
+					{
+						loadedId = n;
+						break;
+					}
+				}
+			}
+		}
+
+		if(loadedId == -1)
+		{
+			debugOutputIndent--;
+
+			NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: Failed to find module '%s' after it was linked in", path);
+			return false;
+		}
+
 		ExternModuleInfo *rInfo = &exModules[loadedId];
 		for(unsigned int n = mInfo->funcStart; n < mInfo->funcStart + mInfo->funcCount; n++)
 			funcRemap[n] = rInfo->funcStart + n - mInfo->funcStart;
@@ -272,13 +383,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	{
 		unsigned int *lastType = typeMap.find(tInfo->nameHash);
 
-		if(lastType && exTypes[*lastType].size != tInfo->size)
-		{
-			debugOutputIndent--;
-
-			NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[*lastType].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[*lastType].size, tInfo->size);
-			return false;
-		}
 		if(!lastType)
 		{
 			typeRemap.push_back(exTypes.size());
@@ -287,6 +391,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			
 			if(exTypes.back().subCat == ExternTypeInfo::CAT_ARRAY || exTypes.back().subCat == ExternTypeInfo::CAT_POINTER)
 				exTypes.back().subType = typeRemap[exTypes.back().subType];
+
 			if(tInfo->subCat == ExternTypeInfo::CAT_FUNCTION || tInfo->subCat == ExternTypeInfo::CAT_CLASS)
 			{
 				exTypes.back().memberOffset = exTypeExtra.size();
@@ -295,8 +400,40 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				// Additional list of members with pointer
 				if(tInfo->subCat == ExternTypeInfo::CAT_CLASS && tInfo->pointerCount)
 					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount);
+
+				exTypes.back().constantOffset = exTypeConstants.size();
+				exTypeConstants.push_back(constantList + tInfo->constantOffset, tInfo->constantCount);
 			}
-		}else{
+		}
+		else
+		{
+			ExternTypeInfo &lastTypeInfo = exTypes[*lastType];
+
+			if((lastTypeInfo.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) == 0 && (tInfo->typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+			{
+				assert(tInfo->subCat == ExternTypeInfo::CAT_CLASS);
+
+				lastTypeInfo = *tInfo;
+				lastTypeInfo.offsetToName += oldSymbolSize;
+
+				lastTypeInfo.memberOffset = exTypeExtra.size();
+				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount);
+
+				// Additional list of members with pointer
+				if(tInfo->pointerCount)
+					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount);
+
+				lastTypeInfo.constantOffset = exTypeConstants.size();
+				exTypeConstants.push_back(constantList + tInfo->constantOffset, tInfo->constantCount);
+			}
+			else if(lastTypeInfo.size != tInfo->size && (tInfo->typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+			{
+				debugOutputIndent--;
+
+				NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", lastTypeInfo.offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, lastTypeInfo.size, tInfo->size);
+				return false;
+			}
+
 			typeRemap.push_back(*lastType);
 		}
 
@@ -314,7 +451,14 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
 		exTypeExtra[i].type = typeRemap[exTypeExtra[i].type];
 
+	// Remap new constant types
+	for(unsigned int i = oldConstantSize; i < exTypeConstants.size(); i++)
+		exTypeConstants[i].type = typeRemap[exTypeConstants[i].type];
+
 #ifdef VERBOSE_DEBUG_OUTPUT
+	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+		printf("  ");
+
 	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);
 #endif
 
@@ -330,7 +474,11 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		exVariables.back().type = typeRemap[vInfo->type];
 		exVariables.back().offsetToName += oldSymbolSize;
 		exVariables.back().offset += oldGlobalSize;
+
 #ifdef VERBOSE_DEBUG_OUTPUT
+		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+			printf("  ");
+
 		printf("Variable %s %s at %d\r\n", &exSymbols[0] + exTypes[exVariables.back().type].offsetToName, &exSymbols[0] + exVariables.back().offsetToName, exVariables.back().offset);
 #endif
 		vInfo++;
@@ -342,9 +490,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	memcpy(exLocals.data + oldLocalsSize, FindFirstLocal(bCode), bCode->localCount * sizeof(ExternLocalInfo));
 
 	// Add new code information
-	unsigned int oldSourceInfoSize = exSourceInfo.size();
-	exSourceInfo.resize(oldSourceInfoSize + bCode->infoSize);
-	memcpy(exSourceInfo.data + oldSourceInfoSize, FindSourceInfo(bCode), bCode->infoSize * sizeof(ExternSourceInfo));
+	unsigned int oldRegVmSourceInfoSize = exRegVmSourceInfo.size();
+	exRegVmSourceInfo.resize(oldRegVmSourceInfoSize + bCode->regVmInfoSize);
+	memcpy(exRegVmSourceInfo.data + oldRegVmSourceInfoSize, FindRegVmSourceInfo(bCode), bCode->regVmInfoSize * sizeof(ExternSourceInfo));
 
 	// Add new source code
 	unsigned int oldSourceSize = exSource.size();
@@ -352,22 +500,79 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	memcpy(exSource.data + oldSourceSize, FindSource(bCode), bCode->sourceSize);
 
 	// Add new code
-	unsigned int oldCodeSize = exCode.size();
-	exCode.reserve(oldCodeSize + bCode->codeSize + 1);
-	exCode.resize(oldCodeSize + bCode->codeSize);
-	memcpy(exCode.data + oldCodeSize, FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
+	assert(exRegVmCode.size() == exRegVmExecCount.size());
 
-	for(unsigned int i = oldSourceInfoSize; i < exSourceInfo.size(); i++)
+	unsigned int oldRegVmCodeSize = exRegVmCode.size();
+
+	// Code might be executing at the moment
+	RegVmCmd *oldRegVmCode = NULL;
+	unsigned newRegVmCodeSize = oldRegVmCodeSize + bCode->regVmCodeSize + 1;
+
+	if(exRegVmCode.data && oldRegVmCodeSize + bCode->regVmCodeSize + 1 >= exRegVmCode.max)
 	{
-		ExternSourceInfo &sourceInfo = exSourceInfo[i];
+		if(exRegVmCode.max + (exRegVmCode.max >> 1) > newRegVmCodeSize)
+			newRegVmCodeSize = exRegVmCode.max + (exRegVmCode.max >> 1);
 
-		sourceInfo.instruction += oldCodeSize;
+		oldRegVmCode = exRegVmCode.data;
+		expiredRegVmCode.push_back(oldRegVmCode);
+
+		exRegVmCode.data = NULL;
+		exRegVmCode.count = 0;
+		exRegVmCode.max = 0;
+	}
+
+	exRegVmCode.reserve(newRegVmCodeSize);
+	exRegVmCode.resize(oldRegVmCodeSize + bCode->regVmCodeSize);
+	memcpy(exRegVmCode.data + oldRegVmCodeSize, FindRegVmCode(bCode), bCode->regVmCodeSize * sizeof(RegVmCmd));
+
+	if(oldRegVmCode)
+		memcpy(exRegVmCode.data, oldRegVmCode, oldRegVmCodeSize * sizeof(RegVmCmd));
+
+	exRegVmExecCount.reserve(oldRegVmCodeSize + bCode->regVmCodeSize + 1);
+	exRegVmExecCount.resize(oldRegVmCodeSize + bCode->regVmCodeSize);
+	memset(exRegVmExecCount.data + oldRegVmCodeSize, 0, bCode->regVmCodeSize * sizeof(unsigned));
+
+	for(unsigned int i = oldRegVmSourceInfoSize; i < exRegVmSourceInfo.size(); i++)
+	{
+		ExternSourceInfo &sourceInfo = exRegVmSourceInfo[i];
+
+		sourceInfo.instruction += oldRegVmCodeSize;
 
 		if(sourceInfo.definitionModule)
 			sourceInfo.sourceOffset += exModules[exDependencies[dependeciesBase + sourceInfo.definitionModule - 1]].sourceOffset;
 		else
 			sourceInfo.sourceOffset += oldSourceSize;
 	}
+
+	unsigned int oldRegVmConstantsSize = exRegVmConstants.size();
+
+	// Code might be executing at the moment
+	unsigned *oldVmConstants = NULL;
+	unsigned newRegVmConstantsSize = oldRegVmConstantsSize + bCode->regVmConstantCount;
+
+	if(exRegVmConstants.data && oldRegVmConstantsSize + bCode->regVmConstantCount >= exRegVmConstants.max)
+	{
+		if(exRegVmConstants.max + (exRegVmConstants.max >> 1) > newRegVmConstantsSize)
+			newRegVmConstantsSize = exRegVmConstants.max + (exRegVmConstants.max >> 1);
+
+		oldVmConstants = exRegVmConstants.data;
+		expiredRegVmConstants.push_back(oldVmConstants);
+
+		exRegVmConstants.data = NULL;
+		exRegVmConstants.count = 0;
+		exRegVmConstants.max = 0;
+	}
+
+	exRegVmConstants.reserve(newRegVmConstantsSize);
+	exRegVmConstants.resize(oldRegVmConstantsSize + bCode->regVmConstantCount);
+	memcpy(exRegVmConstants.data + oldRegVmConstantsSize, FindRegVmConstants(bCode), bCode->regVmConstantCount * sizeof(exRegVmConstants[0]));
+
+	if(oldVmConstants)
+		memcpy(exRegVmConstants.data, oldVmConstants, oldRegVmConstantsSize * sizeof(unsigned));
+
+	unsigned int oldRegVmRegKillInfoSize = exRegVmRegKillInfo.size();
+	exRegVmRegKillInfo.resize(oldRegVmRegKillInfoSize + bCode->regVmRegKillInfoCount);
+	memcpy(exRegVmRegKillInfo.data + oldRegVmRegKillInfoSize, FindRegVmRegKillInfo(bCode), bCode->regVmRegKillInfoCount * sizeof(exRegVmRegKillInfo[0]));
 
 	debugOutputIndent--;
 
@@ -460,33 +665,37 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
 				exFunctionExplicitTypes.push_back(typeRemap[explicitInfoStart[k].type]);
 
-			if(exFunctions.back().address == 0)
+			if(exFunctions.back().regVmAddress == 0)
 			{
 #ifdef NULLC_AUTOBINDING
 	#if defined(__linux)
 				void* handle = dlopen(0, RTLD_LAZY | RTLD_LOCAL);
-				exFunctions.back().funcPtr = dlsym(handle, FindSymbols(bCode) + exFunctions.back().offsetToName);
+				exFunctions.back().funcPtrRaw = (void (*)())dlsym(handle, FindSymbols(bCode) + exFunctions.back().offsetToName);
 				dlclose(handle);
 	#else
-				exFunctions.back().funcPtr = (void*)GetProcAddress(GetModuleHandle(NULL), FindSymbols(bCode) + exFunctions.back().offsetToName);
+				exFunctions.back().funcPtrRaw = (void (*)())GetProcAddress(GetModuleHandle(NULL), FindSymbols(bCode) + exFunctions.back().offsetToName);
 	#endif
 #endif
-				if(exFunctions.back().funcPtr)
+				if(exFunctions.back().funcPtrRaw || exFunctions.back().funcPtrWrap)
 				{
-					exFunctions.back().address = ~0u;
-				}else{
+					exFunctions.back().regVmAddress = ~0u;
+				}
+				else
+				{
 					NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", FindSymbols(bCode) + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
 					return false;
 				}
 			}
 
 			// For function prototypes
-			if(exFunctions.back().codeSize & 0x80000000)
+			if(exFunctions.back().regVmCodeSize & 0x80000000)
 			{
 				// fix remapping table so that this function index will point to target function index
-				funcRemap.data[moduleFuncCount + i] = funcRemap[exFunctions.back().codeSize & ~0x80000000];
-				exFunctions.back().codeSize = 0;
+				funcRemap.data[moduleFuncCount + i] = funcRemap[exFunctions.back().regVmCodeSize & ~0x80000000];
+
+				exFunctions.back().regVmCodeSize = 0;
 			}
+
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
@@ -498,10 +707,11 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				exFunctions.back().contextType = typeRemap[exFunctions.back().contextType];
 
 			// Update internal function address
-			if(exFunctions.back().address != -1)
+			if(exFunctions.back().regVmAddress != -1)
 			{
-				exFunctions.back().address = oldCodeSize + fInfo->address;
-				jumpTargets.push_back(exFunctions.back().address);
+				exFunctions.back().regVmAddress = oldRegVmCodeSize + fInfo->regVmAddress;
+
+				regVmJumpTargets.push_back(exFunctions.back().regVmAddress);
 			}
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
@@ -517,86 +727,152 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	}
 
 	assert((fInfo = FindFirstFunc(bCode)) != NULL); // this is fine, we need this assignment only in debug configuration
-	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
-	unsigned int pos = oldCodeSize;
-	while(pos < exCode.size())
+
+	// Fix register VM command arguments
+	unsigned pos = oldRegVmCodeSize;
+	while(pos < exRegVmCode.size())
 	{
-		VMCmd &cmd = exCode[pos];
+		RegVmCmd &cmd = exRegVmCode[pos];
 		pos++;
-		switch(cmd.cmd)
+		switch(cmd.code)
 		{
-		case cmdPushChar:
-		case cmdPushShort:
-		case cmdPushInt:
-		case cmdPushFloat:
-		case cmdPushDorL:
-		case cmdPushCmplx:
-		case cmdMovChar:
-		case cmdMovShort:
-		case cmdMovInt:
-		case cmdMovFloat:
-		case cmdMovDorL:
-		case cmdMovCmplx:
-			if(cmd.flag == ADDRESS_ABOLUTE)
+		case rviLoadByte:
+		case rviLoadWord:
+		case rviLoadDword:
+		case rviLoadLong:
+		case rviLoadFloat:
+		case rviLoadDouble:
+		case rviStoreByte:
+		case rviStoreWord:
+		case rviStoreDword:
+		case rviStoreLong:
+		case rviStoreFloat:
+		case rviStoreDouble:
+		case rviGetAddr:
+		case rviAdd:
+		case rviSub:
+		case rviMul:
+		case rviDiv:
+		case rviPow:
+		case rviMod:
+		case rviLess:
+		case rviGreater:
+		case rviLequal:
+		case rviGequal:
+		case rviEqual:
+		case rviNequal:
+		case rviShl:
+		case rviShr:
+		case rviBitAnd:
+		case rviBitOr:
+		case rviBitXor:
+		case rviAddl:
+		case rviSubl:
+		case rviMull:
+		case rviDivl:
+		case rviPowl:
+		case rviModl:
+		case rviLessl:
+		case rviGreaterl:
+		case rviLequall:
+		case rviGequall:
+		case rviEquall:
+		case rviNequall:
+		case rviShll:
+		case rviShrl:
+		case rviBitAndl:
+		case rviBitOrl:
+		case rviBitXorl:
+		case rviAddd:
+		case rviSubd:
+		case rviMuld:
+		case rviDivd:
+		case rviAddf:
+		case rviSubf:
+		case rviMulf:
+		case rviDivf:
+		case rviPowd:
+		case rviModd:
+		case rviLessd:
+		case rviGreaterd:
+		case rviLequald:
+		case rviGequald:
+		case rviEquald:
+		case rviNequald:
+			if(cmd.rC == rvrrGlobals)
 			{
 				if(cmd.argument >> 24)
 					cmd.argument = (cmd.argument & 0x00ffffff) + exModules[moduleRemap[(cmd.argument >> 24) - 1]].variableOffset;
 				else
 					cmd.argument += oldGlobalSize;
 			}
-			break;
-		case cmdGetAddr:
-			if(cmd.helper == ADDRESS_ABOLUTE)
+			else if(cmd.rC == rvrrConstants)
 			{
-				if(cmd.argument >> 24)
-					cmd.argument = (cmd.argument & 0x00ffffff) + exModules[moduleRemap[(cmd.argument >> 24) - 1]].variableOffset;
-				else
-					cmd.argument += oldGlobalSize;
+				cmd.argument += oldRegVmConstantsSize * 4;
 			}
 			break;
-		case cmdJmp:
-		case cmdJmpZ:
-		case cmdJmpNZ:
-			cmd.argument += oldCodeSize;
-			jumpTargets.push_back(cmd.argument);
+		case rviJmp:
+		case rviJmpz:
+		case rviJmpnz:
+			cmd.argument += oldRegVmCodeSize;
+			regVmJumpTargets.push_back(cmd.argument);
 			break;
-		case cmdFuncAddr:
-			cmd.cmd = cmdPushImmt;
-			cmd.argument = funcRemap[cmd.argument];
-			break;
-		case cmdCall:
-			assert(!(cmd.argument != funcRemap[cmd.argument] && int(cmd.argument - bCode->moduleFunctionCount) >= 0) ||
-				(fInfo[cmd.argument - bCode->moduleFunctionCount].nameHash == exFunctions[funcRemap[cmd.argument]].nameHash));
+		case rviCall:
+		{
+			unsigned microcode = (cmd.rA << 16) | (cmd.rB << 8) | cmd.rC;
+
+			microcode += oldRegVmConstantsSize;
+
+			cmd.rA = (microcode >> 16) & 0xff;
+			cmd.rB = (microcode >> 8) & 0xff;
+			cmd.rC = microcode & 0xff;
+
+			assert(!(cmd.argument != funcRemap[cmd.argument] && int(cmd.argument - bCode->moduleFunctionCount) >= 0) || (fInfo[cmd.argument - bCode->moduleFunctionCount].nameHash == exFunctions[funcRemap[cmd.argument]].nameHash));
 
 			cmd.argument = funcRemap[cmd.argument];
-			break;
-		case cmdPushTypeID:
-			cmd.cmd = cmdPushImmt;
-			cmd.argument = typeRemap[cmd.argument];
-			break;
-		case cmdConvertPtr:
-		case cmdCheckedRet:
-			cmd.argument = typeRemap[cmd.argument];
-			break;
-#ifdef _M_X64
-		case cmdPushPtr:
-			cmd.cmd = cmdPushDorL;
-			break;
-		case cmdPushPtrStk:
-			cmd.cmd = cmdPushDorLStk;
-			break;
-#else
-		case cmdPushPtr:
-			cmd.cmd = cmdPushInt;
-			break;
-		case cmdPushPtrStk:
-			cmd.cmd = cmdPushIntStk;
-			break;
-		case cmdPushPtrImmt:
-			cmd.cmd = cmdPushImmt;
-			break;
-#endif
+
+			FixupCallMicrocode(microcode, oldGlobalSize);
 		}
+			break;
+		case rviCallPtr:
+			cmd.argument += oldRegVmConstantsSize;
+
+			FixupCallMicrocode(cmd.argument, oldGlobalSize);
+			break;
+		case rviReturn:
+			cmd.argument += oldRegVmConstantsSize;
+
+			exRegVmConstants[cmd.argument] = typeRemap[exRegVmConstants[cmd.argument]];
+			break;
+		case rviConvertPtr:
+			cmd.argument = typeRemap[cmd.argument];
+			break;
+		case rviFuncAddr:
+			cmd.code = rviLoadImm;
+			cmd.argument = funcRemap[cmd.argument];
+			break;
+		case rviTypeid:
+			cmd.code = rviLoadImm;
+			cmd.argument = typeRemap[cmd.argument];
+			break;
+		}
+	}
+
+	{
+		exImportPaths.clear();
+
+		unsigned pos = 0;
+		while(const char* path = BinaryCache::EnumImportPath(pos++))
+		{
+			exImportPaths.push_back(path, (unsigned)strlen(path));
+			exImportPaths.push_back(';');
+		}
+	}
+
+	if(rootModule && moduleName)
+	{
+		exMainModuleName.clear();
+		exMainModuleName.push_back(moduleName, (unsigned)strlen(moduleName));
 	}
 
 #ifdef NULLC_LLVM_SUPPORT
@@ -617,48 +893,58 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 #endif
 
 #ifdef VERBOSE_DEBUG_OUTPUT
-	unsigned int size = 0;
-	printf("Data managed by linker.\r\n");
-	printf("Types: %db, ", exTypes.size() * sizeof(ExternTypeInfo));
-	size += exTypes.size() * sizeof(ExternTypeInfo);
-	printf("Variables: %db, ", exVariables.size() * sizeof(ExternVarInfo));
-	size += exVariables.size() * sizeof(ExternVarInfo);
-	printf("Functions: %db, ", exFunctions.size() * sizeof(ExternFuncInfo));
-	size += exFunctions.size() * sizeof(ExternFuncInfo);
-	printf("Function explicit type array offsets: %db, ", exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned));
-	size += exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned);
-	printf("Function explicit types: %db, ", exFunctionExplicitTypes.size() * sizeof(unsigned));
-	size += exFunctionExplicitTypes.size() * sizeof(unsigned);
-	printf("Code: %db\r\n", exCode.size() * sizeof(VMCmd));
-	size += exCode.size() * sizeof(VMCmd);
-	printf("Symbols: %db, ", exSymbols.size() * sizeof(char));
-	size += exSymbols.size() * sizeof(char);
-	printf("Locals: %db, ", exLocals.size() * sizeof(ExternLocalInfo));
-	size += exLocals.size() * sizeof(ExternLocalInfo);
-	printf("Modules: %db, ", exModules.size() * sizeof(ExternModuleInfo));
-	size += exModules.size() * sizeof(ExternModuleInfo);
-	printf("Source info: %db, ", exSourceInfo.size() * sizeof(ExternSourceInfo));
-	size += exSourceInfo.size() * sizeof(ExternSourceInfo);
-	printf("Source: %db\r\n", exSource.size() * sizeof(char));
-	size += exSource.size() * sizeof(char);
-	printf("Overall: %d bytes\r\n\r\n", size);
+	if(rootModule)
+	{
+		unsigned int size = 0;
+		printf("Data managed by linker.\r\n");
+		printf("Types: %ub, ", exTypes.size() * (unsigned)sizeof(ExternTypeInfo));
+		size += exTypes.size() * sizeof(ExternTypeInfo);
+		printf("Variables: %ub, ", exVariables.size() * (unsigned)sizeof(ExternVarInfo));
+		size += exVariables.size() * sizeof(ExternVarInfo);
+		printf("Functions: %ub, ", exFunctions.size() * (unsigned)sizeof(ExternFuncInfo));
+		size += exFunctions.size() * sizeof(ExternFuncInfo);
+		printf("Function explicit type array offsets: %ub, ", exFunctionExplicitTypeArrayOffsets.size() * (unsigned)sizeof(unsigned));
+		size += exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned);
+		printf("Function explicit types: %ub, ", exFunctionExplicitTypes.size() * (unsigned)sizeof(unsigned));
+		size += exFunctionExplicitTypes.size() * sizeof(unsigned);
+		printf("Reg VM Code: %ub\r\n", exRegVmCode.size() * (unsigned)sizeof(RegVmCmd));
+		size += exRegVmCode.size() * sizeof(RegVmCmd);
+		printf("Symbols: %ub, ", exSymbols.size() * (unsigned)sizeof(char));
+		size += exSymbols.size() * sizeof(char);
+		printf("Locals: %ub, ", exLocals.size() * (unsigned)sizeof(ExternLocalInfo));
+		size += exLocals.size() * sizeof(ExternLocalInfo);
+		printf("Modules: %ub, ", exModules.size() * (unsigned)sizeof(ExternModuleInfo));
+		size += exModules.size() * sizeof(ExternModuleInfo);
+		printf("Source info: %ub, ", exRegVmSourceInfo.size() * (unsigned)sizeof(ExternSourceInfo));
+		size += exRegVmSourceInfo.size() * sizeof(ExternSourceInfo);
+		printf("Source: %ub\r\n", exSource.size() * (unsigned)sizeof(char));
+		size += exSource.size() * sizeof(char);
+		printf("Overall: %u bytes\r\n\r\n", size);
+	}
 #endif
 
 	return true;
 }
 
-bool Linker::SaveListing(OutputContext &output)
+bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 {
-	char instBuf[128];
 	unsigned line = 0, lastLine = ~0u;
 
-	ExternSourceInfo *info = (ExternSourceInfo*)exSourceInfo.data;
-	unsigned infoSize = exSourceInfo.size();
+	unsigned long long total = 0;
+
+	if(withProfileInfo)
+	{
+		for(unsigned i = 0; i < 256; i++)
+			total += exRegVmInstructionExecCount[i];
+	}
+
+	ExternSourceInfo *info = (ExternSourceInfo*)exRegVmSourceInfo.data;
+	unsigned infoSize = exRegVmSourceInfo.size();
 
 	const char *lastSourcePos = exSource.data;
 	const char *lastCodeStart = NULL;
 
-	for(unsigned i = 0; infoSize && i < exCode.size(); i++)
+	for(unsigned i = 0; infoSize && i < exRegVmCode.size(); i++)
 	{
 		while((line < infoSize - 1) && (i >= info[line + 1].instruction))
 			line++;
@@ -695,13 +981,76 @@ bool Linker::SaveListing(OutputContext &output)
 			}
 		}
 
-		exCode[i].Decode(instBuf);
-		if(exCode[i].cmd == cmdCall || exCode[i].cmd == cmdFuncAddr)
-			output.Printf("// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exFunctions[exCode[i].argument].offsetToName);
-		else if(exCode[i].cmd == cmdPushTypeID)
-			output.Printf("// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exTypes[exCode[i].argument].offsetToName);
+		RegVmCmd cmd = exRegVmCode[i];
+
+		bool found = false;
+
+		for(unsigned k = 0; k < regVmJumpTargets.size(); k++)
+		{
+			if(regVmJumpTargets[k] == i)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if(withProfileInfo)
+		{
+			if(found)
+			{
+				output.Printf("//            %4d:\n", i);
+
+				double percent = double(exRegVmExecCount[i]) / total * 100.0;
+
+				if (percent > 0.1)
+					output.Printf("// (%8d %4.1f)      ", exRegVmExecCount[i], percent);
+				else
+					output.Printf("// (%8d     )      ", exRegVmExecCount[i]);
+			}
+			else
+			{
+				double percent = double(exRegVmExecCount[i]) / total * 100.0;
+
+				if(percent > 0.1)
+					output.Printf("// (%8d %4.1f) %4d ", exRegVmExecCount[i], percent, i);
+				else
+					output.Printf("// (%8d     ) %4d ", exRegVmExecCount[i], i);
+			}
+		}
 		else
-			output.Printf("// %4d: %s\r\n", i, instBuf);
+		{
+			if(found)
+			{
+				output.Printf("// %4d:\n", i);
+				output.Printf("//      ");
+			}
+			else
+			{
+				output.Printf("// %4d ", i);
+			}
+		}
+
+		PrintInstruction(output, (char*)exRegVmConstants.data, exFunctions.data, exSymbols.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+
+		if(cmd.code == rviCall || cmd.code == rviFuncAddr)
+			output.Printf(" (%s)", exSymbols.data + exFunctions[exRegVmCode[i].argument].offsetToName);
+		else if(cmd.code == rviConvertPtr)
+			output.Printf(" (%s)", exSymbols.data + exTypes[exRegVmCode[i].argument].offsetToName);
+
+		output.Printf("\n");
+	}
+
+	if(withProfileInfo)
+	{
+		output.Printf("\n");
+
+		for(unsigned i = 0; i < 256; i++)
+		{
+			if(unsigned count = exRegVmInstructionExecCount[i])
+				output.Printf("// %9s: %10d (%4.1f%%)\n", GetInstructionName(RegVmInstructionCode(i)), count, float(count) / total * 100.0);
+		}
+
+		output.Printf("// %9s: %10lld (%4.0f%%)\n", "total", total, 100.0);
 	}
 
 	output.Flush();
@@ -709,17 +1058,140 @@ bool Linker::SaveListing(OutputContext &output)
 	return true;
 }
 
+void Linker::CollectDebugInfo(FastVector<unsigned char*> *instAddress)
+{
+	nullcModuleBytecodeSize = 0;
+
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exTypes);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exTypeExtra);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exTypeConstants);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exVariables);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exFunctions);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exFunctionExplicitTypeArrayOffsets);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exFunctionExplicitTypes);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exLocals);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exModules);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exSymbols);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exSource);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exDependencies);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exImportPaths);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exMainModuleName);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exRegVmCode);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exRegVmSourceInfo);
+	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exRegVmConstants);
+
+	if(instAddress)
+		nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(*instAddress);
+	else
+		nullcModuleBytecodeSize += sizeof(unsigned);
+
+	nullcModuleBytecodeSize += sizeof(unsigned); // exLinker->globalVarSize
+
+	fullLinkerData.resize((unsigned)nullcModuleBytecodeSize);
+
+	unsigned char *pos = fullLinkerData.data;
+
+	pos += NULLC::WriteArraySizeAndData(pos, exTypes);
+	pos += NULLC::WriteArraySizeAndData(pos, exTypeExtra);
+	pos += NULLC::WriteArraySizeAndData(pos, exTypeConstants);
+	pos += NULLC::WriteArraySizeAndData(pos, exVariables);
+	pos += NULLC::WriteArraySizeAndData(pos, exFunctions);
+	pos += NULLC::WriteArraySizeAndData(pos, exFunctionExplicitTypeArrayOffsets);
+	pos += NULLC::WriteArraySizeAndData(pos, exFunctionExplicitTypes);
+	pos += NULLC::WriteArraySizeAndData(pos, exLocals);
+	pos += NULLC::WriteArraySizeAndData(pos, exModules);
+	pos += NULLC::WriteArraySizeAndData(pos, exSymbols);
+	pos += NULLC::WriteArraySizeAndData(pos, exSource);
+	pos += NULLC::WriteArraySizeAndData(pos, exDependencies);
+	pos += NULLC::WriteArraySizeAndData(pos, exImportPaths);
+	pos += NULLC::WriteArraySizeAndData(pos, exMainModuleName);
+	pos += NULLC::WriteArraySizeAndData(pos, exRegVmCode);
+	pos += NULLC::WriteArraySizeAndData(pos, exRegVmSourceInfo);
+	pos += NULLC::WriteArraySizeAndData(pos, exRegVmConstants);
+
+	if(instAddress)
+	{
+		pos += NULLC::WriteArraySizeAndData(pos, *instAddress);
+	}
+	else
+	{
+		unsigned zero = 0;
+		memcpy(pos, &zero, sizeof(zero));
+		pos += sizeof(zero);
+	}
+
+
+	memcpy(pos, &globalVarSize, sizeof(globalVarSize));
+	pos += sizeof(globalVarSize);
+
+	nullcModuleBytecodeLocation = uintptr_t(fullLinkerData.data);
+
+	nullcModuleBytecodeVersion += 1;
+}
+
 const char*	Linker::GetLinkError()
 {
 	return linkError;
 }
 
-void Linker::SetFunctionPointerUpdater(void (*updater)(unsigned, unsigned))
+void Linker::FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize)
 {
-	fptrUpdater = updater;
+	while(exRegVmConstants[microcode] != rvmiCall)
+	{
+		switch(exRegVmConstants[microcode++])
+		{
+		case rvmiPush:
+			microcode++;
+			break;
+		case rvmiPushQword:
+			microcode++;
+			break;
+		case rvmiPushImm:
+			microcode++;
+			break;
+		case rvmiPushImmq:
+			microcode++;
+			break;
+		case rvmiPushMem:
+			if(exRegVmConstants[microcode] == rvrrGlobals)
+			{
+				unsigned &offset = exRegVmConstants[microcode + 1];
+
+				if(offset >> 24)
+					offset = (offset & 0x00ffffff) + exModules[moduleRemap[(offset >> 24) - 1]].variableOffset;
+				else
+					offset += oldGlobalSize;
+			}
+
+			microcode += 3;
+			break;
+		}
+	}
+
+	microcode += 3;
+
+	while(exRegVmConstants[microcode] != rvmiReturn)
+	{
+		switch(exRegVmConstants[microcode++])
+		{
+		case rvmiPop:
+		case rvmiPopq:
+			microcode++;
+			break;
+		case rvmiPopMem:
+			if(exRegVmConstants[microcode] == rvrrGlobals)
+			{
+				unsigned &offset = exRegVmConstants[microcode + 1];
+
+				if(offset >> 24)
+					offset = (offset & 0x00ffffff) + exModules[moduleRemap[(offset >> 24) - 1]].variableOffset;
+				else
+					offset += oldGlobalSize;
+			}
+
+			microcode += 3;
+			break;
+		}
+	}
 }
-void Linker::UpdateFunctionPointer(unsigned dest, unsigned source)
-{
-	if(fptrUpdater)
-		fptrUpdater(dest, source);
-}
+

@@ -166,7 +166,7 @@ auto d = { { {g}, {h} }, { {h}, {j} } };\r\n\
 auto f = { 1.0f, 2.0f };\r\n\
 int[] k;\r\n\
 k = { 1, 2, 3, 4 };\r\n\
-return 1;";
+return int(g.x + 0.5) == 4 && int(h.y + 0.5) == 5 && int(j.z + 0.5) == 13 && a[1] == 4 && b[1][1] == 15 && int(c[1].y + 0.5) == 5 && int(d[1][0][0].z + 0.5) == 7 && int(f[1] + 0.5) == 2;";
 TEST("Multidimensional array constructor test", testMultiCtor, "1")
 {
 	CHECK_FLOAT("g", 0, 4.0f, lastFailed);

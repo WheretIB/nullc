@@ -11,383 +11,13 @@
 #include "../NULLC/includes/dynamic.h"
 #include "../NULLC/includes/gc.h"
 #include "../NULLC/includes/time.h"
+#include "../NULLC/includes/memory.h"
 
 #include "../NULLC/includes/canvas.h"
 #include "../NULLC/includes/window.h"
 #include "../NULLC/includes/io.h"
 
 #include "../NULLC/includes/pugi.h"
-
-const char	*testStackResize =
-"class RefHold\r\n\
-{\r\n\
-	int ref c;\r\n\
-}\r\n\
-int a = 12;\r\n\
-int ref b = &a;\r\n\
-auto h = new RefHold;\r\n\
-h.c = b;\r\n\
-auto ref c = &a;\r\n\
-int ref[2] d;\r\n\
-int ref[] e = d, e0;\r\n\
-int[2][2] u;\r\n\
-RefHold[] u2 = { *h, *h, *h };\r\n\
-e[0] = &a;\r\n\
-auto func()\r\n\
-{\r\n\
-	auto f2()\r\n\
-	{\r\n\
-		int[4096] arr;\r\n\
-	}\r\n\
-	f2();\r\n\
-	return b;\r\n\
-}\r\n\
-int ref res = func();\r\n\
-int ref v = c;\r\n\
-a = 10;\r\n\
-return *res + *h.c + *v + *e[0];";
-TEST_RELOCATE("Parameter stack resize", testStackResize, "40");
-
-const char	*testStackRelocationFrameSizeX64 =
-"int a = 1;\r\n\
-void test()\r\n\
-{\r\n\
-	int[1024*1024] e = 0;\r\n\
-	a = 6;\r\n\
-}\r\n\
-void help()\r\n\
-{\r\n\
-	auto e = &a;\r\n\
-	test();\r\n\
-	assert(*e == a);\r\n\
-	assert(*e == 6);\r\n\
-}\r\n\
-void help2(int a_, b, c)\r\n\
-{\r\n\
-	help();\r\n\
-}\r\n\
-help2(2, 3, 4);\r\n\
-return 0;";
-TEST_RELOCATE("Stack frame size calculation in VM stack relocation under x64", testStackRelocationFrameSizeX64, "0");
-
-const char	*testStackRelocationFrameSizeX86 =
-"int a = 1;\r\n\
-void test()\r\n\
-{\r\n\
-	int[1024*1024] e = 0;\r\n\
-	a = 6;\r\n\
-}\r\n\
-void help()\r\n\
-{\r\n\
-	auto e = &a;\r\n\
-	test();\r\n\
-	assert(*e == a);\r\n\
-	assert(*e == 6);\r\n\
-}\r\n\
-void help2(int a_, b, c, d)\r\n\
-{\r\n\
-	help();\r\n\
-}\r\n\
-help2(2, 3, 4, 5);\r\n\
-return 0;";
-TEST_RELOCATE("Stack frame size calculation in VM stack relocation under x86", testStackRelocationFrameSizeX86, "0");
-
-const char	*testStackRelocationFrameSizeX64_2 =
-"int a = 1;\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[1024*1024] e = 0;\r\n\
-	a = 6;\r\n\
-}\r\n\
-void test()\r\n\
-{\r\n\
-	auto e = &a;\r\n\
-	corrupt();\r\n\
-	assert(*e == a);\r\n\
-	assert(*e == 6);\r\n\
-}\r\n\
-auto rurr()\r\n\
-{\r\n\
-	// function local state (x64):\r\n\
-	// $context at base + 0 (sizeof 8)\r\n\
-	// d at base + 8 (sizeof 4)\r\n\
-	// pad at base + 12 (sizeof 4)\r\n\
-	// b1 at base + 24 (sizeof 12)\r\n\
-	// $lamda_27_ext at base + 16 (sizeof 8)\r\n\
-	// stack frame end is at 36, but incorrect calculation will return 24\r\n\
-	// stack frame alignment will translate this to 48 and 32, creating an error\r\n\
-	int d = 5;\r\n\
-	int pad = 8;\r\n\
-	auto b1 = int lam_bda(int b){ return b + d; };\r\n\
-	test();\r\n\
-	d = 7;\r\n\
-	return b1(4);\r\n\
-}\r\n\
-return rurr();";
-TEST_RELOCATE("Stack frame size calculation in VM stack relocation under x64 2", testStackRelocationFrameSizeX64_2, "11");
-
-const char	*testStackRelocationFrameSizeX86_2 =
-"int a = 1;\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[1024*1024] e = 0;\r\n\
-	a = 6;\r\n\
-}\r\n\
-void test()\r\n\
-{\r\n\
-	auto e = &a;\r\n\
-	corrupt();\r\n\
-	assert(*e == a);\r\n\
-	assert(*e == 6);\r\n\
-}\r\n\
-auto rurr()\r\n\
-{\r\n\
-	// function local state (x86):\r\n\
-	// $context at base + 0 (sizeof 4)\r\n\
-	// d at base + 4 (sizeof 4)\r\n\
-	// b1 at base + 12 (sizeof 8)\r\n\
-	// $lamda_27_ext at base + 8 (sizeof 4)\r\n\
-	// stack frame end is at 20, but incorrect calculation will return 12\r\n\
-	// stack frame alignment will translate this to 32 and 16, creating an error\r\n\
-	int d = 5;\r\n\
-	auto b1 = int lam_bda(int b){ return b + d; };\r\n\
-	test();\r\n\
-	d = 7;\r\n\
-	return b1(4);\r\n\
-}\r\n\
-return rurr();";
-TEST_RELOCATE("Stack frame size calculation in VM stack relocation under x86 2", testStackRelocationFrameSizeX86_2, "11");
-
-const char	*testStackRelocationFunction =
-"class A\r\n\
-{\r\n\
-	int x, y;\r\n\
-	int sum(){ return x + y; }\r\n\
-}\r\n\
-A a;\r\n\
-a.x = 1;\r\n\
-a.y = 2;\r\n\
-auto f = a.sum;\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-corrupt();\r\n\
-a.x = 4;\r\n\
-a.y = 9;\r\n\
-return f();";
-TEST_RELOCATE("VM stack relocation function check", testStackRelocationFunction, "13");
-
-const char	*testStackRelocationFunction2 =
-"void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-auto foo()\r\n\
-{\r\n\
-	int i = 3;\r\n\
-	auto help()\r\n\
-	{\r\n\
-		int ref func()\r\n\
-		{\r\n\
-			return &i;\r\n\
-		}\r\n\
-		return func;\r\n\
-	}\r\n\
-	auto f = help();\r\n\
-	corrupt();\r\n\
-	i = 8;\r\n\
-	int ref data = f();\r\n\
-	return *data;\r\n\
-}\r\n\
-return foo();";
-TEST_RELOCATE("VM stack relocation function check 2", testStackRelocationFunction2, "8");
-
-const char	*testStackRelocationFunction3 =
-"void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-auto foo()\r\n\
-{\r\n\
-	int i = 3;\r\n\
-	auto help()\r\n\
-	{\r\n\
-		int ref func()\r\n\
-		{\r\n\
-			return &i;\r\n\
-		}\r\n\
-		return func;\r\n\
-	}\r\n\
-	int ref ref()[1] f;\r\n\
-	f[0] = help();\r\n\
-	corrupt();\r\n\
-	i = 8;\r\n\
-	int ref data = f[0]();\r\n\
-	return *data;\r\n\
-}\r\n\
-return foo();";
-TEST_RELOCATE("VM stack relocation function check 3", testStackRelocationFunction3, "8");
-
-const char	*testVMRelocateArrayFail =
-"class Foo{ Foo[] arr; int x; }\r\n\
-Foo[2] fuck;\r\n\
-fuck[0].x = 2;\r\n\
-fuck[1].x = 5;\r\n\
-Foo[] x = fuck;\r\n\
-Foo y;\r\n\
-y.arr = x;\r\n\
-x[0] = y;\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[1024*1024] e = 0;\r\n\
-}\r\n\
-corrupt();\r\n\
-fuck[0].x = 12;\r\n\
-fuck[1].x = 25;\r\n\
-return x[0].x + x[1].x;";
-TEST_RELOCATE("VM stack relocation test with possible infinite recursion", testVMRelocateArrayFail, "37");
-
-const char	*testVMRelocateArrayFail2 =
-"class Foo{ Foo[] arr; int x; }\r\n\
-Foo[] x = new Foo[2];\r\n\
-x[0].x = 2;\r\n\
-x[1].x = 5;\r\n\
-Foo y;\r\n\
-y.arr = x;\r\n\
-x[0] = y;\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[1024*1024] e = 0;\r\n\
-}\r\n\
-corrupt();\r\n\
-x[0].x = 12;\r\n\
-x[1].x = 25;\r\n\
-return x[0].x + x[1].x;";
-TEST_RELOCATE("VM stack relocation test with possible infinite recursion 2", testVMRelocateArrayFail2, "37");
-
-const char	*testStackRelocationClassAlignedMembers =
-"void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-int z = 5;\r\n\
-class Test{ char a; int c; int ref b; }\r\n\
-Test x;\r\n\
-x.a = 5;\r\n\
-x.b = &z;\r\n\
-corrupt();\r\n\
-z = 15;\r\n\
-return *x.b;";
-TEST_RELOCATE("VM stack relocation with aligned class members", testStackRelocationClassAlignedMembers, "15");
-
-const char	*testAutoArrayRelocation =
-"import old.vector;\r\n\
-\r\n\
-class A\r\n\
-{\r\n\
-	int ref a, b;\r\n\
-}\r\n\
-int av = 7, bv = 30;\r\n\
-vector arr = vector(A);\r\n\
-auto test = new A;\r\n\
-test.a = &av;\r\n\
-test.b = &bv;\r\n\
-arr.push_back(test);\r\n\
-test = nullptr;\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-corrupt();\r\n\
-test = arr.back();\r\n\
-av = 4;\r\n\
-bv = 60;\r\n\
-return *test.a + *test.b;";
-TEST_RELOCATE("VM stack relocation (auto[] type)", testAutoArrayRelocation, "64");
-
-const char	*testAutoArrayRelocation2 =
-"import old.vector;\r\n\
-vector arr = vector(int);\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-corrupt();\r\n\
-return 1;";
-TEST_RELOCATE("VM stack relocation (uninitialized auto[] type)", testAutoArrayRelocation2, "1");
-
-const char	*testAutoArrayRelocation3 =
-"auto[] arr = { 1, 20, 300 };\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-corrupt();\r\n\
-return int(arr[0]) + int(arr[1]) + int(arr[2]);";
-TEST_RELOCATE("VM stack relocation (auto[] data on stack)", testAutoArrayRelocation3, "321");
-
-const char	*testAutoRefRecursionRelocate =
-"auto ref y = &y;\r\n\
-void corrupt()\r\n\
-{\r\n\
-	int[32*1024] e = 0;\r\n\
-}\r\n\
-corrupt();\r\n\
-return 1;";
-TEST_RELOCATE("VM stack relocation (auto ref recursion)", testAutoRefRecursionRelocate, "1");
-
-const char	*testExtraArgumentRelocate =
-"class Test{ int x; }\r\n\
-int ref Test:getX(){ int[32*1024] make_stack_reallocation; return &x; }\r\n\
-Test a;\r\n\
-a.x = 5;\r\n\
-auto y = a.getX();\r\n\
-a.x = 8;\r\n\
-return *y;";
-TEST_RELOCATE("VM stack relocation (extra function argument)", testExtraArgumentRelocate, "8");
-
-const char	*testCoroutineNoLocalStackRelocate =
-"void fuckup(){ int[128] i = 0xfeeefeee; } fuckup();\r\n\
-void corrupt(){ int[32*1024] e = 0; }\r\n\
-coroutine auto test()\r\n\
-{\r\n\
-	auto ref x, y, z, w, k, l, m; int i = 3;\r\n\
-	corrupt();\r\n\
-	yield 2; return 3;\r\n\
-}\r\n\
-test(); return test();";
-TEST_RELOCATE("VM stack relocation (coroutine without stack for locals)", testCoroutineNoLocalStackRelocate, "3");
-
-const char	*testAutoRefStackRelocate =
-"class Foo{ int ref y; }\r\n\
-int x = 4;\r\n\
-auto y = new Foo;\r\n\
-y.y = &x;\r\n\
-auto ref z = y, w = z;\r\n\
-y = nullptr;\r\n\
-void corrupt(){ int[32*1024] e = 0xfeeefeee; } corrupt();\r\n\
-x = 8;\r\n\
-return *Foo(z).y;";
-TEST_RELOCATE("VM stack relocation (auto ref)", testAutoRefStackRelocate, "8");
-
-const char	*testArrayOfArraysStackRelocate =
-"class Foo{ int ref y; }\r\n\
-Foo[1][4] arr;\r\n\
-int x = 1, y = 1, z = 1, w = 1;\r\n\
-arr[0][0].y = &x; arr[0][1].y = &y; arr[0][2].y = &z; arr[0][3].y = &w;\r\n\
-void corrupt(){ int[32*1024] e = 0; } corrupt();\r\n\
-x = 2; y = 30; z = 400; w = 5000;\r\n\
-return *arr[0][0].y + *arr[0][1].y + *arr[0][2].y + *arr[0][3].y;";
-TEST_RELOCATE("VM stack relocation (array of arrays)", testArrayOfArraysStackRelocate, "5432");
-
-const char	*testCorrectStackRelocate =
-"void garbage(){ int[768] arr; for(i in arr) i = 0xdeadbeef; }\r\n\
-void victim(){ auto ref[768] arr; }\r\n\
-garbage();\r\n\
-victim();\r\n\
-return 1;";
-TEST_RELOCATE("VM stack relocation (correct stack clear)", testCorrectStackRelocate, "1");
 
 struct TestEval : TestQueue
 {
@@ -397,8 +27,9 @@ struct TestEval : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitDynamicModule();
 
 		const char	*testEval =
@@ -411,12 +42,12 @@ for(int i = 0; i < 200; i++)\r\n\
 \r\n\
 return a;";
 		double evalStart = myGetPreciseTime();
-		for(unsigned t = 0; t < 2; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testEval, t, "59705", "Dynamic code. eval()"))
+			if(Tests::RunCodeSimple(testEval, testTarget[t], "59705", "Dynamic code. eval() [skip_c]", false, ""))
 				testsPassed[t]++;
 			printf("Eval test finished in %f\n", myGetPreciseTime() - evalStart);
 		}
@@ -424,8 +55,9 @@ return a;";
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitDynamicModule();
 	}
 };
@@ -449,7 +81,7 @@ for(int i = 0; i < 200; i++)\r\n\
 	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
 int y = foo();\r\n\
 return x * 10 + y;";
-TEST_SIMPLE("Coroutine and dynamic code. eval()", testCoroutineAndEval, "12")
+TEST_SIMPLE("Coroutine and dynamic code. eval() [skip_c]", testCoroutineAndEval, "12")
 {
 }
 
@@ -461,8 +93,9 @@ struct TestVariableImportCorrectness : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitDynamicModule();
 
 		const char	*testVariableImportCorrectness =
@@ -473,12 +106,13 @@ eval(\"x = 4;\");\r\n\
 int y = 3;\r\n\
 eval(\"y = 8;\");\r\n\
 return x * 10 + y;";
-		for(unsigned t = 0; t < 2; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
+
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testVariableImportCorrectness, t, "48", "Variable import correctness"))
+			if(Tests::RunCodeSimple(testVariableImportCorrectness, testTarget[t], "48", "Variable import correctness [skip_c]", false, ""))
 				testsPassed[t]++;
 		}
 	}
@@ -493,21 +127,25 @@ struct TestGCGlobalLimit : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitGCModule();
 		nullcSetGlobalMemoryLimit(1024 * 1024);
 
 		const char	*testGCGlobalLimit =
 		"import std.gc;\r\n\
-		int[] arr1 = new int[200000];\r\n\
-		arr1 = nullptr;\r\n\
-		int[] arr2 = new int[200000];\r\n\
+		int[] arr1; auto f1(){ arr1 = new int[200000]; } f1();\r\n\
+		arr1 = new int[2];\r\n\
+		int[] arr2; auto f2(){ arr2 = new int[200000]; } f2();\r\n\
 		return arr2.size;";
-		for(int t = 0; t < 2; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
+			if(!Tests::testExecutor[t])
+				continue;
+
 			testsCount[t]++;
-			if(Tests::RunCode(testGCGlobalLimit, t, "200000", "GC collection before global limit exceeded error"))
+			if(Tests::RunCode(testGCGlobalLimit, testTarget[t], "200000", "GC collection before global limit exceeded error"))
 				testsPassed[t]++;
 		}
 	}
@@ -522,8 +160,10 @@ struct TestRestore : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcAddImportPath(MODULE_PATH_C);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 
 		nullcInitTypeinfoModule();
 		nullcInitFileModule();
@@ -532,6 +172,7 @@ struct TestRestore : TestQueue
 		nullcInitRandomModule();
 		nullcInitDynamicModule();
 		nullcInitGCModule();
+		nullcInitMemoryModule();
 		nullcInitIOModule();
 		nullcInitCanvasModule();
 #if defined(_MSC_VER)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../NULLC/nullc.h"
+#include "../NULLC/nullbind.h"
 
 #include <stdio.h>
 #include <math.h>
@@ -16,10 +17,11 @@ double myGetPreciseTime();
 
 #define MODULE_PATH_A FILE_PATH "Modules/"
 #define MODULE_PATH_B FILE_PATH "../Modules/"
+#define MODULE_PATH_C FILE_PATH "tests/"
 
 enum TestTypeIndex
 {
-	TEST_TYPE_VM,
+	TEST_TYPE_REGVM,
 	TEST_TYPE_X86,
 	TEST_TYPE_LLVM,
 	TEST_TYPE_EXTRA,
@@ -89,6 +91,8 @@ namespace Tests
 	extern unsigned totalSyntaxNodes;
 	extern unsigned totalExpressionNodes;
 
+	extern unsigned totalRegVmInstructions;
+
 	extern const char		*varData;
 	extern unsigned int		variableCount;
 	extern ExternVarInfo	*varInfo;
@@ -98,35 +102,46 @@ namespace Tests
 	extern bool doTranslation;
 
 	extern bool	testExecutor[TEST_TARGET_COUNT];
+	extern bool	testVmExecutor[TEST_TARGET_COUNT];
+	extern bool	testFailureExecutor[TEST_TARGET_COUNT];
+	extern bool	testHardFailureExecutor[TEST_TARGET_COUNT];
 
-	extern const void* (*fileLoadFunc)(const char*, unsigned int*, int*);
+	extern const char* (*fileLoadFunc)(const char*, unsigned*);
+	extern void (*fileFreeFunc)(const char*);
 
 	extern bool enableLogFiles;
 	extern void* (*openStreamFunc)(const char* name);
 	extern void (*writeStreamFunc)(void *stream, const char *data, unsigned size);
 	extern void (*closeStreamFunc)(void* stream);
 
+	extern bool enableTimeTrace;
+
+	extern unsigned testStackSize;
+
 	void*	FindVar(const char* name);
-	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
-	bool	RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
+	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail = false);
+	bool	RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail, const char *variant);
 	char*	Format(const char *str, ...);
+	void	Cleanup();
 }
 
-#define TEST_IMPL(name, code, result, count)	\
+#define TEST(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
-		for(int t = 0; t < count; t++)	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
 		{	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
-			if(!Tests::RunCode(code, t, result, name))	\
+			if(!Tests::RunCode(code, testTarget[t], result, name))	\
 			{	\
 				lastFailed = true;	\
 				return;	\
 			}else{	\
 				RunTest();	\
+				if(lastFailed)	\
+					printf("%s failed\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
 			}	\
 			if(!lastFailed)	\
 				testsPassed[t]++;	\
@@ -138,21 +153,23 @@ struct Test_##code : TestQueue {	\
 Test_##code test_##code;	\
 void Test_##code::RunTest()
 
-#define TEST_IMPL_SIMPLE(name, code, result, count)	\
+#define TEST_SIMPLE(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
-		for(int t = 0; t < count; t++)	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
 		{	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
-			if(!Tests::RunCodeSimple(code, t, result, name))	\
+			if(!Tests::RunCodeSimple(code, testTarget[t], result, name, false, ""))	\
 			{	\
 				lastFailed = true;	\
 				return;	\
 			}else{	\
 				RunTest();	\
+				if(lastFailed)	\
+					printf("%s failed\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
 			}	\
 			if(!lastFailed)	\
 				testsPassed[t]++;	\
@@ -163,12 +180,6 @@ struct Test_##code : TestQueue {	\
 };	\
 Test_##code test_##code;	\
 void Test_##code::RunTest()
-
-#define TEST_VM(name, code, result) TEST_IMPL(name, code, result, 1)
-#define TEST(name, code, result) TEST_IMPL(name, code, result, TEST_TARGET_COUNT)
-
-#define TEST_VM_SIMPLE(name, code, result) TEST_IMPL_SIMPLE(name, code, result, 1)
-#define TEST_SIMPLE(name, code, result) TEST_IMPL_SIMPLE(name, code, result, TEST_TARGET_COUNT)
 
 #define TEST_RESULT(name, code, result)	\
 struct Test_##code : TestQueue {	\
@@ -178,7 +189,7 @@ struct Test_##code : TestQueue {	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
-			if(Tests::RunCode(code, t, result, name))	\
+			if(Tests::RunCode(code, testTarget[t], result, name))	\
 				testsPassed[t]++;	\
 		}	\
 	}	\
@@ -193,12 +204,42 @@ struct Test_##code : TestQueue {	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
-			if(Tests::RunCodeSimple(code, t, result, name))	\
+			if(Tests::RunCodeSimple(code, testTarget[t], result, name, false, ""))	\
 				testsPassed[t]++;	\
 		}	\
 	}	\
 };	\
 Test_##code test_##code
+
+#define TEST_RUNTIME_FAIL(name, code, result)	\
+struct Test_##code : TestQueue {	\
+	virtual void Run(){	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
+		{	\
+			if(!Tests::testFailureExecutor[t])	\
+				continue;	\
+			testsCount[t]++;	\
+			if(Tests::RunCode(code, testTarget[t], result, name, true))	\
+				testsPassed[t]++;	\
+		}	\
+	}	\
+};	\
+Test_##code test_##code;
+
+#define TEST_HARD_RUNTIME_FAIL(name, code, result)	\
+struct Test_##code : TestQueue {	\
+	virtual void Run(){	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
+		{	\
+			if(!Tests::testHardFailureExecutor[t])	\
+				continue;	\
+			testsCount[t]++;	\
+			if(Tests::RunCode(code, testTarget[t], result, name, true))	\
+				testsPassed[t]++;	\
+		}	\
+	}	\
+};	\
+Test_##code test_##code;
 
 #define LOAD_MODULE(id, name, code)	\
 struct Test_##id : TestQueue {	\
@@ -224,28 +265,10 @@ struct Test_##id : TestQueue {	\
 			printf("Test " name " failed: %s\n", nullcGetLastError());	\
 		}	\
 	}	\
-	bool lastFailed;	\
 	void RunTest();	\
 };	\
 Test_##id test_##id;	\
 void Test_##id::RunTest()
-
-#define TEST_RELOCATE(name, code, result)	\
-struct Test_##code : TestQueue {	\
-	virtual void Run(){	\
-		testsCount[0]++;	\
-		nullcTerminate();	\
-		nullcInit();	\
-		nullcAddImportPath(MODULE_PATH_A); \
-		nullcAddImportPath(MODULE_PATH_B); \
-		nullcSetFileReadHandler(Tests::fileLoadFunc);	\
-		nullcInitTypeinfoModule();	\
-		nullcInitVectorModule();	\
-		if(Tests::RunCode(code, 0, result, name))	\
-			testsPassed[TEST_TYPE_VM]++;	\
-	}	\
-};	\
-Test_##code test_##code;
 
 #define TEST_NAME() if(Tests::lastMessage) printf("%s\r\n", Tests::lastMessage);
 
@@ -473,27 +496,6 @@ inline void CHECK_HEAP_STR(const char *var, unsigned index, const char* expected
 		lastFailed = true;
 	}
 }
-
-#if defined(NDEBUG)
-#define TEST_RUNTIME_FAIL_EXECUTORS 2
-#else
-#define TEST_RUNTIME_FAIL_EXECUTORS 1
-#endif
-
-#define TEST_RUNTIME_FAIL(name, code, result)	\
-struct Test_##code : TestQueue {	\
-	virtual void Run(){	\
-		for(int t = 0; t < TEST_RUNTIME_FAIL_EXECUTORS; t++)	\
-		{	\
-			if(!Tests::testExecutor[t])	\
-				continue;	\
-			testsCount[t]++;	\
-			if(Tests::RunCode(code, t, result, name, true))	\
-				testsPassed[t]++;	\
-		}	\
-	}	\
-};	\
-Test_##code test_##code;
 
 void TEST_FOR_FAIL(const char* name, const char* str, const char* error);
 void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1, const char* error2);

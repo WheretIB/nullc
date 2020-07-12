@@ -25,8 +25,6 @@ namespace supspi
 
 	unsigned int AllocParser(BaseP* parser){ parserList.push_back(parser); return (unsigned int)parserList.size()-1; }
 	void		ReleaseParser(unsigned int ptr){ delete parserList[ptr]; }
-	void		SetParser(unsigned int ptr, BaseP* parser){ parserList[ptr] = parser; }
-	BaseP*		GetParser(unsigned int ptr){ return parserList[ptr]; }
 
 	static AlternativePolicy	alerPol = ALTER_STANDART;
 	static ActionPolicy			actionPol = ACTION_STANDART;

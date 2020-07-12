@@ -1,10 +1,30 @@
 #include "Executor_Common.h"
 
 #include "StdLib.h"
+#include "nullc.h"
 #include "nullc_debug.h"
-#include "Executor.h"
 #include "Executor_X86.h"
 #include "Executor_LLVM.h"
+#include "Executor_RegVm.h"
+#include "Linker.h"
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+#define dcAllocMem NULLC::alloc
+#define dcFreeMem  NULLC::dealloc
+
+#include "../external/dyncall/dyncall.h"
+#endif
+
+typedef uintptr_t markerType;
+
+namespace
+{
+	const uintptr_t OBJECT_VISIBLE = 1 << 0;
+	const uintptr_t OBJECT_FREED = 1 << 1;
+	const uintptr_t OBJECT_FINALIZABLE = 1 << 2;
+	const uintptr_t OBJECT_FINALIZED = 1 << 3;
+	const uintptr_t OBJECT_ARRAY = 1 << 4;
+}
 
 namespace NULLC
 {
@@ -36,49 +56,130 @@ unsigned ConvertFromAutoRef(unsigned int target, unsigned int source)
 	return 0;
 }
 
-ExternTypeInfo*	GetTypeList()
+bool AreMembersAligned(ExternTypeInfo *lType, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
 {
-	return NULLC::commonLinker->exTypes.data;
+	bool aligned = 1;
+	for(unsigned m = 0; m < lType->memberCount; m++)
+	{
+		ExternMemberInfo &member = exTypeExtra[lType->memberOffset + m];
+		ExternTypeInfo &memberType = exTypes[member.type];
+		unsigned pos = member.offset;
+
+		switch(memberType.type)
+		{
+		case ExternTypeInfo::TYPE_COMPLEX:
+			break;
+		case ExternTypeInfo::TYPE_VOID:
+			break;
+		case ExternTypeInfo::TYPE_INT:
+			if(pos % 4 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			break;
+		case ExternTypeInfo::TYPE_LONG:
+			if(pos % 8 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			if(pos % 2 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+			break;
+		}
+		pos += memberType.size;
+	}
+	//printf("%s\n", aligned ? "aligned" : "unaligned");
+	return aligned;
+}
+
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
+{
+	for(unsigned m = 0; m < type.memberCount; m++)
+	{
+		ExternMemberInfo &member = exTypeExtra[type.memberOffset + m];
+
+		ExternTypeInfo &memberType = exTypes[member.type];
+
+		if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
+		{
+			// Handle opaque types
+			bool opaqueType = memberType.subCat != ExternTypeInfo::CAT_CLASS || memberType.memberCount == 0;
+
+			if(opaqueType)
+			{
+				if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
+					return true;
+			}
+			else
+			{
+				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, exTypes, exTypeExtra))
+					return true;
+			}
+		}
+		else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE)
+		{
+			if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
+				return true;
+		}
+	}
+
+	return false;
 }
 
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, bool withVariables)
 {
 	const char *start = current;
 
-	FastVector<ExternFuncInfo> &exFunctions = NULLC::commonLinker->exFunctions;
-	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
-	FastVector<ExternModuleInfo> &exModules = NULLC::commonLinker->exModules;
+	unsigned exFunctionsSize = 0;
+	ExternFuncInfo *exFunctions = nullcDebugFunctionInfo(&exFunctionsSize);
 
-	ExternSourceInfo *exInfo = (ExternSourceInfo*)&NULLC::commonLinker->exSourceInfo[0];
-	const char *source = &NULLC::commonLinker->exSource[0];
-	unsigned int infoSize = NULLC::commonLinker->exSourceInfo.size();
+	char *exSymbols = nullcDebugSymbols(NULL);
+
+	unsigned exModulesSize = 0;
+	ExternModuleInfo *exModules = nullcDebugModuleInfo(&exModulesSize);
+
+	unsigned exInfoSize = 0;
+	ExternSourceInfo *exInfo = nullcDebugSourceInfo(&exInfoSize);
+
+	char *source = nullcDebugSource();
 
 	int funcID = -1;
-	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		if(address >= exFunctions[i].address && address <= (exFunctions[i].address + exFunctions[i].codeSize))
+	for(unsigned int i = 0; i < exFunctionsSize; i++)
+	{
+		if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
 			funcID = i;
+	}
+
 	if(funcID != -1)
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", &exSymbols[exFunctions[funcID].offsetToName]);
 	else
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", address == -1 ? "external" : "global scope");
+
 	if(address != -1)
 	{
 		unsigned int infoID = 0;
 		unsigned int i = address - 1;
-		while((infoID < infoSize - 1) && (i >= exInfo[infoID + 1].instruction))
+		while((infoID < exInfoSize - 1) && (i >= exInfo[infoID + 1].instruction))
 			infoID++;
 		const char *codeStart = source + exInfo[infoID].sourceOffset;
+
 		// Find beginning of the line
 		while(codeStart != source && *(codeStart-1) != '\n')
 			codeStart--;
+
 		// Skip whitespace
 		while(*codeStart == ' ' || *codeStart == '\t')
 			codeStart++;
 		const char *codeEnd = codeStart;
+
 		// Find corresponding module
 		unsigned moduleID = ~0u;
 		const char *prevEnd = NULL;
-		for(unsigned l = 0; l < exModules.size(); l++)
+		for(unsigned l = 0; l < exModulesSize; l++)
 		{
 			// special check for main module
 			if(source + exModules[l].sourceOffset > prevEnd && codeStart >= prevEnd && codeStart < source + exModules[l].sourceOffset)
@@ -92,6 +193,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 			moduleStart = source + exModules[moduleID].sourceOffset;
 		else
 			moduleStart = prevEnd;
+
 		// Find line number
 		unsigned line = 0;
 		while(moduleStart < codeStart)
@@ -99,20 +201,24 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 			if(*moduleStart++ == '\n')
 				line++;
 		}
+
 		// Find ending of the line
 		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 			codeEnd++;
+
 		int codeLength = (int)(codeEnd - codeStart);
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), " (line %d: at %.*s)\r\n", line + 1, codeLength, codeStart);
 	}
 
 	if(withVariables)
 	{
-		FastVector<ExternTypeInfo> &exTypes = NULLC::commonLinker->exTypes;
+		unsigned exTypesSize = 0;
+		ExternTypeInfo *exTypes = nullcDebugTypeInfo(&exTypesSize);
 
 		if(funcID != -1)
 		{
-			FastVector<ExternLocalInfo> &exLocals = NULLC::commonLinker->exLocals;
+			unsigned exLocalsSize = 0;
+			ExternLocalInfo *exLocals = nullcDebugLocalInfo(&exLocalsSize);
 
 			for(unsigned int i = 0; i < exFunctions[funcID].localCount + exFunctions[funcID].externCount; i++)
 			{
@@ -126,9 +232,10 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 		}
 		else
 		{
-			FastVector<ExternVarInfo> &exVariables = NULLC::commonLinker->exVariables;
+			unsigned exVariablesSize = 0;
+			ExternVarInfo *exVariables = nullcDebugVariableInfo(&exVariablesSize);
 
-			for(unsigned i = 0; i < exVariables.size(); i++)
+			for(unsigned i = 0; i < exVariablesSize; i++)
 			{
 				ExternVarInfo &vInfo = exVariables[i];
 
@@ -161,13 +268,54 @@ void nullcPrintDepthIndent(unsigned indentDepth)
 		printf("  ");
 }
 
+void nullcPrintPointerMarkerInfo(markerType marker)
+{
+	char *codeSymbols = nullcDebugSymbols(NULL);
+	unsigned codeTypeCount = 0;
+	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(&codeTypeCount);
+
+	if(marker & OBJECT_VISIBLE)
+		printf("visible");
+	else
+		printf("unmarked");
+
+	if(marker & OBJECT_FREED)
+	{
+		printf(" freed");
+		return;
+	}
+
+	if(marker & OBJECT_FINALIZABLE)
+		printf(" finalizable");
+	if(marker & OBJECT_FINALIZED)
+		printf(" finalized");
+	if(marker & OBJECT_ARRAY)
+		printf(" array");
+
+	unsigned type = unsigned(marker >> 8);
+
+	printf(" type '%s' #%u", codeSymbols + codeTypes[type].offsetToName, type);
+}
+
 void nullcPrintBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 {
 	char *codeSymbols = nullcDebugSymbols(NULL);
 
 	if(type.subCat == ExternTypeInfo::CAT_POINTER)
 	{
-		printf("0x%x", *(int*)ptr);
+		if(void *base = NULLC::GetBasePointer(*(void**)ptr))
+		{
+			markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+			printf("%p [base %p, ", *(void**)ptr, base);
+			nullcPrintPointerMarkerInfo(*marker);
+			printf("]");
+		}
+		else
+		{
+			printf("%p", *(void**)ptr);
+		}
+
 		return;
 	}
 
@@ -211,10 +359,25 @@ void nullcPrintAutoInfo(char* ptr, unsigned indentDepth)
 	char *codeSymbols = nullcDebugSymbols(NULL);
 	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(NULL);
 
+	void *target = *(void**)(ptr + 4);
+
 	nullcPrintDepthIndent(indentDepth);
 	printf("typeid type = %d (%s)\n", *(int*)ptr, codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
 	nullcPrintDepthIndent(indentDepth);
-	printf("%s ref ptr = 0x%x\n", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName, *(int*)(ptr + 4));
+	printf("%s ref ptr = ", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
+
+	if(void *base = NULLC::GetBasePointer(target))
+	{
+		markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+		printf("%p [base %p, ", target, base);
+		nullcPrintPointerMarkerInfo(*marker);
+		printf("]\n");
+	}
+	else
+	{
+		printf("%p\n", target);
+	}
 }
 
 void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
@@ -224,13 +387,97 @@ void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
 
 	NULLCAutoArray *arr = (NULLCAutoArray*)ptr;
 
+	void *target = *(void**)arr->ptr;
+
 	nullcPrintDepthIndent(indentDepth);
 	printf("typeid type = %d (%s)\n", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
+
 	nullcPrintDepthIndent(indentDepth);
-	printf("%s[] data = %p\n", codeSymbols + codeTypes[arr->typeID].offsetToName, (void*)arr->ptr);
+	printf("%s[] data = ", codeSymbols + codeTypes[arr->typeID].offsetToName);
+
+	if(void *base = NULLC::GetBasePointer(target))
+	{
+		markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+		printf("%p [base %p, ", target, base);
+		nullcPrintPointerMarkerInfo(*marker);
+		printf("]\n");
+	}
+	else
+	{
+		printf("%p\n", target);
+	}
+
+	nullcPrintDepthIndent(indentDepth);
+	printf("int len = %u\n", arr->len);
 }
 
 void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth);
+
+void nullcPrintArrayVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth)
+{
+	char *codeSymbols = nullcDebugSymbols(NULL);
+	ExternTypeInfo *codeTypes = nullcDebugTypeInfo(NULL);
+
+	char *target = ptr;
+	unsigned size = type.arrSize;
+
+	if(type.arrSize == ~0u)
+	{
+		NULLCArray *arr = (NULLCArray*)ptr;
+
+		target = arr->ptr;
+		size = arr->len;
+
+		nullcPrintDepthIndent(indentDepth);
+		printf("%s[] data = ", codeSymbols + codeTypes[type.subType].offsetToName);
+
+		if(void *base = NULLC::GetBasePointer(target))
+		{
+			markerType *marker = (markerType*)((char*)base - sizeof(markerType));
+
+			printf("%p [base %p, ", target, base);
+			nullcPrintPointerMarkerInfo(*marker);
+			printf("]\n");
+		}
+		else
+		{
+			printf("%p\n", target);
+		}
+
+		nullcPrintDepthIndent(indentDepth);
+		printf("len %u\n", arr->len);
+	}
+
+	if(type.pointerCount)
+	{
+		ExternTypeInfo &elementType = codeTypes[type.subType];
+
+		for(unsigned i = 0; i < size && i < 32; i++)
+		{
+			nullcPrintDepthIndent(indentDepth);
+			printf("[%u]", i);
+
+			if(elementType.subCat == ExternTypeInfo::CAT_NONE || elementType.subCat == ExternTypeInfo::CAT_POINTER)
+			{
+				printf(" = ");
+				nullcPrintBasicVariableInfo(elementType, target);
+				printf("\n");
+			}
+			else if(strcmp(codeSymbols + elementType.offsetToName, "typeid") == 0)
+			{
+				printf(" = %s\n", codeSymbols + codeTypes[*(int*)(target)].offsetToName);
+			}
+			else
+			{
+				printf("\n");
+				nullcPrintVariableInfo(elementType, target, indentDepth + 1);
+			}
+
+			target += elementType.size;
+		}
+	}
+}
 
 void nullcPrintFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth)
 {
@@ -319,7 +566,7 @@ void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned inde
 	case ExternTypeInfo::CAT_NONE:
 		break;
 	case ExternTypeInfo::CAT_ARRAY:
-		//nullcPrintArrayVariableInfo(type, ptr);
+		nullcPrintArrayVariableInfo(type, ptr, indentDepth);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
 		break;
@@ -365,7 +612,7 @@ void nullcDumpStackData()
 
 		if(func)
 		{
-			ExternFuncInfo	&function = *func;
+			ExternFuncInfo &function = *func;
 
 			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
@@ -379,9 +626,11 @@ void nullcDumpStackData()
 				if(arg != function.paramCount - 1)
 					printf(", ");
 			}
-			printf(")\n");
 
-			unsigned offsetToNextFrame = function.bytesToPop;
+			unsigned argumentsSize = function.bytesToPop;
+			unsigned stackSize = (function.stackSize + 0xf) & ~0xf;
+
+			printf(") argument size %u, stack size %u\n", argumentsSize, stackSize);
 
 			for(unsigned i = 0; i < function.localCount; i++)
 			{
@@ -406,9 +655,6 @@ void nullcDumpStackData()
 					printf("\n");
 					nullcPrintVariableInfo(localType, data + offset + lInfo.offset, indent + 1);
 				}
-
-				if(lInfo.offset + lInfo.size > offsetToNextFrame)
-					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
 
 			if(function.parentType != ~0u)
@@ -427,7 +673,7 @@ void nullcDumpStackData()
 				printf("%p: %s %s = %p\n", (void*)ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(void**)ptr);
 			}
 
-			offset += offsetToNextFrame;
+			offset += stackSize;
 		}
 		else
 		{
@@ -489,29 +735,35 @@ namespace GC
 
 	void PrintMarker(markerType marker)
 	{
-		GC_DEBUG_PRINT("\tMarker is 0x%2x [", marker);
-
-		const uintptr_t OBJECT_VISIBLE		= 1 << 0;
-		const uintptr_t OBJECT_FREED		= 1 << 1;
-		const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
-		const uintptr_t OBJECT_FINALIZED	= 1 << 3;
-		const uintptr_t OBJECT_ARRAY		= 1 << 4;
+		GC_DEBUG_PRINT("\tMarker is 0x%2x [", unsigned(marker));
 
 		if(marker & OBJECT_VISIBLE)
+		{
 			GC_DEBUG_PRINT("visible");
+		}
 		else
+		{
 			GC_DEBUG_PRINT("unmarked");
+		}
 
 		if(marker & OBJECT_FREED)
-			GC_DEBUG_PRINT(" freed");
+		{
+			GC_DEBUG_PRINT(" freed]\r\n");
+
+			assert(!"reached a freed pointer");
+			return;
+		}
+
 		if(marker & OBJECT_FINALIZABLE)
 			GC_DEBUG_PRINT(" finalizable");
+
 		if(marker & OBJECT_FINALIZED)
 			GC_DEBUG_PRINT(" finalized");
+
 		if(marker & OBJECT_ARRAY)
 			GC_DEBUG_PRINT(" array");
 
-		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[marker >> 8].offsetToName);
+		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[unsigned(marker >> 8)].offsetToName);
 	}
 
 	char* ReadVmMemoryPointer(void* address)
@@ -540,27 +792,62 @@ namespace GC
 			if(!basePtr)
 				return;
 
-			if(type.subType == 0)
-				return;
-
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
 			// Marker is before the block
-			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
+			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
 			PrintMarker(*marker);
 
 			// If block is unmarked
-			if(!(*marker & 1))
+			if(!(*marker & OBJECT_VISIBLE))
 			{
 				// Mark block as used
-				*marker |= 1;
+				*marker |= OBJECT_VISIBLE;
 
 				GC_DEBUG_PRINT("\tMarked as used\r\n");
 
+				unsigned targetSubType = type.subType;
+
+				if(takeSubtype && targetSubType == 0)
+					targetSubType = unsigned(*marker >> 8);
+
 				// And if type is not simple, check memory to which pointer points to
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
-					next->push_back(RootInfo(target, takeSubtype ? &NULLC::commonLinker->exTypes[type.subType] : &type));
+				{
+					GC_DEBUG_PRINT("\tPointer %p scheduled on next loop\r\n", target);
+
+					next->push_back(RootInfo(target, takeSubtype ? &NULLC::commonLinker->exTypes[targetSubType] : &type));
+				}
 			}
+		}
+	}
+
+	void CheckArrayElements(char* ptr, unsigned size, const ExternTypeInfo& elementType)
+	{
+		if(!elementType.pointerCount)
+			return;
+
+		// Check every array element
+		switch(elementType.subCat)
+		{
+		case ExternTypeInfo::CAT_NONE:
+			break;
+		case ExternTypeInfo::CAT_ARRAY:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				CheckArray(ptr, elementType);
+			break;
+		case ExternTypeInfo::CAT_POINTER:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				MarkPointer(ptr, elementType, true);
+			break;
+		case ExternTypeInfo::CAT_FUNCTION:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				CheckFunction(ptr);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
+				CheckClass(ptr, elementType);
+			break;
 		}
 	}
 
@@ -568,7 +855,7 @@ namespace GC
 	void CheckArray(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get array element type
-		ExternTypeInfo *subType = type.nameHash == autoArrayName ? NULL : &NULLC::commonLinker->exTypes[type.subType];
+		ExternTypeInfo *subType = &NULLC::commonLinker->exTypes[type.subType];
 
 		// Real array size (changed for unsized arrays)
 		unsigned int size = type.arrSize;
@@ -584,7 +871,12 @@ namespace GC
 
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
+			{
+				if(ptr > (char*)0x00010000)
+					GC_DEBUG_PRINT("\tSkipping stack pointer [array] %p\r\n", ptr);
+
 				return;
+			}
 
 			GC_DEBUG_PRINT("\tGlobal pointer [array] %p\r\n", ptr);
 
@@ -601,11 +893,11 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If there is no base pointer or memory already marked, exit
-			if((*marker & 1))
+			if((*marker & OBJECT_VISIBLE))
 				return;
 
 			// Mark memory as used
-			*marker |= 1;
+			*marker |= OBJECT_VISIBLE;
 
 			GC_DEBUG_PRINT("\tMarked as used\r\n");
 		}
@@ -630,31 +922,7 @@ namespace GC
 			size = data->len;
 		}
 
-		if(!subType->pointerCount)
-			return;
-
-		// Otherwise, check every array element is it's either array, pointer of class
-		switch(subType->subCat)
-		{
-		case ExternTypeInfo::CAT_NONE:
-			break;
-		case ExternTypeInfo::CAT_ARRAY:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckArray(ptr, *subType);
-			break;
-		case ExternTypeInfo::CAT_POINTER:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				MarkPointer(ptr, *subType, true);
-			break;
-		case ExternTypeInfo::CAT_FUNCTION:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckFunction(ptr);
-			break;
-		case ExternTypeInfo::CAT_CLASS:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckClass(ptr, *subType);
-			break;
-		}
+		CheckArrayElements(ptr, size, *subType);
 	}
 
 	// Function that checks classes for pointers
@@ -671,7 +939,12 @@ namespace GC
 
 			// If uninitialized or points to stack memory, return
 			if(!target || target <= (char*)0x00010000 || (target >= unmanageableBase && target <= unmanageableTop))
+			{
+				if(target > (char*)0x00010000)
+					GC_DEBUG_PRINT("\tSkipping stack pointer [class] %p\r\n", target);
+
 				return;
+			}
 
 			GC_DEBUG_PRINT("\tGlobal pointer [class] %p\r\n", target);
 
@@ -688,13 +961,13 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If there is no base pointer or memory already marked, exit
-			if((*marker & 1))
+			if((*marker & OBJECT_VISIBLE))
 				return;
 
 			// Mark memory as used
-			*marker |= 1;
+			*marker |= OBJECT_VISIBLE;
 
-			GC_DEBUG_PRINT("\tMarked as used\r\n");
+			GC_DEBUG_PRINT("\tMarked as used, fixing up target\r\n");
 
 			// Fixup target
 			CheckVariable(target, *realType);
@@ -733,8 +1006,9 @@ namespace GC
 			return;
 
 		const ExternFuncInfo &func = NULLC::commonLinker->exFunctions[fPtr->id];
+
 		// External functions shouldn't be checked
-		if(func.address == -1)
+		if(func.regVmAddress == -1)
 			return;
 
 		// If context is "this" pointer
@@ -807,7 +1081,7 @@ void MarkUsedBlocks()
 	GC::curr->clear();
 	GC::next->clear();
 
-	// To check every stack frame, we have to get it first. But we have two different executors, so flow alternates depending on which executor we are running
+	// To check every stack frame, we have to get it first. But we have multiple executors, so flow alternates depending on which executor we are running
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
 
@@ -838,44 +1112,20 @@ void MarkUsedBlocks()
 	int offset = NULLC::commonLinker->globalVarSize;
 	
 	// Init stack trace
-	if(execID == NULLC_VM)
-	{
-		Executor *exec = (Executor*)unknownExec;
-		exec->BeginCallStack();
-	}
-	
-#ifdef NULLC_BUILD_X86_JIT
-	if(execID == NULLC_X86)
-	{
-		ExecutorX86 *exec = (ExecutorX86*)unknownExec;
-		exec->BeginCallStack();
-	}
-#endif
-
-#ifdef NULLC_LLVM_SUPPORT
-	if(execID == NULLC_LLVM)
-	{
-		ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
-		exec->BeginCallStack();
-	}
-#endif
+	unsigned currentFrame = 0;
 
 	// Mark local variables
 	while(true)
 	{
 		int address = 0;
+
 		// Get next address from call stack
-		if(execID == NULLC_VM)
-		{
-			Executor *exec = (Executor*)unknownExec;
-			address = exec->GetNextAddress();
-		}
 
 #ifdef NULLC_BUILD_X86_JIT
 		if(execID == NULLC_X86)
 		{
 			ExecutorX86 *exec = (ExecutorX86*)unknownExec;
-			address = exec->GetNextAddress();
+			address = exec->GetCallStackAddress(currentFrame++);
 		}
 #endif
 
@@ -883,9 +1133,16 @@ void MarkUsedBlocks()
 		if(execID == NULLC_LLVM)
 		{
 			ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
-			address = exec->GetNextAddress();
+			address = exec->GetCallStackAddress(currentFrame++);
 		}
 #endif
+
+		if(execID == NULLC_REG_VM)
+		{
+			ExecutorRegVm *exec = (ExecutorRegVm*)unknownExec;
+			address = exec->GetCallStackAddress(currentFrame++);
+		}
+
 		// If failed, exit
 		if(address == 0)
 			break;
@@ -897,13 +1154,13 @@ void MarkUsedBlocks()
 		if(cachedFuncID)
 		{
 			funcID = *cachedFuncID;
-		}else{
-			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
+		}
+		else
+		{
+			for(unsigned i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
-				if(address >= functions[i].address && address < (functions[i].address + functions[i].codeSize))
-				{
+				if(address >= functions[i].regVmAddress && address < (functions[i].regVmAddress + functions[i].regVmCodeSize))
 					funcID = i;
-				}
 			}
 
 			GC::functionIDs.insert(address, funcID);
@@ -912,43 +1169,41 @@ void MarkUsedBlocks()
 		// If we are not in global scope
 		if(funcID != -1)
 		{
+			ExternFuncInfo &function = functions[funcID];
+
 			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
 			offset += alignOffset;
-			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + functions[funcID].offsetToName, alignOffset);
+			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + function.offsetToName, alignOffset);
 
-			unsigned int offsetToNextFrame = functions[funcID].bytesToPop;
+			unsigned stackSize = (function.stackSize + 0xf) & ~0xf;
+
 			// Check every function local
-			for(unsigned int i = 0; i < functions[funcID].localCount; i++)
+			for(unsigned i = 0; i < function.localCount; i++)
 			{
 				// Get information about local
-				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + i];
+				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[function.offsetToFirstLocal + i];
 
-				GC_DEBUG_PRINT("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
+				GC_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				// Check it
 				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);
-				if(lInfo.offset + lInfo.size > offsetToNextFrame)
-					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
-			if(functions[funcID].contextType != ~0u)
+
+			if(function.contextType != ~0u)
 			{
-				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[functions[funcID].contextType].offsetToName, offset, functions[funcID].bytesToPop - NULLC_PTR_SIZE);
-				char *ptr = GC::unmanageableBase + offset + functions[funcID].bytesToPop - NULLC_PTR_SIZE;
-				GC::MarkPointer(ptr, types[functions[funcID].contextType], false);
+				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[function.contextType].offsetToName, offset, function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = GC::unmanageableBase + offset + function.bytesToPop - NULLC_PTR_SIZE;
+				GC::MarkPointer(ptr, types[function.contextType], false);
 			}
-			offset += offsetToNextFrame;
-			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
+
+			offset += stackSize;
+
+			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", stackSize);
 		}
 	}
 
 	// Check for pointers in stack
 	char *tempStackBase = NULL, *tempStackTop = NULL;
-	if(execID == NULLC_VM)
-	{
-		Executor *exec = (Executor*)unknownExec;
-		tempStackBase = (char*)exec->GetStackStart();
-		tempStackTop = (char*)exec->GetStackEnd();
-	}
 
 #ifdef NULLC_BUILD_X86_JIT
 	if(execID == NULLC_X86)
@@ -967,6 +1222,13 @@ void MarkUsedBlocks()
 		tempStackTop = (char*)exec->GetStackEnd();
 	}
 #endif
+
+	if(execID == NULLC_REG_VM)
+	{
+		ExecutorRegVm *exec = (ExecutorRegVm*)unknownExec;
+		tempStackBase = (char*)exec->GetStackStart();
+		tempStackTop = (char*)exec->GetStackEnd();
+	}
 
 	GC_DEBUG_PRINT("Check stack from %p to %p\r\n", tempStackBase, tempStackTop);
 
@@ -991,32 +1253,54 @@ void MarkUsedBlocks()
 				GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
 				markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
+				// Might step on a left-over pointer in stale registers
+				if(*marker & OBJECT_FREED)
+				{
+					tempStackBase += 4;
+					continue;
+				}
+
 				GC::PrintMarker(*marker);
 
 				// If block is unmarked, mark it as used
-				if(!(*marker & 1))
+				if(!(*marker & OBJECT_VISIBLE))
 				{
 					unsigned typeID = unsigned(*marker >> 8);
 					ExternTypeInfo &type = types[typeID];
 
-					*marker |= 1;
+					*marker |= OBJECT_VISIBLE;
 
-					GC_DEBUG_PRINT("\tMarked as used\r\n");
+					GC_DEBUG_PRINT("\tMarked as used, checking content\r\n");
 
-					// And if type is not simple, check memory to which pointer points to
-					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						GC::CheckVariable((char*)basePtr, type);
+					if(*marker & OBJECT_ARRAY)
+					{
+						unsigned arrayPadding = type.defaultAlign > 4 ? type.defaultAlign : 4;
+
+						char *elements = (char*)basePtr + arrayPadding;
+
+						unsigned size;
+						memcpy(&size, elements - sizeof(unsigned), sizeof(unsigned));
+
+						GC::CheckArrayElements(elements, size, type);
+					}
+					else
+					{
+						// And if type is not simple, check memory to which pointer points to
+						if(type.subCat != ExternTypeInfo::CAT_NONE)
+							GC::CheckVariable((char*)basePtr, type);
+					}
 				}
 			}
 		}
 		tempStackBase += 4;
 	}
 
-	GC_DEBUG_PRINT("Checking new roots\r\n");
-
 	while(GC::next->size())
 	{
-		FastVector<GC::RootInfo>	*tmp = GC::curr;
+		GC_DEBUG_PRINT("Checking new roots\r\n");
+
+		FastVector<GC::RootInfo> *tmp = GC::curr;
 		GC::curr = GC::next;
 		GC::next = tmp;
 
@@ -1029,6 +1313,8 @@ void MarkUsedBlocks()
 
 		GC::curr->clear();
 	}
+
+	GC_DEBUG_PRINT("\r\n");
 }
 
 void ResetGC()
@@ -1037,4 +1323,399 @@ void ResetGC()
 	GC::rootsB.reset();
 
 	GC::functionIDs.reset();
+}
+
+namespace
+{
+	long long vmLoadLong(void* target)
+	{
+		long long value;
+		memcpy(&value, target, sizeof(long long));
+		return value;
+	}
+
+	void vmStoreLong(void* target, long long value)
+	{
+		memcpy(target, &value, sizeof(long long));
+	}
+
+	double vmLoadDouble(void* target)
+	{
+		double value;
+		memcpy(&value, target, sizeof(double));
+		return value;
+	}
+
+	void vmStoreDouble(void* target, double value)
+	{
+		memcpy(target, &value, sizeof(double));
+	}
+
+	char* vmLoadPointer(void* target)
+	{
+		char* value;
+		memcpy(&value, target, sizeof(char*));
+		return value;
+	}
+}
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *argumentStorage, unsigned *resultStorage)
+{
+	(void)exTypeExtra;
+
+	assert(func.funcPtrRaw);
+
+	void* fPtr = (void*)func.funcPtrRaw;
+	unsigned retType = func.retType;
+
+	unsigned *stackStart = argumentStorage;
+
+	dcReset(dcCallVM);
+
+#if defined(_WIN64)
+	bool returnByPointer = func.returnShift > 1;
+#elif !defined(_M_X64)
+	bool returnByPointer = true;
+#elif defined(__aarch64__)
+	ExternTypeInfo &funcType = exTypes[func.funcType];
+
+	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exTypes[member.type];
+
+	bool returnByPointer = false;
+
+	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
+
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exTypes, exTypeExtra);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exTypes, exTypeExtra);
+#else
+	ExternTypeInfo &funcType = exTypes[func.funcType];
+
+	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exTypes[member.type];
+
+	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exTypes, exTypeExtra));
+
+	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
+
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exTypes, exTypeExtra);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exTypes, exTypeExtra);
+#endif
+
+	unsigned ret[128];
+
+	if(retType == ExternFuncInfo::RETURN_UNKNOWN && returnByPointer)
+		dcArgPointer(dcCallVM, ret);
+
+	for(unsigned i = 0; i < func.paramCount; i++)
+	{
+		// Get information about local
+		ExternLocalInfo &lInfo = exLocals[func.offsetToFirstLocal + i];
+
+		ExternTypeInfo &tInfo = exTypes[lInfo.type];
+
+		switch(tInfo.type)
+		{
+		case ExternTypeInfo::TYPE_COMPLEX:
+#if defined(_WIN64)
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}
+			else if(tInfo.size <= 8)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				stackStart += 2;
+			}
+			else
+			{
+				dcArgPointer(dcCallVM, stackStart);
+				stackStart += tInfo.size / 4;
+			}
+#elif defined(__aarch64__)
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}
+			else if(tInfo.size <= 8)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				stackStart += 2;
+			}
+			else if(tInfo.size <= 12)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				dcArgInt(dcCallVM, *(int*)(stackStart + 2));
+				stackStart += 3;
+			}
+			else if(tInfo.size <= 16)
+			{
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
+				stackStart += 4;
+			}
+			else
+			{
+				dcArgPointer(dcCallVM, stackStart);
+				stackStart += tInfo.size / 4;
+			}
+#elif defined(_M_X64)
+			if(tInfo.size > 16 || lInfo.type == NULLC_TYPE_AUTO_REF || (tInfo.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&tInfo, exTypes, exTypeExtra)))
+			{
+				dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
+				stackStart += tInfo.size / 4;
+			}
+			else
+			{
+				bool opaqueType = tInfo.subCat != ExternTypeInfo::CAT_CLASS || tInfo.memberCount == 0;
+
+				bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 0, 8, exTypes, exTypeExtra);
+				bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 8, 16, exTypes, exTypeExtra);
+
+				if(tInfo.size <= 4)
+				{
+					if(tInfo.size != 0)
+					{
+						if(firstQwordInteger)
+							dcArgInt(dcCallVM, *(int*)stackStart);
+						else
+							dcArgFloat(dcCallVM, *(float*)stackStart);
+					}
+					else
+					{
+						stackStart += 1;
+					}
+				}
+				else if(tInfo.size <= 8)
+				{
+					if(firstQwordInteger)
+						dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+					else
+						dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
+				}
+				else
+				{
+					int requredIRegs = (firstQwordInteger ? 1 : 0) + (secondQwordInteger ? 1 : 0);
+
+					if(dcFreeIRegs(dcCallVM) < requredIRegs || dcFreeFRegs(dcCallVM) < (2 - requredIRegs))
+					{
+						dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
+					}
+					else
+					{
+						if(firstQwordInteger)
+							dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+						else
+							dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
+
+						if(secondQwordInteger)
+							dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
+						else
+							dcArgDouble(dcCallVM, vmLoadDouble(stackStart + 2));
+					}
+				}
+
+				stackStart += tInfo.size / 4;
+			}
+#else
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}
+			else
+			{
+				for(unsigned k = 0; k < tInfo.size / 4; k++)
+				{
+					dcArgInt(dcCallVM, *(int*)stackStart);
+					stackStart += 1;
+				}
+			}
+#endif
+			break;
+		case ExternTypeInfo::TYPE_VOID:
+			return;
+		case ExternTypeInfo::TYPE_INT:
+			dcArgInt(dcCallVM, *(int*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			dcArgFloat(dcCallVM, *(float*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_LONG:
+			dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+			stackStart += 2;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
+			stackStart += 2;
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			dcArgShort(dcCallVM, *(short*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+			dcArgChar(dcCallVM, *(char*)stackStart);
+			stackStart += 1;
+			break;
+		}
+	}
+
+	dcArgPointer(dcCallVM, (DCpointer)vmLoadPointer(stackStart));
+
+	unsigned *newStackPtr = resultStorage;
+
+	switch(retType)
+	{
+	case ExternFuncInfo::RETURN_VOID:
+		dcCallVoid(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_INT:
+		*newStackPtr = dcCallInt(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_DOUBLE:
+		if(func.returnShift == 1)
+			vmStoreDouble(newStackPtr, dcCallFloat(dcCallVM, fPtr));
+		else
+			vmStoreDouble(newStackPtr, dcCallDouble(dcCallVM, fPtr));
+		break;
+	case ExternFuncInfo::RETURN_LONG:
+		vmStoreLong(newStackPtr, dcCallLongLong(dcCallVM, fPtr));
+		break;
+	case ExternFuncInfo::RETURN_UNKNOWN:
+#if defined(_WIN64)
+		if(func.returnShift == 1)
+		{
+			*newStackPtr = dcCallInt(dcCallVM, fPtr);
+		}
+		else
+		{
+			dcCallVoid(dcCallVM, fPtr);
+
+			// copy return value on top of the stack
+			memcpy(newStackPtr, ret, func.returnShift * 4);
+		}
+#elif !defined(_M_X64)
+		dcCallPointer(dcCallVM, fPtr);
+
+		// copy return value on top of the stack
+		memcpy(newStackPtr, ret, func.returnShift * 4);
+#elif defined(__aarch64__)
+		if(func.returnShift > 4)
+		{
+			DCcomplexbig res = dcCallComplexBig(dcCallVM, fPtr);
+
+			memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+		}
+		else
+		{
+			if(!firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(!firstQwordInteger && secondQwordInteger)
+			{
+				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else
+			{
+				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+		}
+#else
+		if(returnByPointer)
+		{
+			dcCallPointer(dcCallVM, fPtr);
+
+			// copy return value on top of the stack
+			memcpy(newStackPtr, ret, func.returnShift * 4);
+		}
+		else
+		{
+			if(!firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else if(!firstQwordInteger && secondQwordInteger)
+			{
+				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+			else
+			{
+				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+		}
+#endif
+		break;
+	}
+}
+#endif
+
+int VmIntPow(int power, int number)
+{
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+	int result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
+}
+
+long long VmLongPow(long long power, long long number)
+{
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+	long long result = 1;
+	while(power)
+	{
+		if(power & 1)
+		{
+			result *= number;
+			power--;
+		}
+		number *= number;
+		power >>= 1;
+	}
+	return result;
 }

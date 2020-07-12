@@ -121,12 +121,7 @@ assert(36 == arr.sum(<x>{ x.y; }));\r\n\
 assert(9 == arr.average(<x>{ x.y; }));\r\n\
 assert(1 == arr.min_element(<x>{ x.y; }));\r\n\
 assert(20 == arr.max_element(<x>{ x.y; }));\r\n\
-{ // make operators local to this block\r\n\
-	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
-	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
-	assert(1 == arr.min_element().y);\r\n\
-	assert(20 == arr.max_element().y);\r\n\
-}\r\n\
+\r\n\
 assert(2 == arr.count_if(<x>{ x.y > 8; }));\r\n\
 assert(0 == arr.count_if(<x>{ x.y > 100; }));\r\n\
 \r\n\
@@ -143,6 +138,27 @@ assert(arr[0].y == 1 && arr[1].y == 5 && arr[2].y == 10 && arr[3].y == 20);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.vector test (aggregation functions)", testSglVector7, "1");
+
+const char *testSglVector7b =
+"import std.math;\r\n\
+import std.vector;\r\n\
+import std.algorithm;\r\n\
+\r\n\
+auto arr = new vector<float3>;\r\n\
+arr.push_back(float3(0, 1, 0));\r\n\
+arr.push_back(float3(0, 5, 0));\r\n\
+arr.push_back(float3(0, 10, 0));\r\n\
+arr.push_back(float3(0, 20, 0));\r\n\
+\r\n\
+{ // make operators local to this block\r\n\
+	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
+	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
+	assert(1 == arr.min_element().y);\r\n\
+	assert(20 == arr.max_element().y);\r\n\
+}\r\n\
+\r\n\
+return 1;";
+TEST_RESULT_SIMPLE("sgl.vector test (aggregation functions) 2", testSglVector7b, "1");
 
 const char *testSglVector8 =
 "import std.vector;\r\n\
@@ -173,12 +189,7 @@ assert(5 == arr.sum(<x>{ x.y; }));\r\n\
 assert(5 == arr.average(<x>{ x.y; }));\r\n\
 assert(5 == arr.min_element(<x>{ x.y; }));\r\n\
 assert(5 == arr.max_element(<x>{ x.y; }));\r\n\
-{ // make operators local to this block\r\n\
-	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
-	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
-	assert(5 == arr.min_element().y);\r\n\
-	assert(5 == arr.max_element().y);\r\n\
-}\r\n\
+\r\n\
 assert(0 == arr.count_if(<x>{ x.y > 8; }));\r\n\
 assert(1 == arr.count_if(<x>{ x.y > 4; }));\r\n\
 \r\n\
@@ -195,6 +206,24 @@ assert(arr[0].y == 5);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.vector test (aggregation functions) one element", testSglVector9, "1");
+
+const char *testSglVector9b =
+"import std.math;\r\n\
+import std.vector;\r\n\
+import std.algorithm;\r\n\
+\r\n\
+auto arr = new vector<float3>;\r\n\
+arr.push_back(float3(0, 5, 0));\r\n\
+\r\n\
+{ // make operators local to this block\r\n\
+	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
+	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
+	assert(5 == arr.min_element().y);\r\n\
+	assert(5 == arr.max_element().y);\r\n\
+}\r\n\
+\r\n\
+return 1;";
+TEST_RESULT_SIMPLE("sgl.vector test (aggregation functions) one element 2", testSglVector9b, "1");
 
 const char *testSglVector10 =
 "import std.vector;\r\n\

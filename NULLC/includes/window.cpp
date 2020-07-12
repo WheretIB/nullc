@@ -1,11 +1,13 @@
 #include "window.h"
+
 #include "../../NULLC/nullc.h"
-#if !defined(_MSC_VER)
-	#error "Only for Windows"
-#else
+#include "../../NULLC/nullbind.h"
+
+#include "canvas.h"
+
+#if defined(_MSC_VER)
 
 #include <Windows.h>
-#include "canvas.h"
 
 namespace NULLCWindow
 {
@@ -37,12 +39,12 @@ namespace NULLCWindow
 	void WindowSetPosition(int x, int y, Window* wnd)
 	{
 		(void)x; (void)y; (void)wnd;
-		nullcThrowError("Unimplemented");
+		nullcThrowError("Not implemented");
 	}
 	void WindowSetSize(int width, int height, Window* wnd)
 	{
 		(void)width; (void)height; (void)wnd;
-		nullcThrowError("Unimplemented");
+		nullcThrowError("Not implemented");
 	}
 
 	void WindowDrawCanvas(NULLCCanvas::Canvas* c, int x, int y, Window* wnd)
@@ -132,12 +134,212 @@ namespace NULLCWindow
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("win.window", (void(*)())NULLCWindow::funcPtr, name, index)) return false;
+#elif defined(EMSCRIPTEN)
+
+#include <SDL/SDL.h>
+
+namespace NULLCWindow
+{
+#pragma pack(push, 4)
+	struct Window
+	{
+		NULLCArray title;
+
+		int x, y;
+		int width, height;
+
+		SDL_Surface *screen;
+	};
+#pragma pack(pop)
+
+	bool initialized = false;
+	bool active = false;
+
+	void WindowCreate(Window* wnd, NULLCArray title, int x, int y, int width, int height)
+	{
+		if(active)
+		{
+			nullcThrowError("Only one active window in Emscripten");
+			return;
+		}
+
+		if(!initialized)
+		{
+			SDL_Init(SDL_INIT_VIDEO);
+
+			initialized = true;
+		}
+
+		wnd->x = x;
+		wnd->y = y;
+
+		wnd->width = width;
+		wnd->height = height;
+
+		wnd->screen = SDL_SetVideoMode(width, height, 32, SDL_SWSURFACE);
+
+		active = true;
+	}
+
+	void WindowSetTitle(NULLCArray title, Window* wnd)
+	{
+		(void)title;
+		(void)wnd;
+	}
+
+	void WindowSetPosition(int x, int y, Window* wnd)
+	{
+		(void)x;
+		(void)y;
+		(void)wnd;
+	}
+
+	void WindowSetSize(int width, int height, Window* wnd)
+	{
+		if(!wnd->screen)
+		{
+			nullcThrowError("Invalid window");
+			return;
+		}
+
+		wnd->screen = SDL_SetVideoMode(width, height, 32, SDL_SWSURFACE);
+	}
+
+	void WindowDrawCanvas(NULLCCanvas::Canvas* c, int x, int y, Window* wnd)
+	{
+		if(!wnd->screen)
+		{
+			nullcThrowError("Invalid window");
+			return;
+		}
+
+		NULLCCanvas::CanvasCommit(c);
+
+		if(SDL_Surface *src = SDL_CreateRGBSurfaceFrom(c->dataI.ptr, c->width, c->height, 32, c->width * 4, 0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000))
+		{
+			SDL_Rect dstRect = { x, y, c->width, c->height };
+
+			SDL_BlitSurface(src, NULL, wnd->screen, &dstRect);
+
+			SDL_FreeSurface(src);
+		}
+	}
+
+	void WindowUpdate(Window* wnd)
+	{
+		if(!wnd->screen)
+		{
+			nullcThrowError("Invalid window");
+			return;
+		}
+
+		SDL_Flip(wnd->screen);
+
+		SDL_PumpEvents();
+	}
+
+	void WindowClose(Window* wnd)
+	{
+		(void)wnd;
+
+		if(!active)
+		{
+			nullcThrowError("No window is active");
+			return;
+		}
+
+		active = false;
+	}
+}
+
+#else
+
+namespace NULLCWindow
+{
+#pragma pack(push, 4)
+	struct Window
+	{
+		NULLCArray title;
+
+		int x, y;
+		int width, height;
+
+		void *handle;
+	};
+#pragma pack(pop)
+
+	void WindowCreate(Window* wnd, NULLCArray title, int x, int y, int width, int height)
+	{
+		wnd->x = x;
+		wnd->y = y;
+
+		wnd->width = width;
+		wnd->height = height;
+
+		wnd->handle = NULL;
+	}
+
+	void WindowSetTitle(NULLCArray title, Window* wnd)
+	{
+		(void)title;
+		(void)wnd;
+
+		nullcThrowError("Not implemented");
+	}
+
+	void WindowSetPosition(int x, int y, Window* wnd)
+	{
+		(void)x;
+		(void)y;
+		(void)wnd;
+
+		nullcThrowError("Not implemented");
+	}
+
+	void WindowSetSize(int width, int height, Window* wnd)
+	{
+		(void)width;
+		(void)height;
+		(void)wnd;
+
+		nullcThrowError("Not implemented");
+	}
+
+	void WindowDrawCanvas(NULLCCanvas::Canvas* c, int x, int y, Window* wnd)
+	{
+		(void)c;
+		(void)x;
+		(void)y;
+		(void)wnd;
+
+		nullcThrowError("Not implemented");
+	}
+
+	void WindowUpdate(Window* wnd)
+	{
+		(void)wnd;
+
+		nullcThrowError("Not implemented");
+	}
+
+	void WindowClose(Window* wnd)
+	{
+		(void)wnd;
+
+		nullcThrowError("Not implemented");
+	}
+}
+
+#endif
+
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("win.window", NULLCWindow::funcPtr, name, index)) return false;
 bool	nullcInitWindowModule()
 {
+#if defined(_MSC_VER)
 	NULLCWindow::RegisterClass("NCWND", NULL);
+#endif
 
-	if(!nullcBindModuleFunction("win.window_ex", (void(*)())NULLCWindow::WindowCreate, "Window", 0)) return false;
+	if(!nullcBindModuleFunctionHelper("win.window_ex", NULLCWindow::WindowCreate, "Window", 0)) return false;
 
 	REGISTER_FUNC(WindowSetTitle, "Window::SetTitle", 0);
 	REGISTER_FUNC(WindowSetPosition, "Window::SetPosition", 0);
@@ -151,5 +353,3 @@ bool	nullcInitWindowModule()
 
 	return true;
 }
-#endif
-

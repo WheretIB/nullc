@@ -7,6 +7,7 @@
 #include "BinaryCache.h"
 #include "Bytecode.h"
 #include "Lexer.h"
+#include "Trace.h"
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize);
 
@@ -314,9 +315,11 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), optimizationLevel(optimizationLevel), activeImports(allocator), errorInfo(allocator), allocator(allocator)
+ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), optimizationLevel(optimizationLevel), activeImports(allocator), errorInfo(allocator), nonTypeLocations(allocator), nonFunctionDefinitionLocations(allocator), allocator(allocator)
 {
 	code = NULL;
+
+	moduleRoot = NULL;
 
 	bytecodeBuilder = NULL;
 
@@ -661,6 +664,9 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 {
 	Lexeme *start = ctx.currentLexeme;
 
+	if(ctx.nonTypeLocations.find(unsigned(start - ctx.firstLexeme) + 1))
+		return NULL;
+
 	bool shrBorrowTerminal = shrBorrow ? *shrBorrow : false;
 
 	SynBase *base = ParseTerminalType(ctx, shrBorrowTerminal);
@@ -674,6 +680,7 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
+			ctx.nonTypeLocations.insert(unsigned(start - ctx.firstLexeme) + 1, true);
 
 			return NULL;
 		}
@@ -702,6 +709,7 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 
 					// Backtrack
 					ctx.currentLexeme = start;
+					ctx.nonTypeLocations.insert(unsigned(start - ctx.firstLexeme) + 1, true);
 
 					return NULL;
 				}
@@ -1604,6 +1612,11 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		}
 
 		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
+
+		TRACE_SCOPE("parse", "ParseClassBody");
+
+		if(nameIdentifier)
+			TRACE_LABEL2(nameIdentifier->name.begin, nameIdentifier->name.end);
 
 		SynClassElements *elements = ParseClassElements(ctx);
 
@@ -2660,6 +2673,9 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 {
 	Lexeme *start = ctx.currentLexeme;
 
+	if(ctx.nonFunctionDefinitionLocations.find(unsigned(start - ctx.firstLexeme) + 1))
+		return NULL;
+
 	bool coroutine = ctx.Consume(lex_coroutine);
 
 	if(SynBase *returnType = ParseType(ctx))
@@ -2764,6 +2780,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
+			ctx.nonFunctionDefinitionLocations.insert(unsigned(start - ctx.firstLexeme) + 1, true);
 
 			return NULL;
 		}
@@ -2781,6 +2798,11 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 			return new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(start, ctx.Previous(), true, coroutine, parentType, accessor, returnType, isOperator, nameIdentifier, aliases, arguments, expressions);
 
 		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
+
+		TRACE_SCOPE("parse", "ParseFunctionBody");
+
+		if(nameIdentifier)
+			TRACE_LABEL2(nameIdentifier->name.begin, nameIdentifier->name.end);
 
 		expressions = ParseExpressions(ctx);
 
@@ -2942,11 +2964,29 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
-const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream)
 {
-	InplaceStr moduleName = GetModuleName(ctx.allocator, parts);
+	InplaceStr moduleName = GetModuleName(ctx.allocator, ctx.moduleRoot, parts);
+
+	TRACE_SCOPE("parser", "GetBytecodeFromPath");
+	TRACE_LABEL2(moduleName.begin, moduleName.end);
 
 	const char *bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
+
+	if(!bytecode)
+	{
+		moduleName = GetModuleName(ctx.allocator, NULL, parts);
+
+		bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
+	}
+
+	for(unsigned i = 0; i < ctx.activeImports.size(); i++)
+	{
+		if(ctx.activeImports[i] == moduleName)
+			Stop(ctx, start, "ERROR: found cyclic dependency on module '%.*s'", moduleName.length(), moduleName.begin);
+	}
+
+	ctx.activeImports.push_back(moduleName);
 
 	lexCount = 0;
 	lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexCount);
@@ -2965,7 +3005,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 		const char *messageStart = ctx.errorBufLocation;
 
 		const char *pos = NULL;
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), optimizationLevel, activeImports);
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports);
 
 		if(!bytecode)
 		{
@@ -2991,6 +3031,8 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 
 void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode)
 {
+	TRACE_SCOPE("parser", "ImportModuleNamespaces");
+
 	char *symbols = FindSymbols(bCode);
 
 	// Import namespaces
@@ -3027,6 +3069,8 @@ void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode)
 
 SynModuleImport* ParseImport(ParseContext &ctx)
 {
+	TRACE_SCOPE("parser", "ParseImport");
+
 	Lexeme *start = ctx.currentLexeme;
 
 	if(ctx.Consume(lex_import))
@@ -3050,20 +3094,10 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
 
-		InplaceStr moduleName = GetModuleName(ctx.allocator, path);
-
-		for(unsigned i = 0; i < ctx.activeImports.size(); i++)
-		{
-			if(ctx.activeImports[i] == moduleName)
-				Stop(ctx, start, "ERROR: found cyclic dependency on module '%.*s'", moduleName.length(), moduleName.begin);
-		}
-
-		ctx.activeImports.push_back(moduleName);
-
 		unsigned lexCount = 0;
 		Lexeme *lexStream = NULL;
 
-		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream, ctx.optimizationLevel, ctx.activeImports))
+		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream))
 		{
 			ImportModuleNamespaces(ctx, start, (ByteCode*)binary);
 
@@ -3078,6 +3112,8 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 {
+	TRACE_SCOPE("parser", "ParseImports");
+
 	IntrusiveList<SynModuleImport> imports;
 
 	while(ctx.At(lex_import))
@@ -3091,14 +3127,23 @@ IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 
 SynModule* ParseModule(ParseContext &ctx)
 {
+	TRACE_SCOPE("parser", "ParseModule");
+
 	Lexeme *start = ctx.currentLexeme;
 
 	IntrusiveList<SynModuleImport> imports = ParseImports(ctx);
 
 	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
-	if(!ctx.Consume(lex_none))
+	while(!ctx.Consume(lex_none))
+	{
 		Report(ctx, ctx.Current(), "ERROR: unexpected symbol");
+
+		ctx.Skip();
+
+		while(SynBase* expression = ParseExpression(ctx))
+			expressions.push_back(expression);
+	}
 
 	if(expressions.empty())
 	{
@@ -3110,11 +3155,17 @@ SynModule* ParseModule(ParseContext &ctx)
 	return new (ctx.get<SynModule>()) SynModule(start, ctx.Previous(), imports, expressions);
 }
 
-SynModule* Parse(ParseContext &ctx, const char *code)
+SynModule* Parse(ParseContext &ctx, const char *code, const char *moduleRoot)
 {
+	TRACE_SCOPE("parser", "Parse");
+
 	ctx.code = code;
 
+	ctx.moduleRoot = moduleRoot;
+
 	ctx.lexer.Lexify(code);
+
+	unsigned traceDepth = NULLC::TraceGetDepth();
 
 	if(!setjmp(ctx.errorHandler))
 	{
@@ -3132,12 +3183,18 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 
 		ctx.code = NULL;
 
+		ctx.moduleRoot = NULL;
+
 		return module;
 	}
+
+	NULLC::TraceLeaveTo(traceDepth);
 
 	assert(ctx.errorPos);
 
 	ctx.code = NULL;
+
+	ctx.moduleRoot = NULL;
 
 	return NULL;
 }
@@ -3730,9 +3787,12 @@ const char* GetOpName(SynModifyAssignType type)
 	return "";
 }
 
-InplaceStr GetModuleName(Allocator *allocator, IntrusiveList<SynIdentifier> parts)
+InplaceStr GetModuleName(Allocator *allocator, const char *moduleRoot, IntrusiveList<SynIdentifier> parts)
 {
 	unsigned pathLength = unsigned(parts.size() - 1 + strlen(".nc"));
+
+	if(moduleRoot)
+		pathLength += unsigned(strlen(moduleRoot)) + 1;
 
 	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
 		pathLength += part->name.length();
@@ -3740,6 +3800,14 @@ InplaceStr GetModuleName(Allocator *allocator, IntrusiveList<SynIdentifier> part
 	char *path = (char*)allocator->alloc(pathLength + 1);
 
 	char *pos = path;
+
+	if(moduleRoot)
+	{
+		strcpy(pos, moduleRoot);
+		pos += strlen(moduleRoot);
+
+		*pos++ = '/';
+	}
 
 	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
 	{

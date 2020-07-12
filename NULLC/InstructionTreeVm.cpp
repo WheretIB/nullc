@@ -12,6 +12,8 @@
 	#define VM_INST_STORE_POINTER VM_INST_STORE_INT
 #endif
 
+static const unsigned spillTypeSize = 64;
+
 namespace
 {
 	VmValue* CheckType(ExpressionContext &ctx, ExprBase* expr, VmValue *value)
@@ -67,6 +69,7 @@ namespace
 		case VM_INST_STORE_LONG:
 		case VM_INST_STORE_STRUCT:
 		case VM_INST_SET_RANGE:
+		case VM_INST_MEM_COPY:
 		case VM_INST_JUMP:
 		case VM_INST_JUMP_Z:
 		case VM_INST_JUMP_NZ:
@@ -103,11 +106,31 @@ namespace
 		case VM_INST_STORE_LONG:
 		case VM_INST_STORE_STRUCT:
 		case VM_INST_SET_RANGE:
+		case VM_INST_MEM_COPY:
 		case VM_INST_CALL:
+		case VM_INST_ADD_LOAD:
+		case VM_INST_SUB_LOAD:
+		case VM_INST_MUL_LOAD:
+		case VM_INST_DIV_LOAD:
+		case VM_INST_POW_LOAD:
+		case VM_INST_MOD_LOAD:
+		case VM_INST_LESS_LOAD:
+		case VM_INST_GREATER_LOAD:
+		case VM_INST_LESS_EQUAL_LOAD:
+		case VM_INST_GREATER_EQUAL_LOAD:
+		case VM_INST_EQUAL_LOAD:
+		case VM_INST_NOT_EQUAL_LOAD:
+		case VM_INST_SHL_LOAD:
+		case VM_INST_SHR_LOAD:
+		case VM_INST_BIT_AND_LOAD:
+		case VM_INST_BIT_OR_LOAD:
+		case VM_INST_BIT_XOR_LOAD:
 			return true;
 		default:
 			break;
 		}
+
+		// Note: memory access can be performed by reference in VM_INST_RETURN instruction
 
 		return false;
 	}
@@ -128,10 +151,99 @@ namespace
 			break;
 		}
 
+		// Note: memory read can be performed by references in VM_INST_RETURN and VM_INST_CALL instructions
+		// Note: memory read can be performed from source argument of VM_INST_MEM_COPY instruction
+
 		return false;
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
+	bool IsOperationNaturalLoad(VmType type, VmInstruction *load, bool allowFloat)
+	{
+		if(type.type == VM_TYPE_INT)
+			return load->cmd == VM_INST_LOAD_INT;
+
+		if(type.type == VM_TYPE_DOUBLE)
+			return (allowFloat && load->cmd == VM_INST_LOAD_FLOAT) || load->cmd == VM_INST_LOAD_DOUBLE;
+
+		if(type.type == VM_TYPE_LONG)
+			return load->cmd == VM_INST_LOAD_LONG;
+
+		if(type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4)
+			return load->cmd == VM_INST_LOAD_INT;
+
+		if(type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8)
+			return load->cmd == VM_INST_LOAD_LONG;
+
+		return false;
+	}
+
+	VmInstructionType GetOperationWithLoad(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_ADD:
+			return VM_INST_ADD_LOAD;
+		case VM_INST_SUB:
+			return VM_INST_SUB_LOAD;
+		case VM_INST_MUL:
+			return VM_INST_MUL_LOAD;
+		case VM_INST_DIV:
+			return VM_INST_DIV_LOAD;
+		case VM_INST_POW:
+			return VM_INST_POW_LOAD;
+		case VM_INST_MOD:
+			return VM_INST_MOD_LOAD;
+		case VM_INST_LESS:
+			return VM_INST_LESS_LOAD;
+		case VM_INST_GREATER:
+			return VM_INST_GREATER_LOAD;
+		case VM_INST_LESS_EQUAL:
+			return VM_INST_LESS_EQUAL_LOAD;
+		case VM_INST_GREATER_EQUAL:
+			return VM_INST_GREATER_EQUAL_LOAD;
+		case VM_INST_EQUAL:
+			return VM_INST_EQUAL_LOAD;
+		case VM_INST_NOT_EQUAL:
+			return VM_INST_NOT_EQUAL_LOAD;
+		case VM_INST_SHL:
+			return VM_INST_SHL_LOAD;
+		case VM_INST_SHR:
+			return VM_INST_SHR_LOAD;
+		case VM_INST_BIT_AND:
+			return VM_INST_BIT_AND_LOAD;
+		case VM_INST_BIT_OR:
+			return VM_INST_BIT_OR_LOAD;
+		case VM_INST_BIT_XOR:
+			return VM_INST_BIT_XOR_LOAD;
+		default:
+			break;
+		}
+
+		assert(!"unknown operation");
+		return VM_INST_ABORT_NO_RETURN;
+	}
+
+	VmInstructionType GetMirroredComparisonOperationWithLoad(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_LESS:
+			return VM_INST_GREATER_LOAD;
+		case VM_INST_GREATER:
+			return VM_INST_LESS_LOAD;
+		case VM_INST_LESS_EQUAL:
+			return VM_INST_GREATER_EQUAL_LOAD;
+		case VM_INST_GREATER_EQUAL:
+			return VM_INST_LESS_EQUAL_LOAD;
+		default:
+			break;
+		}
+
+		assert(!"unknown operation");
+		return VM_INST_ABORT_NO_RETURN;
+	}
+
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, VmValue *fifth)
 	{
 		assert(module->currentBlock);
 
@@ -158,6 +270,12 @@ namespace
 			inst->AddArgument(fourth);
 		}
 
+		if(fifth)
+		{
+			assert(fourth);
+			inst->AddArgument(fifth);
+		}
+
 		inst->hasSideEffects = HasSideEffects(inst->cmd);
 		inst->hasMemoryAccess = HasMemoryAccess(inst->cmd);
 
@@ -168,22 +286,27 @@ namespace
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd)
 	{
-		return CreateInstruction(module, source, type, cmd, NULL, NULL, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, NULL, NULL, NULL, NULL, NULL);
 	}
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first)
 	{
-		return CreateInstruction(module, source, type, cmd, first, NULL, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, first, NULL, NULL, NULL, NULL);
 	}
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second)
 	{
-		return CreateInstruction(module, source, type, cmd, first, second, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, first, second, NULL, NULL, NULL);
 	}
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third)
 	{
-		return CreateInstruction(module, source, type, cmd, first, second, third, NULL);
+		return CreateInstruction(module, source, type, cmd, first, second, third, NULL, NULL);
+	}
+
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
+	{
+		return CreateInstruction(module, source, type, cmd, first, second, third, fourth, NULL);
 	}
 
 	VmInstructionType GetLoadInstruction(ExpressionContext &ctx, TypeBase *type)
@@ -313,24 +436,6 @@ namespace
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
 
 		return VmType::Struct(type->size, type);
-	}
-
-	VmValue* CreateLoad(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, unsigned offset)
-	{
-		if(type->size == 0)
-			return CreateConstantStruct(ctx.allocator, source, NULL, 0, type);
-
-		return CreateInstruction(module, source, GetLoadResultType(ctx, type), GetLoadInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset));
-	}
-
-	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, VmValue *value)
-	{
-		assert(value->type == GetVmType(ctx, type));
-
-		if(type->size == 0)
-			return CreateVoid(module);
-
-		return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, 0), value);
 	}
 
 	VmValue* CreateCast(VmModule *module, SynBase *source, VmValue *value, VmType target)
@@ -535,14 +640,6 @@ namespace
 		return CreateInstruction(module, source, lhs->type, VM_INST_BIT_XOR, lhs, rhs);
 	}
 
-	VmValue* CreateLogicalXor(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
-	{
-		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
-		assert(lhs->type == rhs->type);
-
-		return CreateInstruction(module, source, VmType::Int, VM_INST_LOG_XOR, lhs, rhs);
-	}
-
 	VmValue* CreateNeg(VmModule *module, SynBase *source, VmValue *value)
 	{
 		assert(value->type == VmType::Int || value->type == VmType::Double || value->type == VmType::Long);
@@ -642,6 +739,11 @@ namespace
 		return CreateInstruction(module, source, VmType::Void, VM_INST_SET_RANGE, address, CreateConstantInt(module->allocator, source, count), value, CreateConstantInt(module->allocator, source, elementSize));
 	}
 
+	VmValue* CreateMemCopy(VmModule *module, SynBase *source, VmValue *dst, unsigned dstOffset, VmValue *src, unsigned srcOffset, int size)
+	{
+		return CreateInstruction(module, source, VmType::Void, VM_INST_MEM_COPY, dst, CreateConstantInt(module->allocator, source, dstOffset), src, CreateConstantInt(module->allocator, source, srcOffset), CreateConstantInt(module->allocator, source, size));
+	}
+
 	VmValue* CreateConvertPtr(VmModule *module, SynBase *source, VmValue *ptr, TypeBase *type, TypeBase *structType)
 	{
 		return CreateInstruction(module, source, VmType::Pointer(structType), VM_INST_CONVERT_POINTER, ptr, CreateConstantInt(module->allocator, source, type->typeIndex));
@@ -691,14 +793,18 @@ namespace
 		return CreateInstruction(module, source, type, VM_INST_BITCAST, value, NULL, NULL, NULL);
 	}
 
+	VmInstruction* CreateMov(VmModule *module, SynBase *source, VmType type, VmValue *value)
+	{
+		return CreateInstruction(module, source, type, VM_INST_MOV, value, NULL, NULL, NULL);
+	}
+
 	VmConstant* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
 	{
 		ScopeData *scope = module->currentFunction->function ? module->currentFunction->function->functionScope : ctx.globalScope;
 
-		char *name = (char*)ctx.allocator->alloc(16);
-		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
+		InplaceStr name = GetTemporaryName(ctx, ctx.unnamedVariableCount++, suffix);
 
-		SynIdentifier *nameIdentifier = new (module->get<SynIdentifier>()) SynIdentifier(InplaceStr(name));
+		SynIdentifier *nameIdentifier = new (module->get<SynIdentifier>()) SynIdentifier(name);
 
 		VariableData *variable = new (module->get<VariableData>()) VariableData(ctx.allocator, NULL, scope, type->alignment, type, nameIdentifier, 0, ctx.uniqueVariableId++);
 
@@ -710,6 +816,68 @@ namespace
 		module->currentFunction->allocas.push_back(variable);
 
 		return value;
+	}
+
+	VmValue* CreateLoad(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, unsigned offset)
+	{
+		if(type->size == 0)
+			return CreateConstantStruct(ctx.allocator, source, NULL, 0, type);
+
+		if(type->size > spillTypeSize)
+		{
+			VmConstant *spill = CreateAlloca(ctx, module, source, type, "spill");
+
+			CreateMemCopy(module, source, spill, 0, address, offset, (int)type->size);
+
+			VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, type), source);
+
+			reference->iValue = spill->iValue;
+			reference->container = spill->container;
+			reference->isReference = true;
+
+			reference->container->users.push_back(reference);
+
+			return reference;
+		}
+
+		return CreateInstruction(module, source, GetLoadResultType(ctx, type), GetLoadInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset));
+	}
+
+	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, VmValue *value, unsigned offset)
+	{
+		assert(value->type == GetVmType(ctx, type));
+
+		if(type->size == 0)
+			return CreateVoid(module);
+
+		if(VmConstant *constantAddress = getType<VmConstant>(address))
+		{
+			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, type, true);
+
+			if(VmConstant *constant = getType<VmConstant>(value))
+			{
+				if(constant->isReference)
+				{
+					VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+
+					return CreateMemCopy(module, source, shiftAddress, 0, pointer, 0, int(type->size));
+				}
+			}
+
+			return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), shiftAddress, CreateConstantInt(ctx.allocator, source, 0), value);
+		}
+
+		if(VmConstant *constant = getType<VmConstant>(value))
+		{
+			if(constant->isReference)
+			{
+				VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+
+				return CreateMemCopy(module, source, address, offset, pointer, 0, int(type->size));
+			}
+		}
+
+		return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset), value);
 	}
 
 	ScopeData* AllocateScopeSlot(ExpressionContext &ctx, VmModule *module, TypeBase *type, unsigned &offset)
@@ -745,7 +913,7 @@ namespace
 		return scope;
 	}
 
-	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
+	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, VmValue *fifth, unsigned *optCount)
 	{
 		inst->cmd = cmd;
 
@@ -774,6 +942,12 @@ namespace
 		{
 			assert(third);
 			inst->AddArgument(fourth);
+		}
+
+		if(fifth)
+		{
+			assert(fourth);
+			inst->AddArgument(fifth);
 		}
 
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -872,7 +1046,32 @@ namespace
 					{
 						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
 
-						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments.size() == 3 ? inst->arguments[2] : NULL, NULL, NULL);
+						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments.size() == 3 ? inst->arguments[2] : NULL, NULL, NULL, NULL);
+					}
+				}
+				break;
+			case VM_INST_MEM_COPY:
+				if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
+				{
+					VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+					if(address->container && offset->iValue != 0)
+					{
+						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
+
+						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments[2], inst->arguments[3], inst->arguments[4], NULL);
+					}
+				}
+
+				if(VmConstant *address = getType<VmConstant>(inst->arguments[2]))
+				{
+					VmConstant *offset = getType<VmConstant>(inst->arguments[3]);
+
+					if(address->container && offset->iValue != 0)
+					{
+						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
+
+						ChangeInstructionTo(module, inst, inst->cmd, inst->arguments[0], inst->arguments[1], target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments[4], NULL);
 					}
 				}
 				break;
@@ -913,29 +1112,148 @@ namespace
 		module->tempUsers.clear();
 	}
 
+	bool IsBuiltInStructLoadStore(VmInstruction *instruction)
+	{
+		if(instruction->cmd == VM_INST_LOAD_STRUCT)
+		{
+			if(instruction->type.type == VM_TYPE_ARRAY_REF || instruction->type.type == VM_TYPE_AUTO_ARRAY || instruction->type.type == VM_TYPE_AUTO_REF || instruction->type.type == VM_TYPE_FUNCTION_REF)
+				return true;
+		}
+
+		if(instruction->cmd == VM_INST_STORE_STRUCT)
+		{
+			VmValue *value = instruction->arguments[2];
+
+			if(value->type.type == VM_TYPE_ARRAY_REF || value->type.type == VM_TYPE_AUTO_ARRAY || value->type.type == VM_TYPE_AUTO_REF || value->type.type == VM_TYPE_FUNCTION_REF)
+				return true;
+		}
+
+		return false;
+	}
+
+	bool IsLoadAliasedWithStore(VmInstruction *loadInst, VmInstruction *storeInst)
+	{
+		VmValue *loadAddress = loadInst->arguments[0];
+		VmConstant *loadOffset = getType<VmConstant>(loadInst->arguments[1]);
+
+		VmValue *storeAddress = storeInst->arguments[0];
+		VmConstant *storeOffset = getType<VmConstant>(storeInst->arguments[1]);
+
+		if(loadInst->cmd == VM_INST_LOAD_BYTE && storeInst->cmd == VM_INST_STORE_BYTE)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
+			return true;
+		}
+
+		if(loadInst->cmd == VM_INST_LOAD_SHORT && storeInst->cmd == VM_INST_STORE_SHORT)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
+			return true;
+		}
+
+		if(loadInst->cmd == VM_INST_LOAD_INT && storeInst->cmd == VM_INST_STORE_INT)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
+			return true;
+		}
+
+		if(loadInst->cmd == VM_INST_LOAD_LONG && storeInst->cmd == VM_INST_STORE_LONG)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
+			return true;
+		}
+
+		if(loadInst->cmd == VM_INST_LOAD_FLOAT && storeInst->cmd == VM_INST_STORE_FLOAT)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
+			return true;
+		}
+
+		if(loadInst->cmd == VM_INST_LOAD_DOUBLE && storeInst->cmd == VM_INST_STORE_DOUBLE)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
+			return true;
+		}
+
+		if(IsBuiltInStructLoadStore(loadInst) && IsBuiltInStructLoadStore(storeInst))
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
 	void ClearLoadStoreInfo(VmModule *module)
 	{
 		module->loadStoreInfo.clear();
 	}
 
-	void ClearLoadStoreInfoAliasing(VmModule *module)
+	void ClearLoadStoreInfoAliasing(VmModule *module, VmInstruction *storeInst)
 	{
 		for(unsigned i = 0; i < module->loadStoreInfo.size();)
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-			if(el.address && el.address->container && !HasAddressTaken(el.address->container))
+			if(el.noLoadOrNoContainerAlias && el.noStoreOrNoContainerAlias)
 			{
-				VariableData *container = el.address->container;
+				bool hasStore = el.storeAddress || el.storePointer;
 
 				// Check if there is only a dead store user for this simple-use variable
-				if(container->users.count == 1 && container->users[0]->users.count == 1 && container->users[0]->users[0] == el.storeInst)
+				if(hasStore && el.storeAddress)
 				{
-					module->loadStoreInfo[i] = module->loadStoreInfo.back();
-					module->loadStoreInfo.pop_back();
-					continue;
+					VariableData *container = el.storeAddress->container;
+
+					if(container->users.count == 1 && container->users[0]->users.count == 1 && container->users[0]->users[0] == el.storeInst)
+					{
+						module->loadStoreInfo[i] = module->loadStoreInfo.back();
+						module->loadStoreInfo.pop_back();
+						continue;
+					}
 				}
 
+				i++;
+				continue;
+			}
+
+			// If a potentially aliasing store is made, check strict aliasing to the load instruction
+			if(storeInst && el.loadInst && !IsLoadAliasedWithStore(el.loadInst, storeInst))
+			{
 				i++;
 				continue;
 			}
@@ -951,7 +1269,10 @@ namespace
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-			if(el.address && el.address->container && IsGlobalScope(el.address->container->scope))
+			bool hasLoadFromGlobal = el.loadAddress && el.loadAddress->container && IsGlobalScope(el.loadAddress->container->scope);
+			bool hasStoreToGlobal = el.storeAddress && el.storeAddress->container && IsGlobalScope(el.storeAddress->container->scope);
+
+			if(hasLoadFromGlobal || hasStoreToGlobal)
 			{
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
 				module->loadStoreInfo.pop_back();
@@ -972,28 +1293,50 @@ namespace
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-			// Any opaque pointer might be clobbered
-			if(el.pointer)
+			// Check load region intersection
+			if(el.loadAddress)
 			{
+				unsigned otherOffset = unsigned(el.loadAddress->iValue);
+				unsigned otherSize = el.accessSize;
+
+				assert(otherSize != 0);
+
+				// (a+aw >= b) && (a <= b+bw)
+				if(container == el.loadAddress->container && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
+				{
+					module->loadStoreInfo[i] = module->loadStoreInfo.back();
+					module->loadStoreInfo.pop_back();
+					continue;
+				}
+			}
+
+			// Check store region intersection
+			if(el.storeAddress)
+			{
+				unsigned otherOffset = unsigned(el.storeAddress->iValue);
+				unsigned otherSize = el.accessSize;
+
+				assert(otherSize != 0);
+
+				// (a+aw >= b) && (a <= b+bw)
+				if(container == el.storeAddress->container && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
+				{
+					module->loadStoreInfo[i] = module->loadStoreInfo.back();
+					module->loadStoreInfo.pop_back();
+					continue;
+				}
+			}
+
+			// Any opaque pointer might be clobbered
+			if(el.loadPointer || el.storePointer)
+			{
+				// Unless it's impossible to have an opaque pointer to this container
 				if(!HasAddressTaken(container))
 				{
 					i++;
 					continue;
 				}
 
-				module->loadStoreInfo[i] = module->loadStoreInfo.back();
-				module->loadStoreInfo.pop_back();
-				continue;
-			}
-
-			unsigned otherOffset = unsigned(el.address->iValue);
-			unsigned otherSize = GetAccessSize(el.loadInst ? el.loadInst : el.storeInst);
-
-			assert(otherSize != 0);
-
-			// (a+aw >= b) && (a <= b+bw)
-			if(container == el.address->container && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
-			{
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
 				module->loadStoreInfo.pop_back();
 				continue;
@@ -1009,48 +1352,78 @@ namespace
 
 		info.loadInst = inst;
 
-		VmValue *loadAddress = inst->arguments[0];
+		info.accessSize = GetAccessSize(inst);
+
+		VmValue *loadPointer = inst->arguments[0];
 		VmConstant *loadOffset = getType<VmConstant>(inst->arguments[1]);
 
-		if(VmConstant *address = getType<VmConstant>(loadAddress))
+		if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 		{
 			assert(loadOffset->iValue == 0);
 
-			info.address = address;
+			if(loadAddress->container)
+			{
+				// Do not track load-store into large arrays
+				if(TypeArray *typeArray = getType<TypeArray>(loadAddress->container->type))
+				{
+					if(typeArray->length > 32)
+						return;
+				}
+			}
+
+			info.loadAddress = loadAddress;
 		}
 		else
 		{
-			info.pointer = loadAddress;
-			info.offset = loadOffset;
+			info.loadPointer = loadPointer;
+			info.loadOffset = loadOffset;
 		}
+
+		info.noLoadOrNoContainerAlias = !(info.loadAddress || info.loadPointer) || (info.loadAddress && info.loadAddress->container && !HasAddressTaken(info.loadAddress->container));
+		info.noStoreOrNoContainerAlias = !(info.storeAddress || info.storePointer) || (info.storeAddress && info.storeAddress->container && !HasAddressTaken(info.storeAddress->container));
 
 		module->loadStoreInfo.push_back(info);
 	}
 
 	void AddStoreInfo(VmModule *module, VmInstruction* inst)
 	{
-		VmValue *storeAddress = inst->arguments[0];
+		VmValue *storePointer = inst->arguments[0];
 		VmConstant *storeOffset = getType<VmConstant>(inst->arguments[1]);
 
-		if(VmConstant *address = getType<VmConstant>(storeAddress))
+		if(VmConstant *storeAddress = getType<VmConstant>(storePointer))
 		{
 			assert(storeOffset->iValue == 0);
+
+			if(storeAddress->container)
+			{
+				// Do not track load-store into large arrays
+				if(TypeArray *typeArray = getType<TypeArray>(storeAddress->container->type))
+				{
+					if(typeArray->length > 32)
+						return;
+				}
+			}
 
 			VmModule::LoadStoreInfo info;
 
 			info.storeInst = inst;
 
-			info.address = address;
+			info.accessSize = GetAccessSize(inst);
+
+			info.storeAddress = storeAddress;
 
 			// Remove previous loads and stores to this address range
-			ClearLoadStoreInfo(module, address->container, unsigned(address->iValue), GetAccessSize(inst));
+			ClearLoadStoreInfo(module, storeAddress->container, unsigned(storeAddress->iValue), info.accessSize);
+
+			info.noLoadOrNoContainerAlias = !(info.loadAddress || info.loadPointer) || (info.loadAddress && info.loadAddress->container && !HasAddressTaken(info.loadAddress->container));
+			info.noStoreOrNoContainerAlias = !(info.storeAddress || info.storePointer) || (info.storeAddress && info.storeAddress->container && !HasAddressTaken(info.storeAddress->container));
 
 			module->loadStoreInfo.push_back(info);
 		}
 		else
 		{
 			// Check for index const const, const, ptr instruction, it might be possible to reduce the invalidation range
-			if(VmInstruction *ptrArg = getType<VmInstruction>(storeAddress))
+			if(VmInstruction *ptrArg = getType<VmInstruction>(storePointer))
 			{
 				if(ptrArg->cmd == VM_INST_INDEX)
 				{
@@ -1078,27 +1451,78 @@ namespace
 				}
 			}
 
-			ClearLoadStoreInfoAliasing(module);
+			ClearLoadStoreInfoAliasing(module, inst);
 		}
 	}
 
-	VmValue* TryExtractConstructElement(VmValue* value, unsigned offset, unsigned size)
+	void AddCopyInfo(VmModule *module, VmInstruction* inst)
+	{
+		VmValue *storePointer = inst->arguments[0];
+		VmConstant *storeOffset = getType<VmConstant>(inst->arguments[1]);
+
+		if(VmConstant *storeAddress = getType<VmConstant>(storePointer))
+		{
+			assert(storeOffset->iValue == 0);
+			(void)storeOffset;
+
+			VmModule::LoadStoreInfo info;
+
+			info.copyInst = inst;
+
+			info.accessSize = GetAccessSize(inst);
+
+			info.storeAddress = storeAddress;
+
+			VmValue *loadPointer = inst->arguments[2];
+			VmConstant *loadOffset = getType<VmConstant>(inst->arguments[3]);
+
+			if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
+			{
+				assert(storeOffset->iValue == 0);
+				(void)storeOffset;
+
+				info.loadAddress = loadAddress;
+			}
+			else
+			{
+				info.loadPointer = loadPointer;
+				info.loadOffset = loadOffset;
+			}
+
+			// Remove previous loads and stores to this address range
+			ClearLoadStoreInfo(module, storeAddress->container, unsigned(storeAddress->iValue), info.accessSize);
+
+			info.noLoadOrNoContainerAlias = !(info.loadAddress || info.loadPointer) || (info.loadAddress && info.loadAddress->container && !HasAddressTaken(info.loadAddress->container));
+			info.noStoreOrNoContainerAlias = !(info.storeAddress || info.storePointer) || (info.storeAddress && info.storeAddress->container && !HasAddressTaken(info.storeAddress->container));
+
+			module->loadStoreInfo.push_back(info);
+		}
+		else
+		{
+			ClearLoadStoreInfoAliasing(module, inst);
+		}
+	}
+
+	VmValue* TryExtractConstructElement(VmValue* value, unsigned storeOffset, unsigned loadOffset, unsigned loadSize)
 	{
 		VmInstruction *inst = getType<VmInstruction>(value);
 
 		if(inst && (inst->cmd == VM_INST_CONSTRUCT || inst->cmd == VM_INST_ARRAY))
 		{
+			if(storeOffset != 0)
+				return NULL;
+
 			unsigned pos = 0;
 
 			for(unsigned k = 0; k < inst->arguments.size(); k++)
 			{
 				VmValue *component = inst->arguments[k];
 
-				if(pos == offset && size == component->type.size)
+				if(pos == loadOffset && loadSize == component->type.size)
 					return component;
 
-				if(offset >= pos && offset + size <= pos + component->type.size)
-					return TryExtractConstructElement(component, offset - pos, size);
+				if(loadOffset >= pos && loadOffset + loadSize <= pos + component->type.size)
+					return TryExtractConstructElement(component, 0, loadOffset - pos, loadSize);
 
 				pos += component->type.size;
 			}
@@ -1107,12 +1531,61 @@ namespace
 		return NULL;
 	}
 
+	VmValue* TryExtractConstant(VmModule *module, VmValue* value, unsigned storeOffset, unsigned storeSize, unsigned loadOffset, unsigned loadSize, VmInstructionType loadCmd)
+	{
+		if(VmConstant *constant = getType<VmConstant>(value))
+		{
+			// Do we even intersect
+			if(loadOffset >= storeOffset && loadOffset + loadSize <= storeOffset + storeSize)
+			{
+				assert(constant->sValue);
+
+				if(constant->sValue && loadCmd == VM_INST_LOAD_BYTE)
+				{
+					return CreateConstantInt(module->allocator, NULL, constant->sValue[loadOffset - storeOffset]);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_INT)
+				{
+					int result = 0;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantInt(module->allocator, NULL, result);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_LONG)
+				{
+					long long result = 0ll;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantLong(module->allocator, NULL, result);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_DOUBLE)
+				{
+					double result = 0.0;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantDouble(module->allocator, NULL, result);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_FLOAT)
+				{
+					float result = 0.0f;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantDouble(module->allocator, NULL, result);
+				}
+				else
+				{
+					return NULL;
+				}
+			}
+		}
+
+		return NULL;
+	}
+
 	VmValue* GetLoadStoreInfo(VmModule *module, VmInstruction* inst)
 	{
-		VmValue *loadAddress = inst->arguments[0];
+		VmValue *loadPointer = inst->arguments[0];
 		VmConstant *loadOffset = getType<VmConstant>(inst->arguments[1]);
 
-		if(VmConstant *address = getType<VmConstant>(loadAddress))
+		unsigned accessSize = GetAccessSize(inst);
+
+		if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 		{
 			assert(loadOffset->iValue == 0);
 
@@ -1120,43 +1593,102 @@ namespace
 			{
 				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-				if(el.pointer)
-					continue;
-
 				// Reuse previous load
-				if(el.loadInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.loadInst))
-					return el.loadInst;
-
-				// Reuse store argument
-				if(el.storeInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.storeInst))
+				if(el.loadInst && el.loadAddress)
 				{
-					VmValue *value = el.storeInst->arguments[2];
+					if(*el.loadAddress == *loadAddress && accessSize == el.accessSize)
+					{
+						assert(el.loadInst->parent);
 
-					// Can't reuse arguments of a different size
-					if(value->type.size != inst->type.size)
-						return NULL;
-
-					return value;
+						return el.loadInst;
+					}
 				}
 
-				if(el.storeInst && el.address->container == address->container)
+				// Reuse store argument
+				if(el.storeInst && el.storeAddress)
 				{
-					if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], address->iValue, GetAccessSize(inst)))
-						return component;
+					if(*el.storeAddress == *loadAddress && accessSize == el.accessSize)
+					{
+						VmValue *value = el.storeInst->arguments[2];
+
+						// Can't reuse arguments of a different size
+						if(value->type.size != inst->type.size)
+							return NULL;
+
+						return value;
+					}
+
+					if(el.storeAddress->container == loadAddress->container && accessSize <= el.accessSize)
+					{
+						if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], el.storeAddress->iValue, loadAddress->iValue, accessSize))
+							return component;
+
+						if(VmValue *constant = TryExtractConstant(module, el.storeInst->arguments[2], el.storeAddress->iValue, el.accessSize, loadAddress->iValue, accessSize, inst->cmd))
+							return constant;
+					}
 				}
 			}
 		}
-		else if(VmValue *pointer = loadAddress)
+		else
 		{
 			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
 			{
 				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-				if(el.address)
-					continue;
+				// Reuse previous load
+				if(el.loadInst && el.loadPointer)
+				{
+					if(el.loadPointer == loadPointer && el.loadOffset->iValue == loadOffset->iValue && accessSize == el.accessSize)
+					{
+						assert(el.loadInst->parent);
 
-				if(el.loadInst && el.pointer == pointer && el.offset->iValue == loadOffset->iValue && GetAccessSize(inst) == GetAccessSize(el.loadInst))
-					return el.loadInst;
+						return el.loadInst;
+					}
+				}
+			}
+		}
+
+		return NULL;
+	}
+
+	VmInstruction* GetCopyInfo(VmModule *module, VmValue *pointer, VmConstant *offset, unsigned accessSize)
+	{
+		int offsetValue = offset ? offset->iValue : 0;
+
+		if(VmConstant *address = getType<VmConstant>(pointer))
+		{
+			assert(offsetValue == 0);
+
+			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
+			{
+				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+				if(el.copyInst && el.storeAddress)
+				{
+					if(el.storeAddress->container == address->container && el.storeAddress->iValue == address->iValue && accessSize == el.accessSize)
+					{
+						assert(el.copyInst->parent);
+
+						return el.copyInst;
+					}
+				}
+			}
+		}
+		else
+		{
+			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
+			{
+				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+				if(el.copyInst && el.storePointer)
+				{
+					if(el.storePointer == pointer && el.storeOffset->iValue == offsetValue && accessSize == el.accessSize)
+					{
+						assert(el.copyInst->parent);
+
+						return el.copyInst;
+					}
+				}
 			}
 		}
 
@@ -1171,30 +1703,76 @@ namespace
 		return false;
 	}
 
-	TypeBase* GetBaseType(ExpressionContext &ctx, VmType type)
+	void GetAndNumberControlGraphNodesDfs(SmallArray<VmBlock*, 32>& blocksPostOrder, VmBlock* block, unsigned &preOrder, unsigned &postOrder)
 	{
-		if(type == VmType::Void)
-			return ctx.typeVoid;
-		else if(type == VmType::Int)
-			return ctx.typeInt;
-		else if(type == VmType::Double)
-			return ctx.typeDouble;
-		else if(type == VmType::Long)
-			return ctx.typeLong;
-		else if(type.type == VM_TYPE_POINTER)
-			return type.structType;
-		else if(type.type == VM_TYPE_FUNCTION_REF)
-			return type.structType;
-		else if(type.type == VM_TYPE_ARRAY_REF)
-			return type.structType;
-		else if(type == VmType::AutoRef)
-			return ctx.typeAutoRef;
-		else if(type == VmType::AutoArray)
-			return ctx.typeAutoArray;
-		else if(type.type == VM_TYPE_STRUCT)
-			return type.structType;
-		else
-			assert(!"unknown type");
+		block->controlGraphPreOrderId = preOrder++;
+
+		block->visited = true;
+
+		for(unsigned i = 0; i < block->successors.size(); i++)
+		{
+			VmBlock *successor = block->successors[i];
+
+			if(!successor->visited)
+				GetAndNumberControlGraphNodesDfs(blocksPostOrder, successor, preOrder, postOrder);
+		}
+
+		block->controlGraphPostOrderId = postOrder++;
+
+		blocksPostOrder.push_back(block);
+	}
+
+	void NumberDominanceGraphNodesDfs(VmBlock* block, unsigned &preOrder, unsigned &postOrder)
+	{
+		block->dominanceGraphPreOrderId = preOrder++;
+
+		block->visited = true;
+
+		for(unsigned i = 0; i < block->dominanceChildren.size(); i++)
+		{
+			VmBlock *child = block->dominanceChildren[i];
+
+			if(!child->visited)
+				NumberDominanceGraphNodesDfs(child, preOrder, postOrder);
+		}
+
+		block->dominanceGraphPostOrderId = postOrder++;
+	}
+
+	VmBlock* BlockIdomIntersect(VmBlock* b1, VmBlock* b2)
+	{
+		while(b1 != b2)
+		{
+			while(b1->controlGraphPostOrderId < b2->controlGraphPostOrderId)
+				b1 = b1->idom;
+
+			while(b2->controlGraphPostOrderId < b1->controlGraphPostOrderId)
+				b2 = b2->idom;
+		}
+
+		return b1;
+	}
+
+	VmValue* TryGetMemberAccessPointerAndOffset(ExpressionContext &ctx, VmInstruction *address, VmConstant *offset, VmConstant **totalOffset)
+	{
+		if(address->cmd == VM_INST_ADD)
+		{
+			VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
+			VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+
+			if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
+			{
+				*totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
+
+				return address->arguments[1];
+			}
+			else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
+			{
+				*totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
+
+				return address->arguments[0];
+			}
+		}
 
 		return NULL;
 	}
@@ -1251,6 +1829,8 @@ void VmValue::RemoveUse(VmValue* user)
 
 						container->users[i] = container->users.back();
 						container->users.pop_back();
+
+						container->offsetUsers.insert(constant->iValue + 1, NULL);
 						break;
 					}
 				}
@@ -1267,9 +1847,12 @@ void VmValue::RemoveUse(VmValue* user)
 		}
 		else if(VmBlock *block = getType<VmBlock>(this))
 		{
-			// Remove all block instructions
-			while(block->lastInstruction)
-				block->RemoveInstruction(block->lastInstruction);
+			if(!block->HasExternalInstructionUsers())
+			{
+				// Remove all block instructions
+				while(block->lastInstruction)
+					block->RemoveInstruction(block->lastInstruction);
+			}
 		}
 		else if(isType<VmFunction>(this))
 		{
@@ -1307,6 +1890,14 @@ void VmBlock::AddInstruction(VmInstruction* instruction)
 
 		firstInstruction = lastInstruction = instruction;
 	}
+	else if(!insertPoint)
+	{
+		instruction->nextSibling = firstInstruction;
+
+		firstInstruction->prevSibling = instruction;
+
+		firstInstruction = instruction;
+	}
 	else
 	{
 		assert(insertPoint);
@@ -1322,6 +1913,12 @@ void VmBlock::AddInstruction(VmInstruction* instruction)
 		if(insertPoint == lastInstruction)
 			lastInstruction = instruction;
 	}
+
+	if(instruction->prevSibling)
+		assert(instruction->prevSibling->parent == this);
+
+	if(instruction->nextSibling)
+		assert(instruction->nextSibling->parent == this);
 
 	insertPoint = instruction;
 }
@@ -1355,6 +1952,23 @@ void VmBlock::RemoveInstruction(VmInstruction* instruction)
 
 	for(unsigned i = 0; i < instruction->arguments.size(); i++)
 		instruction->arguments[i]->RemoveUse(instruction);
+}
+
+bool VmBlock::HasExternalInstructionUsers()
+{
+	for(VmInstruction *curr = firstInstruction; curr; curr = curr->nextSibling)
+	{
+		for(unsigned i = 0; i < curr->users.size(); i++)
+		{
+			if(VmInstruction *instUser = getType<VmInstruction>(curr->users[i]))
+			{
+				if(instUser->parent != this)
+					return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 void VmFunction::AddBlock(VmBlock* block)
@@ -1452,6 +2066,255 @@ void VmFunction::MoveEntryBlockToStart()
 		}
 
 		entryBlock->parent = this;
+	}
+}
+
+void VmFunction::UpdateDominatorTree(VmModule *module, bool clear)
+{
+	if(!firstBlock)
+		return;
+
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		if(clear)
+		{
+			curr->predecessors.clear();
+			curr->successors.clear();
+		}
+
+		curr->visited = false;
+		curr->idom = NULL;
+		curr->dominanceFrontier.clear();
+		curr->dominanceChildren.clear();
+	}
+
+	// Get block predecessors and successors
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		for(unsigned i = 0; i < curr->users.size(); i++)
+		{
+			VmValue *user = curr->users[i];
+
+			if(VmInstruction *inst = getType<VmInstruction>(user))
+			{
+				if(inst->cmd != VM_INST_PHI)
+				{
+					curr->predecessors.push_back(inst->parent);
+					inst->parent->successors.push_back(curr);
+				}
+			}
+		}
+	}
+
+	firstBlock->idom = firstBlock;
+
+	SmallArray<VmBlock*, 32> blocksPostOrder(module->allocator);
+	unsigned preOrder = 0;
+	unsigned postOrder = 0;
+
+	GetAndNumberControlGraphNodesDfs(blocksPostOrder, firstBlock, preOrder, postOrder);
+
+	// Get nodes in reverse post order
+	for(unsigned i = 0; i < blocksPostOrder.size() / 2; i++)
+	{
+		VmBlock *tmp = blocksPostOrder[i];
+		blocksPostOrder[i] = blocksPostOrder[blocksPostOrder.size() - i - 1];
+		blocksPostOrder[blocksPostOrder.size() - i - 1] = tmp;
+	}
+
+	bool changed = true;
+
+	while(changed)
+	{
+		changed = false;
+
+		for(unsigned i = 0; i < blocksPostOrder.size(); i++)
+		{
+			VmBlock *b = blocksPostOrder[i];
+
+			if(b == firstBlock)
+				continue;
+
+			VmBlock *firstProcessed = NULL;
+
+			for(unsigned k = 0; k < b->predecessors.size() && !firstProcessed; k++)
+			{
+				if(b->predecessors[k]->idom)
+					firstProcessed = b->predecessors[k];
+			}
+
+			assert(firstProcessed);
+			VmBlock *newIdom = firstProcessed;
+
+			for(unsigned k = 0; k < b->predecessors.size(); k++)
+			{
+				VmBlock *p = b->predecessors[k];
+
+				if(p == firstProcessed)
+					continue;
+
+				if(p->idom)
+					newIdom = BlockIdomIntersect(p, newIdom);
+			}
+
+			if(b->idom != newIdom)
+			{
+				b->idom = newIdom;
+				changed = true;
+			}
+		}
+	}
+
+	firstBlock->idom = NULL;
+
+	// Fill the dominance frontier and dominator tree children
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		if(curr->predecessors.size() >= 2)
+		{
+			for(unsigned i = 0; i < curr->predecessors.size(); i++)
+			{
+				VmBlock *p = curr->predecessors[i];
+
+				VmBlock *runner = p;
+
+				while(runner != curr->idom)
+				{
+					bool found = false;
+					for(unsigned k = 0; k < runner->dominanceFrontier.size() && !found; k++)
+					{
+						if(runner->dominanceFrontier[k] == curr)
+							found = true;
+					}
+					if(!found)
+						runner->dominanceFrontier.push_back(curr);
+
+					runner = runner->idom;
+				}
+			}
+		}
+
+		if(curr->idom)
+			curr->idom->dominanceChildren.push_back(curr);
+	}
+
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+		curr->visited = false;
+
+	preOrder = 0;
+	postOrder = 0;
+	NumberDominanceGraphNodesDfs(firstBlock, preOrder, postOrder);
+}
+
+void VmFunction::UpdateLiveSets(VmModule *module)
+{
+	SmallArray<VmBlock*, 32> worklist(module->allocator);
+
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		curr->liveIn.clear();
+		curr->liveOut.clear();
+
+		worklist.push_back(curr);
+	}
+
+	while(!worklist.empty())
+	{
+		VmBlock *curr = worklist.back();
+		worklist.pop_back();
+
+		// Update block liveOut list
+		curr->liveOut.clear();
+
+		for(unsigned successorPos = 0; successorPos < curr->successors.size(); successorPos++)
+		{
+			VmBlock *successor = curr->successors[successorPos];
+
+			for(unsigned k = 0; k < successor->liveIn.size(); k++)
+			{
+				VmInstruction *liveIn = successor->liveIn[k];
+
+				bool found = false;
+
+				if(liveIn->cmd == VM_INST_PHI)
+				{
+					for(unsigned argument = 0; argument < liveIn->arguments.size(); argument += 2)
+					{
+						VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argument]);
+						VmBlock *edge = getType<VmBlock>(liveIn->arguments[argument + 1]);
+
+						if(edge == curr)
+						{
+							if(!curr->liveOut.contains(instruction))
+								curr->liveOut.push_back(instruction);
+
+							found = true;
+						}
+					}
+
+					if(!found)
+					{
+						if(!curr->liveOut.contains(liveIn))
+							curr->liveOut.push_back(liveIn);
+					}
+				}
+				else
+				{
+					if(!curr->liveOut.contains(liveIn))
+						curr->liveOut.push_back(liveIn);
+				}
+			}
+		}
+
+		unsigned liveInSize = curr->liveIn.size();
+
+		// Update block liveIn list
+		curr->liveIn.clear();
+
+		// Add all liveOut variables that are not defined by current block
+		for(unsigned i = 0; i < curr->liveOut.size(); i++)
+		{
+			if(curr->liveOut[i]->parent != curr)
+			{
+				assert(!curr->liveIn.contains(curr->liveOut[i]));
+				curr->liveIn.push_back(curr->liveOut[i]);
+			}
+		}
+
+		// Add all arguments from phi isntructions and all arguments that are not defined in current block
+		for(VmInstruction *inst = curr->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			for(unsigned i = 0; i < inst->arguments.size(); i++)
+			{
+				if(VmInstruction *argument = getType<VmInstruction>(inst->arguments[i]))
+				{
+					if(inst->cmd == VM_INST_PHI)
+					{
+						if(!curr->liveIn.contains(inst))
+							curr->liveIn.push_back(inst);
+					}
+					else
+					{
+						if(argument->parent != curr)
+						{
+							if(!curr->liveIn.contains(argument))
+								curr->liveIn.push_back(argument);
+						}
+					}
+				}
+			}
+		}
+
+		if(liveInSize != curr->liveIn.size())
+		{
+			for(unsigned i = 0; i < curr->predecessors.size(); i++)
+			{
+				VmBlock *predecessor = curr->predecessors[i];
+
+				if(!worklist.contains(predecessor))
+					worklist.push_back(predecessor);
+			}
+		}
 	}
 }
 
@@ -1639,7 +2502,7 @@ VmValue* CompileVmArray(ExpressionContext &ctx, VmModule *module, ExprArray *nod
 
 			VmValue *address = CreateIndex(module, node->source, arrayLength, elementSize, storage, index, ctx.GetReferenceType(elementType));
 
-			CreateStore(ctx, module, node->source, elementType, address, element);
+			CreateStore(ctx, module, node->source, elementType, address, element, 0);
 
 			i++;
 		}
@@ -1683,7 +2546,7 @@ VmValue* CompileVmPreModify(ExpressionContext &ctx, VmModule *module, ExprPreMod
 	else
 		assert("!unknown type");
 
-	CreateStore(ctx, module, node->source, refType->subType, address, value);
+	CreateStore(ctx, module, node->source, refType->subType, address, value, 0);
 
 	return CheckType(ctx, node, value);
 }
@@ -1708,7 +2571,7 @@ VmValue* CompileVmPostModify(ExpressionContext &ctx, VmModule *module, ExprPostM
 	else
 		assert("!unknown type");
 
-	CreateStore(ctx, module, node->source, refType->subType, address, value);
+	CreateStore(ctx, module, node->source, refType->subType, address, value, 0);
 
 	return CheckType(ctx, node, result);
 }
@@ -2036,7 +2899,7 @@ VmValue* CompileVmBinaryOp(ExpressionContext &ctx, VmModule *module, ExprBinaryO
 		result = CreateXor(module, node->source, lhs, rhs);
 		break;
 	case SYN_BINARY_OP_LOGICAL_XOR:
-		result = CreateLogicalXor(module, node->source, lhs, rhs);
+		result = CreateCompareNotEqual(module, node->source, CreateCompareNotEqual(module, node->source, lhs, CreateConstantZero(module->allocator, node->source, lhs->type)), CreateCompareNotEqual(module, node->source, rhs, CreateConstantZero(module->allocator, node->source, rhs->type)));
 		break;
 	default:
 		break;
@@ -2082,13 +2945,28 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 
 	CreateJumpNotZero(module, node->source, condition, trueBlock, falseBlock);
 
+	assert(node->trueBlock->type == node->falseBlock->type);
+
 	module->currentFunction->AddBlock(trueBlock);
 	module->currentBlock = trueBlock;
+
+	VmConstant *tempAddress = NULL;
 
 	VmValue *trueValue = CompileVm(ctx, module, node->trueBlock);
 
 	if(VmConstant *constant = getType<VmConstant>(trueValue))
-		trueValue = CreateLoadImmediate(module, node->source, constant);
+	{
+		if(constant->type.type == VM_TYPE_STRUCT)
+		{
+			tempAddress = CreateAlloca(ctx, module, node->source, node->trueBlock->type, "cond");
+
+			CreateStore(ctx, module, node->source, node->trueBlock->type, tempAddress, constant, 0);
+		}
+		else
+		{
+			trueValue = CreateLoadImmediate(module, node->source, constant);
+		}
+	}
 
 	CreateJump(module, node->source, exitBlock);
 
@@ -2098,16 +2976,147 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	VmValue *falseValue = CompileVm(ctx, module, node->falseBlock);
 
 	if(VmConstant *constant = getType<VmConstant>(falseValue))
-		falseValue = CreateLoadImmediate(module, node->source, constant);
+	{
+		if(constant->type.type == VM_TYPE_STRUCT)
+		{
+			assert(tempAddress);
+
+			CreateStore(ctx, module, node->source, node->falseBlock->type, tempAddress, constant, 0);
+		}
+		else
+		{
+			falseValue = CreateLoadImmediate(module, node->source, constant);
+		}
+	}
 
 	CreateJump(module, node->source, exitBlock);
 
 	module->currentFunction->AddBlock(exitBlock);
 	module->currentBlock = exitBlock;
 
+	if(tempAddress)
+		return CheckType(ctx, node, CreateLoad(ctx, module, node->source, node->falseBlock->type, tempAddress, 0));
+
+	if(node->type->size == 0)
+		return CreateConstantStruct(ctx.allocator, node->source, NULL, 0, node->type);
+
 	VmValue *phi = CreatePhi(module, node->source, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
 
 	return CheckType(ctx, node, phi);
+}
+
+void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* value, bool nested);
+
+bool IsGoodConstantArray(ExpressionContext &ctx, VmModule *module, VmInstruction *instInit)
+{
+	assert(instInit->cmd == VM_INST_ARRAY);
+
+	for(unsigned i = 0; i < instInit->arguments.size(); i++)
+	{
+		VmValue *elementValue = instInit->arguments[i];
+
+		if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
+		{
+			if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+			{
+				elementValue = elementInst->arguments[0];
+			}
+			else if(elementInst->cmd == VM_INST_ARRAY)
+			{
+				if(IsGoodConstantArray(ctx, module, elementInst))
+					continue;
+			}
+			else
+			{
+				RunConstantPropagation(ctx, module, elementInst, true);
+				elementValue = instInit->arguments[i];
+			}
+		}
+
+		VmConstant *element = getType<VmConstant>(elementValue);
+
+		if(!element || element->isReference)
+			return false;
+
+		if(element->type.type == VM_TYPE_INT)
+			continue;
+		else if(element->type.type == VM_TYPE_DOUBLE)
+			continue;
+		else if(element->type.type == VM_TYPE_LONG)
+			continue;
+		else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
+			continue;
+
+		return false;
+	}
+
+	return true;
+}
+
+VmConstant* GetConstantArrayValue(ExpressionContext &ctx, SynBase *source, TypeArray *typeArray, VmInstruction *instInit)
+{
+	assert(typeArray);
+
+	TypeBase *elementType = typeArray->subType;
+
+	unsigned size = unsigned(typeArray->size);
+
+	char *value = (char*)ctx.allocator->alloc(size);
+	memset(value, 0, size);
+
+	for(unsigned i = 0; i < instInit->arguments.size(); i++)
+	{
+		VmValue *elementValue = instInit->arguments[i];
+
+		if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
+		{
+			if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+			{
+				elementValue = elementInst->arguments[0];
+			}
+			else if(elementInst->cmd == VM_INST_ARRAY)
+			{
+				VmConstant *elemConst = GetConstantArrayValue(ctx, NULL, getType<TypeArray>(elementType), elementInst);
+
+				assert(elementType->size == elemConst->type.size);
+				memcpy(value + i * elementType->size, elemConst->sValue, unsigned(elementType->size));
+				continue;
+			}
+		}
+
+		VmConstant *element = getType<VmConstant>(elementValue);
+
+		if(element->type.type == VM_TYPE_INT)
+		{
+			assert(elementType->size == element->type.size);
+			memcpy(value + i * sizeof(int), &element->iValue, sizeof(int));
+		}
+		else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeDouble)
+		{
+			memcpy(value + i * sizeof(double), &element->dValue, sizeof(double));
+		}
+		else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeFloat)
+		{
+			float fValue = float(element->dValue);
+			memcpy(value + i * sizeof(float), &fValue, sizeof(float));
+		}
+		else if(element->type.type == VM_TYPE_LONG)
+		{
+			assert(elementType->size == element->type.size);
+			memcpy(value + i * sizeof(long long), &element->lValue, sizeof(long long));
+		}
+		else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
+		{
+			assert(elementType->size == element->type.size);
+			memcpy(value + i * element->type.size, element->sValue, element->type.size);
+		}
+		else
+		{
+			assert(!"unknown type");
+		}
+	}
+
+	return CreateConstantStruct(ctx.allocator, source, value, size, typeArray);
 }
 
 VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssignment *node)
@@ -2122,7 +3131,67 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 
 	VmValue *initializer = CompileVm(ctx, module, node->rhs);
 
-	CreateStore(ctx, module, node->source, node->rhs->type, address, initializer);
+	if(VmInstruction *instInit = getType<VmInstruction>(initializer))
+	{
+		// Array initializers are compiled to per-element assignments
+		if(instInit->cmd == VM_INST_ARRAY)
+		{
+			TypeArray *typeArray = getType<TypeArray>(node->type);
+
+			TypeBase *elementType = typeArray->subType;
+
+			if(IsGoodConstantArray(ctx, module, instInit))
+			{
+				VmValue *constant = GetConstantArrayValue(ctx, node->source, typeArray, instInit);
+
+				CreateStore(ctx, module, node->source, typeArray, address, constant, 0);
+
+				VmValue *copy = CreateLoad(ctx, module, node->source, node->rhs->type, address, 0);
+
+				return CheckType(ctx, node, copy);
+			}
+
+			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->rhs->type, "array");
+
+			for(unsigned i = 0; i < instInit->arguments.size(); i++)
+			{
+				VmValue *element = instInit->arguments[i];
+
+				VmInstruction *elementInst = getType<VmInstruction>(element);
+
+				if(elementInst)
+				{
+					if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+						element = elementInst->arguments[0];
+
+					if(elementInst->parent == module->currentBlock)
+					{
+						module->currentBlock->insertPoint = elementInst;
+
+						CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+
+						module->currentBlock->insertPoint = module->currentBlock->lastInstruction;
+					}
+					else
+					{
+						CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+					}
+				}
+				else
+				{
+					CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+				}
+			}
+
+			CreateMemCopy(module, node->source, address, 0, tempAddress, 0, int(typeArray->size));
+
+			VmValue *copy = CreateLoad(ctx, module, node->source, node->rhs->type, address, 0);
+
+			return CheckType(ctx, node, copy);
+		}
+	}
+
+	CreateStore(ctx, module, node->source, node->rhs->type, address, initializer, 0);
 
 	return CheckType(ctx, node, initializer);
 }
@@ -2203,8 +3272,123 @@ VmValue* CompileVmYield(ExpressionContext &ctx, VmModule *module, ExprYield *nod
 
 VmValue* CompileVmVariableDefinition(ExpressionContext &ctx, VmModule *module, ExprVariableDefinition *node)
 {
+	VariableData *variable = node->variable->variable;
+
 	if(node->initializer)
+	{
 		CompileVm(ctx, module, node->initializer);
+	}
+	else if(!variable->isVmAlloca && !variable->lookupOnly && IsLocalScope(variable->scope))
+	{
+		VmType vmType = GetVmType(ctx, variable->type);
+
+		VmValue *address = CreateVariableAddress(module, node->source, variable, ctx.GetReferenceType(variable->type));
+
+		if(vmType == VmType::Int || vmType == VmType::Double || vmType == VmType::Long)
+		{
+			VmValue *initializer = CreateConstantZero(ctx.allocator, node->source, vmType);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_POINTER)
+		{
+			VmValue *initializer = CreateConstantPointer(module->allocator, node->source, 0, NULL, variable->type, false);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_FUNCTION_REF)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_ARRAY_REF)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_AUTO_REF)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), NULL, NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_AUTO_ARRAY)
+		{
+			VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL);
+
+			CreateStore(ctx, module, node->source, variable->type, address, initializer, 0);
+		}
+		else if(vmType.type == VM_TYPE_STRUCT)
+		{
+			if(vmType.size != 0)
+				CreateSetRange(module, node->source, address, vmType.size / 4, CreateConstantZero(ctx.allocator, node->source, VmType::Int), 4);
+		}
+		else if(vmType != VmType::Void)
+		{
+			assert(!"unknown type");
+		}
+	}
+
+	return CheckType(ctx, node, CreateVoid(module));
+}
+
+VmValue* CompileVmZeroInitialize(ExpressionContext &ctx, VmModule *module, ExprZeroInitialize *node)
+{
+	TypeRef *refType = getType<TypeRef>(node->address->type);
+
+	assert(refType);
+
+	VmValue *address = CompileVm(ctx, module, node->address);
+
+	VmType vmType = GetVmType(ctx, refType->subType);
+
+	if(vmType == VmType::Int || vmType == VmType::Double || vmType == VmType::Long)
+	{
+		VmValue *initializer = CreateConstantZero(ctx.allocator, node->source, vmType);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_POINTER)
+	{
+		VmValue *initializer = CreateConstantPointer(module->allocator, node->source, 0, NULL, refType->subType, false);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_FUNCTION_REF)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_ARRAY_REF)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_AUTO_REF)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), NULL, NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_AUTO_ARRAY)
+	{
+		VmValue *initializer = CreateConstruct(module, node->source, vmType, CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL);
+
+		CreateStore(ctx, module, node->source, refType->subType, address, initializer, 0);
+	}
+	else if(vmType.type == VM_TYPE_STRUCT)
+	{
+		if(vmType.size != 0)
+			CreateSetRange(module, node->source, address, vmType.size / 4, CreateConstantZero(ctx.allocator, node->source, VmType::Int), 4);
+	}
+	else// if(vmType != VmType::Void)
+	{
+		assert(!"unknown type");
+	}
 
 	return CheckType(ctx, node, CreateVoid(module));
 }
@@ -2235,7 +3419,7 @@ VmValue* CompileVmArraySetup(ExpressionContext &ctx, VmModule *module, ExprArray
 	VmBlock *bodyBlock = CreateBlock(module, node->source, "arr_setup_body");
 	VmBlock *exitBlock = CreateBlock(module, node->source, "arr_setup_exit");
 
-	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateConstantInt(module->allocator, node->source, 0));
+	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateConstantInt(module->allocator, node->source, 0), 0);
 
 	CreateJump(module, node->source, conditionBlock);
 
@@ -2255,8 +3439,8 @@ VmValue* CompileVmArraySetup(ExpressionContext &ctx, VmModule *module, ExprArray
 
 	VmValue *offset = CreateLoad(ctx, module, node->source, ctx.typeInt, offsetPtr, 0);
 
-	CreateStore(ctx, module, node->source, arrayType->subType, CreateMemberAccess(module, node->source, address, offset, ctx.GetReferenceType(arrayType->subType), InplaceStr()), initializer);
-	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateAdd(module, node->source, offset, CreateConstantInt(module->allocator, node->source, int(arrayType->subType->size))));
+	CreateStore(ctx, module, node->source, arrayType->subType, CreateMemberAccess(module, node->source, address, offset, ctx.GetReferenceType(arrayType->subType), InplaceStr()), initializer, 0);
+	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateAdd(module, node->source, offset, CreateConstantInt(module->allocator, node->source, int(arrayType->subType->size))), 0);
 
 	CreateJump(module, node->source, conditionBlock);
 
@@ -2276,6 +3460,9 @@ VmValue* CompileVmVariableDefinitions(ExpressionContext &ctx, VmModule *module, 
 
 VmValue* CompileVmVariableAccess(ExpressionContext &ctx, VmModule *module, ExprVariableAccess *node)
 {
+	if(isType<TypeVoid>(node->variable->type))
+		return CheckType(ctx, node, CreateVoid(module));
+
 	VmValue *address = CreateVariableAddress(module, node->source, node->variable, ctx.GetReferenceType(node->variable->type));
 
 	VmValue *value = CreateLoad(ctx, module, node->source, node->variable->type, address, 0);
@@ -2303,11 +3490,11 @@ VmValue* CompileVmFunctionContextAccess(ExpressionContext &ctx, VmModule *module
 	}
 	else
 	{
-		VmValue *address = CreateVariableAddress(module, node->source, node->function->contextVariable, ctx.GetReferenceType(node->function->contextVariable->type));
+		VmValue *address = CreateVariableAddress(module, node->source, node->contextVariable, ctx.GetReferenceType(node->contextVariable->type));
 
-		value = CreateLoad(ctx, module, node->source, node->function->contextVariable->type, address, 0);
+		value = CreateLoad(ctx, module, node->source, node->contextVariable->type, address, 0);
 
-		value->comment = node->function->contextVariable->name->name;
+		value->comment = node->contextVariable->name->name;
 	}
 
 	return CheckType(ctx, node, value);
@@ -2322,6 +3509,11 @@ VmValue* CompileVmFunctionDefinition(ExpressionContext &ctx, VmModule *module, E
 
 	if(node->function->isPrototype)
 		return CreateVoid(module);
+
+	TRACE_SCOPE("InstructionTreeVm", "CompileVmFunctionDefinition");
+
+	if(function->function && function->function->name)
+		TRACE_LABEL2(function->function->name->name.begin, function->function->name->name.end);
 
 	module->skipFunctionDefinitions = true;
 
@@ -2404,16 +3596,63 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 
 	assert(module->currentBlock);
 
+	VmValue *resultTarget = NULL;
+
+	if(node->type->size > spillTypeSize)
+	{
+		VmConstant *spill = CreateAlloca(ctx, module, node->source, node->type, "spill");
+
+		VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, node->type), node->source);
+
+		reference->iValue = spill->iValue;
+		reference->container = spill->container;
+		reference->isReference = true;
+
+		reference->container->users.push_back(reference);
+
+		resultTarget = reference;
+	}
+	else
+	{
+		resultTarget = CreateConstantInt(ctx.allocator, node->source, 0);
+	}
+
 	VmInstruction *inst = new (module->get<VmInstruction>()) VmInstruction(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_CALL, module->currentFunction->nextInstructionId++);
 
-	unsigned argCount = 1;
+	// Inline call target for instruction without context
+	VmValue *functionContext = NULL;
+	VmFunction *functionId = NULL;
+
+	if(VmInstruction *target = getType<VmInstruction>(function))
+	{
+		if(target->cmd == VM_INST_CONSTRUCT && target->type.type == VM_TYPE_FUNCTION_REF)
+		{
+			functionContext = target->arguments[0];
+			functionId = getType<VmFunction>(target->arguments[1]);
+		}
+	}
+
+	unsigned argCount = 2;
+
+	if(functionContext && functionId)
+		argCount++;
 
 	for(ExprBase *value = node->arguments.head; value; value = value->next)
 		argCount++;
 
 	inst->arguments.reserve(argCount);
 
-	inst->AddArgument(function);
+	if(functionContext && functionId)
+	{
+		inst->AddArgument(functionContext);
+		inst->AddArgument(functionId);
+	}
+	else
+	{
+		inst->AddArgument(function);
+	}
+
+	inst->AddArgument(resultTarget);
 
 	for(ExprBase *value = node->arguments.head; value; value = value->next)
 	{
@@ -2431,6 +3670,9 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 	inst->hasMemoryAccess = HasMemoryAccess(inst->cmd);
 
 	module->currentBlock->AddInstruction(inst);
+
+	if(node->type->size > spillTypeSize)
+		return CheckType(ctx, node, resultTarget);
 
 	return CheckType(ctx, node, inst);
 }
@@ -2720,160 +3962,115 @@ VmValue* CompileVmSequence(ExpressionContext &ctx, VmModule *module, ExprSequenc
 {
 	VmValue *result = CreateVoid(module);
 
-	for(ExprBase *value = node->expressions.head; value; value = value->next)
-		result = CompileVm(ctx, module, value);
+	for(unsigned i = 0; i < node->expressions.size(); i++)
+		result = CompileVm(ctx, module, node->expressions[i]);
 
 	return CheckType(ctx, node, result);
 }
 
 VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expression)
 {
-	if(ExprVoid *node = getType<ExprVoid>(expression))
-		return CompileVmVoid(ctx, module, node);
-
-	if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(expression))
-		return CompileVmBoolLiteral(ctx, module, node);
-
-	if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(expression))
-		return CompileVmCharacterLiteral(ctx, module, node);
-
-	if(ExprStringLiteral *node = getType<ExprStringLiteral>(expression))
-		return CompileVmStringLiteral(ctx, module, node);
-
-	if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(expression))
-		return CompileVmIntegerLiteral(ctx, module, node);
-
-	if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(expression))
-		return CompileVmRationalLiteral(ctx, module, node);
-
-	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expression))
-		return CompileVmTypeLiteral(ctx, module, node);
-
-	if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
-		return CompileVmNullptrLiteral(ctx, module, node);
-
-	if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
-		return CompileVmFunctionIndexLiteral(ctx, module, node);
-
-	if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
-		return CompileVmPassthrough(ctx, module, node);
-
-	if(ExprArray *node = getType<ExprArray>(expression))
-		return CompileVmArray(ctx, module, node);
-
-	if(ExprPreModify *node = getType<ExprPreModify>(expression))
-		return CompileVmPreModify(ctx, module, node);
-
-	if(ExprPostModify *node = getType<ExprPostModify>(expression))
-		return CompileVmPostModify(ctx, module, node);	
-
-	if(ExprTypeCast *node = getType<ExprTypeCast>(expression))
-		return CompileVmTypeCast(ctx, module, node);
-
-	if(ExprUnaryOp *node = getType<ExprUnaryOp>(expression))
-		return CompileVmUnaryOp(ctx, module, node);
-
-	if(ExprBinaryOp *node = getType<ExprBinaryOp>(expression))
-		return CompileVmBinaryOp(ctx, module, node);
-
-	if(ExprGetAddress *node = getType<ExprGetAddress>(expression))
-		return CompileVmGetAddress(ctx, module, node);
-
-	if(ExprDereference *node = getType<ExprDereference>(expression))
-		return CompileVmDereference(ctx, module, node);
-
-	if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
-		return CompileVmUnboxing(ctx, module, node);
-
-	if(ExprConditional *node = getType<ExprConditional>(expression))
-		return CompileVmConditional(ctx, module, node);
-
-	if(ExprAssignment *node = getType<ExprAssignment>(expression))
-		return CompileVmAssignment(ctx, module, node);
-
-	if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
-		return CompileVmMemberAccess(ctx, module, node);
-
-	if(ExprArrayIndex *node = getType<ExprArrayIndex>(expression))
-		return CompileVmArrayIndex(ctx, module, node);
-
-	if(ExprReturn *node = getType<ExprReturn>(expression))
-		return CompileVmReturn(ctx, module, node);
-
-	if(ExprYield *node = getType<ExprYield>(expression))
-		return CompileVmYield(ctx, module, node);
-
-	if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
-		return CompileVmVariableDefinition(ctx, module, node);
-
-	if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
-		return CompileVmArraySetup(ctx, module, node);
-
-	if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
-		return CompileVmVariableDefinitions(ctx, module, node);
-
-	if(ExprVariableAccess *node = getType<ExprVariableAccess>(expression))
-		return CompileVmVariableAccess(ctx, module, node);
-
-	if(ExprFunctionContextAccess *node = getType<ExprFunctionContextAccess>(expression))
-		return CompileVmFunctionContextAccess(ctx, module, node);
-
-	if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
-		return CompileVmFunctionDefinition(ctx, module, node);
-
-	if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
-		return CompileVmGenericFunctionPrototype(ctx, module, node);
-
-	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
-		return CompileVmFunctionAccess(ctx, module, node);
-
-	if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
-		return CompileVmFunctionCall(ctx, module, node);
-
-	if(ExprAliasDefinition *node = getType<ExprAliasDefinition>(expression))
-		return CompileVmAliasDefinition(ctx, module, node);
-
-	if(ExprClassPrototype *node = getType<ExprClassPrototype>(expression))
-		return CompileVmClassPrototype(ctx, module, node);
-
-	if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
-		return CompileVmGenericClassPrototype(ctx, module, node);
-
-	if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
-		return CompileVmClassDefinition(ctx, module, node);
-
-	if(ExprEnumDefinition *node = getType<ExprEnumDefinition>(expression))
-		return CompileVmEnumDefinition(ctx, module, node);
-
-	if(ExprIfElse *node = getType<ExprIfElse>(expression))
-		return CompileVmIfElse(ctx, module, node);
-
-	if(ExprFor *node = getType<ExprFor>(expression))
-		return CompileVmFor(ctx, module, node);
-
-	if(ExprWhile *node = getType<ExprWhile>(expression))
-		return CompileVmWhile(ctx, module, node);
-
-	if(ExprDoWhile *node = getType<ExprDoWhile>(expression))
-		return CompileVmDoWhile(ctx, module, node);
-
-	if(ExprSwitch *node = getType<ExprSwitch>(expression))
-		return CompileVmSwitch(ctx, module, node);
-
-	if(ExprBreak *node = getType<ExprBreak>(expression))
-		return CompileVmBreak(ctx, module, node);
-
-	if(ExprContinue *node = getType<ExprContinue>(expression))
-		return CompileVmContinue(ctx, module, node);
-
-	if(ExprBlock *node = getType<ExprBlock>(expression))
-		return CompileVmBlock(ctx, module, node);
-
-	if(ExprSequence *node = getType<ExprSequence>(expression))
-		return CompileVmSequence(ctx, module, node);
-
-	if(!expression)
-		return NULL;
+	switch(expression->typeID)
+	{
+	case ExprVoid::myTypeID:
+		return CompileVmVoid(ctx, module, (ExprVoid*)expression);
+	case ExprBoolLiteral::myTypeID:
+		return CompileVmBoolLiteral(ctx, module, (ExprBoolLiteral*)expression);
+	case ExprCharacterLiteral::myTypeID:
+		return CompileVmCharacterLiteral(ctx, module, (ExprCharacterLiteral*)expression);
+	case ExprStringLiteral::myTypeID:
+		return CompileVmStringLiteral(ctx, module, (ExprStringLiteral*)expression);
+	case ExprIntegerLiteral::myTypeID:
+		return CompileVmIntegerLiteral(ctx, module, (ExprIntegerLiteral*)expression);
+	case ExprRationalLiteral::myTypeID:
+		return CompileVmRationalLiteral(ctx, module, (ExprRationalLiteral*)expression);
+	case ExprTypeLiteral::myTypeID:
+		return CompileVmTypeLiteral(ctx, module, (ExprTypeLiteral*)expression);
+	case ExprNullptrLiteral::myTypeID:
+		return CompileVmNullptrLiteral(ctx, module, (ExprNullptrLiteral*)expression);
+	case ExprFunctionIndexLiteral::myTypeID:
+		return CompileVmFunctionIndexLiteral(ctx, module, (ExprFunctionIndexLiteral*)expression);
+	case ExprPassthrough::myTypeID:
+		return CompileVmPassthrough(ctx, module, (ExprPassthrough*)expression);
+	case ExprArray::myTypeID:
+		return CompileVmArray(ctx, module, (ExprArray*)expression);
+	case ExprPreModify::myTypeID:
+		return CompileVmPreModify(ctx, module, (ExprPreModify*)expression);
+	case ExprPostModify::myTypeID:
+		return CompileVmPostModify(ctx, module, (ExprPostModify*)expression);
+	case ExprTypeCast::myTypeID:
+		return CompileVmTypeCast(ctx, module, (ExprTypeCast*)expression);
+	case ExprUnaryOp::myTypeID:
+		return CompileVmUnaryOp(ctx, module, (ExprUnaryOp*)expression);
+	case ExprBinaryOp::myTypeID:
+		return CompileVmBinaryOp(ctx, module, (ExprBinaryOp*)expression);
+	case ExprGetAddress::myTypeID:
+		return CompileVmGetAddress(ctx, module, (ExprGetAddress*)expression);
+	case ExprDereference::myTypeID:
+		return CompileVmDereference(ctx, module, (ExprDereference*)expression);
+	case ExprUnboxing::myTypeID:
+		return CompileVmUnboxing(ctx, module, (ExprUnboxing*)expression);
+	case ExprConditional::myTypeID:
+		return CompileVmConditional(ctx, module, (ExprConditional*)expression);
+	case ExprAssignment::myTypeID:
+		return CompileVmAssignment(ctx, module, (ExprAssignment*)expression);
+	case ExprMemberAccess::myTypeID:
+		return CompileVmMemberAccess(ctx, module, (ExprMemberAccess*)expression);
+	case ExprArrayIndex::myTypeID:
+		return CompileVmArrayIndex(ctx, module, (ExprArrayIndex*)expression);
+	case ExprReturn::myTypeID:
+		return CompileVmReturn(ctx, module, (ExprReturn*)expression);
+	case ExprYield::myTypeID:
+		return CompileVmYield(ctx, module, (ExprYield*)expression);
+	case ExprVariableDefinition::myTypeID:
+		return CompileVmVariableDefinition(ctx, module, (ExprVariableDefinition*)expression);
+	case ExprZeroInitialize::myTypeID:
+		return CompileVmZeroInitialize(ctx, module, (ExprZeroInitialize*)expression);
+	case ExprArraySetup::myTypeID:
+		return CompileVmArraySetup(ctx, module, (ExprArraySetup*)expression);
+	case ExprVariableDefinitions::myTypeID:
+		return CompileVmVariableDefinitions(ctx, module, (ExprVariableDefinitions*)expression);
+	case ExprVariableAccess::myTypeID:
+		return CompileVmVariableAccess(ctx, module, (ExprVariableAccess*)expression);
+	case ExprFunctionContextAccess::myTypeID:
+		return CompileVmFunctionContextAccess(ctx, module, (ExprFunctionContextAccess*)expression);
+	case ExprFunctionDefinition::myTypeID:
+		return CompileVmFunctionDefinition(ctx, module, (ExprFunctionDefinition*)expression);
+	case ExprGenericFunctionPrototype::myTypeID:
+		return CompileVmGenericFunctionPrototype(ctx, module, (ExprGenericFunctionPrototype*)expression);
+	case ExprFunctionAccess::myTypeID:
+		return CompileVmFunctionAccess(ctx, module, (ExprFunctionAccess*)expression);
+	case ExprFunctionCall::myTypeID:
+		return CompileVmFunctionCall(ctx, module, (ExprFunctionCall*)expression);
+	case ExprAliasDefinition::myTypeID:
+		return CompileVmAliasDefinition(ctx, module, (ExprAliasDefinition*)expression);
+	case ExprClassPrototype::myTypeID:
+		return CompileVmClassPrototype(ctx, module, (ExprClassPrototype*)expression);
+	case ExprGenericClassPrototype::myTypeID:
+		return CompileVmGenericClassPrototype(ctx, module, (ExprGenericClassPrototype*)expression);
+	case ExprClassDefinition::myTypeID:
+		return CompileVmClassDefinition(ctx, module, (ExprClassDefinition*)expression);
+	case ExprEnumDefinition::myTypeID:
+		return CompileVmEnumDefinition(ctx, module, (ExprEnumDefinition*)expression);
+	case ExprIfElse::myTypeID:
+		return CompileVmIfElse(ctx, module, (ExprIfElse*)expression);
+	case ExprFor::myTypeID:
+		return CompileVmFor(ctx, module, (ExprFor*)expression);
+	case ExprWhile::myTypeID:
+		return CompileVmWhile(ctx, module, (ExprWhile*)expression);
+	case ExprDoWhile::myTypeID:
+		return CompileVmDoWhile(ctx, module, (ExprDoWhile*)expression);
+	case ExprSwitch::myTypeID:
+		return CompileVmSwitch(ctx, module, (ExprSwitch*)expression);
+	case ExprBreak::myTypeID:
+		return CompileVmBreak(ctx, module, (ExprBreak*)expression);
+	case ExprContinue::myTypeID:
+		return CompileVmContinue(ctx, module, (ExprContinue*)expression);
+	case ExprBlock::myTypeID:
+		return CompileVmBlock(ctx, module, (ExprBlock*)expression);
+	case ExprSequence::myTypeID:
+		return CompileVmSequence(ctx, module, (ExprSequence*)expression);
+	}
 
 	assert(!"unknown type");
 
@@ -2882,6 +4079,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *code)
 {
+	TRACE_SCOPE("InstructionTreeVm", "CompileVm");
+
 	if(ExprModule *node = getType<ExprModule>(expression))
 	{
 		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator, code);
@@ -2900,10 +4099,6 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 		// Generate type indexes
 		for(unsigned i = 0; i < ctx.types.size(); i++)
 			ctx.types[i]->typeIndex = i;
-
-		// Generate function indexes
-		for(unsigned i = 0; i < ctx.functions.size(); i++)
-			ctx.functions[i]->functionIndex = i;
 
 		// Generate VmFunction object for each function
 		for(unsigned i = 0; i < ctx.functions.size(); i++)
@@ -3010,17 +4205,15 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			break;
 		case VM_INST_SUB:
 			if(DoesConstantIntegerMatch(inst->arguments[0], 0)) // 0 - x, integer types
-				ChangeInstructionTo(module, inst, VM_INST_NEG, inst->arguments[1], NULL, NULL, NULL, &module->peepholeOptimizations);
+				ChangeInstructionTo(module, inst, VM_INST_NEG, inst->arguments[1], NULL, NULL, NULL, NULL, &module->peepholeOptimizations);
 			else if(IsConstantZero(inst->arguments[1])) // x - 0, all types
 				ReplaceValueUsersWith(module, inst, inst->arguments[0], &module->peepholeOptimizations);
 			break;
 		case VM_INST_MUL:
-			if(IsConstantZero(inst->arguments[0]) || IsConstantZero(inst->arguments[1])) // 0 * x or x * 0, all types
+			if(IsConstantZero(inst->arguments[0]) || IsConstantZero(inst->arguments[1])) // 0 * x or x * 0, all integer types (double can be NaN)
 			{
 				if(inst->type == VmType::Int)
 					ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, 0), &module->peepholeOptimizations);
-				else if(inst->type == VmType::Double)
-					ReplaceValueUsersWith(module, inst, CreateConstantDouble(module->allocator, inst->source, 0), &module->peepholeOptimizations);
 				else if(inst->type == VmType::Long)
 					ReplaceValueUsersWith(module, inst, CreateConstantLong(module->allocator, inst->source, 0), &module->peepholeOptimizations);
 			}
@@ -3038,7 +4231,7 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			if(VmInstruction *objectConstruct = getType<VmInstruction>(inst->arguments[1]))
 			{
 				if(objectConstruct->cmd == VM_INST_ARRAY && isType<VmConstant>(objectConstruct->arguments[1]))
-					ChangeInstructionTo(module, inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], &module->peepholeOptimizations);
+					ChangeInstructionTo(module, inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], NULL, &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_CONVERT_POINTER:
@@ -3098,24 +4291,10 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
-				if(address->cmd == VM_INST_ADD)
-				{
-					VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
-					VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+				VmConstant *totalOffset = NULL;
 
-					if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
-
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[1], totalOffset, NULL, NULL, &module->peepholeOptimizations);
-					}
-					else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
-
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[0], totalOffset, NULL, NULL, &module->peepholeOptimizations);
-					}
-				}
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, ptr, totalOffset, NULL, NULL, NULL, &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_STORE_BYTE:
@@ -3129,24 +4308,31 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
-				if(address->cmd == VM_INST_ADD)
-				{
-					VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
-					VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+				VmConstant *totalOffset = NULL;
 
-					if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, ptr, totalOffset, inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+			}
+			break;
+		case VM_INST_MEM_COPY:
+			if(VmInstruction *address = getType<VmInstruction>(inst->arguments[0]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[1], totalOffset, inst->arguments[2], NULL, &module->peepholeOptimizations);
-					}
-					else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
+				VmConstant *totalOffset = NULL;
 
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[0], totalOffset, inst->arguments[2], NULL, &module->peepholeOptimizations);
-					}
-				}
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, ptr, totalOffset, inst->arguments[2], inst->arguments[3], inst->arguments[4], &module->peepholeOptimizations);
+			}
+
+			if(VmInstruction *address = getType<VmInstruction>(inst->arguments[2]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[3]);
+
+				VmConstant *totalOffset = NULL;
+
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, inst->arguments[0], inst->arguments[1], ptr, totalOffset, inst->arguments[4], &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_EXTRACT:
@@ -3167,24 +4353,59 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 
 						VmConstant *shiftedTarget = CreateConstantPointer(module->allocator, NULL, addressAsConstant->iValue + offset->iValue, addressAsConstant->container, addressAsConstant->type.structType, true);
 
-						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), shiftedTarget, CreateConstantInt(module->allocator, NULL, 0), NULL, NULL, &module->peepholeOptimizations);
+						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), shiftedTarget, CreateConstantInt(module->allocator, NULL, 0), NULL, NULL, NULL, &module->peepholeOptimizations);
 					}
 					else
 					{
 						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + addressOffset->iValue);
 
-						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), address, totalOffset, NULL, NULL, &module->peepholeOptimizations);
+						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), address, totalOffset, NULL, NULL, NULL, &module->peepholeOptimizations);
 					}
 				}
 			}
 			break;
+		case VM_INST_CALL:
+			if(inst->arguments[0]->type.type != VM_TYPE_FUNCTION_REF)
+			{
+				VmFunction *function = getType<VmFunction>(inst->arguments[1]);
+
+				assert(function);
+
+				if(function->function->functionIndex == 0x09)
+				{
+					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("int"));
+					assert(inst->arguments[3]->type == VmType::Int);
+
+					inst->hasSideEffects = false;
+
+					ReplaceValueUsersWith(module, inst, inst->arguments[3], &module->peepholeOptimizations);
+				}
+				else if(function->function->functionIndex == 0x0a)
+				{
+					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("long"));
+					assert(inst->arguments[3]->type == VmType::Long);
+
+					inst->hasSideEffects = false;
+
+					ReplaceValueUsersWith(module, inst, inst->arguments[3], &module->peepholeOptimizations);
+				}
+				else if(function->function->functionIndex == 0x0c)
+				{
+					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("double"));
+					assert(inst->arguments[3]->type == VmType::Double);
+
+					inst->hasSideEffects = false;
+
+					ReplaceValueUsersWith(module, inst, inst->arguments[3], &module->peepholeOptimizations);
+				}
+			}
 		default:
 			break;
 		}
 	}
 }
 
-void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* value)
+void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* value, bool nested)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
@@ -3193,7 +4414,7 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 		while(curr)
 		{
 			VmBlock *next = curr->nextSibling;
-			RunConstantPropagation(ctx, module, curr);
+			RunConstantPropagation(ctx, module, curr, nested);
 			curr = next;
 		}
 	}
@@ -3204,7 +4425,7 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 		while(curr)
 		{
 			VmInstruction *next = curr->nextSibling;
-			RunConstantPropagation(ctx, module, curr);
+			RunConstantPropagation(ctx, module, curr, nested);
 			curr = next;
 		}
 	}
@@ -3220,7 +4441,17 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 			VmConstant *constant = getType<VmConstant>(inst->arguments[i]);
 
 			if(!constant)
-				return;
+			{
+				if(nested)
+				{
+					RunConstantPropagation(ctx, module, inst->arguments[i], true);
+
+					constant = getType<VmConstant>(inst->arguments[i]);
+				}
+
+				if(!constant)
+					return;
+			}
 
 			consts.push_back(constant);
 		}
@@ -3240,6 +4471,34 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 			break;
 		case VM_INST_DOUBLE_TO_LONG:
 			ReplaceValueUsersWith(module, inst, CreateConstantLong(module->allocator, inst->source, (long long)(consts[0]->dValue)), &module->constantPropagations);
+			break;
+		case VM_INST_DOUBLE_TO_FLOAT:
+		{
+			float fValue = float(consts[0]->dValue);
+
+			int iValue;
+			assert(sizeof(int) == sizeof(float));
+			memcpy(&iValue, &fValue, sizeof(float));
+
+			VmConstant *constant = CreateConstantInt(module->allocator, inst->source, iValue);
+
+			constant->isFloat = true;
+
+			// Replace only call instuction users
+			for(unsigned i = 0; i < inst->users.size(); i++)
+			{
+				if(VmInstruction *userInst = getType<VmInstruction>(inst->users[i]))
+				{
+					if(userInst->cmd == VM_INST_CALL)
+					{
+						ReplaceValue(module, inst->users[i], inst, constant);
+						module->constantPropagations++;
+					}
+				}
+			}
+
+			module->tempUsers.clear();
+		}
 			break;
 		case VM_INST_INT_TO_DOUBLE:
 			ReplaceValueUsersWith(module, inst, CreateConstantDouble(module->allocator, inst->source, double(consts[0]->iValue)), &module->constantPropagations);
@@ -3385,12 +4644,6 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 			else if(inst->type == VmType::Long)
 				ReplaceValueUsersWith(module, inst, CreateConstantLong(module->allocator, inst->source, consts[0]->lValue ^ consts[1]->lValue), &module->constantPropagations);
 			break;
-		case VM_INST_LOG_XOR:
-			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, (consts[0]->iValue != 0) != (consts[1]->iValue != 0)), &module->constantPropagations);
-			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, (consts[0]->lValue != 0) != (consts[1]->lValue != 0)), &module->constantPropagations);
-			break;
 		case VM_INST_NEG:
 			if(inst->type == VmType::Int)
 				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, -consts[0]->iValue), &module->constantPropagations);
@@ -3429,82 +4682,187 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 	}
 }
 
-void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* value)
+void MarkReachableBlocks(VmBlock *block)
 {
-	if(VmFunction *function = getType<VmFunction>(value))
+	if(block->visited)
+		return;
+
+	block->visited = true;
+
+	for(unsigned i = 0; i < block->successors.size(); i++)
+		MarkReachableBlocks(block->successors[i]);
+}
+
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmBlock *block);
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmInstruction *inst);
+
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmFunction* function)
+{
+	if(!function->firstBlock)
+		return;
+
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
 	{
-		VmBlock *curr = function->firstBlock;
+		curr->predecessors.clear();
+		curr->successors.clear();
+	}
+
+	// Get block predecessors and successors
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+	{
+		for(unsigned i = 0; i < curr->users.size(); i++)
+		{
+			VmValue *user = curr->users[i];
+
+			if(VmInstruction *inst = getType<VmInstruction>(user))
+			{
+				if(inst->cmd != VM_INST_PHI)
+				{
+					curr->predecessors.push_back(inst->parent);
+					inst->parent->successors.push_back(curr);
+				}
+			}
+		}
+	}
+
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		curr->visited = false;
+
+	MarkReachableBlocks(function->firstBlock);
+
+	// Remove blocks that are unreachable from entry
+	for(VmBlock *curr = function->firstBlock->nextSibling; curr;)
+	{
+		VmBlock *next = curr->nextSibling;
+
+		if(!curr->visited)
+		{
+			while(!curr->users.empty())
+			{
+				VmInstruction *inst = getType<VmInstruction>(curr->users.back());
+
+				if(inst->cmd == VM_INST_JUMP)
+				{
+					inst->parent->RemoveInstruction(inst);
+				}
+				else if(inst->cmd == VM_INST_JUMP_NZ || inst->cmd == VM_INST_JUMP_Z)
+				{
+					if(inst->arguments[1] == curr)
+						ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[2], NULL, NULL, NULL, NULL, NULL);
+					else
+						ChangeInstructionTo(module, inst, VM_INST_JUMP, inst->arguments[1], NULL, NULL, NULL, NULL, NULL);
+				}
+				else if(inst->cmd == VM_INST_PHI)
+				{
+					for(unsigned i = 0; i < inst->arguments.size(); i += 2)
+					{
+						VmValue *option = inst->arguments[i];
+						VmValue *edge = inst->arguments[i + 1];
+
+						if(edge == curr)
+						{
+							option->RemoveUse(inst);
+							edge->RemoveUse(inst);
+
+							inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
+							inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
+
+							inst->arguments.pop_back();
+							inst->arguments.pop_back();
+
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		curr = next;
+	}
+
+	VmBlock *curr = function->firstBlock;
+
+	while(curr)
+	{
+		VmBlock *next = curr->nextSibling;
+		RunDeadCodeElimiation(ctx, module, curr);
+		curr = next;
+	}
+
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+	{
+		// Check that only reachable blocks remain
+		assert(curr->visited);
+
+		curr->visited = false;
+	}
+}
+
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmBlock *block)
+{
+	if(block->users.empty() && !block->HasExternalInstructionUsers())
+	{
+		module->deadCodeEliminations++;
+
+		block->parent->RemoveBlock(block);
+	}
+	else
+	{
+		VmInstruction *curr = block->firstInstruction;
 
 		while(curr)
 		{
-			VmBlock *next = curr->nextSibling;
+			VmInstruction *next = curr->nextSibling;
 			RunDeadCodeElimiation(ctx, module, curr);
 			curr = next;
 		}
 	}
-	else if(VmBlock *block = getType<VmBlock>(value))
+}
+
+void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmInstruction *inst)
+{
+	(void)ctx;
+
+	if(inst->users.empty() && !inst->hasSideEffects && inst->canBeRemoved)
 	{
-		if(block->users.empty())
-		{
-			module->deadCodeEliminations++;
+		module->deadCodeEliminations++;
 
-			block->parent->RemoveBlock(block);
-		}
-		else
+		if(inst->parent)
+			inst->parent->RemoveInstruction(inst);
+	}
+	else if(inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ)
+	{
+		// Remove conditional branches with constant condition
+		if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
 		{
-			VmInstruction *curr = block->firstInstruction;
-
-			while(curr)
-			{
-				VmInstruction *next = curr->nextSibling;
-				RunDeadCodeElimiation(ctx, module, curr);
-				curr = next;
-			}
+			if(inst->cmd == VM_INST_JUMP_Z)
+				ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
+			else
+				ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
 		}
 	}
-	else if(VmInstruction *inst = getType<VmInstruction>(value))
+	else if(inst->cmd == VM_INST_PHI)
 	{
-		if(inst->users.empty() && !inst->hasSideEffects && inst->canBeRemoved)
+		// Remove incoming branches that are never executed (phi instruction is the only user)
+		for(unsigned i = 0; i < inst->arguments.size();)
 		{
-			module->deadCodeEliminations++;
+			VmValue *option = inst->arguments[i];
+			VmValue *edge = inst->arguments[i + 1];
 
-			if(inst->parent)
-				inst->parent->RemoveInstruction(inst);
-		}
-		else if(inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ)
-		{
-			// Remove conditional branches with constant condition
-			if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
+			if(edge->users.size() == 1 && edge->users[0] == inst)
 			{
-				if(inst->cmd == VM_INST_JUMP_Z)
-					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, &module->deadCodeEliminations);
-				else
-					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, &module->deadCodeEliminations);
+				option->RemoveUse(inst);
+				edge->RemoveUse(inst);
+
+				inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
+				inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
+
+				inst->arguments.pop_back();
+				inst->arguments.pop_back();
 			}
-		}
-		else if(inst->cmd == VM_INST_PHI)
-		{
-			// Remove incoming branches that are never executed (phi instruction is the only user)
-			for(unsigned i = 0; i < inst->arguments.size();)
+			else
 			{
-				VmValue *option = inst->arguments[i];
-				VmValue *edge = inst->arguments[i + 1];
-
-				if(edge->users.size() == 1 && edge->users[0] == inst)
-				{
-					option->RemoveUse(inst);
-					edge->RemoveUse(inst);
-
-					inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
-					inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
-
-					inst->arguments.pop_back();
-					inst->arguments.pop_back();
-				}
-				else
-				{
-					i += 2;
-				}
+				i += 2;
 			}
 		}
 	}
@@ -3566,9 +4924,11 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 						curr->lastInstruction->nextSibling = next->firstInstruction;
 
 					if(next->firstInstruction)
+					{
 						next->firstInstruction->prevSibling = curr->lastInstruction;
 
-					curr->lastInstruction = next->lastInstruction;
+						curr->lastInstruction = next->lastInstruction;
+					}
 
 					next->firstInstruction = next->lastInstruction = NULL;
 
@@ -3652,7 +5012,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 						{
 							assert(terminator->arguments[0] == curr);
 
-							ChangeInstructionTo(module, terminator, VM_INST_RETURN, option, 0, 0, 0, &module->controlFlowSimplifications);
+							ChangeInstructionTo(module, terminator, VM_INST_RETURN, option, NULL, NULL, NULL, NULL, &module->controlFlowSimplifications);
 						}
 					}
 				}
@@ -3665,7 +5025,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				VmValue *falseBlock = currLastInst->arguments[2];
 
 				if(trueBlock == falseBlock)
-					ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, trueBlock, 0, 0, 0, &module->controlFlowSimplifications);
+					ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, trueBlock, NULL, NULL, NULL, NULL, &module->controlFlowSimplifications);
 			}
 
 			// Remove coroutine unyield that only contains a single target
@@ -3673,7 +5033,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 			{
 				VmValue *targetBlock = currLastInst->arguments[1];
 
-				ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, targetBlock, 0, 0, 0, &module->controlFlowSimplifications);
+				ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, targetBlock, NULL, NULL, NULL, NULL, &module->controlFlowSimplifications);
 			}
 		}
 
@@ -3681,7 +5041,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 		{
 			VmBlock *next = curr->nextSibling;
 
-			if(curr->firstInstruction && curr->firstInstruction == curr->lastInstruction && curr->firstInstruction->cmd == VM_INST_JUMP)
+			if(curr->firstInstruction && curr->firstInstruction == curr->lastInstruction && curr->firstInstruction->cmd == VM_INST_JUMP && curr != function->firstBlock)
 			{
 				// Remove blocks that only contain an unconditional branch to some other block
 				VmBlock *target = getType<VmBlock>(curr->firstInstruction->arguments[0]);
@@ -3691,7 +5051,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
 			}
 
-			if(curr->users.empty())
+			if(curr->users.empty() && !curr->HasExternalInstructionUsers())
 			{
 				// Remove unused blocks
 				function->RemoveBlock(curr);
@@ -3737,6 +5097,9 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 						if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
 							continue;
 
+						if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[0] == user)
+							continue;
+
 						nonStoreUse = true;
 						break;
 					}
@@ -3752,7 +5115,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 			if(!nonStoreUse)
 			{
-				SmallArray<VmInstruction*, 32> deadStores;
+				SmallArray<VmInstruction*, 32> deadStores(module->allocator);
 
 				for(unsigned k = 0; k < variable->users.size(); k++)
 				{
@@ -3794,7 +5157,10 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				if(VmValue* prevValue = GetLoadStoreInfo(module, curr))
 				{
 					if(VmConstant* constant = getType<VmConstant>(prevValue))
+					{
 						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, prevValue->source, (int)(char)(constant->iValue)), &module->loadStorePropagations);
+						break;
+					}
 				}
 
 				AddLoadInfo(module, curr);
@@ -3803,7 +5169,10 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				if(VmValue* prevValue = GetLoadStoreInfo(module, curr))
 				{
 					if(VmConstant* constant = getType<VmConstant>(prevValue))
+					{
 						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, prevValue->source, (int)(short)(constant->iValue)), &module->loadStorePropagations);
+						break;
+					}
 				}
 
 				AddLoadInfo(module, curr);
@@ -3850,10 +5219,98 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			case VM_INST_STORE_STRUCT:
 				AddStoreInfo(module, curr);
 				break;
+			case VM_INST_MEM_COPY:
+				{
+					VmValue *address = curr->arguments[2];
+					VmConstant *offset = getType<VmConstant>(curr->arguments[3]);
+
+					if(VmInstruction* prevCopy = GetCopyInfo(module, address, offset, GetAccessSize(curr)))
+					{
+						ChangeInstructionTo(module, curr, curr->cmd, curr->arguments[0], curr->arguments[1], prevCopy->arguments[2], prevCopy->arguments[3], curr->arguments[4], &module->loadStorePropagations);
+					}
+				}
+
+				AddCopyInfo(module, curr);
+				break;
 			case VM_INST_SET_RANGE:
-			case VM_INST_CALL:
-				ClearLoadStoreInfoAliasing(module);
+				ClearLoadStoreInfoAliasing(module, NULL);
 				ClearLoadStoreInfoGlobal(module);
+				break;
+			case VM_INST_CALL:
+				unsigned firstArgument;
+
+				if(curr->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
+					firstArgument = 2;
+				else
+					firstArgument = 3;
+
+				for(unsigned i = firstArgument; i < curr->arguments.size(); i++)
+				{
+					if(VmConstant *constant = getType<VmConstant>(curr->arguments[i]))
+					{
+						if(constant->isReference)
+						{
+							if(VmInstruction* prevCopy = GetCopyInfo(module, constant, NULL, constant->type.size))
+							{
+								if(VmConstant *constAddress = getType<VmConstant>(prevCopy->arguments[2]))
+								{
+									VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, constant->type, curr->source);
+
+									reference->iValue = constAddress->iValue;
+									reference->container = constAddress->container;
+									reference->isReference = true;
+
+									reference->container->users.push_back(reference);
+
+									reference->comment = constant->comment;
+
+									reference->AddUse(curr);
+									curr->arguments[i]->RemoveUse(curr);
+
+									curr->arguments[i] = reference;
+								}
+							}
+						}
+					}
+				}
+
+				if(VmConstant *constant = getType<VmConstant>(curr->arguments[firstArgument - 1]))
+				{
+					if(constant->isReference)
+					{
+						// Remove previous loads and stores to the address range of the return value
+						ClearLoadStoreInfo(module, constant->container, unsigned(constant->iValue), constant->type.size);
+					}
+				}
+
+				ClearLoadStoreInfoAliasing(module, NULL);
+				ClearLoadStoreInfoGlobal(module);
+				break;
+			case VM_INST_RETURN:
+				if(!curr->arguments.empty())
+				{
+					if(VmConstant *constant = getType<VmConstant>(curr->arguments[0]))
+					{
+						if(constant->isReference)
+						{
+							if(VmInstruction* prevCopy = GetCopyInfo(module, constant, NULL, constant->type.size))
+							{
+								if(VmConstant *constAddress = getType<VmConstant>(prevCopy->arguments[2]))
+								{
+									VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, constant->type, curr->source);
+
+									reference->iValue = constAddress->iValue;
+									reference->container = constAddress->container;
+									reference->isReference = true;
+
+									reference->container->users.push_back(reference);
+
+									ChangeInstructionTo(module, curr, curr->cmd, reference, NULL, NULL, NULL, NULL, &module->loadStorePropagations);
+								}
+							}
+						}
+					}
+				}
 				break;
 			default:
 				break;
@@ -4019,6 +5476,1731 @@ void RunCommonSubexpressionElimination(ExpressionContext &ctx, VmModule *module,
 	}
 }
 
+void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		if(ScopeData *scope = function->scope)
+		{
+			// Keep stores to globals
+			if(scope == ctx.globalScope)
+				return;
+
+			for(unsigned variablePos = 0, variableCount = scope->allVariables.count; variablePos < variableCount; variablePos++)
+			{
+				VariableData *variable = scope->allVariables.data[variablePos];
+
+				if(variable->isAlloca && variable->users.count == 0)
+					continue;
+
+				if(HasAddressTaken(variable))
+					continue;
+
+				bool hasLoadUsers = false;
+
+				module->tempInstructions.clear();
+
+				for(unsigned userPos = 0, userCount = variable->users.count; userPos < userCount; userPos++)
+				{
+					VmConstant *user = variable->users.data[userPos];
+
+					for(unsigned userUserPos = 0, userUserCount = user->users.count; userUserPos < userUserCount; userUserPos++)
+					{
+						if(VmInstruction *inst = getType<VmInstruction>(user->users.data[userUserPos]))
+						{
+							if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+								hasLoadUsers = true;
+
+							if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+								module->tempInstructions.push_back(inst);
+
+							if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[0] == user)
+								module->tempInstructions.push_back(inst);
+
+							if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[2] == user)
+								hasLoadUsers = true;
+
+							if(inst->cmd == VM_INST_RETURN && user->isReference)
+								hasLoadUsers = true;
+
+							if(inst->cmd == VM_INST_CALL && user->isReference)
+							{
+								unsigned firstArgument = 3;
+
+								if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
+									firstArgument = 2;
+
+								for(unsigned i = firstArgument; i < inst->arguments.size(); i++)
+								{
+									if(inst->arguments[i] == user)
+										hasLoadUsers = true;
+								}
+							}
+						}
+					}
+				}
+
+				if(!hasLoadUsers && module->tempInstructions.count != 0)
+				{
+					for(unsigned storePos = 0, storeCount = module->tempInstructions.count; storePos < storeCount; storePos++)
+					{
+						VmInstruction *storeInst = module->tempInstructions.data[storePos];
+
+						module->deadAllocaStoreEliminations++;
+
+						storeInst->parent->RemoveInstruction(storeInst);
+					}
+				}
+			}
+		}
+	}
+}
+
+bool IsMemoryLoadOfVariable(VmInstruction *instruction, VariableData *variable)
+{
+	if(instruction->cmd >= VM_INST_LOAD_BYTE && instruction->cmd <= VM_INST_LOAD_STRUCT)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[0]))
+			return constant->container == variable;
+	}
+
+	if(instruction->cmd == VM_INST_MEM_COPY)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[2]))
+			return constant->container == variable;
+	}
+
+	return false;
+}
+
+bool IsMemoryStoreToVariable(VmInstruction *instruction, VariableData *variable)
+{
+	if(instruction->cmd >= VM_INST_STORE_BYTE && instruction->cmd <= VM_INST_STORE_STRUCT)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[0]))
+			return constant->container == variable;
+	}
+
+	if(instruction->cmd == VM_INST_MEM_COPY)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[0]))
+			return constant->container == variable;
+	}
+
+	return false;
+}
+
+bool IsPhiOfVariable(VmInstruction *instruction, ArrayView<VmInstruction*> phiNodes)
+{
+	if(instruction->cmd == VM_INST_PHI)
+	{
+		for(unsigned i = 0; i < phiNodes.size(); i++)
+		{
+			if(instruction == phiNodes[i])
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool IsArgumentVariable(FunctionData *function, VariableData *data)
+{
+	for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+	{
+		if(data == curr->variable)
+			return true;
+	}
+
+	if(data == function->contextArgument)
+		return true;
+
+	return false;
+}
+
+void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *block, SmallArray<VmValue*, 32> &stack, VariableData *variable, ArrayView<VmInstruction*> phiNodes)
+{
+	unsigned oldSize = stack.size();
+
+	bool hadUpdate = false;
+
+	for(VmInstruction *instruction = block->firstInstruction; instruction; instruction = instruction->nextSibling)
+	{
+		if(IsMemoryLoadOfVariable(instruction, variable))
+		{
+			// Do not reorder instruction stream, perform a separate dead instruction elimination pass later
+			instruction->canBeRemoved = false;
+
+			if(!block->prevSibling && stack.empty())
+				stack.push_back(instruction);
+			else
+				ReplaceValueUsersWith(module, instruction, stack.back(), NULL);
+
+			instruction->canBeRemoved = true;
+		}
+
+		if(IsMemoryStoreToVariable(instruction, variable))
+		{
+			if(VmInstruction *inst = getType<VmInstruction>(instruction->arguments[2]))
+			{
+				hadUpdate = true;
+
+				inst->comment = variable->name->name;
+
+				stack.push_back(getType<VmInstruction>(inst));
+			}
+			else if(VmConstant *constant = getType<VmConstant>(instruction->arguments[2]))
+			{
+				hadUpdate = true;
+
+				stack.push_back(constant);
+			}
+			else
+			{
+				assert(!"unknown argument type");
+			}
+		}
+		else if(IsPhiOfVariable(instruction, phiNodes))
+		{
+			stack.push_back(instruction);
+		}
+	}
+
+	// If we have completed the entry block and there was no definition of the variable, create an argument load or a constant zero for a local
+	if(!block->prevSibling && stack.empty())
+	{
+		module->currentBlock = block;
+
+		while(block->insertPoint && IsBlockTerminator(block->insertPoint->cmd))
+			block->insertPoint = block->insertPoint->prevSibling;
+
+		if(IsArgumentVariable(block->parent->function, variable))
+		{
+			VmValue *loadInst = CreateLoad(ctx, module, NULL, variable->type, CreateVariableAddress(module, NULL, variable, variable->type), 0);
+
+			loadInst->comment = variable->name->name;
+
+			stack.push_back(getType<VmInstruction>(loadInst));
+		}
+		else
+		{
+			VmValue *loadInst = NULL;
+
+			VmType vmType = GetVmType(ctx, variable->type);
+
+			if(vmType == VmType::Int || (NULLC_PTR_SIZE == 4 && vmType.type == VM_TYPE_POINTER))
+				loadInst = CreateLoadImmediate(module, NULL, CreateConstantInt(module->allocator, NULL, 0));
+			else if(vmType == VmType::Double)
+				loadInst = CreateLoadImmediate(module, NULL, CreateConstantDouble(module->allocator, NULL, 0));
+			else if(vmType == VmType::Long || (NULLC_PTR_SIZE == 8 && vmType.type == VM_TYPE_POINTER))
+				loadInst = CreateLoadImmediate(module, NULL, CreateConstantLong(module->allocator, NULL, 0));
+			else
+				assert(!"unknown type");
+
+			loadInst->comment = variable->name->name;
+
+			stack.push_back(getType<VmInstruction>(loadInst));
+		}
+
+		module->currentBlock = NULL;
+	}
+	else if(hadUpdate)
+	{
+		// Finalize last value before terminator instruction
+		module->currentBlock = block;
+		block->insertPoint = block->lastInstruction->prevSibling;
+
+		if(VmConstant *constant = getType<VmConstant>(stack.back()))
+		{
+			// Create immediate load for final constant value
+			VmValue *loadInst = CreateLoadImmediate(module, constant->source, constant);
+
+			loadInst->comment = variable->name->name;
+
+			stack.back() = loadInst;
+		}
+
+		block->insertPoint = block->lastInstruction;
+		module->currentBlock = NULL;
+	}
+
+	for(unsigned i = 0; i < block->successors.size(); i++)
+	{
+		VmBlock *successor = block->successors[i];
+
+		// Find which predecessor is the X for Y
+		unsigned j = ~0u;
+
+		for(unsigned k = 0; k < successor->predecessors.size() && j == ~0u; k++)
+		{
+			if(block == successor->predecessors[k])
+				j = k;
+		}
+
+		assert(j != ~0u);
+
+		// Find phi node for current variable
+		for(VmInstruction *inst = successor->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			// We won't find any phi instructions after the last one
+			if(inst->cmd != VM_INST_PHI)
+				break;
+
+			if(IsPhiOfVariable(inst, phiNodes))
+			{
+				inst->arguments[j * 2] = stack.back();
+
+				stack.back()->AddUse(inst);
+			}
+		}
+	}
+
+	for(unsigned i = 0; i < block->dominanceChildren.size(); i++)
+		RenameMemoryToRegister(ctx, module, block->dominanceChildren[i], stack, variable, phiNodes);
+
+	stack.shrink(oldSize);
+}
+
+bool IsPhiUsed(VmInstruction *phi, unsigned searchMarker)
+{
+	assert(phi->cmd == VM_INST_PHI);
+
+	if(phi->regVmSearchMarker == searchMarker)
+		return false;
+
+	phi->regVmSearchMarker = searchMarker;
+
+	for(unsigned userPos = 0; userPos < phi->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(phi->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+		{
+			if(IsPhiUsed(instruction, searchMarker))
+				return true;
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		// Skip prototypes
+		if(!function->firstBlock)
+			return;
+
+		// Skip global code
+		if(!function->function)
+			return;
+
+		// Prepare dominator frontier data
+		function->UpdateDominatorTree(module, true);
+
+		ScopeData *scope = function->scope;
+
+		if(!scope)
+			return;
+
+		// Keep stores to globals
+		if(scope == ctx.globalScope)
+			return;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		{
+			curr->hasAssignmentForId = 0;
+			curr->hasPhiNodeForId = 0;
+		}
+
+		for(unsigned i = 0; i < scope->allVariables.size(); i++)
+		{
+			VariableData *variable = scope->allVariables[i];
+
+			if(variable->isAlloca && variable->users.empty())
+				continue;
+
+			assert(!IsMemberScope(variable->scope));
+			assert(!IsGlobalScope(variable->scope));
+
+			// Consider only the variables that don't have their address taken
+			if(HasAddressTaken(variable))
+				continue;
+
+			// Consider only variables of simple types
+			VmType vmType = GetVmType(ctx, variable->type);
+
+			if(variable->type != ctx.typeInt && variable->type != ctx.typeDouble && variable->type != ctx.typeLong && vmType.type != VM_TYPE_POINTER)
+				continue;
+
+			// Initilize the worklist with a set of blocks that contain assignments to the variable
+			SmallArray<VmBlock*, 32> worklist(module->allocator);
+
+			// Argument is implicitly initialized in the entry block
+			if(IsArgumentVariable(function->function, variable))
+			{
+				function->firstBlock->hasAssignmentForId = i + 1;
+				worklist.push_back(function->firstBlock);
+			}
+
+			// Find all explicit assignments
+			for(unsigned varUserPos = 0; varUserPos < variable->users.size(); varUserPos++)
+			{
+				VmConstant *user = variable->users[varUserPos];
+
+				for(unsigned containerUserPos = 0; containerUserPos < user->users.size(); containerUserPos++)
+				{
+					if(VmInstruction *inst = getType<VmInstruction>(user->users[containerUserPos]))
+					{
+						if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+						{
+							bool found = false;
+
+							for(unsigned worklistPos = 0; worklistPos < worklist.size() && !found; worklistPos++)
+							{
+								if(worklist[worklistPos] == inst->parent)
+									found = true;
+							}
+
+							if(!found)
+							{
+								inst->parent->hasAssignmentForId = i + 1;
+								worklist.push_back(inst->parent);
+							}
+						}
+					}
+				}
+			}
+
+			module->currentFunction = function;
+
+			// Add placeholders for required phi nodes
+			SmallArray<VmInstruction*, 32> phiNodes(module->allocator);
+
+			while(!worklist.empty())
+			{
+				VmBlock *block = worklist.back();
+				worklist.pop_back();
+
+				for(unsigned dfPos = 0; dfPos < block->dominanceFrontier.size(); dfPos++)
+				{
+					VmBlock *dominator = block->dominanceFrontier[dfPos];
+
+					if(dominator->hasPhiNodeForId < i + 1)
+					{
+						// Add phi for variable
+						module->currentBlock = dominator;
+						dominator->insertPoint = NULL;
+
+						VmInstruction *placeholder = CreateInstruction(module, NULL, vmType, VM_INST_PHI);
+
+						for(unsigned predecessorPos = 0; predecessorPos < dominator->predecessors.size(); predecessorPos++)
+						{
+							placeholder->arguments.push_back(NULL);
+							placeholder->arguments.push_back(dominator->predecessors[predecessorPos]);
+
+							dominator->predecessors[predecessorPos]->AddUse(placeholder);
+						}
+
+						placeholder->comment = variable->name->name;
+
+						phiNodes.push_back(placeholder);
+
+						dominator->insertPoint = dominator->lastInstruction;
+						module->currentBlock = NULL;
+
+						dominator->hasPhiNodeForId = i + 1;
+
+						if(dominator->hasAssignmentForId < i + 1)
+						{
+							dominator->hasAssignmentForId = i + 1;
+							worklist.push_back(dominator);
+						}
+					}
+				}
+			}
+
+			SmallArray<VmValue*, 32> stack(module->allocator);
+
+			RenameMemoryToRegister(ctx, module, function->firstBlock, stack, variable, phiNodes);
+
+			// Remove dead phi instructions (prune ssa)
+			SmallArray<VmInstruction*, 32> unusedPhiNodes(module->allocator);
+
+			for(unsigned k = 0; k < phiNodes.size(); k++)
+			{
+				VmInstruction *phi = phiNodes[k];
+
+				if(!IsPhiUsed(phi, function->nextSearchMarker++))
+					unusedPhiNodes.push_back(phi);
+			}
+
+			for(unsigned k = 0; k < unusedPhiNodes.size(); k++)
+			{
+				VmInstruction *phi = unusedPhiNodes[k];
+
+				phi->canBeRemoved = false;
+
+				// Remove from all phi users (since this is an unused phi node, all remaining users are circular references from other phi nodes)
+				while(!phi->users.empty())
+				{
+					VmInstruction *user = getType<VmInstruction>(phi->users.back());
+
+					assert(user->cmd == VM_INST_PHI);
+
+					for(unsigned argument = 0; argument < user->arguments.size(); argument += 2)
+					{
+						VmValue *option = user->arguments[argument];
+						VmValue *edge = user->arguments[argument + 1];
+
+						if(option == phi)
+						{
+							option->RemoveUse(user);
+							edge->RemoveUse(user);
+
+							user->arguments[argument] = user->arguments[user->arguments.size() - 2];
+							user->arguments[argument + 1] = user->arguments[user->arguments.size() - 1];
+
+							user->arguments.pop_back();
+							user->arguments.pop_back();
+						}
+					}
+				}
+
+				phi->canBeRemoved = true;
+			}
+
+			module->currentFunction = NULL;
+		}
+
+		function->UpdateLiveSets(module);
+	}
+}
+
+void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			RunArrayToElements(ctx, module, curr);
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			// If replacement succeeds, we will continue from the same place to handle multi-level arrays
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->cmd == VM_INST_STORE_STRUCT)
+			{
+				VmValue *storeAddress = curr->arguments[0];
+				VmConstant *storeOffset = getType<VmConstant>(curr->arguments[1]);
+				VmInstruction *storeValue = getType<VmInstruction>(curr->arguments[2]);
+
+				if(storeValue)
+				{
+					if(storeValue->cmd == VM_INST_ARRAY && storeValue->users.size() == 1)
+					{
+						block->insertPoint = curr;
+
+						TypeArray *typeArray = getType<TypeArray>(storeValue->type.structType);
+
+						TypeBase *elementType = typeArray->subType;
+
+						VmConstant *tempAddress = CreateAlloca(ctx, module, curr->source, typeArray, "array_elem");
+
+						for(unsigned i = 0; i < storeValue->arguments.size(); i++)
+						{
+							VmValue *element = storeValue->arguments[i];
+
+							if(VmInstruction *elementInst = getType<VmInstruction>(element))
+							{
+								if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+									element = elementInst->arguments[0];
+
+								block->insertPoint = elementInst;
+
+								CreateStore(ctx, module, curr->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+
+								block->insertPoint = curr;
+							}
+							else
+							{
+								CreateStore(ctx, module, curr->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+							}
+						}
+
+						CreateMemCopy(module, curr->source, storeAddress, storeOffset->iValue, tempAddress, 0, int(typeArray->size));
+
+						block->insertPoint = block->lastInstruction;
+
+						block->RemoveInstruction(curr);
+					}
+				}
+			}
+
+			curr = next;
+		}
+
+		module->currentBlock = NULL;
+	}
+}
+
+bool IsReachableLoadValue(VmInstruction *user, VmInstruction *load)
+{
+	if(user->parent != load->parent)
+		return false;
+
+	VmValue *loadAddress = load->arguments[0];
+
+	VmConstant *loadAddressConstant = getType<VmConstant>(loadAddress);
+
+	for(VmInstruction *curr = user->prevSibling; curr != load; curr = curr->prevSibling)
+	{
+		switch(curr->cmd)
+		{
+		case VM_INST_STORE_BYTE:
+		case VM_INST_STORE_SHORT:
+		case VM_INST_STORE_INT:
+		case VM_INST_STORE_FLOAT:
+		case VM_INST_STORE_DOUBLE:
+		case VM_INST_STORE_LONG:
+		case VM_INST_STORE_STRUCT:
+			if(IsLoadAliasedWithStore(load, curr))
+				return false;
+			break;
+		case VM_INST_SET_RANGE:
+		case VM_INST_MEM_COPY:
+			return false;
+		case VM_INST_CALL:
+			if(loadAddressConstant && loadAddressConstant->container && !HasAddressTaken(loadAddressConstant->container))
+				return true;
+
+			return false;
+		default:
+			break;
+		}
+	}
+
+	return true;
+}
+
+void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		VmBlock *curr = function->firstBlock;
+
+		while(curr)
+		{
+			VmBlock *next = curr->nextSibling;
+			RunLatePeepholeOptimizations(ctx, module, curr);
+			curr = next;
+		}
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		VmInstruction *curr = block->firstInstruction;
+
+		while(curr)
+		{
+			VmInstruction *next = curr->nextSibling;
+			RunLatePeepholeOptimizations(ctx, module, curr);
+			curr = next;
+		}
+	}
+	else if(VmInstruction *inst = getType<VmInstruction>(value))
+	{
+		switch(inst->cmd)
+		{
+		case VM_INST_ADD:
+		case VM_INST_SUB:
+		case VM_INST_MUL:
+		case VM_INST_DIV:
+			if(VmInstruction *rhs = getType<VmInstruction>(inst->arguments[1]))
+			{
+				VmValue *lhs = inst->arguments[0];
+
+				if(IsOperationNaturalLoad(lhs->type, rhs, true) && rhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, rhs))
+				{
+					VmValue *loadAddress = rhs->arguments[0];
+					VmValue *loadOffset = rhs->arguments[1];
+
+					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(rhs->cmd));
+
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		case VM_INST_POW:
+		case VM_INST_MOD:
+		case VM_INST_LESS:
+		case VM_INST_GREATER:
+		case VM_INST_LESS_EQUAL:
+		case VM_INST_GREATER_EQUAL:
+		case VM_INST_EQUAL:
+		case VM_INST_NOT_EQUAL:
+		case VM_INST_SHL:
+		case VM_INST_SHR:
+		case VM_INST_BIT_AND:
+		case VM_INST_BIT_OR:
+		case VM_INST_BIT_XOR:
+			if(VmInstruction *rhs = getType<VmInstruction>(inst->arguments[1]))
+			{
+				VmValue *lhs = inst->arguments[0];
+
+				if(IsOperationNaturalLoad(lhs->type, rhs, false) && rhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, rhs))
+				{
+					VmValue *loadAddress = rhs->arguments[0];
+					VmValue *loadOffset = rhs->arguments[1];
+
+					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(rhs->cmd));
+
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		default:
+			break;
+		}
+
+		switch(inst->cmd)
+		{
+		case VM_INST_ADD:
+		case VM_INST_MUL:
+		case VM_INST_EQUAL:
+		case VM_INST_NOT_EQUAL:
+		case VM_INST_BIT_AND:
+		case VM_INST_BIT_OR:
+		case VM_INST_BIT_XOR:
+			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
+			{
+				VmValue *rhs = inst->arguments[1];
+
+				if(IsOperationNaturalLoad(rhs->type, lhs, false) && lhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, lhs))
+				{
+					VmValue *loadAddress = lhs->arguments[0];
+					VmValue *loadOffset = lhs->arguments[1];
+
+					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(lhs->cmd));
+
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		case VM_INST_LESS:
+		case VM_INST_GREATER:
+		case VM_INST_LESS_EQUAL:
+		case VM_INST_GREATER_EQUAL:
+			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
+			{
+				VmValue *rhs = inst->arguments[1];
+
+				if(IsOperationNaturalLoad(rhs->type, lhs, false) && lhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, lhs))
+				{
+					VmValue *loadAddress = lhs->arguments[0];
+					VmValue *loadOffset = lhs->arguments[1];
+
+					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(lhs->cmd));
+
+					ChangeInstructionTo(module, inst, GetMirroredComparisonOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	(void)ctx;
+	(void)module;
+
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		function->UpdateDominatorTree(module, true);
+		function->UpdateLiveSets(module);
+	}
+}
+
+void IsolatePhiNodes(VmModule *module, VmFunction* function)
+{
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		if(!block->firstInstruction)
+			continue;
+
+		// Insert empty parallel copy at the end of a block (before terminator)
+		module->currentBlock = block;
+		block->insertPoint = block->lastInstruction->prevSibling;
+
+		block->exitPc = CreateInstruction(module, NULL, VmType::Void, VM_INST_PARALLEL_COPY, NULL, NULL, NULL, NULL);
+
+		// Insert empty parallel copy at the start of a block (after phi instructions)
+		block->insertPoint = block->firstInstruction;
+
+		while(block->insertPoint && block->insertPoint->cmd == VM_INST_PHI)
+			block->insertPoint = block->insertPoint->nextSibling;
+
+		assert(block->insertPoint);
+
+		block->insertPoint = block->insertPoint->prevSibling;
+
+		block->entryPc = CreateInstruction(module, NULL, VmType::Void, VM_INST_PARALLEL_COPY, NULL, NULL, NULL, NULL);
+
+		block->insertPoint = block->lastInstruction;
+		module->currentBlock = NULL;
+	}
+
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			// For each phi node
+			if(inst->cmd == VM_INST_PHI)
+			{
+#if !defined(NDEBUG)
+				// Avoid surprises, each edge might introduce only a single variable
+				for(unsigned argumentA = 0; argumentA < inst->arguments.size(); argumentA += 2)
+				{
+					VmInstruction *instructionA = getType<VmInstruction>(inst->arguments[argumentA]);
+					VmBlock *edgeA = getType<VmBlock>(inst->arguments[argumentA + 1]);
+
+					for(unsigned argumentB = argumentA + 2; argumentB < inst->arguments.size(); argumentB += 2)
+					{
+						VmInstruction *instructionB = getType<VmInstruction>(inst->arguments[argumentB]);
+						VmBlock *edgeB = getType<VmBlock>(inst->arguments[argumentB + 1]);
+
+						if(edgeA == edgeB)
+							assert(instructionA != instructionB);
+					}
+				}
+#endif
+
+				SmallArray<VmInstruction*, 16> copyInstructions(module->allocator);
+
+				// Introduce a copy at the end of the predecessor block
+				for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+				{
+					VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+					VmBlock *edge = getType<VmBlock>(inst->arguments[argument + 1]);
+
+					// In a general case if instruction set contains instructions that modify the value after the branch, it won't be valid to insert a copy
+
+					// Place copy before the terminator instruction
+					module->currentBlock = edge;
+					edge->insertPoint = edge->lastInstruction->prevSibling;
+
+					edge->insertPoint = edge->exitPc->prevSibling;
+
+					VmInstruction *def = CreateInstruction(module, NULL, instruction->type, VM_INST_DEF, NULL, NULL, NULL, NULL);
+
+					def->comment = instruction->comment;
+
+					edge->exitPc->AddArgument(def);
+					edge->exitPc->AddArgument(instruction);
+
+					def->AddUse(inst);
+					inst->arguments[argument]->RemoveUse(inst);
+
+					inst->arguments[argument] = def;
+
+					edge->insertPoint = edge->lastInstruction;
+					module->currentBlock = NULL;
+				}
+
+				// In general case if optimization passes create multiple incoming edges from a single block, it won't be valid to insert a copy
+
+				// Introduce a copy right after the phi node
+				module->currentBlock = block;
+				block->insertPoint = inst;
+
+				while(block->insertPoint && block->insertPoint->cmd == VM_INST_PHI)
+					block->insertPoint = block->insertPoint->nextSibling;
+
+				assert(block->insertPoint);
+
+				block->insertPoint = block->insertPoint->prevSibling;
+
+				block->insertPoint = block->entryPc->prevSibling;
+
+				VmInstruction *def = CreateInstruction(module, inst->source, inst->type, VM_INST_DEF, NULL, NULL, NULL, NULL);
+
+				def->comment = inst->comment;
+
+				block->entryPc->AddArgument(def);
+
+				inst->canBeRemoved = false;
+
+				ReplaceValueUsersWith(module, inst, def, NULL);
+
+				block->entryPc->AddArgument(inst);
+
+				inst->canBeRemoved = true;
+
+				block->insertPoint = block->lastInstruction;
+				module->currentBlock = NULL;
+
+				// Remove redundant copies
+				for(unsigned i = 0; i < copyInstructions.size(); i++)
+				{
+					VmInstruction *copyA = copyInstructions[i];
+					VmBlock *parentA = copyA->parent;
+
+					for(VmBlock *curr = parentA->idom; curr; curr = curr->idom)
+					{
+						bool replaced = false;
+
+						for(unsigned k = 0; k < copyInstructions.size(); k++)
+						{
+							if(i == k)
+								continue;
+
+							VmInstruction *copyB = copyInstructions[k];
+
+							// Check if already dead
+							if(copyB->users.empty())
+								continue;
+
+							// Check if the copy is the same
+							if(copyA->arguments[0] != copyB->arguments[0])
+								continue;
+
+							VmBlock *parentB = copyB->parent;
+
+							// If immediate dominator contains the same copy, use it
+							if(parentB == curr)
+							{
+								ReplaceValueUsersWith(module, copyA, copyB, NULL);
+								replaced = true;
+								break;
+							}
+						}
+
+						if(replaced)
+							break;
+					}
+				}
+			}
+		}
+	}
+}
+
+void ColorPhiWeb(VmInstruction *inst, unsigned color)
+{
+	if(inst->color != 0)
+		return;
+
+	inst->color = color;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			ColorPhiWeb(instruction, color);
+		}
+	}
+
+	if(inst->cmd == VM_INST_MOV)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->arguments[0]);
+
+		ColorPhiWeb(instruction, color);
+	}
+
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+						ColorPhiWeb(source, color);
+				}
+			}
+		}
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			ColorPhiWeb(instruction, color);
+
+		if(instruction->cmd == VM_INST_MOV)
+			ColorPhiWeb(instruction, color);
+
+		if(instruction->cmd == VM_INST_PARALLEL_COPY)
+		{
+			for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+				VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+				assert(destination);
+				assert(source);
+
+				if(inst == source)
+					ColorPhiWeb(destination, color);
+			}
+		}
+	}
+}
+
+void ColorPhiWebs(VmFunction* function)
+{
+	function->nextColor = 0;
+
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			if(inst->cmd == VM_INST_PHI && inst->color == 0)
+				ColorPhiWeb(inst, ++function->nextColor);
+		}
+	}
+}
+
+bool IsAfter(VmInstruction *a, VmInstruction *b)
+{
+	assert(a->parent == b->parent);
+
+	while(b)
+	{
+		if(a == b)
+			return true;
+
+		b = b->nextSibling;
+	}
+
+	return false;
+}
+
+bool IsLiveAt(VmInstruction *inst, VmInstruction *point)
+{
+	VmBlock *definitionBlock = inst->parent;
+
+	VmBlock *pointBlock = point->parent;
+
+	// If both instructions are in the same block
+	if(pointBlock == definitionBlock)
+	{
+		// If definition is after the point, then it's not live yet
+		if(IsAfter(inst, point))
+			return false;
+
+		// If definition is before the point, we must find out if it's live yet
+
+		// If it's live-out, then it's live at point
+		for(unsigned i = 0; i < pointBlock->liveOut.size(); i++)
+		{
+			if(pointBlock->liveOut[i] == inst)
+				return true;
+		}
+
+		// Check if it's used at point or after it
+		VmInstruction *curr = point;
+
+		while(curr)
+		{
+			for(unsigned i = 0; i < curr->arguments.size(); i++)
+			{
+				if(curr->arguments[i] == inst)
+					return true;
+			}
+
+			curr = curr->nextSibling;
+		}
+	}
+	else
+	{
+		// If instruction is not live-in at point block then it's not live
+		bool liveIn = false;
+
+		for(unsigned i = 0; i < pointBlock->liveIn.size(); i++)
+		{
+			if(pointBlock->liveIn[i] == inst)
+			{
+				liveIn = true;
+				break;
+			}
+		}
+
+		if(liveIn)
+		{
+			// If it's live-out, then it's live at point
+			for(unsigned i = 0; i < pointBlock->liveOut.size(); i++)
+			{
+				if(pointBlock->liveOut[i] == inst)
+					return true;
+			}
+
+			// Check if it's used at point or after it
+			VmInstruction *curr = point;
+
+			while(curr)
+			{
+				for(unsigned i = 0; i < curr->arguments.size(); i++)
+				{
+					if(curr->arguments[i] == inst)
+						return true;
+				}
+
+				curr = curr->nextSibling;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Dominates(VmBlock *a, VmBlock *b)
+{
+	if(a == b)
+		return true;
+
+	for(unsigned i = 0; i < a->dominanceChildren.size(); i++)
+	{
+		VmBlock *child = a->dominanceChildren[i];
+
+		if(child == b)
+			return true;
+
+		if(Dominates(child, b))
+			return true;
+	}
+
+	return false;
+}
+
+bool Dominates(VmInstruction *a, VmInstruction *b)
+{
+	// If instructions come from different blocks, check if blocks dominate each other
+	if(a->parent != b->parent)
+		return Dominates(a->parent, b->parent);
+
+	// a dominates b is b is defined after a in the same block
+	if(IsAfter(b, a))
+		return true;
+
+	return false;
+}
+
+bool Intersect(VmInstruction *a, VmInstruction *b)
+{
+	// Same definition
+	if(a == b)
+		return true;
+
+	// 'def' pseudo-instruction definition locations is at following parallel copy instruction
+	if(b->cmd == VM_INST_DEF)
+	{
+		while(b->cmd != VM_INST_PARALLEL_COPY)
+			b = b->nextSibling;
+	}
+
+	// a dominates b and a is live just after the definition of b
+	if(IsLiveAt(a, b->nextSibling))
+		return true;
+
+	// b dominates a and b is live just after the definition of a
+	if(IsLiveAt(b, a->nextSibling))
+		return true;
+
+	return false;
+}
+
+void CollectMergedSet(VmInstruction *inst, unsigned marker, SmallArray<VmInstruction*, 32> &mergedSet)
+{
+	if(inst->marker != 0)
+		return;
+
+	mergedSet.push_back(inst);
+
+	inst->marker = marker;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			CollectMergedSet(instruction, marker, mergedSet);
+		}
+	}
+
+	if(inst->cmd == VM_INST_MOV)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->arguments[0]);
+
+		CollectMergedSet(instruction, marker, mergedSet);
+	}
+
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+						CollectMergedSet(source, marker, mergedSet);
+				}
+			}
+		}
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			CollectMergedSet(instruction, marker, mergedSet);
+
+		if(instruction->cmd == VM_INST_MOV)
+			CollectMergedSet(instruction, marker, mergedSet);
+
+		if(instruction->cmd == VM_INST_PARALLEL_COPY)
+		{
+			for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+				VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+				assert(destination);
+				assert(source);
+
+				if(inst == source)
+					CollectMergedSet(destination, marker, mergedSet);
+			}
+		}
+	}
+}
+
+unsigned GetSplitCopyCount(VmInstruction *inst, unsigned marker)
+{
+	if(inst->regVmSearchMarker == marker)
+		return 0;
+
+	inst->regVmSearchMarker = marker;
+
+	unsigned count = 0;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			count += GetSplitCopyCount(instruction, marker);
+		}
+	}
+
+	if(inst->cmd == VM_INST_MOV)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->arguments[0]);
+
+		if(inst->color != 0 && inst->color == instruction->color)
+			count++;
+	}
+
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+					{
+						if(inst->color != 0 && inst->color == source->color)
+							count++;
+					}
+				}
+			}
+		}
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			count += GetSplitCopyCount(instruction, marker);
+
+		if(instruction->cmd == VM_INST_MOV)
+		{
+			assert(inst == instruction->arguments[0]);
+
+			if(instruction->color != 0 && instruction->color == inst->color)
+				count++;
+		}
+
+		if(instruction->cmd == VM_INST_PARALLEL_COPY)
+		{
+			for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+				VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+				assert(destination);
+				assert(source);
+
+				if(inst == source)
+				{
+					if(instruction->color != 0 && instruction->color == destination->color)
+						count++;
+				}
+			}
+		}
+	}
+
+	return count;
+}
+
+void UncolorAtomicMergeSet(VmInstruction *inst)
+{
+	inst->color = 0;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			if(instruction->color != 0)
+				UncolorAtomicMergeSet(instruction);
+		}
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			UncolorAtomicMergeSet(instruction);
+	}
+}
+
+int SortByDominancePreOrder(const void* a, const void* b)
+{
+	VmInstruction *aInst = *(VmInstruction**)a;
+	VmInstruction *bInst = *(VmInstruction**)b;
+
+	if(aInst->parent->dominanceGraphPreOrderId < bInst->parent->dominanceGraphPreOrderId)
+		return -1;
+
+	if(aInst->parent->dominanceGraphPreOrderId > bInst->parent->dominanceGraphPreOrderId)
+		return 1;
+
+	if(IsAfter(aInst, bInst))
+		return 1;
+
+	if(IsAfter(bInst, aInst))
+		return -1;
+
+	return 0;
+}
+
+bool Colored(VmInstruction *inst)
+{
+	assert(inst->cmd != VM_INST_PARALLEL_COPY);
+
+	return inst->color != 0;
+}
+
+bool Uncolored(VmInstruction *inst)
+{
+	assert(inst->cmd != VM_INST_PARALLEL_COPY);
+
+	return inst->color == 0;
+}
+
+VmInstruction* UnderlyingValue(VmInstruction *inst)
+{
+	if(inst->cmd == VM_INST_MOV)
+	{
+		VmInstruction *argument = getType<VmInstruction>(inst->arguments[0]);
+
+		assert(argument);
+
+		return UnderlyingValue(argument);
+	}
+
+	if(inst->cmd == VM_INST_DEF)
+	{
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			if(instruction && instruction->cmd == VM_INST_PARALLEL_COPY)
+			{
+				for(unsigned argumentPos = 0; argumentPos < instruction->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *destination = getType<VmInstruction>(instruction->arguments[argumentPos]);
+					VmInstruction *source = getType<VmInstruction>(instruction->arguments[argumentPos + 1]);
+
+					assert(destination);
+					assert(source);
+
+					if(inst == destination)
+						return UnderlyingValue(source);
+				}
+			}
+		}
+	}
+
+	return inst;
+}
+
+void DeCoalesce(VmInstruction *variable, VmFunction* function, VmInstruction *currIdom)
+{
+	while(currIdom != NULL && (!Dominates(currIdom, variable) || Uncolored(currIdom)))
+		currIdom = currIdom->idom;
+
+	variable->idom = currIdom;
+	variable->intersectingIdom = NULL;
+
+	VmInstruction *currAncestor = variable->idom;
+
+	while(currAncestor)
+	{
+		while(currAncestor && !(Colored(currAncestor) && Intersect(currAncestor, variable)))
+			currAncestor = currAncestor->intersectingIdom;
+
+		if(currAncestor)
+		{
+			if(UnderlyingValue(currAncestor) == UnderlyingValue(variable))
+			{
+				variable->intersectingIdom = currAncestor;
+				break;
+			}
+			else
+			{
+				unsigned variableCopyCount = GetSplitCopyCount(variable, function->nextSearchMarker++);
+				unsigned currAncestoreCopyCount = GetSplitCopyCount(currAncestor, function->nextSearchMarker++);
+
+				// v and currAnc interfere
+				// It's preferable to uncolor a variable that is already uncolored or a variable that will split the lesser number of copies
+				if(variable->color == 0 || variableCopyCount < currAncestoreCopyCount)
+				{
+					UncolorAtomicMergeSet(variable);
+
+					break;
+				}
+				else
+				{
+					UncolorAtomicMergeSet(currAncestor);
+
+					currAncestor = currAncestor->intersectingIdom;
+				}
+			}
+		}
+	}
+}
+
+void DecoalesceMergedSets(ExpressionContext &ctx, VmFunction* function)
+{
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		for(VmInstruction *inst = block->firstInstruction; inst;)
+		{
+			VmInstruction *next = inst->nextSibling;
+
+			if(inst->cmd == VM_INST_PHI && inst->marker == 0)
+			{
+				SmallArray<VmInstruction*, 32> mergedSet(ctx.allocator);
+
+				CollectMergedSet(inst, inst->color, mergedSet);
+
+				// Now sort merged set in depth-first-search pre-order of the dominance tree
+				qsort(mergedSet.data, mergedSet.count, sizeof(mergedSet[0]), SortByDominancePreOrder);
+
+				VmInstruction *currImmediateDominator = NULL;
+
+				for(unsigned i = 0; i < mergedSet.size(); i++)
+				{
+					VmInstruction *variable = mergedSet[i];
+
+					DeCoalesce(variable, function, currImmediateDominator);
+
+					currImmediateDominator = variable;
+				}
+
+				// Clear markers of uncolored variables
+				for(unsigned i = 0; i < mergedSet.size(); i++)
+				{
+					VmInstruction *variable = mergedSet[i];
+
+					if(variable->color == 0)
+						variable->marker = 0;
+				}
+
+				// If current phi was uncolored, retry iteration
+				if(inst->color == 0)
+					next = inst;
+
+				// Assign new colors to uncolored phi webs
+				for(unsigned i = 0; i < mergedSet.size(); i++)
+				{
+					VmInstruction *variable = mergedSet[i];
+
+					if(variable->cmd == VM_INST_PHI && variable->color == 0)
+						ColorPhiWeb(variable, ++function->nextColor);
+				}
+			}
+
+			inst = next;
+		}
+	}
+}
+
+unsigned ParallelCopyIndexOf(VmInstruction *p, VmInstruction *arg)
+{
+	for(unsigned argumentPos = 0; argumentPos < p->arguments.size(); argumentPos++)
+	{
+		if(p->arguments[argumentPos] == arg)
+			return argumentPos;
+	}
+
+	return p->arguments.size();
+}
+
+void SequentializeParallelCopy(VmModule *module, VmInstruction *p)
+{
+	while(!p->arguments.empty())
+	{
+		bool changed = false;
+
+		// Handle leaf nodes
+		for(unsigned argumentPos = 0; argumentPos < p->arguments.size();)
+		{
+			VmInstruction *b = getType<VmInstruction>(p->arguments[argumentPos]);
+			VmInstruction *a = getType<VmInstruction>(p->arguments[argumentPos + 1]);
+
+			bool remove = false;
+
+			// If the colors are the same, no need to move
+			if(a->color != 0 && a->color == b->color)
+			{
+				ReplaceValueUsersWith(module, b, a, NULL);
+
+				remove = true;
+			}
+
+			// If the target has no fixed register, extract as a move
+			if(!remove && b->color == 0)
+			{
+				VmInstruction *copy = CreateMov(module, NULL, a->type, a);
+
+				copy->comment = b->comment;
+
+				ReplaceValueUsersWith(module, b, copy, NULL);
+
+				remove = true;
+			}
+
+			// If the target fixed register value is not read by other copies, we can extract is as move
+			if(!remove && b->color != 0)
+			{
+				bool isRead = false;
+
+				for(unsigned k = 0; k < p->arguments.size(); k += 2)
+				{
+					VmInstruction *read = getType<VmInstruction>(p->arguments[k + 1]);
+
+					if(read->color == b->color)
+					{
+						isRead = true;
+						break;
+					}
+				}
+
+				if(!isRead)
+				{
+					VmInstruction *copy = CreateMov(module, NULL, a->type, a);
+
+					copy->color = b->color;
+					copy->comment = b->comment;
+
+					ReplaceValueUsersWith(module, b, copy, NULL);
+
+					remove = true;
+				}
+			}
+
+			if(remove)
+			{
+				p->arguments[argumentPos]->RemoveUse(p);
+				p->arguments[argumentPos + 1]->RemoveUse(p);
+
+				p->arguments[argumentPos + 1] = p->arguments.back();
+				p->arguments.pop_back();
+
+				p->arguments[argumentPos] = p->arguments.back();
+				p->arguments.pop_back();
+
+				changed = true;
+			}
+			else
+			{
+				argumentPos += 2;
+			}
+		}
+
+		if(!changed)
+		{
+			// Take the first copy to break the loop
+			unsigned argumentPos = 0;
+
+			VmInstruction *b = getType<VmInstruction>(p->arguments[argumentPos]);
+			VmInstruction *a = getType<VmInstruction>(p->arguments[argumentPos + 1]);
+
+			// Find current destination user
+			VmInstruction *user = NULL;
+
+			for(unsigned k = 0; k < p->arguments.size(); k += 2)
+			{
+				VmInstruction *a2 = getType<VmInstruction>(p->arguments[k + 1]);
+
+				if(a2->color == b->color)
+				{
+					user = a2;
+					break;
+				}
+			}
+
+			// Create a new location for A (uncolored!)
+			VmInstruction *backup = CreateMov(module, NULL, user->type, user);
+
+			backup->comment = user->comment;
+
+			// Create a copy
+			VmInstruction *copy = CreateMov(module, NULL, a->type, a);
+
+			copy->color = b->color;
+			copy->comment = b->comment;
+
+			ReplaceValueUsersWith(module, b, copy, NULL);
+
+			// Remove argument
+			p->arguments[argumentPos]->RemoveUse(p);
+			p->arguments[argumentPos + 1]->RemoveUse(p);
+
+			p->arguments[argumentPos + 1] = p->arguments.back();
+			p->arguments.pop_back();
+
+			p->arguments[argumentPos] = p->arguments.back();
+			p->arguments.pop_back();
+
+			// Replace all uses of original color with a copy
+			for(unsigned k = 0; k < p->arguments.size(); k += 2)
+			{
+				VmInstruction *a2 = getType<VmInstruction>(p->arguments[k + 1]);
+
+				if(a2->color == b->color)
+				{
+					p->arguments[k + 1] = backup;
+
+					a2->RemoveUse(p);
+					backup->AddUse(p);
+				}
+			}
+		}
+	}
+}
+
+void SequentializeParallelCopies(ExpressionContext &ctx, VmModule *module, VmFunction* function)
+{
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			if(inst->cmd == VM_INST_PARALLEL_COPY)
+			{
+				module->currentBlock = block;
+				block->insertPoint = inst;
+
+				SequentializeParallelCopy(module, inst);
+
+				module->currentBlock = NULL;
+				block->insertPoint = block->lastInstruction;
+			}
+		}
+
+		RunDeadCodeElimiation(ctx, module, block);
+	}
+}
+
+void RunPrepareSsaExit(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		// Remove interferences between phi instruction registers by introducing copies
+		IsolatePhiNodes(module, function);
+
+		function->UpdateLiveSets(module);
+
+		// Mark each phi-copy instuction web with a color
+		ColorPhiWebs(function);
+
+		// Remove colors from registers that introduce interferences between registers
+		DecoalesceMergedSets(ctx, function);
+
+		SequentializeParallelCopies(ctx, module, function);
+
+		function->UpdateLiveSets(module);
+
+		module->currentFunction = NULL;
+	}
+}
+
 void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -4039,231 +7221,257 @@ void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* v
 	}
 }
 
-void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
-{
-	module->currentBlock = block;
-
-	// Replace non-trivial instructions that have multiple uses with stack variables
-	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
-	{
-		if(curr->cmd == VM_INST_CALL || IsLoad(curr))
-		{
-			// If call/load instuction has even a single user, store it's result in a temporary register so that the store will be lowered at the correct place
-			if(curr->users.empty())
-				continue;
-
-			if(curr->users.size() == 1)
-			{
-				if(VmInstruction *inst = getType<VmInstruction>(curr->users[0]))
-				{
-					if(curr->nextSibling == inst)
-					{
-						// But if the single user is the next instruction that itself will be lowered at the correct place, result can still be forwarded without a temporary
-						if(inst->type == VmType::Void)
-							continue;
-
-						if(inst->cmd == VM_INST_CALL)
-							continue;
-
-						if(IsLoad(inst))
-							continue;
-					}
-				}
-			}
-		}
-		else
-		{
-			if(curr->users.size() <= 1)
-				continue;
-		}
-
-		if(curr->type == VmType::Block)
-			continue;
-
-		if(curr->cmd == VM_INST_CONSTRUCT && (curr->type.type == VM_TYPE_FUNCTION_REF || curr->type.type == VM_TYPE_ARRAY_REF))
-			continue;
-
-		if(curr->cmd == VM_INST_FUNCTION_ADDRESS || curr->cmd == VM_INST_TYPE_ID)
-			continue;
-
-		TypeBase *type = GetBaseType(ctx, curr->type);
-
-		VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
-
-		address->container->isVmRegSpill = true;
-
-		block->insertPoint = curr;
-
-		curr->canBeRemoved = false;
-
-		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, type, address, 0), NULL);
-
-		curr->canBeRemoved = true;
-
-		block->insertPoint = curr;
-
-		CreateStore(ctx, module, curr->source, type, address, curr);
-
-		block->insertPoint = block->lastInstruction;
-
-		// Skip generated load and store instructions
-		curr = curr->nextSibling;
-		curr = curr->nextSibling;
-	}
-
-	module->currentBlock = NULL;
-}
-
-void LegalizeVmInstructions(ExpressionContext &ctx, VmModule *module, VmBlock *block)
-{
-	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
-	{
-		if(curr->cmd == VM_INST_EXTRACT)
-		{
-			VmValue *target = curr->arguments[0];
-			VmConstant *offset = getType<VmConstant>(curr->arguments[1]);
-
-			VmInstruction *targetAsInst = getType<VmInstruction>(target);
-
-			if(targetAsInst && targetAsInst->cmd == VM_INST_CONSTRUCT)
-			{
-				bool replaced = false;
-
-				int pos = 0;
-
-				for(unsigned i = 0; i < targetAsInst->arguments.size(); i++)
-				{
-					VmValue *argument = targetAsInst->arguments[i];
-
-					if(offset->iValue == pos && argument->type.size == curr->type.size)
-					{
-						if(VmFunction *function = getType<VmFunction>(argument))
-						{
-							module->currentBlock = block;
-
-							block->insertPoint = curr;
-
-							argument = CreateBitcast(module, curr->source, VmType::Int, CreateFunctionAddress(module, curr->source, function->function));
-
-							block->insertPoint = block->lastInstruction;
-
-							module->currentBlock = NULL;
-						}
-
-						ReplaceValueUsersWith(module, curr, argument, NULL);
-
-						replaced = curr->users.empty();
-						break;
-					}
-
-					pos += argument->type.size;
-				}
-
-				if(replaced)
-					continue;
-			}
-
-			VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, target->type), "construct");
-
-			FinalizeAlloca(ctx, module, address->container);
-
-			module->currentBlock = block;
-
-			block->insertPoint = curr;
-
-			CreateStore(ctx, module, curr->source, GetBaseType(ctx, target->type), address, target);
-
-			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, curr->source, offset->iValue, address->container, ctx.GetReferenceType(GetBaseType(ctx, curr->type)), true);
-
-			ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, GetBaseType(ctx, curr->type), shiftAddress, 0), NULL);
-
-			block->insertPoint = block->lastInstruction;
-
-			module->currentBlock = NULL;
-		}
-	}
-}
-
-void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
-{
-	// Alias phi argument registers to the same storage
-	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
-	{
-		if(curr->cmd != VM_INST_PHI)
-			continue;
-
-		// Can't have any instructions before phi
-		assert(curr->prevSibling == NULL || curr->prevSibling->cmd == VM_INST_PHI);
-
-		TypeBase *type = GetBaseType(ctx, curr->type);
-
-		VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
-
-		address->container->isVmRegSpill = true;
-
-		for(unsigned i = 0; i < curr->arguments.size(); i += 2)
-		{
-			VmInstruction *value = getType<VmInstruction>(curr->arguments[i]);
-			VmBlock *edge = getType<VmBlock>(curr->arguments[i + 1]);
-
-			module->currentBlock = edge;
-
-			edge->insertPoint = value;
-
-			CreateStore(ctx, module, value->source, GetBaseType(ctx, value->type), address, value);
-
-			edge->insertPoint = edge->lastInstruction;
-
-			module->currentBlock = NULL;
-		}
-
-		module->currentBlock = block;
-
-		block->insertPoint = curr;
-
-		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, type, address, 0), NULL);
-
-		block->insertPoint = block->lastInstruction;
-
-		module->currentBlock = NULL;
-	}
-}
-
-void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
+void RunLegalizeArrayValues(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
 		module->currentFunction = function;
 
-		// Legal code doesn't contain dead instructions
-		RunDeadCodeElimiation(ctx, module, function);
-
 		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
-			RunLegalizeVm(ctx, module, curr);
+			RunLegalizeArrayValues(ctx, module, curr);
 
 		module->currentFunction = NULL;
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
-		LegalizeVmInstructions(ctx, module, block);
+		module->currentBlock = block;
 
-		LegalizeVmPhiStorage(ctx, module, block);
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			// If replacement succeeds, we will continue from the same place to handle multi-level arrays
+			VmInstruction *next = curr->nextSibling;
 
-		LegalizeVmRegisterUsage(ctx, module, block);
+			if(curr->cmd == VM_INST_ARRAY)
+			{
+				TypeArray *typeArray = getType<TypeArray>(GetBaseType(ctx, curr->type));
+
+				TypeBase *elementType = typeArray->subType;
+
+				block->insertPoint = curr;
+
+				VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, curr->type), "array");
+
+				FinalizeAlloca(ctx, module, address->container);
+
+				for(unsigned i = 0; i < curr->arguments.size(); i++)
+				{
+					VmValue *element = curr->arguments[i];
+
+					if(VmInstruction *elementInst = getType<VmInstruction>(element))
+					{
+						if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+							element = elementInst->arguments[0];
+					}
+
+					CreateStore(ctx, module, curr->source, elementType, address, element, unsigned(elementType->size * i));
+				}
+
+				VmValue *load = CreateLoad(ctx, module, curr->source, GetBaseType(ctx, curr->type), address, 0);
+
+				if(VmInstruction *loadInst = getType<VmInstruction>(load))
+					next = loadInst;
+
+				ReplaceValueUsersWith(module, curr, load, NULL);
+
+				block->insertPoint = block->lastInstruction;
+			}
+
+			curr = next;
+		}
+
+		module->currentBlock = NULL;
+	}
+}
+
+void RunLegalizeBitcasts(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			RunLegalizeBitcasts(ctx, module, curr);
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->cmd == VM_INST_BITCAST)
+			{
+				if(curr->arguments[0]->type.type == VM_TYPE_STRUCT && curr->type.type == VM_TYPE_DOUBLE)
+				{
+					TypeBase *type = GetBaseType(ctx, curr->type);
+
+					VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
+
+					block->insertPoint = curr;
+
+					CreateStore(ctx, module, curr->source, GetBaseType(ctx, curr->arguments[0]->type), address, curr->arguments[0], 0);
+					VmValue *loadInst = CreateLoad(ctx, module, curr->source, type, address, 0);
+
+					block->insertPoint = block->lastInstruction;
+
+					ReplaceValueUsersWith(module, curr, loadInst, NULL);
+				}
+			}
+
+			curr = next;
+		}
+	}
+}
+
+void RunLegalizeExtracts(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			RunLegalizeExtracts(ctx, module, curr);
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+		{
+			if(curr->cmd == VM_INST_EXTRACT)
+			{
+				VmValue *target = curr->arguments[0];
+				VmConstant *offset = getType<VmConstant>(curr->arguments[1]);
+
+				VmInstruction *targetAsInst = getType<VmInstruction>(target);
+
+				if(targetAsInst && targetAsInst->cmd == VM_INST_CONSTRUCT)
+				{
+					bool replaced = false;
+
+					int pos = 0;
+
+					for(unsigned i = 0; i < targetAsInst->arguments.size(); i++)
+					{
+						VmValue *argument = targetAsInst->arguments[i];
+
+						if(offset->iValue == pos && argument->type.size == curr->type.size)
+						{
+							if(VmFunction *function = getType<VmFunction>(argument))
+							{
+								block->insertPoint = curr;
+
+								argument = CreateBitcast(module, curr->source, VmType::Int, CreateFunctionAddress(module, curr->source, function->function));
+
+								block->insertPoint = block->lastInstruction;
+							}
+
+							ReplaceValueUsersWith(module, curr, argument, NULL);
+
+							replaced = curr->users.empty();
+							break;
+						}
+
+						pos += argument->type.size;
+					}
+
+					if(replaced)
+						continue;
+				}
+
+				VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, target->type), "construct");
+
+				FinalizeAlloca(ctx, module, address->container);
+
+				block->insertPoint = curr;
+
+				CreateStore(ctx, module, curr->source, GetBaseType(ctx, target->type), address, target, 0);
+
+				VmConstant *shiftAddress = CreateConstantPointer(module->allocator, curr->source, offset->iValue, address->container, ctx.GetReferenceType(GetBaseType(ctx, curr->type)), true);
+
+				ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, GetBaseType(ctx, curr->type), shiftAddress, 0), NULL);
+
+				block->insertPoint = block->lastInstruction;
+			}
+		}
+
+		module->currentBlock = NULL;
 	}
 }
 
 void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 {
+	TRACE_SCOPE("InstructionTreeVm", "RunVmPass");
+
+	switch(type)
+	{
+	case VM_PASS_OPT_PEEPHOLE:
+		TRACE_LABEL("VM_PASS_OPT_PEEPHOLE");
+		break;
+	case VM_PASS_OPT_CONSTANT_PROPAGATION:
+		TRACE_LABEL("VM_PASS_OPT_CONSTANT_PROPAGATION");
+		break;
+	case VM_PASS_OPT_DEAD_CODE_ELIMINATION:
+		TRACE_LABEL("VM_PASS_OPT_DEAD_CODE_ELIMINATION");
+		break;
+	case VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION:
+		TRACE_LABEL("VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION");
+		break;
+	case VM_PASS_OPT_LOAD_STORE_PROPAGATION:
+		TRACE_LABEL("VM_PASS_OPT_LOAD_STORE_PROPAGATION");
+		break;
+	case VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
+		TRACE_LABEL("VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION");
+		break;
+	case VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION:
+		TRACE_LABEL("VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION");
+		break;
+	case VM_PASS_OPT_MEMORY_TO_REGISTER:
+		TRACE_LABEL("VM_PASS_OPT_MEMORY_TO_REGISTER");
+		break;
+	case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
+		TRACE_LABEL("VM_PASS_OPT_ARRAY_TO_ELEMENTS");
+		break;
+	case VM_PASS_OPT_LATE_PEEPHOLE:
+		TRACE_LABEL("VM_PASS_OPT_LATE_PEEPHOLE");
+		break;
+	case VM_PASS_UPDATE_LIVE_SETS:
+		TRACE_LABEL("VM_PASS_UPDATE_LIVE_SETS");
+		break;
+	case VM_PASS_PREPARE_SSA_EXIT:
+		TRACE_LABEL("VM_PASS_PREPARE_SSA_EXIT");
+		break;
+	case VM_PASS_CREATE_ALLOCA_STORAGE:
+		TRACE_LABEL("VM_PASS_CREATE_ALLOCA_STORAGE");
+		break;
+	case VM_PASS_LEGALIZE_ARRAY_VALUES:
+		TRACE_LABEL("VM_PASS_LEGALIZE_ARRAY_VALUES");
+		break;
+	case VM_PASS_LEGALIZE_BITCASTS:
+		TRACE_LABEL("VM_PASS_LEGALIZE_BITCASTS");
+		break;
+	case VM_PASS_LEGALIZE_EXTRACTS:
+		TRACE_LABEL("VM_PASS_LEGALIZE_EXTRACTS");
+		break;
+	}
+
 	for(VmFunction *value = module->functions.head; value; value = value->next)
 	{
+		if(!value->firstBlock)
+			continue;
+
 		switch(type)
 		{
 		case VM_PASS_OPT_PEEPHOLE:
 			RunPeepholeOptimizations(ctx, module, value);
 			break;
 		case VM_PASS_OPT_CONSTANT_PROPAGATION:
-			RunConstantPropagation(ctx, module, value);
+			RunConstantPropagation(ctx, module, value, false);
 			break;
 		case VM_PASS_OPT_DEAD_CODE_ELIMINATION:
 			RunDeadCodeElimiation(ctx, module, value);
@@ -4277,15 +7485,100 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 		case VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
 			RunCommonSubexpressionElimination(ctx, module, value);
 			break;
+		case VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION:
+			RunDeadAlocaStoreElimination(ctx, module, value);
+			break;
+		case VM_PASS_OPT_MEMORY_TO_REGISTER:
+			RunMemoryToRegister(ctx, module, value);
+			break;
+		case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
+			RunArrayToElements(ctx, module, value);
+			break;
+		case VM_PASS_OPT_LATE_PEEPHOLE:
+			RunLatePeepholeOptimizations(ctx, module, value);
+			break;
+		case VM_PASS_UPDATE_LIVE_SETS:
+			RunUpdateLiveSets(ctx, module, value);
+			break;
+		case VM_PASS_PREPARE_SSA_EXIT:
+			RunPrepareSsaExit(ctx, module, value);
+			break;
 		case VM_PASS_CREATE_ALLOCA_STORAGE:
 			RunCreateAllocaStorage(ctx, module, value);
 			break;
-		case VM_PASS_LEGALIZE_VM:
-			RunLegalizeVm(ctx, module, value);
+		case VM_PASS_LEGALIZE_ARRAY_VALUES:
+			RunLegalizeArrayValues(ctx, module, value);
+			break;
+		case VM_PASS_LEGALIZE_BITCASTS:
+			RunLegalizeBitcasts(ctx, module, value);
+			break;
+		case VM_PASS_LEGALIZE_EXTRACTS:
+			RunLegalizeExtracts(ctx, module, value);
 			break;
 		}
 
 		// Preserve entry block order for execution
 		value->MoveEntryBlockToStart();
 	}
+}
+
+void RunVmPass(ExpressionContext &ctx, VmModule *module, VmFunction *function, VmPassType type)
+{
+	if(!function->firstBlock)
+		return;
+
+	switch(type)
+	{
+	case VM_PASS_OPT_PEEPHOLE:
+		RunPeepholeOptimizations(ctx, module, function);
+		break;
+	case VM_PASS_OPT_CONSTANT_PROPAGATION:
+		RunConstantPropagation(ctx, module, function, false);
+		break;
+	case VM_PASS_OPT_DEAD_CODE_ELIMINATION:
+		RunDeadCodeElimiation(ctx, module, function);
+		break;
+	case VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION:
+		RunControlFlowOptimization(ctx, module, function);
+		break;
+	case VM_PASS_OPT_LOAD_STORE_PROPAGATION:
+		RunLoadStorePropagation(ctx, module, function);
+		break;
+	case VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
+		RunCommonSubexpressionElimination(ctx, module, function);
+		break;
+	case VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION:
+		RunDeadAlocaStoreElimination(ctx, module, function);
+		break;
+	case VM_PASS_OPT_MEMORY_TO_REGISTER:
+		RunMemoryToRegister(ctx, module, function);
+		break;
+	case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
+		RunArrayToElements(ctx, module, function);
+		break;
+	case VM_PASS_OPT_LATE_PEEPHOLE:
+		RunLatePeepholeOptimizations(ctx, module, function);
+		break;
+	case VM_PASS_UPDATE_LIVE_SETS:
+		RunUpdateLiveSets(ctx, module, function);
+		break;
+	case VM_PASS_PREPARE_SSA_EXIT:
+		RunPrepareSsaExit(ctx, module, function);
+		break;
+	case VM_PASS_CREATE_ALLOCA_STORAGE:
+		RunCreateAllocaStorage(ctx, module, function);
+		break;
+	case VM_PASS_LEGALIZE_ARRAY_VALUES:
+		RunLegalizeArrayValues(ctx, module, function);
+		break;
+	case VM_PASS_LEGALIZE_BITCASTS:
+		RunLegalizeBitcasts(ctx, module, function);
+		break;
+	case VM_PASS_LEGALIZE_EXTRACTS:
+		RunLegalizeExtracts(ctx, module, function);
+		break;
+	}
+
+	// Preserve entry block order for execution
+	function->MoveEntryBlockToStart();
 }

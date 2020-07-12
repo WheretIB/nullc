@@ -6,75 +6,66 @@ void x86ResetLabels();
 void x86ClearLabels();
 void x86ReserveLabels(unsigned int count);
 
-int x86FLDZ(unsigned char* stream);
-int x86FLD1(unsigned char* stream);
+// movss dword [index*mult+base+shift], xmm*
+int x86MOVSS(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86XmmReg src);
 
-// fld st*
-int x86FLD(unsigned char *stream, x87Reg reg);
-// fld *word [index*mult+base+shift]
-int x86FLD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+// movsd qword [index*mult+base+shift], xmm*
+int x86MOVSD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86XmmReg src);
 
-// fild *word [index*mult+base+shift]
-int x86FILD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+// movsd xmm*, qword [index*mult+base+shift]
+int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-// fst *word [index*mult+base+shift]
-int x86FST(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+// movsd xmm*, xmm*
+int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
-// fstp st*
-int x86FSTP(unsigned char *stream, x87Reg dst);
-// fstp *word [index*mult+base+shift]
-int x86FSTP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+// movd reg, xmm*
+int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src);
 
-// fistp *word [index*mult+base+shift]
-int x86FISTP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+// movsxd reg, dword [index*mult+base+shift]
+int x86MOVSXD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-// fadd *word [index*mult+base+shift]
-int x86FADD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// faddp
-int x86FADDP(unsigned char *stream);
+// cvtss2sd xmm*, xmm*
+int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
-// fsub *word [index*mult+base+shift]
-int x86FSUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fsubr *word [index*mult+base+shift]
-int x86FSUBR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fsubp
-int x86FSUBP(unsigned char *stream);
-// fsubrp
-int x86FSUBRP(unsigned char *stream);
+// cvtss2sd xmm*, dword [index*mult+base+shift]
+int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-// fmul *word [index*mult+base+shift]
-int x86FMUL(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fmulp
-int x86FMULP(unsigned char *stream);
+// cvtsd2ss xmm*, xmm*
+int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
-// fdiv *word [index*mult+base+shift]
-int x86FDIV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fdivr *word [index*mult+base+shift]
-int x86FDIVR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
-// fdivrp
-int x86FDIVRP(unsigned char *stream);
+// cvtsd2ss xmm*, qword [index*mult+base+shift]
+int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-int x86FCHS(unsigned char *stream);
+// cvttsd2si dst, qword [index*mult+base+shift]
+int x86CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-int x86FPREM(unsigned char *stream);
+// REX.W cvttsd2si dst, qword [index*mult+base+shift]
+int x64CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-int x86FSQRT(unsigned char *stream);
+// cvtsi2sd xmm*, src
+int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src);
 
-int x86FSINCOS(unsigned char *stream);
-int x86FPTAN(unsigned char *stream);
+// REX.W cvtsi2sd xmm*, src
+int x64CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Reg src);
 
-int x86FRNDINT(unsigned char *stream);
+// cvtsi2sd xmm*, *word [index*mult+base+shift]
+int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-// fcomp *word [index*mult+base+shift]
-int x86FCOMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86MULSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-// fnstsw ax
-int x86FNSTSW(unsigned char *stream);
+int x86SQRTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
-// fstcw word [esp]
-int x86FSTCW(unsigned char *stream);
-// fldcw word [esp+shift]
-int x86FLDCW(unsigned char *stream, int shift);
+int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86CMPLTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86CMPLESD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86CMPNEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
 // push dword [index*mult+base+shift]
 int x86PUSH(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
@@ -88,13 +79,24 @@ int x86POP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 // pop reg
 int x86POP(unsigned char *stream, x86Reg reg);
 
+// pushad
+int x86PUSHAD(unsigned char *stream);
+
+// popad
+int x86POPAD(unsigned char *stream);
+
 // mov dst, num
 int x86MOV(unsigned char *stream, x86Reg dst, int num);
 // mov dst, src
 int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src);
-// mov dst, dword [index*mult+base+shift]
-int x86MOV(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 
+// REX.W mov dst, num
+int x64MOV(unsigned char *stream, x86Reg dst, unsigned long long num);
+// REX.W mov dst, src
+int x64MOV(unsigned char *stream, x86Reg dst, x86Reg src);
+
+// mov dst, *word [index*mult+base+shift]
+int x86MOV(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 // mov *word [index*mult+base+shift], num
 int x86MOV(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // mov *word [index*mult+base+shift], src
@@ -106,10 +108,14 @@ int x86MOVSX(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int 
 // lea dst, [label+shift]
 int x86LEA(unsigned char *stream, x86Reg dst, unsigned int labelID, int shift);
 // lea dst, [index*mult+base+shift]
-int x86LEA(unsigned char *stream, x86Reg dst, x86Reg index, int multiplier, x86Reg base, int shift);
+int x86LEA(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 // neg reg
 int x86NEG(unsigned char *stream, x86Reg reg);
+
+// REX.W neg reg
+int x64NEG(unsigned char *stream, x86Reg reg);
+
 // neg dword [index*mult+base+shift]
 int x86NEG(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 
@@ -117,11 +123,17 @@ int x86NEG(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 int x86ADD(unsigned char *stream, x86Reg dst, int num);
 // add dst, src
 int x86ADD(unsigned char *stream, x86Reg dst, x86Reg src);
-// add dst, dword [index*mult+base+shift]
+
+// REX.W add dst, num
+int x64ADD(unsigned char *stream, x86Reg dst, int num);
+// REX.W add dst, src
+int x64ADD(unsigned char *stream, x86Reg dst, x86Reg src);
+
+// add dst, *word [index*mult+base+shift]
 int x86ADD(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
-// add dword [index*mult+base+shift], num
+// add *word [index*mult+base+shift], num
 int x86ADD(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
-// add dword [index*mult+base+shift], op2
+// add *word [index*mult+base+shift], op2
 int x86ADD(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 
 // adc dst, num
@@ -137,6 +149,12 @@ int x86ADC(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 int x86SUB(unsigned char *stream, x86Reg dst, int num);
 // sub dst, src
 int x86SUB(unsigned char *stream, x86Reg dst, x86Reg src);
+
+// REX.W add dst, num
+int x64SUB(unsigned char *stream, x86Reg dst, int num);
+// REX.W add dst, src
+int x64SUB(unsigned char *stream, x86Reg dst, x86Reg src);
+
 // sub dword [index*mult+base+shift], num
 int x86SUB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // sub dword [index*mult+base+shift], op2
@@ -144,6 +162,8 @@ int x86SUB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // sbb dst, num
 int x86SBB(unsigned char *stream, x86Reg dst, int num);
+// sbb dst, src
+int x86SBB(unsigned char *stream, x86Reg dst, x86Reg src);
 // sbb dword [index*mult+base+shift], num
 int x86SBB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // sbb dword [index*mult+base+shift], op2
@@ -151,77 +171,144 @@ int x86SBB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // imul srcdst, num
 int x86IMUL(unsigned char *stream, x86Reg srcdst, int num);
+
 // imul dst, src
 int x86IMUL(unsigned char *stream, x86Reg dst, x86Reg src);
+
+// REX.W imul dst, src
+int x64IMUL(unsigned char *stream, x86Reg dst, x86Reg src);
+
 // imul dst, dword [index*mult+base+shift]
 int x86IMUL(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
+
 // imul src
 int x86IMUL(unsigned char *stream, x86Reg src);
 
 // idiv src
 int x86IDIV(unsigned char *stream, x86Reg src);
+
+// REX.W idiv src
+int x64IDIV(unsigned char *stream, x86Reg src);
+
 // idiv dword [index*mult+base+shift]
 int x86IDIV(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 // shl reg, val
 int x86SHL(unsigned char *stream, x86Reg reg, int val);
 // shl dword [index*mult+base+shift], val
-int x86SHL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int val);
+int x86SHL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 
-// sal eax, cl
-int x86SAL(unsigned char *stream);
-// sar eax, cl
-int x86SAR(unsigned char *stream);
+// sal reg, cl
+int x86SAL(unsigned char *stream, x86Reg reg);
+
+// REX.W sal reg, cl
+int x64SAL(unsigned char *stream, x86Reg reg);
+
+// sal reg, num
+int x86SAL(unsigned char *stream, x86Reg reg, int num);
+
+// REX.W sal reg, num
+int x64SAL(unsigned char *stream, x86Reg reg, int num);
+
+// sar reg, cl
+int x86SAR(unsigned char *stream, x86Reg reg);
+
+// REX.W sar reg, cl
+int x64SAR(unsigned char *stream, x86Reg reg);
+
+// sar reg, cl
+int x86SAR(unsigned char *stream, x86Reg reg, int num);
+
+// REX.W sar reg, cl
+int x64SAR(unsigned char *stream, x86Reg reg, int num);
 
 // not reg
 int x86NOT(unsigned char *stream, x86Reg reg);
+
+// REX.W not reg
+int x64NOT(unsigned char *stream, x86Reg reg);
+
 // not dword [index*mult+base+shift]
 int x86NOT(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 // and op1, op2
 int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// REX.W and op1, op2
+int x64AND(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// and op1, num
+int x86AND(unsigned char *stream, x86Reg op1, int num);
+
 // and dword [index*mult+base+shift], op2
 int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // and dword [index*mult+base+shift], num
 int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
+// and op1, *word [index*mult+base+shift]
+int x86AND(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 // or op1, op2
 int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// REX.W or op1, op2
+int x64OR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// or op1, num
+int x86OR(unsigned char *stream, x86Reg op1, int num);
+
 // or dword [index*mult+base+shift], op2
 int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // or dword [index*mult+base+shift], num
-int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int op2);
-// or op1, dword [index*mult+base+shift]
-int x86OR(unsigned char *stream, x86Reg op1, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
+int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
+// or op1, *word [index*mult+base+shift]
+int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 // xor op1, op2
 int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// REX.W xor op1, op2
+int x64XOR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// xor op1, num
+int x86XOR(unsigned char *stream, x86Reg op1, int num);
+
 // xor dword [index*mult+base+shift], op2
 int x86XOR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // xor dword [index*mult+base+shift], num
 int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
+// xor op1, *word [index*mult+base+shift]
+int x86XOR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
 // cmp reg, num
 int x86CMP(unsigned char *stream, x86Reg reg, int num);
+
 // cmp reg1, reg2
 int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
+
+// REX.W cmp reg1, num
+int x64CMP(unsigned char *stream, x86Reg reg1, int num);
+
+// REX.W cmp reg1, reg2
+int x64CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
+
 // cmp dword [index*mult+base+shift], op2
 int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
+
 // cmp op1, dword [index*mult+base+shift]
 int x86CMP(unsigned char *stream, x86Reg op1, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
+
 // cmp dword [index*mult+base+shift], num
-int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int op2);
+int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 
 int x86TEST(unsigned char *stream, x86Reg op1, x86Reg op2);
 // test ah, num
 int x86TESTah(unsigned char* stream, char num);
 
-// xchg dword [reg], op2
-int x86XCHG(unsigned char *stream, x86Size, x86Reg reg, int shift, x86Reg op2);
-// xchg regA, regB
-int x86XCHG(unsigned char *stream, x86Reg regA, x86Reg regB);
-
+// cdq
 int x86CDQ(unsigned char *stream);
+
+// cqo
+int x86CQO(unsigned char *stream);
 
 // setcc *l
 int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg);
@@ -229,7 +316,7 @@ int x86SETcc(unsigned char *stream, x86Cond cond, x86Reg reg);
 // call reg
 int x86CALL(unsigned char *stream, x86Reg address);
 // call [index*mult+base+shift]
-int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, unsigned int shift);
+int x86CALL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
 // call label
 int x86CALL(unsigned char *stream, unsigned int labelID);
 // ret
@@ -237,6 +324,18 @@ int x86RET(unsigned char *stream);
 
 // rep movsd
 int x86REP_MOVSD(unsigned char *stream);
+
+// rep stosb
+int x86REP_STOSB(unsigned char *stream);
+
+// rep stosw
+int x86REP_STOSW(unsigned char *stream);
+
+// rep stosd
+int x86REP_STOSD(unsigned char *stream);
+
+// rep stosq
+int x86REP_STOSQ(unsigned char *stream);
 
 // int num
 int x86INT(unsigned char *stream, int interrupt);
@@ -251,4 +350,6 @@ int x86JMP(unsigned char *stream, unsigned int labelID, bool isNear);
 void x86AddLabel(unsigned char *stream, unsigned int labelID);
 void x86SatisfyJumps(FastVector<unsigned char*>& instPos);
 
-//int x86(unsigned char *stream);
+unsigned char* x86TranslateInstructionList(unsigned char *code, unsigned char *codeEnd, x86Instruction *start, unsigned instCount, unsigned char **instAddress);
+
+void x86TestEncoding(unsigned char *codeLaunchHeader);

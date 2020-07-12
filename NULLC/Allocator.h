@@ -27,6 +27,17 @@ struct Allocator
 		return 0;
 	}
 
+	virtual void clear_limit()
+	{
+	}
+
+	virtual void set_limit(unsigned limit, void *context, void (*callback)(void *context))
+	{
+		(void)limit;
+		(void)context;
+		(void)callback;
+	}
+
 	template<typename T>
 	T* construct()
 	{
@@ -62,7 +73,7 @@ struct Allocator
 template<typename T, unsigned fallbackSize>
 struct GrowingAllocatorRef: Allocator
 {
-	GrowingAllocatorRef(T &pool): pool(pool), total(0)
+	GrowingAllocatorRef(T &pool): pool(pool), total(0), allocLimit(~0u), allocLimitContext(0), allocLimitCallback(0)
 	{
 	}
 
@@ -74,6 +85,12 @@ struct GrowingAllocatorRef: Allocator
 	virtual void* alloc(int size)
 	{
 		total += size;
+
+		if(total > allocLimit)
+		{
+			if(allocLimitCallback)
+				allocLimitCallback(allocLimitContext);
+		}
 
 		if(unsigned(size) > fallbackSize)
 		{
@@ -93,6 +110,18 @@ struct GrowingAllocatorRef: Allocator
 	virtual unsigned requested()
 	{
 		return total;
+	}
+
+	virtual void clear_limit()
+	{
+		allocLimit = ~0u;
+	}
+
+	virtual void set_limit(unsigned limit, void *context, void (*callback)(void *context))
+	{
+		allocLimit = limit;
+		allocLimitContext = context;
+		allocLimitCallback = callback;
 	}
 
 	void Clear()
@@ -120,6 +149,9 @@ struct GrowingAllocatorRef: Allocator
 	T &pool;
 
 	unsigned total;
+	unsigned allocLimit;
+	void *allocLimitContext;
+	void (*allocLimitCallback)(void *context);
 
 	class Vector
 	{

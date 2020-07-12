@@ -93,12 +93,7 @@ assert(36 == arr.sum(<x>{ x.y; }));\r\n\
 assert(9 == arr.average(<x>{ x.y; }));\r\n\
 assert(1 == arr.min_element(<x>{ x.y; }));\r\n\
 assert(20 == arr.max_element(<x>{ x.y; }));\r\n\
-{ // make operators local to this block\r\n\
-	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
-	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
-	assert(1 == arr.min_element().y);\r\n\
-	assert(20 == arr.max_element().y);\r\n\
-}\r\n\
+\r\n\
 assert(2 == arr.count_if(<x>{ x.y > 8; }));\r\n\
 assert(0 == arr.count_if(<x>{ x.y > 100; }));\r\n\
 \r\n\
@@ -111,6 +106,26 @@ assert(0 == arr.any(<x>{ x.y > 100; }));\r\n\
 return 1;";
 TEST_RESULT("sgl.list test (aggregation functions)", testSglList4, "1");
 
+const char *testSglList4b =
+"import std.math;\r\n\
+import std.list;\r\n\
+\r\n\
+auto arr = new list<float3>;\r\n\
+arr.push_back(float3(0, 1, 0));\r\n\
+arr.push_back(float3(0, 5, 0));\r\n\
+arr.push_back(float3(0, 10, 0));\r\n\
+arr.push_back(float3(0, 20, 0));\r\n\
+\r\n\
+{ // make operators local to this block\r\n\
+	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
+	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
+	assert(1 == arr.min_element().y);\r\n\
+	assert(20 == arr.max_element().y);\r\n\
+}\r\n\
+\r\n\
+return 1;";
+TEST_RESULT_SIMPLE("sgl.list test (aggregation functions) 2", testSglList4b, "1");
+
 const char *testSglList5 =
 "import std.math;\r\n\
 import std.list;\r\n\
@@ -122,12 +137,7 @@ assert(5 == arr.sum(<x>{ x.y; }));\r\n\
 assert(5 == arr.average(<x>{ x.y; }));\r\n\
 assert(5 == arr.min_element(<x>{ x.y; }));\r\n\
 assert(5 == arr.max_element(<x>{ x.y; }));\r\n\
-{ // make operators local to this block\r\n\
-	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
-	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
-	assert(5 == arr.min_element().y);\r\n\
-	assert(5 == arr.max_element().y);\r\n\
-}\r\n\
+\r\n\
 assert(0 == arr.count_if(<x>{ x.y > 8; }));\r\n\
 assert(1 == arr.count_if(<x>{ x.y > 4; }));\r\n\
 \r\n\
@@ -139,6 +149,23 @@ assert(1 == arr.any(<x>{ x.y > 1; }));\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.list test (aggregation functions) one element", testSglList5, "1");
+
+const char *testSglList5b =
+"import std.math;\r\n\
+import std.list;\r\n\
+\r\n\
+auto arr = new list<float3>;\r\n\
+arr.push_back(float3(0, 5, 0));\r\n\
+\r\n\
+{ // make operators local to this block\r\n\
+	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
+	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
+	assert(5 == arr.min_element().y);\r\n\
+	assert(5 == arr.max_element().y);\r\n\
+}\r\n\
+\r\n\
+return 1;";
+TEST_RESULT_SIMPLE("sgl.list test (aggregation functions) one element 2", testSglList5b, "1");
 
 const char *testSglList6 =
 "import std.list;\r\n\

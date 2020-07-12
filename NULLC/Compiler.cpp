@@ -1,7 +1,9 @@
 #include "Compiler.h"
 
 #include "nullc.h"
+#include "nullbind.h"
 #include "BinaryCache.h"
+#include "Bytecode.h"
 #include "Executor_Common.h"
 #include "StdLib.h"
 
@@ -208,98 +210,98 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 	const char *errorPos = NULL;
 	char errorBuf[256];
 
-	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>()))
+	if(!BuildModuleFromSource(allocator, "$base$.nc", NULL, nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>()))
 	{
 		assert(!"Failed to compile base NULLC module");
 		return false;
 	}
 
 #ifndef NULLC_NO_EXECUTOR
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Assert2, "assert", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Assert, "assert", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Assert2, "assert", 1);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrEqual, "==", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrNEqual, "!=", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrConcatenate, "+", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrConcatenateAndSet, "+=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrEqual, "==", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrNEqual, "!=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrConcatenate, "+", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrConcatenateAndSet, "+=", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Int, "bool", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Char, "char", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Short, "short", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Int, "int", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Long, "long", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Float, "float", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Int, "bool", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Char, "char", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Short, "short", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Int, "int", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Long, "long", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Float, "float", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Double, "double", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueChar, "as_unsigned", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueShort, "as_unsigned", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueInt, "as_unsigned", 2);
+	nullcBindModuleFunctionHelper("$base$", NULLC::UnsignedValueChar, "as_unsigned", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::UnsignedValueShort, "as_unsigned", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::UnsignedValueInt, "as_unsigned", 2);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToShort, "short", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ShortToStr, "short::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToInt, "int", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToLong, "long", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::LongToStr, "long::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToFloat, "float", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FloatToStr, "float::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToDouble, "double", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToShort, "short", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ShortToStr, "short::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToInt, "int", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::IntToStr, "int::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToLong, "long", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::LongToStr, "long::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToFloat, "float", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FloatToStr, "float::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToDouble, "double", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::DoubleToStr, "double::str", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
-	nullcBindModuleFunction("$base$", (void (*)())(NULLCArray	(*)(unsigned, unsigned, unsigned))NULLC::AllocArray, "__newA", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CopyArray, "__duplicate_array", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ReplaceObject, "replace", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::SwapObjects, "swap", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CompareObjects, "equal", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssignObject, "assign", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AllocObject, "__newS", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AllocArray, "__newA", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CopyObject, "duplicate", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CopyArray, "__duplicate_array", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ReplaceObject, "replace", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::SwapObjects, "swap", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CompareObjects, "equal", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AssignObject, "assign", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayCopy, "array_copy", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ArrayCopy, "array_copy", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FunctionRedirectPtr, "__redirect_ptr", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FunctionRedirect, "__redirect", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FunctionRedirectPtr, "__redirect_ptr", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypeSize, "typeid::size$", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Typeid, "typeid", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypeSize, "typeid::size$", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypesEqual, "==", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypesNEqual, "!=", 1);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefCompare, "__rcomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefNCompare, "__rncomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefLCompare, "<", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefLECompare, "<=", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefGCompare, ">", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefGECompare, ">=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefCompare, "__rcomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefNCompare, "__rncomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefLCompare, "<", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefLECompare, "<=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefGCompare, ">", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefGECompare, ">=", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefHash, "hash_value", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefHash, "hash_value", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FuncCompare, "__pcomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FuncNCompare, "__pncomp", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayCompare, "__acomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayNCompare, "__ancomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ArrayCompare, "__acomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ArrayNCompare, "__ancomp", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypeCount, "__typeCount", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypeCount, "__typeCount", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssign, "=", 3);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayAssign, "=", 3);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayIndex, "[]", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
+	nullcBindModuleFunctionHelper("$base$", IsPointerUnmanaged, "isStackPointer", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArray, "auto_array_impl", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ShrinkAutoArray, "__force_size", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArray, "auto_array_impl", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArraySet, "auto[]::set", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ShrinkAutoArray, "__force_size", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::IsCoroutineReset, "isCoroutineReset", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AssertCoroutine, "__assertCoroutine", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::GetFinalizationList, "__getFinalizeList", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::GetFinalizationList, "__getFinalizeList", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CloseUpvalue, "__closeUpvalue", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CloseUpvalue, "__closeUpvalue", 0);
 #endif
 
 	return true;
@@ -322,7 +324,7 @@ unsigned GetErrorLocationLineNumber(const char *codeStart, const char *errorPos)
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize)
 {
-	if(!errorBuf)
+	if(!errorBuf || !errorBufSize)
 		return;
 
 	char *errorCurr = errorBuf + strlen(errorBuf);
@@ -377,6 +379,8 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 	}
 
 	errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "^\n");
+
+	errorBuf[errorBufSize - 1] = '\0';
 }
 
 bool HasSourceCode(ByteCode *bytecode, const char *position)
@@ -390,13 +394,21 @@ bool HasSourceCode(ByteCode *bytecode, const char *position)
 	return false;
 }
 
-InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position)
+ModuleData* FindModuleWithSourceLocation(ExpressionContext &ctx, const char *position)
 {
 	for(unsigned i = 0; i < ctx.imports.size(); i++)
 	{
 		if(HasSourceCode(ctx.imports[i]->bytecode, position))
-			return ctx.imports[i]->name;
+			return ctx.imports[i];
 	}
+
+	return NULL;
+}
+
+InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position)
+{
+	if(ModuleData *moduleData = FindModuleWithSourceLocation(ctx, position))
+		return moduleData->name;
 
 	return InplaceStr();
 }
@@ -415,9 +427,9 @@ const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char 
 	return NULL;
 }
 
-ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
+ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx)
 {
-	ctx.code = code;
+	TRACE_SCOPE("compiler", "AnalyzeModuleFromSource");
 
 	ParseContext &parseCtx = ctx.parseCtx;
 
@@ -426,10 +438,12 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	parseCtx.errorBuf = ctx.errorBuf;
 	parseCtx.errorBufSize = ctx.errorBufSize;
 
-	ctx.synModule = Parse(parseCtx, ctx.code);
+	ctx.synModule = Parse(parseCtx, ctx.code, ctx.moduleRoot);
 
 	if(ctx.enableLogFiles && ctx.synModule)
 	{
+		TRACE_SCOPE("compiler", "Debug::syntax_graph");
+
 		assert(!ctx.outputCtx.stream);
 		ctx.outputCtx.stream = ctx.outputCtx.openStream("syntax_graph.txt");
 		
@@ -456,6 +470,8 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 	ExpressionContext &exprCtx = ctx.exprCtx;
 
+	exprCtx.memoryLimit = ctx.exprMemoryLimit;
+
 	exprCtx.errorBuf = ctx.errorBuf;
 	exprCtx.errorBufSize = ctx.errorBufSize;
 
@@ -467,10 +483,12 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 		exprCtx.errorBufSize -= errorLength;
 	}
 
-	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code);
+	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code, ctx.moduleRoot);
 
 	if(ctx.enableLogFiles && ctx.exprModule)
 	{
+		TRACE_SCOPE("compiler", "Debug::expr_graph");
+
 		assert(!ctx.outputCtx.stream);
 		ctx.outputCtx.stream = ctx.outputCtx.openStream("expr_graph.txt");
 
@@ -500,9 +518,11 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	return ctx.exprModule;
 }
 
-bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
+bool CompileModuleFromSource(CompilerContext &ctx)
 {
-	if(!AnalyzeModuleFromSource(ctx, code))
+	TRACE_SCOPE("compiler", "CompileModuleFromSource");
+
+	if(!AnalyzeModuleFromSource(ctx))
 		return false;
 
 	ExpressionContext &exprCtx = ctx.exprCtx;
@@ -523,6 +543,8 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 	if(ctx.enableLogFiles)
 	{
+		TRACE_SCOPE("compiler", "Debug::inst_graph");
+
 		assert(!ctx.outputCtx.stream);
 		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph.txt");
 
@@ -549,34 +571,81 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
 #endif
 
-	if(ctx.optimizationLevel >= 1)
+	for(VmFunction *function = ctx.vmModule->functions.head; function; function = function->next)
 	{
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
-	}
+		if(!function->firstBlock)
+			continue;
 
-	if(ctx.optimizationLevel >= 2)
-	{
-		for(unsigned i = 0; i < 6; i++)
+		// Dead code elimination is required for correct register allocation
+		if(ctx.optimizationLevel == 0)
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+
+		if(ctx.optimizationLevel >= 1)
 		{
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
-			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+			TRACE_SCOPE("compiler", "OptimizationLevel1");
+
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_PEEPHOLE);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONSTANT_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_ARRAY_TO_ELEMENTS);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+		}
+
+		RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_LEGALIZE_ARRAY_VALUES);
+
+		if(ctx.optimizationLevel >= 2)
+		{
+			TRACE_SCOPE("compiler", "OptimizationLevel2");
+
+			for(unsigned i = 0; i < 6; i++)
+			{
+				TRACE_SCOPE("compiler", "iteration");
+
+				unsigned before = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
+
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONSTANT_PROPAGATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_PEEPHOLE);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+				RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
+
+				unsigned after = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
+
+				// Reached fixed point
+				if(before == after)
+					break;
+			}
+
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_MEMORY_TO_REGISTER);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_LATE_PEEPHOLE);
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+
+			RunVmPass(exprCtx, ctx.vmModule, function, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
 		}
 	}
+
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_UPDATE_LIVE_SETS);
+
+	if(ctx.optimizationLevel >= 2)
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_PREPARE_SSA_EXIT);
+
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_BITCASTS);
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_EXTRACTS);
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
 
 	if(ctx.enableLogFiles)
 	{
+		TRACE_SCOPE("compiler", "Debug::inst_graph_opt");
+
 		assert(!ctx.outputCtx.stream);
 		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_opt.txt");
 
@@ -596,87 +665,44 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_VM);
+	ctx.regVmLoweredModule = RegVmLowerModule(exprCtx, ctx.vmModule);
 
-	if(ctx.enableLogFiles)
+	if(!ctx.regVmLoweredModule->functions.empty() && ctx.regVmLoweredModule->functions.back()->hasRegisterOverflow)
 	{
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_legal.txt");
+		RegVmLoweredFunction *function = ctx.regVmLoweredModule->functions.back();
 
-		if(ctx.outputCtx.stream)
+		if(function->registerOverflowLocation && function->registerOverflowLocation->source)
+			ctx.errorPos = function->registerOverflowLocation->source->begin->pos;
+		else
+			ctx.errorPos = NULL;
+
+		if(ctx.errorBuf && ctx.errorBufSize)
 		{
-			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
+			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: register count overflow");
 
-			instGraphCtx.showUsers = false;
-			instGraphCtx.displayAsTree = false;
-			instGraphCtx.showFullTypes = false;
-			instGraphCtx.showSource = true;
-
-			PrintGraph(instGraphCtx, ctx.vmModule);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
+			if(ctx.errorPos)
+				AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx.exprCtx, ctx.errorPos), ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
 		}
+
+		return false;
 	}
 
-	ctx.vmLoweredModule = LowerModule(exprCtx, ctx.vmModule);
+	RegVmFinalizeModule(ctx.instRegVmFinalizeCtx, ctx.regVmLoweredModule);
 
 	if(ctx.enableLogFiles)
 	{
+		TRACE_SCOPE("compiler", "Debug::inst_graph_reg_low");
+
 		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low.txt");
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_reg_low.txt");
 
 		if(ctx.outputCtx.stream)
 		{
-			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+			InstructionRegVmLowerGraphContext instRegVmLowerGraphCtx(ctx.outputCtx);
 
-			instLowerGraphCtx.showSource = true;
+			instRegVmLowerGraphCtx.showSource = true;
 
-			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
-		}
-	}
-
-	OptimizeTemporaryRegisterSpills(ctx.vmLoweredModule);
-
-	if(ctx.enableLogFiles)
-	{
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low_opt.txt");
-
-		if(ctx.outputCtx.stream)
-		{
-			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
-
-			instLowerGraphCtx.showSource = true;
-
-			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
-		}
-	}
-
-	FinalizeRegisterSpills(ctx.exprCtx, ctx.vmLoweredModule);
-
-	InstructionVmFinalizeContext &instFinalizeCtx = ctx.instFinalizeCtx;
-
-	FinalizeModule(instFinalizeCtx, ctx.vmLoweredModule);
-
-	if(ctx.enableLogFiles)
-	{
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_vm.txt");
-
-		if(ctx.outputCtx.stream)
-		{
-			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
-
-			instLowerGraphCtx.showSource = true;
-
-			PrintInstructions(instLowerGraphCtx, instFinalizeCtx, ctx.code);
+			PrintGraph(instRegVmLowerGraphCtx, ctx.regVmLoweredModule);
 
 			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
 			ctx.outputCtx.stream = NULL;
@@ -688,6 +714,8 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 {
+	TRACE_SCOPE("compiler", "GetBytecode");
+
 	// find out the size of generated bytecode
 	unsigned size = sizeof(ByteCode);
 
@@ -724,7 +752,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				symbolStorageSize += curr->name->name.length() + 1;
 			}
 
-			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			{
 				if(curr->variable->type->hasPointers)
 					allMemberCount++;
@@ -746,7 +774,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		}
 		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(curr->variable->type->hasPointers)
 					allMemberCount++;
@@ -940,23 +968,29 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	unsigned offsetToNamespace = size;
 	size += ctx.exprCtx.namespaces.size() * sizeof(ExternNamespaceInfo);
 
-	unsigned offsetToCode = size;
-	size += ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd);
+	unsigned offsetToRegVmCode = size;
+	size += ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(RegVmCmd);
 
 	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
 
-	unsigned infoCount = 0;
+	unsigned regVmInfoCount = 0;
 
-	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
+	for(unsigned i = 0; i < ctx.instRegVmFinalizeCtx.locations.size(); i++)
 	{
-		SynBase *location = ctx.instFinalizeCtx.locations[i];
+		SynBase *location = ctx.instRegVmFinalizeCtx.locations[i];
 
 		if(location && !location->isInternal)
-			infoCount++;
+			regVmInfoCount++;
 	}
 
-	unsigned offsetToInfo = size;
-	size += sizeof(ExternSourceInfo) * infoCount;
+	unsigned offsetToRegVmInfo = size;
+	size += sizeof(ExternSourceInfo) * regVmInfoCount;
+
+	unsigned offsetToRegVmConstants = size;
+	size += ctx.instRegVmFinalizeCtx.constants.size() * sizeof(ctx.instRegVmFinalizeCtx.constants[0]);
+
+	unsigned offsetToRegVmRegKillInfo = size;
+	size += ctx.instRegVmFinalizeCtx.regKillInfo.size() * sizeof(ctx.instRegVmFinalizeCtx.regKillInfo[0]);
 
 	unsigned offsetToSymbols = size;
 	size += symbolStorageSize;
@@ -1008,12 +1042,19 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 	code->closureListCount = 0;
 
-	code->codeSize = ctx.instFinalizeCtx.cmds.size();
-	code->offsetToCode = offsetToCode;
+	code->regVmCodeSize = ctx.instRegVmFinalizeCtx.cmds.size();
+	code->regVmOffsetToCode = offsetToRegVmCode;
+
+	code->regVmConstantCount = ctx.instRegVmFinalizeCtx.constants.size();
+	code->regVmOffsetToConstants = offsetToRegVmConstants;
+
+	code->regVmRegKillInfoCount = ctx.instRegVmFinalizeCtx.regKillInfo.size();
+	code->regVmOffsetToRegKillInfo = offsetToRegVmRegKillInfo;
 
 	code->symbolLength = symbolStorageSize;
 	code->offsetToSymbols = offsetToSymbols;
 
+	code->constantCount = allConstantCount;
 	code->offsetToConstants = offsetToConstants;
 
 	code->namespaceCount = ctx.exprCtx.namespaces.size();
@@ -1041,6 +1082,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		target.defaultAlign = (unsigned char)type->alignment;
 		target.padding = type->padding;
 
+		target.constantOffset = 0;
 		target.constantCount = 0;
 
 		target.memberCount = 0;
@@ -1172,7 +1214,10 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 					target.typeFlags |= ExternTypeInfo::TYPE_HAS_FINALIZER;
 
 				if(typeClass->isInternal)
-					target.typeFlags |= ExternTypeInfo::TYPE_INTERNAL;
+					target.typeFlags |= ExternTypeInfo::TYPE_IS_INTERNAL;
+
+				if(typeClass->completed)
+					target.typeFlags |= ExternTypeInfo::TYPE_IS_COMPLETED;
 
 				if(typeClass->baseClass)
 					target.baseType = typeClass->baseClass->typeIndex;
@@ -1190,7 +1235,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			target.memberCount = 0;
 			target.memberOffset = memberList.count;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -1205,6 +1250,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				debugSymbols.push_back(curr->variable->name->name.begin, curr->variable->name->name.length());
 				debugSymbols.push_back(0);
 			}
+
+			target.constantCount = 0;
+			target.constantOffset = constantList.count;
 
 			for(ConstantData *curr = typeStruct->constants.head; curr; curr = curr->next)
 			{
@@ -1234,7 +1282,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			// Export type pointer members for GC
 			target.pointerCount = 0;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(curr->variable->type->hasPointers)
 				{
@@ -1346,7 +1394,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		debugSymbols.push_back(0);
 
 		moduleInfo.funcStart = moduleData->startingFunctionIndex;
-		moduleInfo.funcCount = moduleData->functionCount;
+		moduleInfo.funcCount = moduleData->moduleFunctionCount;
 
 		moduleInfo.variableOffset = 0;
 		moduleInfo.nameHash = ~0u;
@@ -1419,26 +1467,34 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		if(function->isPrototype && function->implementation)
 		{
-			funcInfo.address = function->implementation->vmFunction->address;
-			funcInfo.codeSize = function->implementation->functionIndex | 0x80000000;
+			funcInfo.regVmAddress = function->implementation->vmFunction->regVmAddress;
+			funcInfo.regVmCodeSize = function->implementation->functionIndex | 0x80000000;
+			funcInfo.regVmRegisters = function->implementation->vmFunction->regVmRegisters;
 		}
 		else if(function->isPrototype)
 		{
-			funcInfo.address = 0;
-			funcInfo.codeSize = 0;
+			funcInfo.regVmAddress = 0;
+			funcInfo.regVmCodeSize = 0;
+			funcInfo.regVmRegisters = 0;
 		}
 		else if(function->vmFunction)
 		{
-			funcInfo.address = function->vmFunction->address;
-			funcInfo.codeSize = function->vmFunction->codeSize;
+			funcInfo.regVmAddress = function->vmFunction->regVmAddress;
+			funcInfo.regVmCodeSize = function->vmFunction->regVmCodeSize;
+			funcInfo.regVmRegisters = function->vmFunction->regVmRegisters;
 		}
 		else
 		{
-			funcInfo.address = ~0u;
-			funcInfo.codeSize = 0;
+			funcInfo.regVmAddress = ~0u;
+			funcInfo.regVmCodeSize = 0;
+			funcInfo.regVmRegisters = 0;
 		}
 
-		funcInfo.funcPtr = 0;
+		funcInfo.funcPtrRaw = NULL;
+		funcInfo.funcPtrWrapTarget = NULL;
+		funcInfo.funcPtrWrap = NULL;
+
+		funcInfo.builtinIndex = 0;
 
 		// Only functions in global or namesapce scope remain visible
 		funcInfo.isVisible = (function->scope == ctx.exprCtx.globalScope || function->scope->ownerNamespace) && !function->isHidden;
@@ -1527,7 +1583,19 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			funcInfo.returnShift = (unsigned char)(returnType->size / 4);
 
+			funcInfo.returnSize = funcInfo.returnShift * 4;
+
+			if(funcInfo.retType == ExternFuncInfo::RETURN_VOID)
+				funcInfo.returnSize = 0;
+			else if(funcInfo.retType == ExternFuncInfo::RETURN_INT)
+				funcInfo.returnSize = 4;
+			else if(funcInfo.retType == ExternFuncInfo::RETURN_DOUBLE)
+				funcInfo.returnSize = 8;
+			else if(funcInfo.retType == ExternFuncInfo::RETURN_LONG)
+				funcInfo.returnSize = 8;
+
 			funcInfo.bytesToPop = (unsigned)function->argumentsSize;
+			funcInfo.stackSize = (unsigned)function->stackSize;
 
 			funcInfo.genericOffsetStart = ~0u;
 			funcInfo.genericOffset = ~0u;
@@ -1537,7 +1605,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		{
 			TypeBase *returnType = function->type->returnType;
 
-			funcInfo.address = ~0u;
+			funcInfo.regVmAddress = ~0u;
+
 			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
 
 			if(ModuleData *moduleData = function->importModule)
@@ -1686,14 +1755,14 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		}
 	}
 
-	code->offsetToInfo = offsetToInfo;
-	code->infoSize = infoCount;
+	code->regVmOffsetToInfo = offsetToRegVmInfo;
+	code->regVmInfoSize = regVmInfoCount;
 
-	VectorView<ExternSourceInfo> infoArray(FindSourceInfo(code), infoCount);
+	VectorView<ExternSourceInfo> regVmInfoArray(FindRegVmSourceInfo(code), regVmInfoCount);
 
-	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
+	for(unsigned i = 0; i < ctx.instRegVmFinalizeCtx.locations.size(); i++)
 	{
-		SynBase *location = ctx.instFinalizeCtx.locations[i];
+		SynBase *location = ctx.instRegVmFinalizeCtx.locations[i];
 
 		if(location && !location->isInternal)
 		{
@@ -1710,7 +1779,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				info.definitionModule = importModule->dependencyIndex;
 				info.sourceOffset = unsigned(location->begin->pos - code);
 
-				infoArray.push_back(info);
+				regVmInfoArray.push_back(info);
 			}
 			else
 			{
@@ -1721,21 +1790,27 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				info.definitionModule = 0;
 				info.sourceOffset = unsigned(location->begin->pos - code);
 
-				infoArray.push_back(info);
+				regVmInfoArray.push_back(info);
 			}
 		}
 	}
+
+	code->regVmGlobalCodeStart = ctx.vmModule->regVmGlobalCodeStart;
+
+	if(ctx.instRegVmFinalizeCtx.cmds.size())
+		memcpy(FindRegVmCode(code), ctx.instRegVmFinalizeCtx.cmds.data, ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(RegVmCmd));
+
+	if(ctx.instRegVmFinalizeCtx.constants.size())
+		memcpy(FindRegVmConstants(code), ctx.instRegVmFinalizeCtx.constants.data, ctx.instRegVmFinalizeCtx.constants.size() * sizeof(ctx.instRegVmFinalizeCtx.constants[0]));
+
+	if(ctx.instRegVmFinalizeCtx.regKillInfo.size())
+		memcpy(FindRegVmRegKillInfo(code), ctx.instRegVmFinalizeCtx.regKillInfo.data, ctx.instRegVmFinalizeCtx.regKillInfo.size() * sizeof(ctx.instRegVmFinalizeCtx.regKillInfo[0]));
 
 	char *sourceCode = (char*)code + offsetToSource;
 	memcpy(sourceCode, ctx.code, sourceLength);
 
 	code->offsetToSource = offsetToSource;
 	code->sourceSize = sourceLength;
-
-	code->globalCodeStart = ctx.vmModule->globalCodeStart;
-
-	if(ctx.instFinalizeCtx.cmds.size())
-		memcpy(FindCode(code), ctx.instFinalizeCtx.cmds.data, ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd));
 
 	code->llvmSize = ctx.llvmModule ? ctx.llvmModule->moduleSize : 0;
 	code->llvmOffset = offsetToLLVM;
@@ -1827,7 +1902,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	assert(vInfo.count == externVariableInfoCount);
 	assert(fInfo.count == exportedFunctionCount);
 	assert(localInfo.count == localCount);
-	assert(infoArray.count == infoCount);
+	assert(regVmInfoArray.count == regVmInfoCount);
 	assert(namespaceList.count == ctx.exprCtx.namespaces.size());
 
 	return size;
@@ -1835,6 +1910,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 bool SaveListing(CompilerContext &ctx, const char *fileName)
 {
+	TRACE_SCOPE("compiler", "SaveListing");
+
 	assert(!ctx.outputCtx.stream);
 	ctx.outputCtx.stream = ctx.outputCtx.openStream(fileName);
 
@@ -1844,11 +1921,11 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 		return false;
 	}
 
-	InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+	InstructionRegVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
 
 	instLowerGraphCtx.showSource = true;
 
-	PrintInstructions(instLowerGraphCtx, ctx.instFinalizeCtx, ctx.code);
+	PrintGraph(instLowerGraphCtx, ctx.regVmLoweredModule);
 
 	ctx.outputCtx.closeStream(ctx.outputCtx.stream);
 	ctx.outputCtx.stream = NULL;
@@ -1858,6 +1935,8 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 
 bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName))
 {
+	TRACE_SCOPE("compiler", "TranslateToC");
+
 	assert(!ctx.outputCtx.stream);
 	ctx.outputCtx.stream = ctx.outputCtx.openStream(fileName);
 
@@ -1874,7 +1953,7 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 	exprTranslateCtx.errorBuf = ctx.errorBuf;
 	exprTranslateCtx.errorBufSize = ctx.errorBufSize;
 
-	SmallArray<const char*, 32> dependencies;
+	SmallArray<const char*, 32> dependencies(ctx.allocator);
 
 	if(!TranslateModule(exprTranslateCtx, ctx.exprModule, dependencies))
 	{
@@ -1896,14 +1975,20 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 	return true;
 }
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *moduleRoot, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
 {
+	TRACE_SCOPE("compiler", "BuildModuleFromSource");
+	TRACE_LABEL(modulePath);
+
 	CompilerContext ctx(allocator, optimizationLevel, activeImports);
 
 	ctx.errorBuf = errorBuf;
 	ctx.errorBufSize = errorBufSize;
 
-	if(!CompileModuleFromSource(ctx, code))
+	ctx.code = code;
+	ctx.moduleRoot = moduleRoot;
+
+	if(!CompileModuleFromSource(ctx))
 	{
 		*errorPos = ctx.errorPos;
 
@@ -1938,30 +2023,18 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 	return bytecode;
 }
 
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+const char* FindFileContentInImportPaths(InplaceStr moduleName, const char *moduleRoot, bool addExtension, char *resultPathBuf, unsigned resultPathBufSize, unsigned &fileSize)
 {
-	assert(*moduleName.end == 0);
-
-	if(addExtension)
-		assert(strstr(moduleName.begin, ".nc") == NULL);
-	else
-		assert(strstr(moduleName.begin, ".nc") != NULL);
-
-	unsigned fileSize = 0;
-	int needDelete = false;
-	char *fileContent = NULL;
-
-	const unsigned pathLength = 1024;
-	char path[pathLength];
+	const char *fileContent = NULL;
 
 	unsigned modulePathPos = 0;
 	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
 	{
-		char *pathEnd = path + NULLC::SafeSprintf(path, pathLength, "%s%.*s", modulePath, moduleName.length(), moduleName.begin);
+		char *pathEnd = resultPathBuf + NULLC::SafeSprintf(resultPathBuf, resultPathBufSize, "%s%s%s%.*s", modulePath, moduleRoot ? moduleRoot : "", moduleRoot ? "/" : "", moduleName.length(), moduleName.begin);
 
 		if(addExtension)
 		{
-			char *pathNoImport = path + strlen(modulePath);
+			char *pathNoImport = resultPathBuf + strlen(modulePath);
 
 			for(unsigned i = 0, e = (unsigned)strlen(pathNoImport); i != e; i++)
 			{
@@ -1969,13 +2042,71 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 					pathNoImport[i] = '/';
 			}
 
-			NULLC::SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
+			NULLC::SafeSprintf(pathEnd, resultPathBufSize - int(pathEnd - resultPathBuf), ".nc");
 		}
 
-		fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
+		fileContent = NULLC::fileLoad(resultPathBuf, &fileSize);
 
 		if(fileContent)
 			break;
+	}
+
+	return fileContent;
+}
+
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+{
+	NULLC::TraceDump();
+
+	TRACE_SCOPE("compiler", "BuildModuleFromPath");
+	TRACE_LABEL2(moduleName.begin, moduleName.end);
+
+	assert(*moduleName.end == 0);
+
+	if(addExtension)
+		assert(strstr(moduleName.begin, ".nc") == NULL);
+	else
+		assert(strstr(moduleName.begin, ".nc") != NULL);
+
+	const unsigned nextModuleRootLength = 1024;
+	char nextModuleRootBuf[nextModuleRootLength];
+
+	const char *nextModuleRoot = moduleRoot;
+
+	const unsigned pathLength = 1024;
+	char path[pathLength];
+
+	unsigned fileSize = 0;
+	const char *fileContent = NULL;
+
+	if(moduleRoot)
+	{
+		fileContent = FindFileContentInImportPaths(moduleName, moduleRoot, addExtension, path, pathLength, fileSize);
+
+		if(fileContent)
+		{
+			if(const char *pos = moduleName.rfind('/'))
+			{
+				NULLC::SafeSprintf(nextModuleRootBuf, nextModuleRootLength, "%s/%.*s", moduleRoot, unsigned(pos - moduleName.begin), moduleName.begin);
+
+				nextModuleRoot = nextModuleRootBuf;
+			}
+		}
+	}
+
+	if(!fileContent)
+	{
+		fileContent = FindFileContentInImportPaths(moduleName, NULL, addExtension, path, pathLength, fileSize);
+
+		if(fileContent)
+		{
+			if(const char *pos = moduleName.rfind('/'))
+			{
+				NULLC::SafeSprintf(nextModuleRootBuf, nextModuleRootLength, "%.*s", unsigned(pos - moduleName.begin), moduleName.begin);
+
+				nextModuleRoot = nextModuleRootBuf;
+			}
+		}
 	}
 
 	if(!fileContent)
@@ -1988,21 +2119,20 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 		return NULL;
 	}
 
-	char *bytecode = BuildModuleFromSource(allocator, path, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports);
+	char *bytecode = BuildModuleFromSource(allocator, path, nextModuleRoot, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports);
 
-	if(needDelete)
-		NULLC::dealloc(fileContent);
+	NULLC::fileFree(fileContent);
 
 	return bytecode;
 }
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel)
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(), void *funcWrap, void (*ptrWrap)(void *func, char* retBuf, char* argBuf), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel)
 {
 	const char *bytecode = BinaryCache::FindBytecode(module, true);
 
 	// Create module if not found
 	if(!bytecode)
-		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), true, errorPos, errorBuf, errorBufSize, optimizationLevel, ArrayView<InplaceStr>());
+		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), NULL, true, errorPos, errorBuf, errorBufSize, optimizationLevel, ArrayView<InplaceStr>());
 
 	if(!bytecode)
 		return false;
@@ -2020,8 +2150,12 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), 
 		{
 			if(index == 0)
 			{
-				fInfo->address = -1;
-				fInfo->funcPtr = (void*)ptr;
+				fInfo->regVmAddress = -1;
+
+				fInfo->funcPtrRaw = ptrRaw;
+				fInfo->funcPtrWrapTarget = funcWrap;
+				fInfo->funcPtrWrap = ptrWrap;
+
 				index--;
 				break;
 			}

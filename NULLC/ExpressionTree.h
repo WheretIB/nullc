@@ -46,12 +46,18 @@ struct GenericFunctionInstanceTypeRequest
 
 		for(TypeHandle *leftArg = arguments.head, *rightArg = rhs.arguments.head; leftArg || rightArg; leftArg = leftArg->next, rightArg = rightArg->next)
 		{
+			if(!leftArg || !rightArg)
+				return false;
+
 			if(leftArg->type != rightArg->type)
 				return false;
 		}
 
 		for(MatchData *leftAlias = aliases.head, *rightAlias = rhs.aliases.head; leftAlias || rightAlias; leftAlias = leftAlias->next, rightAlias = rightAlias->next)
 		{
+			if(!leftAlias || !rightAlias)
+				return false;
+
 			if(leftAlias->name != rightAlias->name || leftAlias->type != rightAlias->type)
 				return false;
 		}
@@ -95,6 +101,49 @@ struct GenericFunctionInstanceTypeResponse
 	TypeFunction *functionType;
 
 	IntrusiveList<MatchData> aliases;
+};
+
+struct TypedFunctionInstanceRequest
+{
+	TypedFunctionInstanceRequest() : hash(0), instanceType(NULL), syntax(NULL)
+	{
+	}
+
+	TypedFunctionInstanceRequest(TypeBase *instanceType, SynBase *syntax) : instanceType(instanceType), syntax(syntax)
+	{
+		hash = (instanceType ? instanceType->nameHash : 0);
+
+		hash = hash + (hash << 5) + unsigned((uintptr_t(syntax) >> 16) + uintptr_t(syntax));
+	}
+
+	bool operator==(const TypedFunctionInstanceRequest& rhs) const
+	{
+		if(instanceType != rhs.instanceType)
+			return false;
+
+		if(syntax != rhs.syntax)
+			return false;
+
+		return true;
+	}
+
+	bool operator!=(const TypedFunctionInstanceRequest& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
+	unsigned hash;
+
+	TypeBase *instanceType;
+	SynBase *syntax;
+};
+
+struct TypedFunctionInstanceRequestHasher
+{
+	unsigned operator()(const TypedFunctionInstanceRequest& key)
+	{
+		return key.hash;
+	}
 };
 
 struct TypePair
@@ -147,16 +196,15 @@ struct ExpressionContext
 	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation);
 
-	NamespaceData* GetCurrentNamespace();
-	FunctionData* GetCurrentFunction();
-	TypeBase* GetCurrentType();
+	NamespaceData* GetCurrentNamespace(ScopeData *scopeData);
+	FunctionData* GetCurrentFunction(ScopeData *scopeData);
+	TypeBase* GetCurrentType(ScopeData *scopeData);
 
 	FunctionData* GetFunctionOwner(ScopeData *scope);
 
 	ScopeData* NamespaceScopeFrom(ScopeData *scope);
 	ScopeData* GlobalScopeFrom(ScopeData *scope);
 
-	unsigned GetGenericClassInstantiationDepth();
 	bool IsGenericInstance(FunctionData *function);
 
 	void AddType(TypeBase *type);
@@ -196,8 +244,12 @@ struct ExpressionContext
 	const char *code;
 	const char *codeEnd;
 
+	const char *moduleRoot;
+
 	SmallArray<ModuleData*, 128> dependencies;
+	SmallArray<ModuleData*, 128> uniqueDependencies;
 	SmallArray<ModuleData*, 128> imports;
+	SmallArray<ModuleData*, 128> implicitImports;
 	SmallArray<NamespaceData*, 128> namespaces;
 	SmallArray<TypeBase*, 128> types;
 	SmallArray<FunctionData*, 128> functions;
@@ -223,6 +275,8 @@ struct ExpressionContext
 
 	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
 
+	SmallDenseMap<TypedFunctionInstanceRequest, ExprBase*, TypedFunctionInstanceRequestHasher, 32> newConstructorFunctions;
+
 	unsigned baseModuleFunctionCount;
 
 	// Context info
@@ -236,7 +290,11 @@ struct ExpressionContext
 	SmallArray<NamespaceData*, 2> globalNamespaces;
 	IntrusiveList<CloseUpvaluesData> globalCloseUpvalues;
 
-	unsigned instanceDepth;
+	unsigned functionInstanceDepth;
+	unsigned classInstanceDepth;
+	unsigned expressionDepth;
+
+	unsigned memoryLimit;
 
 	// Error info
 	bool errorHandlerActive;
@@ -315,6 +373,70 @@ struct ExprBase
 	bool listed;
 };
 
+namespace ExprNode
+{
+	enum ExprNodeId
+	{
+		ExprError,
+		ExprErrorTypeMemberAccess,
+		ExprVoid,
+		ExprBoolLiteral,
+		ExprCharacterLiteral,
+		ExprStringLiteral,
+		ExprIntegerLiteral,
+		ExprRationalLiteral,
+		ExprTypeLiteral,
+		ExprNullptrLiteral,
+		ExprFunctionIndexLiteral,
+		ExprFunctionLiteral,
+		ExprPointerLiteral,
+		ExprMemoryLiteral,
+		ExprPassthrough,
+		ExprArray,
+		ExprPreModify,
+		ExprPostModify,
+		ExprTypeCast,
+		ExprUnaryOp,
+		ExprBinaryOp,
+		ExprGetAddress,
+		ExprDereference,
+		ExprUnboxing,
+		ExprConditional,
+		ExprAssignment,
+		ExprMemberAccess,
+		ExprArrayIndex,
+		ExprReturn,
+		ExprYield,
+		ExprVariableDefinition,
+		ExprZeroInitialize,
+		ExprArraySetup,
+		ExprVariableDefinitions,
+		ExprVariableAccess,
+		ExprFunctionContextAccess,
+		ExprFunctionDefinition,
+		ExprGenericFunctionPrototype,
+		ExprFunctionAccess,
+		ExprFunctionOverloadSet,
+		ExprShortFunctionOverloadSet,
+		ExprFunctionCall,
+		ExprAliasDefinition,
+		ExprClassPrototype,
+		ExprGenericClassPrototype,
+		ExprClassDefinition,
+		ExprEnumDefinition,
+		ExprIfElse,
+		ExprFor,
+		ExprWhile,
+		ExprDoWhile,
+		ExprSwitch,
+		ExprBreak,
+		ExprContinue,
+		ExprBlock,
+		ExprSequence,
+		ExprModule,
+	};
+}
+
 struct ExprError: ExprBase
 {
 	ExprError(SynBase *source, TypeBase *type): ExprBase(myTypeID, source, type)
@@ -340,7 +462,7 @@ struct ExprError: ExprBase
 
 	SmallArray<ExprBase*, 4> values;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprError;
 };
 
 struct ExprErrorTypeMemberAccess: ExprBase
@@ -351,7 +473,7 @@ struct ExprErrorTypeMemberAccess: ExprBase
 
 	TypeBase *value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprErrorTypeMemberAccess;
 };
 
 struct ExprVoid: ExprBase
@@ -360,7 +482,7 @@ struct ExprVoid: ExprBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprVoid;
 };
 
 struct ExprBoolLiteral: ExprBase
@@ -371,7 +493,7 @@ struct ExprBoolLiteral: ExprBase
 
 	bool value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprBoolLiteral;
 };
 
 struct ExprCharacterLiteral: ExprBase
@@ -382,7 +504,7 @@ struct ExprCharacterLiteral: ExprBase
 
 	signed char value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprCharacterLiteral;
 };
 
 struct ExprStringLiteral: ExprBase
@@ -394,7 +516,7 @@ struct ExprStringLiteral: ExprBase
 	char *value;
 	unsigned length;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprStringLiteral;
 };
 
 struct ExprIntegerLiteral: ExprBase
@@ -405,7 +527,7 @@ struct ExprIntegerLiteral: ExprBase
 
 	long long value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprIntegerLiteral;
 };
 
 struct ExprRationalLiteral: ExprBase
@@ -416,7 +538,7 @@ struct ExprRationalLiteral: ExprBase
 
 	double value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprRationalLiteral;
 };
 
 struct ExprTypeLiteral: ExprBase
@@ -427,7 +549,7 @@ struct ExprTypeLiteral: ExprBase
 
 	TypeBase *value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprTypeLiteral;
 };
 
 struct ExprNullptrLiteral: ExprBase
@@ -436,7 +558,7 @@ struct ExprNullptrLiteral: ExprBase
 	{
 	}
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprNullptrLiteral;
 };
 
 struct ExprFunctionIndexLiteral: ExprBase
@@ -447,7 +569,7 @@ struct ExprFunctionIndexLiteral: ExprBase
 
 	FunctionData *function;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprFunctionIndexLiteral;
 };
 
 struct ExprFunctionLiteral: ExprBase
@@ -460,7 +582,7 @@ struct ExprFunctionLiteral: ExprBase
 
 	ExprBase *context;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprFunctionLiteral;
 };
 
 struct ExprPointerLiteral: ExprBase
@@ -473,7 +595,7 @@ struct ExprPointerLiteral: ExprBase
 	unsigned char *ptr;
 	unsigned char *end;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprPointerLiteral;
 };
 
 struct ExprMemoryLiteral: ExprBase
@@ -484,7 +606,7 @@ struct ExprMemoryLiteral: ExprBase
 
 	ExprPointerLiteral *ptr;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprMemoryLiteral;
 };
 
 struct ExprPassthrough: ExprBase
@@ -496,7 +618,7 @@ struct ExprPassthrough: ExprBase
 
 	ExprBase *value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprPassthrough;
 };
 
 struct ExprArray: ExprBase
@@ -507,7 +629,7 @@ struct ExprArray: ExprBase
 
 	IntrusiveList<ExprBase> values;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprArray;
 };
 
 struct ExprPreModify: ExprBase
@@ -519,7 +641,7 @@ struct ExprPreModify: ExprBase
 	ExprBase* value;
 	bool isIncrement;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprPreModify;
 };
 
 struct ExprPostModify: ExprBase
@@ -531,7 +653,7 @@ struct ExprPostModify: ExprBase
 	ExprBase* value;
 	bool isIncrement;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprPostModify;
 };
 
 enum ExprTypeCastCategory
@@ -562,7 +684,7 @@ struct ExprTypeCast: ExprBase
 
 	ExprTypeCastCategory category;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprTypeCast;
 };
 
 struct ExprUnaryOp: ExprBase
@@ -575,7 +697,7 @@ struct ExprUnaryOp: ExprBase
 
 	ExprBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprUnaryOp;
 };
 
 struct ExprBinaryOp: ExprBase
@@ -589,7 +711,7 @@ struct ExprBinaryOp: ExprBase
 	ExprBase* lhs;
 	ExprBase* rhs;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprBinaryOp;
 };
 
 struct ExprGetAddress: ExprBase
@@ -601,7 +723,7 @@ struct ExprGetAddress: ExprBase
 
 	VariableHandle *variable;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprGetAddress;
 };
 
 struct ExprDereference: ExprBase
@@ -612,7 +734,7 @@ struct ExprDereference: ExprBase
 
 	ExprBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprDereference;
 };
 
 struct ExprUnboxing: ExprBase
@@ -623,7 +745,7 @@ struct ExprUnboxing: ExprBase
 
 	ExprBase* value;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprUnboxing;
 };
 
 struct ExprConditional: ExprBase
@@ -636,7 +758,7 @@ struct ExprConditional: ExprBase
 	ExprBase *trueBlock;
 	ExprBase *falseBlock;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprConditional;
 };
 
 struct ExprAssignment: ExprBase
@@ -656,7 +778,7 @@ struct ExprAssignment: ExprBase
 	ExprBase *lhs;
 	ExprBase *rhs;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprAssignment;
 };
 
 struct ExprMemberAccess: ExprBase
@@ -668,7 +790,7 @@ struct ExprMemberAccess: ExprBase
 	ExprBase *value;
 	VariableHandle *member;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprMemberAccess;
 };
 
 struct ExprArrayIndex: ExprBase
@@ -680,7 +802,7 @@ struct ExprArrayIndex: ExprBase
 	ExprBase *value;
 	ExprBase *index;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprArrayIndex;
 };
 
 struct ExprReturn: ExprBase
@@ -695,7 +817,7 @@ struct ExprReturn: ExprBase
 
 	ExprBase *closures;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprReturn;
 };
 
 struct ExprYield: ExprBase
@@ -713,7 +835,7 @@ struct ExprYield: ExprBase
 	// 1-based index of the yield in the current function
 	unsigned order;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprYield;
 };
 
 struct ExprVariableDefinition: ExprBase
@@ -726,7 +848,19 @@ struct ExprVariableDefinition: ExprBase
 
 	ExprBase* initializer;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprVariableDefinition;
+};
+
+struct ExprZeroInitialize : ExprBase
+{
+	ExprZeroInitialize(SynBase *source, TypeBase *type, ExprBase *address) : ExprBase(myTypeID, source, type), address(address)
+	{
+		assert(isType<TypeRef>(address->type));
+	}
+
+	ExprBase *address;
+
+	static const unsigned myTypeID = ExprNode::ExprZeroInitialize;
 };
 
 struct ExprArraySetup: ExprBase
@@ -739,7 +873,7 @@ struct ExprArraySetup: ExprBase
 
 	ExprBase* initializer;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprArraySetup;
 };
 
 struct ExprVariableDefinitions: ExprBase
@@ -752,7 +886,7 @@ struct ExprVariableDefinitions: ExprBase
 
 	IntrusiveList<ExprBase> definitions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprVariableDefinitions;
 };
 
 struct ExprVariableAccess: ExprBase
@@ -766,27 +900,31 @@ struct ExprVariableAccess: ExprBase
 
 	VariableData *variable;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprVariableAccess;
 };
 
 struct ExprFunctionContextAccess: ExprBase
 {
-	ExprFunctionContextAccess(SynBase *source, TypeBase *type, FunctionData *function): ExprBase(myTypeID, source, type), function(function)
+	ExprFunctionContextAccess(SynBase *source, TypeBase *type, FunctionData *function, VariableData *contextVariable): ExprBase(myTypeID, source, type), function(function), contextVariable(contextVariable)
 	{
 		assert(function);
-		assert(type == function->contextVariable->type);
-		assert(!function->contextVariable->lookupOnly);
+		assert(type == contextVariable->type);
+		assert(!contextVariable->lookupOnly);
 	}
 
 	FunctionData *function;
 
-	static const unsigned myTypeID = __LINE__;
+	VariableData *contextVariable;
+
+	static const unsigned myTypeID = ExprNode::ExprFunctionContextAccess;
 };
 
 struct ExprFunctionDefinition: ExprBase
 {
-	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, ExprBase *coroutineStateRead, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), coroutineStateRead(coroutineStateRead), expressions(expressions), contextVariable(contextVariable)
+	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, ExprBase *coroutineStateRead, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariableDefinition, VariableData *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), coroutineStateRead(coroutineStateRead), expressions(expressions), contextVariableDefinition(contextVariableDefinition), contextVariable(contextVariable)
 	{
+		if(contextVariableDefinition)
+			contextVariable = contextVariableDefinition->variable->variable;
 	}
 
 	FunctionData* function;
@@ -799,9 +937,10 @@ struct ExprFunctionDefinition: ExprBase
 
 	IntrusiveList<ExprBase> expressions;
 
-	ExprVariableDefinition *contextVariable;
+	ExprVariableDefinition *contextVariableDefinition;
+	VariableData *contextVariable;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprFunctionDefinition;
 };
 
 struct ExprGenericFunctionPrototype: ExprBase
@@ -814,7 +953,7 @@ struct ExprGenericFunctionPrototype: ExprBase
 
 	IntrusiveList<ExprVariableDefinition> contextVariables;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprGenericFunctionPrototype;
 };
 
 struct ExprFunctionAccess: ExprBase
@@ -833,7 +972,7 @@ struct ExprFunctionAccess: ExprBase
 
 	ExprBase *context;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprFunctionAccess;
 };
 
 struct ExprFunctionOverloadSet: ExprBase
@@ -846,7 +985,18 @@ struct ExprFunctionOverloadSet: ExprBase
 
 	ExprBase *context;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprFunctionOverloadSet;
+};
+
+struct ExprShortFunctionOverloadSet : ExprBase
+{
+	ExprShortFunctionOverloadSet(SynBase *source, TypeBase *type, IntrusiveList<ShortFunctionHandle> functions) : ExprBase(myTypeID, source, type), functions(functions)
+	{
+	}
+
+	IntrusiveList<ShortFunctionHandle> functions;
+
+	static const unsigned myTypeID = ExprNode::ExprShortFunctionOverloadSet;
 };
 
 struct ExprFunctionCall: ExprBase
@@ -858,7 +1008,7 @@ struct ExprFunctionCall: ExprBase
 	ExprBase *function;
 	IntrusiveList<ExprBase> arguments;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprFunctionCall;
 };
 
 struct ExprAliasDefinition: ExprBase
@@ -869,7 +1019,7 @@ struct ExprAliasDefinition: ExprBase
 
 	AliasData *alias;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprAliasDefinition;
 };
 
 struct ExprClassPrototype: ExprBase
@@ -880,7 +1030,7 @@ struct ExprClassPrototype: ExprBase
 
 	TypeClass *classType;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprClassPrototype;
 };
 
 struct ExprGenericClassPrototype: ExprBase
@@ -891,7 +1041,7 @@ struct ExprGenericClassPrototype: ExprBase
 
 	TypeGenericClassProto *genericProtoType;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprGenericClassPrototype;
 };
 
 struct ExprClassDefinition: ExprBase
@@ -905,7 +1055,7 @@ struct ExprClassDefinition: ExprBase
 	IntrusiveList<ExprAliasDefinition> aliases;
 	IntrusiveList<ExprBase> functions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprClassDefinition;
 };
 
 struct ExprEnumDefinition: ExprBase
@@ -919,7 +1069,7 @@ struct ExprEnumDefinition: ExprBase
 	ExprBase *toInt;
 	ExprBase *toEnum;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprEnumDefinition;
 };
 
 struct ExprIfElse: ExprBase
@@ -932,7 +1082,7 @@ struct ExprIfElse: ExprBase
 	ExprBase *trueBlock;
 	ExprBase *falseBlock;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprIfElse;
 };
 
 struct ExprFor: ExprBase
@@ -946,7 +1096,7 @@ struct ExprFor: ExprBase
 	ExprBase *increment;
 	ExprBase *body;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprFor;
 };
 
 struct ExprWhile: ExprBase
@@ -958,7 +1108,7 @@ struct ExprWhile: ExprBase
 	ExprBase *condition;
 	ExprBase *body;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprWhile;
 };
 
 struct ExprDoWhile: ExprBase
@@ -970,7 +1120,7 @@ struct ExprDoWhile: ExprBase
 	ExprBase *body;
 	ExprBase *condition;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprDoWhile;
 };
 
 struct ExprSwitch: ExprBase
@@ -984,7 +1134,7 @@ struct ExprSwitch: ExprBase
 	IntrusiveList<ExprBase> blocks;
 	ExprBase *defaultBlock;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprSwitch;
 };
 
 struct ExprBreak: ExprBase
@@ -997,7 +1147,7 @@ struct ExprBreak: ExprBase
 
 	ExprBase *closures;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprBreak;
 };
 
 struct ExprContinue: ExprBase
@@ -1010,7 +1160,7 @@ struct ExprContinue: ExprBase
 
 	ExprBase *closures;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprContinue;
 };
 
 struct ExprBlock: ExprBase
@@ -1023,18 +1173,20 @@ struct ExprBlock: ExprBase
 
 	ExprBase *closures;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprBlock;
 };
 
 struct ExprSequence: ExprBase
 {
-	ExprSequence(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
+	ExprSequence(Allocator *allocator, SynBase *source, TypeBase *type, ArrayView<ExprBase*> arr): ExprBase(myTypeID, source, type), expressions(allocator)
 	{
+		for(unsigned i = 0; i < arr.size(); i++)
+			expressions.push_back(arr[i]);
 	}
 
-	IntrusiveList<ExprBase> expressions;
+	SmallArray<ExprBase*, 4> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprSequence;
 };
 
 struct ExprModule: ExprBase
@@ -1051,7 +1203,7 @@ struct ExprModule: ExprBase
 
 	IntrusiveList<ExprBase> expressions;
 
-	static const unsigned myTypeID = __LINE__;
+	static const unsigned myTypeID = ExprNode::ExprModule;
 };
 
 template<typename T>
@@ -1069,6 +1221,6 @@ T* getType(ExprBase *node)
 	return 0;
 }
 
-ExprModule* Analyze(ExpressionContext &context, SynModule *syntax, const char *code);
+ExprModule* Analyze(ExpressionContext &context, SynModule *syntax, const char *code, const char *moduleRoot);
 void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child));
 const char* GetExpressionTreeNodeName(ExprBase *expression);

@@ -11,6 +11,7 @@ struct Context
 	{
 		infoMode = false;
 		debugMode = false;
+		debugFullMessages = false;
 
 		nullcInitialized = false;
 
@@ -21,6 +22,7 @@ struct Context
 
 	bool infoMode;
 	bool debugMode;
+	bool debugFullMessages;
 
 	bool nullcInitialized;
 

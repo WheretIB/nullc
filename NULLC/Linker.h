@@ -3,11 +3,12 @@
 #define NULLC_LINKER_H
 
 #include "stdafx.h"
-
 #include "Bytecode.h"
 #include "HashMap.h"
-#include "InstructionSet.h"
-#include "Output.h"
+
+struct RegVmCmd;
+
+struct OutputContext;
 
 const int LINK_ERROR_BUFFER_SIZE = 512;
 
@@ -18,36 +19,45 @@ public:
 	~Linker();
 
 	void	CleanCode();
-	bool	LinkCode(const char *bytecode, const char *moduleName);
-	bool	SaveListing(OutputContext &output);
+	bool	LinkCode(const char *bytecode, const char *moduleName, bool rootModule);
+	bool	SaveRegVmListing(OutputContext &output, bool withProfileInfo);
+
+	void	CollectDebugInfo(FastVector<unsigned char*> *instAddress);
 
 	const char*	GetLinkError();
 
-	void	SetFunctionPointerUpdater(void (*)(unsigned, unsigned));
-	void	UpdateFunctionPointer(unsigned dest, unsigned source);
+	void	FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize);
 public:
 	char		linkError[LINK_ERROR_BUFFER_SIZE];
 
 	FastVector<ExternTypeInfo>		exTypes;
 	FastVector<ExternMemberInfo>	exTypeExtra;
+	FastVector<ExternConstantInfo>	exTypeConstants;
 	FastVector<ExternVarInfo>		exVariables;
 	FastVector<ExternFuncInfo>		exFunctions;
 	FastVector<unsigned>			exFunctionExplicitTypeArrayOffsets;
 	FastVector<unsigned>			exFunctionExplicitTypes;
 	FastVector<ExternLocalInfo>		exLocals;
 	FastVector<ExternModuleInfo>	exModules;
-	FastVector<VMCmd>				exCode;
 	FastVector<char>				exSymbols;
-	FastVector<ExternSourceInfo>	exSourceInfo;
 	FastVector<char>				exSource;
 	FastVector<unsigned int>		exDependencies;
+	FastVector<char>				exImportPaths;
+	FastVector<char>				exMainModuleName;
 
-	unsigned int				globalVarSize;
-	unsigned int				offsetToGlobalCode;
+	FastVector<RegVmCmd>			exRegVmCode;
+	FastVector<ExternSourceInfo>	exRegVmSourceInfo;
+	FastVector<unsigned int>		exRegVmExecCount;
+	FixedArray<unsigned int, 256>	exRegVmInstructionExecCount;
+	FastVector<unsigned int>		exRegVmConstants;
+	FastVector<unsigned char>		exRegVmRegKillInfo;
 
-	FastVector<unsigned int>	jumpTargets;
+	FastVector<unsigned int>		regVmJumpTargets;
 
-	void (*fptrUpdater)(unsigned, unsigned);
+	FastVector<RegVmCmd*>			expiredRegVmCode;
+	FastVector<unsigned*>			expiredRegVmConstants;
+
+	unsigned int					globalVarSize;
 
 #ifdef NULLC_LLVM_SUPPORT
 	FastVector<unsigned int>	llvmModuleSizes;
@@ -68,6 +78,8 @@ public:
 
 	HashMap<unsigned int>		typeMap;
 	HashMap<unsigned int>		funcMap;
+
+	FastVector<unsigned char>	fullLinkerData;
 
 	unsigned debugOutputIndent;
 };

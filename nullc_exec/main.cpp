@@ -18,11 +18,10 @@
 #include "../NULLC/includes/math.h"
 #include "../NULLC/includes/string.h"
 #include "../NULLC/includes/vector.h"
-#include "../NULLC/includes/list.h"
-#include "../NULLC/includes/map.h"
 #include "../NULLC/includes/random.h"
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/gc.h"
+#include "../NULLC/includes/memory.h"
 
 #include "../NULLC/includes/canvas.h"
 
@@ -43,11 +42,13 @@ int main(int argc, char** argv)
 		printf("\t -x86\texecute using x86 JiT compilation\n");
 		printf("\t -p\tprofile code compilation speed\n");
 		printf("\t -v\tverbose output (module import warnings, program result)\n");
+		printf("\t -log\tenable compiler debug output\n");
 		return 0;
 	}
 	bool useX86 = false;
 	bool profile = false;
 	bool verbose = false;
+	bool logging = false;
 	const char *fileName = NULL;
 	for(int i = 1; i < argc; i++)
 	{
@@ -57,6 +58,8 @@ int main(int argc, char** argv)
 			profile = true;
 		if(strcmp(argv[i], "-v") == 0)
 			verbose = true;
+		if(strcmp(argv[i], "-log") == 0)
+			logging = true;
 		if(strstr(argv[i], ".nc"))
 			fileName = argv[i];
 	}
@@ -83,7 +86,9 @@ int main(int argc, char** argv)
 			printf("WARNING: Failed to open precompiled module file ");
 			printf(sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : X64_LIB"\r\n");
 		}
-	}else{
+	}
+	else
+	{
 		fseek(modulePack, 0, SEEK_END);
 		unsigned int fileSize = ftell(modulePack);
 		fseek(modulePack, 0, SEEK_SET);
@@ -126,16 +131,14 @@ int main(int argc, char** argv)
 #endif
 	if(!nullcInitVectorModule() && verbose)
 		printf("ERROR: Failed to init std.vector module\r\n");
-	if(!nullcInitListModule() && verbose)
-		printf("ERROR: Failed to init std.list module\r\n");
-	if(!nullcInitMapModule() && verbose)
-		printf("ERROR: Failed to init std.map module\r\n");
 	if(!nullcInitRandomModule() && verbose)
 		printf("ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule() && verbose)
 		printf("ERROR: Failed to init std.time module\r\n");
 	if(!nullcInitGCModule() && verbose)
 		printf("ERROR: Failed to init std.gc module\r\n");
+	if(!nullcInitMemoryModule() && verbose)
+		printf("ERROR: Failed to init std.memory module\r\n");
 
 	if(!nullcInitPugiXMLModule() && verbose)
 		printf("ERROR: Failed to init ext.pugixml module\r\n");
@@ -170,8 +173,11 @@ int main(int argc, char** argv)
 	}
 #endif
 
-	nullcSetExecutor(useX86 ? NULLC_X86 : NULLC_VM);
-	
+	nullcSetExecutor(useX86 ? NULLC_X86 : NULLC_REG_VM);
+
+	if(logging)
+		nullcSetEnableLogFiles(true, NULL, NULL, NULL);
+
 	FILE *ncFile = fopen(fileName, "rb");
 	if(!ncFile)
 	{

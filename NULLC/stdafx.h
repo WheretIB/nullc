@@ -78,9 +78,11 @@ namespace NULLC
 		dealloc(ptr);
 	}
 
-	const void* defaultFileLoad(const char* name, unsigned int* size, int* nullcShouldFreePtr);
+	const char* defaultFileLoad(const char* name, unsigned* size);
+	void defaultFileFree(const char* data);
 
-	extern const void* (*fileLoad)(const char*, unsigned int*, int*);
+	extern const char* (*fileLoad)(const char*, unsigned*);
+	extern void (*fileFree)(const char*);
 }
 
 #include "Array.h"

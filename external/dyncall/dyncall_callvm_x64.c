@@ -28,6 +28,7 @@
 
 /* MS Windows x64 calling convention, AMD64 SystemV ABI. */
 
+#include <string.h>
 
 #include "dyncall_callvm_x64.h"
 #include "dyncall_alloc.h"
@@ -101,7 +102,7 @@ static void dc_callvm_argFloat_x64(DCCallVM* in_self, DCfloat x)
   f.f = x;
 
   if(self->mRegCount.f < numFloatRegs)
-    *(DCfloat*)&self->mRegData.f[self->mRegCount.f++] = x;
+    memcpy(&self->mRegData.f[self->mRegCount.f++], &x, sizeof(x));
   else
     dcVecAppend(&self->mVecHead, &f.f, sizeof(DCdouble));
 }
@@ -121,7 +122,7 @@ static void dc_callvm_argPointer_x64(DCCallVM* in_self, DCpointer x)
 {
   DCCallVM_x64* self = (DCCallVM_x64*)in_self;
   if(self->mRegCount.i < numIntRegs)
-    *(DCpointer*)&self->mRegData.i[self->mRegCount.i++] = x;
+    memcpy(&self->mRegData.i[self->mRegCount.i++], &x, sizeof(x));
   else
     dcVecAppend(&self->mVecHead, &x, sizeof(DCpointer));
 }

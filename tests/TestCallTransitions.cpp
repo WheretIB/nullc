@@ -64,12 +64,18 @@ void RecallerCS(int x)
 
 LOAD_MODULE_BIND(func_test, "func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp); void recall(int x);")
 {
-	nullcBindModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
-	nullcBindModuleFunction("func.test", (void(*)())Recaller2, "Recaller2", 0);
-	nullcBindModuleFunction("func.test", (void(*)())Recaller3, "Recaller3", 0);
-	nullcBindModuleFunction("func.test", (void(*)())RecallerPtr, "RecallerPtr", 0);
-	nullcBindModuleFunction("func.test", (void(*)())BubbleSortArray, "bubble", 0);
-	nullcBindModuleFunction("func.test", (void(*)())RecallerCS, "recall", 0);
+	nullcBindModuleFunctionHelper("func.test", Recaller, "Recaller", 0);
+	nullcBindModuleFunctionHelper("func.test", Recaller2, "Recaller2", 0);
+	nullcBindModuleFunctionHelper("func.test", Recaller3, "Recaller3", 0);
+	nullcBindModuleFunctionHelper("func.test", RecallerPtr, "RecallerPtr", 0);
+	nullcBindModuleFunctionHelper("func.test", BubbleSortArray, "bubble", 0);
+	nullcBindModuleFunctionHelper("func.test", RecallerCS, "recall", 0);
+}
+
+LOAD_MODULE_BIND(func_test_global, "func.test.global", "int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp);")
+{
+	nullcBindModuleFunctionHelper("func.test.global", RecallerPtr, "RecallerPtr", 0);
+	nullcBindModuleFunctionHelper("func.test.global", BubbleSortArray, "bubble", 0);
 }
 
 const char	*testFunc1 =
@@ -121,16 +127,12 @@ return test(2);";
 TEST_RESULT_SIMPLE("NULLC function call externally test 2 (with pointers to functions)", testFunc2Ptr, "24");
 
 const char	*testFunc3 =
-"import func.test;\r\n\
-int inside(int a, b){ return 0; }\r\n\
-int inside2(int a, b){ return 0; }\r\n\
+"import func.test.global;\r\n\
 return RecallerPtr(auto(int i){ return -i; });";
 TEST_RESULT("NULLC function call externally test 3", testFunc3, "-14");
 
 const char	*testFunc3b =
-"import func.test;\r\n\
-int inside(int a, b){ return 0; }\r\n\
-int inside2(int a, b){ return 0; }\r\n\
+"import func.test.global;\r\n\
 int a = 3;\r\n\
 int foo(int x)\r\n\
 {\r\n\
@@ -146,17 +148,13 @@ return m;";
 TEST_RESULT("NULLC function call externally test 3 b", testFunc3b, "-14");
 
 const char	*testFunc3Ptr =
-"import func.test;\r\n\
-int inside(int a, b){ return 0; }\r\n\
-int inside2(int a, b){ return 0; }\r\n\
+"import func.test.global;\r\n\
 auto RecallerPtr_ = RecallerPtr;\r\n\
 return RecallerPtr_(auto(int i){ return -i; });";
 TEST_RESULT("NULLC function call externally test 3 (with pointers to functions)", testFunc3Ptr, "-14");
 
 const char	*testFunc4 =
-"import func.test;\r\n\
-int inside(int a, b){ return 0; }\r\n\
-int inside2(int a, b){ return 0; }\r\n\
+"import func.test.global;\r\n\
 auto generator(int start)\r\n\
 {\r\n\
 	return auto(int u){ return ++start; };\r\n\
@@ -165,9 +163,7 @@ return RecallerPtr(generator(7));";
 TEST_RESULT("NULLC function call externally test 4", testFunc4, "8");
 
 const char	*testFunc5 =
-"import func.test;\r\n\
-int inside(int a, b){ return 0; }\r\n\
-int inside2(int a, b){ return 0; }\r\n\
+"import func.test.global;\r\n\
 int seed = 5987;\r\n\
 int[512] arr;\r\n\
 for(int i = 0; i < 512; i++)\r\n\

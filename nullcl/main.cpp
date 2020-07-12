@@ -229,6 +229,7 @@ int main(int argc, char** argv)
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
+			nullcTerminate();
 			return 1;
 		}
 		unsigned int *bytecode = NULL;
@@ -243,12 +244,16 @@ int main(int argc, char** argv)
 			if(argIndex == argc)
 			{
 				printf("Module name not found after -m\n");
+
+				delete[] bytecode;
 				break;
 			}
 
 			if(strlen(argv[argIndex]) + 1 >= 1024)
 			{
 				printf("Module name is too long\n");
+
+				delete[] bytecode;
 				break;
 			}
 
@@ -261,6 +266,8 @@ int main(int argc, char** argv)
 			if(strlen(fileName) + 1 >= 1024)
 			{
 				printf("File name is too long\n");
+
+				delete[] bytecode;
 				break;
 			}
 
@@ -284,6 +291,8 @@ int main(int argc, char** argv)
 			if(strlen(fileName) + 1 >= 1024 - 1)
 			{
 				printf("File name is too long\n");
+
+				delete[] bytecode;
 				break;
 			}
 
@@ -293,6 +302,8 @@ int main(int argc, char** argv)
 			if(!nmcFile)
 			{
 				printf("Cannot create output file %s\n", newName);
+
+				delete[] bytecode;
 				break;
 			}
 			fwrite(moduleName, 1, strlen(moduleName) + 1, nmcFile);
@@ -302,6 +313,8 @@ int main(int argc, char** argv)
 			fwrite(moduleName, 1, strlen(moduleName) + 1, mergeFile);
 			fwrite(bytecode, 1, *bytecode, mergeFile);
 		}
+
+		delete[] bytecode;
 	}
 	if(currIndex == argIndex)
 		printf("None of the input files were found\n");

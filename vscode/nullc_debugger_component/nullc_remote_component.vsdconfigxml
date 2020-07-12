@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Configuration xmlns="http://schemas.microsoft.com/vstudio/vsdconfig/2008">
+
+	<DefineGuid Name="guidNullcSymbolProviderId" Value="C1341E06-2406-44D8-ADAB-B797BE8687D8"/>
+	<DefineGuid Name="guidNullcRuntimeId" Value="3AF14FEA-CB31-4DBB-90E5-74BF685CA7B8"/>
+
+	<ManagedComponent ComponentId="guidNullcSymbolProviderId" ComponentLevel="40500" AssemblyName="nullc_debugger_component">
+
+		<Class Name="nullc_debugger_component.DkmDebugger.NullcRemoteComponent">
+			<Implements>
+				<InterfaceGroup>
+					<NoFilter/>
+					<Interface Name="IDkmProcessExecutionNotification"/>
+					<Interface Name="IDkmModuleUserCodeDeterminer"/>
+
+					<Interface Name="IDkmDebugMonitorExceptionNotification"/>
+				</InterfaceGroup>
+
+				<InterfaceGroup>
+					<Filter>
+						<RuntimeId RequiredValue="guidNullcRuntimeId"/>
+					</Filter>
+					<Interface Name="IDkmRuntimeStepper"/>
+					<Interface Name="IDkmRuntimeMonitorBreakpointHandler"/>
+				</InterfaceGroup>
+
+				<InterfaceGroup>
+					<Filter>
+						<SourceId RequiredValue="4E7147D0-6375-4962-A2BF-651F802E27D7"/>
+					</Filter>
+					<Interface Name="IDkmSingleStepCompleteReceived"/>
+				</InterfaceGroup>
+			</Implements>
+		</Class>
+	</ManagedComponent>
+</Configuration>

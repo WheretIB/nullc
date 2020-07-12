@@ -16,18 +16,18 @@ struct OutputContext
 {
 	OutputContext()
 	{
-		outputBuf = 0;
-		outputBufSize = 0;
+		outputBuf = outputBufDef;
+		outputBufSize = 256;
 		outputBufPos = 0;
 
-		tempBuf = 0;
-		tempBufSize = 0;
+		tempBuf = tempBufDef;
+		tempBufSize = 256;
 
 		stream = 0;
 
-		openStream = 0;
-		writeStream = 0;
-		closeStream = 0;
+		openStream = FileOpen;
+		writeStream = FileWrite;
+		closeStream = FileClose;
 	}
 
 	~OutputContext()
@@ -118,15 +118,103 @@ struct OutputContext
 
 				Print(str, length);
 			}
+			else if(pos[0] == '%' && pos[1] == '%')
+			{
+				pos += 2;
+
+				Print('%');
+			}
+			else if(pos[0] == '%')
+			{
+				const char *tmpPos = pos + 1;
+
+				bool leadingZeroes = false;
+
+				if(*tmpPos == '0')
+				{
+					leadingZeroes = true;
+
+					tmpPos++;
+				}
+
+				unsigned width = 0;
+
+				if(unsigned(*tmpPos - '0') < 10)
+				{
+					width = unsigned(*tmpPos - '0');
+
+					tmpPos++;
+				}
+
+				if(*tmpPos == 'd' || *tmpPos == 'x')
+				{
+					pos = tmpPos + 1;
+
+					int value = va_arg(args, int);
+
+					if(*tmpPos == 'd' && value < 0)
+						Print('-');
+
+					unsigned uvalue;
+
+					if(*tmpPos == 'd' && value < 0)
+						uvalue = -value;
+					else
+						uvalue = value;
+
+					char reverse[16];
+
+					char *curr = reverse;
+
+					if(*tmpPos == 'd')
+					{
+						*curr++ = (char)((uvalue % 10) + '0');
+
+						while(uvalue /= 10)
+							*curr++ = (char)((uvalue % 10) + '0');
+					}
+					else
+					{
+						const char *symbols = "0123456789abcdef";
+
+						*curr++ = symbols[uvalue % 16];
+
+						while(uvalue /= 16)
+							*curr++ = symbols[uvalue % 16];
+					}
+
+					while(unsigned(curr - reverse) < width)
+						*curr++ = leadingZeroes ? '0' : ' ';
+
+					char forward[16];
+
+					char *result = forward;
+
+					do
+					{
+						--curr;
+						*result++ = *curr;
+					}
+					while(curr != reverse);
+
+					*result = 0;
+
+					Print(forward);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if(pos[0] == 0)
+			{
+				return;
+			}
 			else
 			{
 				break;
 			}
-			
 		}
-
-		if(!*pos)
-			return;
 
 		int length = vsnprintf(tempBuf, tempBufSize - 1, pos, args);
 
@@ -177,10 +265,12 @@ struct OutputContext
 		fclose((FILE*)stream);
 	}
 
+	char outputBufDef[256];
 	char *outputBuf;
 	unsigned outputBufSize;
 	unsigned outputBufPos;
 
+	char tempBufDef[256];
 	char *tempBuf;
 	unsigned tempBufSize;
 

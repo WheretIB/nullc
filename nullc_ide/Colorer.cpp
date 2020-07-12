@@ -45,7 +45,7 @@ namespace ColorerGrammar
 	std::string	logStr;
 	const char *codeStart;
 
-	std::vector<unsigned>	typeInfo;
+	std::vector<unsigned> typeInfo;
 
 	// Callbacks
 	ColorCodeCallback ColorRWord, ColorVar, ColorVarDef, ColorFunc, ColorText, ColorChar, ColorReal, ColorInt, ColorBold, ColorErr, ColorComment;
@@ -120,10 +120,22 @@ namespace ColorerGrammar
 			m_a->Parse(str, NULL);
 			if(curr == *str)
 				return false;
+
 			unsigned hash = NULLC::GetStringHash(curr, *str);
-			for(unsigned int i = 0; i < typeInfo.size(); i++)
-				if(typeInfo[i] == hash)
+
+			unsigned count = (unsigned)typeInfo.size();
+
+			if(count == 0)
+				return false;
+
+			unsigned *typeInfoData = &typeInfo[0];
+
+			for(unsigned int i = 0; i < count; i++)
+			{
+				if(typeInfoData[i] == hash)
 					return true;
+			}
+
 			*str = curr;
 			return false;
 		}
@@ -507,9 +519,11 @@ namespace ColorerGrammar
 							(chP('}')[ColorText] | epsP[LogError("ERROR: '}' is expected after property")])
 						) | (
 							((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after type")]) >>
+							((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: initializer not found after '='")])) | epsP) >>
 							*(
 								chP(',')[ColorText] >>
-								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
+								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")]) >>
+								((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: initializer not found after '='")])) | epsP)
 							)
 						)
 					) >>
@@ -604,6 +618,12 @@ namespace ColorerGrammar
 									(chP('<')[ColorText] >> typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP('>')[ColorText] >> chP(':')[ColorBold])
 								) >>
 								(idP[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >>
+								!(
+									chP('<')[ColorText] >>
+									(chP('@') >> idP[ColorRWord][StartType]) >>
+									*(chP(',')[ColorText] >> chP('@')[ColorText] >> idP[ColorRWord][StartType]) >>
+									chP('>')[ColorText]
+								) >>
 								chP('(')[ColorBold]
 							) |
 							(

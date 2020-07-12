@@ -17,6 +17,7 @@
 #include "../NULLC/includes/gc.h"
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/string.h"
+#include "../NULLC/includes/memory.h"
 
 #include "../NULLC/includes/canvas.h"
 #include "../NULLC/includes/window.h"
@@ -37,26 +38,106 @@
 //#define ALLOC_TOP_DOWN
 //#define NO_CUSTOM_ALLOCATOR
 
+unsigned testTotalMemoryAlloc = 0;
+unsigned testTotalMemoryFree = 0;
+unsigned testTotalMemoryRequested = 0;
+unsigned testTotalMemoryUsed = 0;
+
+struct MallocAllocatorRef : Allocator
+{
+	MallocAllocatorRef()
+	{
+	}
+
+	~MallocAllocatorRef()
+	{
+	}
+
+	virtual void* alloc(int size)
+	{
+		return malloc(size);
+	}
+
+	virtual void dealloc(void* ptr)
+	{
+		free(ptr);
+	}
+
+	virtual unsigned requested()
+	{
+		return 0;
+	}
+};
+
+struct PointerHasher
+{
+	unsigned operator()(uintptr_t key)
+	{
+		char data[sizeof(key)];
+		memcpy(data, &key, sizeof(key));
+
+		unsigned int hash = 5381;
+		for(unsigned i = 0; i < sizeof(key); i++)
+			hash = ((hash << 5) + hash) + data[i];
+		return hash;
+	}
+};
+
+MallocAllocatorRef setAllocator;
+SmallDenseMap<uintptr_t, bool, PointerHasher, 1024> activePoiners(&setAllocator);
+
 void* testAlloc(int size)
 {
+	testTotalMemoryAlloc++;
+	testTotalMemoryRequested += size;
+	testTotalMemoryUsed += size;
+
 #ifdef ALLOC_TOP_DOWN
-	return VirtualAlloc(NULL, size + 128, MEM_COMMIT | MEM_TOP_DOWN, PAGE_READWRITE);
+	char *ptr = (char*)VirtualAlloc(NULL, size + 128, MEM_COMMIT | MEM_TOP_DOWN, PAGE_READWRITE);
 #else
 	char *ptr = new char[size + 128];
-	memset(ptr, 0xee, 128);
-	return ptr + 128;
 #endif
+
+	if(size < 0 || !ptr)
+	{
+		assert(!"out of memory");
+		return 0;
+	}
+
+	memset(ptr, 0xee, 128);
+	*(unsigned*)ptr = size;
+
+	activePoiners.insert(uintptr_t(ptr), 1);
+
+	return ptr + 128;
 }
+
 void testDealloc(void* ptr)
 {
 	if(!ptr)
 		return;
-#ifdef ALLOC_TOP_DOWN
-	VirtualFree((char*)ptr - 128, 0, MEM_RELEASE);
-#else
+
 	ptr = (char*)ptr - 128;
-	for(unsigned i = 0; i < 128; i++)
+
+	bool* active = activePoiners.find(uintptr_t(ptr));
+
+	if(!active || !*active)
+	{
+		printf("pointer was not allocated (%p)\n", ptr);
+		abort();
+	}
+
+	activePoiners.insert(uintptr_t(ptr), 0);
+
+	testTotalMemoryFree++;
+	testTotalMemoryUsed -= *(unsigned*)ptr;
+
+	for(unsigned i = sizeof(unsigned); i < 128; i++)
 		assert(((unsigned char*)ptr)[i] == 0xee);
+
+#ifdef ALLOC_TOP_DOWN
+	VirtualFree((char*)ptr, 0, MEM_RELEASE);
+#else
 	delete[] (char*)ptr;
 #endif
 }
@@ -77,10 +158,11 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests, bool testOutput, bool testTranslationSave, bool testTranslation)
+int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), void (*fileFreeFunc)(const char*), bool runSpeedTests, bool testOutput, bool testTranslationSave, bool testTranslation, bool testTimeTrace)
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
+	Tests::fileFreeFunc = fileFreeFunc;
 
 	// Extra tests
 
@@ -126,6 +208,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	Tests::enableLogFiles = testOutput;
 	Tests::doSaveTranslation = testTranslationSave;
 	Tests::doTranslation = testTranslation;
+	Tests::enableTimeTrace = testTimeTrace;
 
 	if(testTranslation)
 	{
@@ -154,35 +237,46 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	Tests::closeStreamFunc = 0;
 	*/
 
+	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
+
 	// Init NULLC for interface tests
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit();
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc);
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #endif
-	nullcSetFileReadHandler(Tests::fileLoadFunc);
+	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 
 	nullcInitTypeinfoModule();
 	nullcInitDynamicModule();
+
 	RunInterfaceTests();
+	RunUtilityTests();
 
 	// Init NULLC for test set
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit();
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc);
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
+	nullcAddImportPath(MODULE_PATH_C);
 #endif
-	nullcSetFileReadHandler(Tests::fileLoadFunc);
+	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
@@ -191,6 +285,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	nullcInitRandomModule();
 	nullcInitDynamicModule();
 	nullcInitGCModule();
+	nullcInitMemoryModule();
 	nullcInitStringModule();
 
 	nullcInitIOModule();
@@ -214,10 +309,16 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	queue.RunTests();
 
 	// Conclusion 
-	printf("VM passed %d of %d tests\n", testsPassed[TEST_TYPE_VM], testsCount[TEST_TYPE_VM]);
-
 	printf("Expr Evaluated %d of %d tests\n", testsPassed[TEST_TYPE_EXPR_EVALUATION], testsCount[TEST_TYPE_EXPR_EVALUATION]);
 	printf("Inst Evaluated %d of %d tests\n", testsPassed[TEST_TYPE_INST_EVALUATION], testsCount[TEST_TYPE_INST_EVALUATION]);
+
+	// Safety check that expression and instruction elimination doesn't just skip many tests
+	if(testsPassed[TEST_TYPE_REGVM] > 1000)
+	{
+		// 65% of tests
+		assert(testsCount[TEST_TYPE_EXPR_EVALUATION] >= (testsCount[TEST_TYPE_REGVM] * 4) * 0.65f);
+		assert(testsCount[TEST_TYPE_INST_EVALUATION] >= (testsCount[TEST_TYPE_REGVM] * 4) * 0.65f);
+	}
 
 #ifdef NULLC_BUILD_X86_JIT
 	printf("X86 passed %d of %d tests\n", testsPassed[TEST_TYPE_X86], testsCount[TEST_TYPE_X86]);
@@ -232,6 +333,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	testsPassed[TEST_TYPE_LLVM] = 0;
 	testsCount[TEST_TYPE_LLVM] = 0;
 #endif
+
+	printf("RegVM passed %d of %d tests\n", testsPassed[TEST_TYPE_REGVM], testsCount[TEST_TYPE_REGVM]);
 
 	printf("Failure tests: passed %d of %d tests\n", testsPassed[TEST_TYPE_FAILURE], testsCount[TEST_TYPE_FAILURE]);
 	printf("Extra tests: passed %d of %d tests\n", testsPassed[TEST_TYPE_EXTRA], testsCount[TEST_TYPE_EXTRA]);
@@ -255,8 +358,13 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	printf("Link time: %f\n", Tests::timeLinkCode);
 	printf("Run time: %f\n", Tests::timeRun);
 
+	printf("Total time: %f\n", Tests::timeCompile + Tests::timeGetBytecode + Tests::timeVisit + Tests::timeExprEvaluate + Tests::timeInstEvaluate + Tests::timeTranslate + Tests::timeClean + Tests::timeLinkCode + Tests::timeRun);
+
 	printf("Total log output: %lld\n", Tests::totalOutput);
 	printf("Total nodes: %d syntax, %d expression\n", Tests::totalSyntaxNodes, Tests::totalExpressionNodes);
+	printf("Total RegVM instructions: %d\n", Tests::totalRegVmInstructions);
+
+	printf("Total global allocs: %d (%.3fMB requested)\n", testTotalMemoryAlloc, testTotalMemoryRequested / 1024 / 1024.0);
 
 	printf("Passed %d of %d tests\n", allPassed, allTests);
 
@@ -265,6 +373,10 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 
 	// Terminate NULLC
 	nullcTerminate();
+
+	assert(testTotalMemoryAlloc == testTotalMemoryFree);
+
+	Tests::Cleanup();
 
 	return allPassed == allTests ? 0 : 1;
 }

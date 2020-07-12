@@ -3,7 +3,6 @@
 
 #include "nullcdef.h"
 #include "Bytecode.h"
-#include "InstructionSet.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -22,17 +21,19 @@ const void*			nullcGetModule(const char* path);
 
 ExternTypeInfo*		nullcDebugTypeInfo(unsigned int *count);
 ExternMemberInfo*	nullcDebugTypeExtraInfo(unsigned int *count);
+ExternConstantInfo*	nullcDebugTypeConstantInfo(unsigned int *count);
 ExternVarInfo*		nullcDebugVariableInfo(unsigned int *count);
 ExternFuncInfo*		nullcDebugFunctionInfo(unsigned int *count);
 ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);
 char*				nullcDebugSymbols(unsigned int *count);
 char*				nullcDebugSource();
 ExternSourceInfo*	nullcDebugSourceInfo(unsigned int *count);
-VMCmd*				nullcDebugCode(unsigned int *count);
 ExternModuleInfo*	nullcDebugModuleInfo(unsigned int *count);
 
 void				nullcDebugBeginCallStack();
 unsigned int		nullcDebugGetStackFrame();
+unsigned int		nullcDebugEnumStackFrame(unsigned frame);
+unsigned int		nullcDebugGetStackFrameCount();
 
 #define	NULLC_BREAK_PROCEED		0
 #define NULLC_BREAK_STEP		1
@@ -50,6 +51,18 @@ nullres				nullcDebugAddOneHitBreakpoint(unsigned int instruction);
 nullres				nullcDebugRemoveBreakpoint(unsigned int instruction);
 
 ExternFuncInfo*		nullcDebugConvertAddressToFunction(int instruction, ExternFuncInfo* codeFunctions, unsigned functionCount);
+
+const char*			nullcDebugGetInstructionSourceLocation(unsigned instruction);
+unsigned			nullcDebugGetSourceLocationModuleIndex(const char *sourceLocation);
+unsigned			nullcDebugGetSourceLocationLineAndColumn(const char *sourceLocation, unsigned moduleIndex, unsigned &column);
+
+NULLC_DEBUG_EXPORT unsigned		nullcDebugConvertNativeAddressToInstruction(void *address);
+
+// Get call stack frame data location offset from base. Positions are counted from top, starting with 1. If 0 is passed, returns data location offset from the active call stack frame that doesn't have an entry in a call stack
+NULLC_DEBUG_EXPORT unsigned		nullcDebugGetReversedStackDataBase(unsigned framePos);
+
+NULLC_DEBUG_EXPORT const char*	nullcDebugGetVmAddressLocation(unsigned instruction, unsigned full);
+NULLC_DEBUG_EXPORT const char*	nullcDebugGetNativeAddressLocation(void *address, unsigned full);
 
 #ifdef __cplusplus
 }

@@ -25,9 +25,13 @@
 
 #include <iostream>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include "../NULLC/nullc.h"
+#include "../NULLC/nullbind.h"
 #include "../NULLC/nullc_debug.h"
+#include "../NULLC/StrAlgo.h"
 
 #include "Colorer.h"
 
@@ -40,11 +44,10 @@
 #include "../NULLC/includes/math.h"
 #include "../NULLC/includes/string.h"
 #include "../NULLC/includes/vector.h"
-#include "../NULLC/includes/list.h"
-#include "../NULLC/includes/map.h"
 #include "../NULLC/includes/random.h"
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/gc.h"
+#include "../NULLC/includes/memory.h"
 
 #include "../NULLC/includes/window.h"
 
@@ -68,7 +71,7 @@ HWND hWnd;			// Main window
 HWND hButtonCalc;	// Run/Abort button
 HWND hContinue;		// Button that continues an interrupted execution
 HWND hShowTemporaries;	// Show temporary variables
-HWND hJITEnabled;	// JiT enable check box
+HWND hExecutionType; // Target selection
 HWND hTabs;	
 HWND hNewTab, hNewFilename, hNewFile;
 HWND hResult;		// label with execution result
@@ -101,8 +104,11 @@ struct Breakpoint
 std::vector<HWND>	richEdits;
 std::vector<HWND>	attachedEdits;
 
-const unsigned int INIT_BUFFER_SIZE = 4096;
-char	initError[INIT_BUFFER_SIZE];
+const unsigned initErrorBufSize = NULLC_ERROR_BUFFER_SIZE;
+char *initErrorBuf = NULL;
+
+const unsigned ideExecutionErrorBufSize = NULLC_ERROR_BUFFER_SIZE;
+char *ideExecutionErrorBuf = NULL;
 
 // for text update
 bool needTextUpdate;
@@ -351,25 +357,22 @@ double myGetPreciseTime()
 
 const char* GetLastNullcErrorWindows()
 {
-	const unsigned formattedSize = 8192;
-	static char formatted[formattedSize];
-
 	const char *src = nullcGetLastError();
-	char *dst = formatted;
+	char *dst = ideExecutionErrorBuf;
 
 	while(*src)
 	{
 		if(*src == '\n')
 		{
-			if(dst < formatted + formattedSize - 1)
+			if(dst < ideExecutionErrorBuf + ideExecutionErrorBufSize - 1)
 				*dst++ = '\r';
 
-			if(dst < formatted + formattedSize - 1)
+			if(dst < ideExecutionErrorBuf + ideExecutionErrorBufSize - 1)
 				*dst++ = '\n';
 		}
 		else
 		{
-			if(dst < formatted + formattedSize - 1)
+			if(dst < ideExecutionErrorBuf + ideExecutionErrorBufSize - 1)
 				*dst++ = *src;
 		}
 
@@ -378,7 +381,7 @@ const char* GetLastNullcErrorWindows()
 
 	*dst = 0;
 
-	return formatted;
+	return ideExecutionErrorBuf;
 }
 
 HANDLE breakResponse = NULL;
@@ -492,17 +495,27 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcAddImportPath("Modules/");
 	nullcAddImportPath("../Modules/");
 
+#ifdef _DEBUG
+	nullcSetEnableTimeTrace(1);
+#endif
+
+	nullcSetEnableExternalDebugger(1);
+
 	char modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);
 
-	memset(initError, 0, INIT_BUFFER_SIZE);
+	initErrorBuf = new char[initErrorBufSize];
+	memset(initErrorBuf, 0, initErrorBufSize);
+
+	ideExecutionErrorBuf = new char[ideExecutionErrorBufSize];
+	memset(ideExecutionErrorBuf, 0, ideExecutionErrorBufSize);
 
 	// in possible, load precompiled modules from nullclib.ncm
 	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : "nullclib_x64.ncm", "rb");
 	if(!modulePack)
 	{
-		strcat(initError, "WARNING: Failed to open precompiled module file ");
-		strcat(initError, sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
+		strcat(initErrorBuf, "WARNING: Failed to open precompiled module file ");
+		strcat(initErrorBuf, sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : "nullclib_x64.ncm\r\n");
 	}else{
 		fseek(modulePack, 0, SEEK_END);
 		unsigned int fileSize = ftell(modulePack);
@@ -525,42 +538,40 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	}
 
 	if(!nullcInitTypeinfoModule())
-		strcat(initError, "ERROR: Failed to init std.typeinfo module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.typeinfo module\r\n");
 	if(!nullcInitDynamicModule())
-		strcat(initError, "ERROR: Failed to init std.dynamic module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.dynamic module\r\n");
 
 	if(!nullcInitFileModule())
-		strcat(initError, "ERROR: Failed to init std.file module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.file module\r\n");
 	if(!nullcInitIOModule())
-		strcat(initError, "ERROR: Failed to init std.io module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.io module\r\n");
 	if(!nullcInitMathModule())
-		strcat(initError, "ERROR: Failed to init std.math module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.math module\r\n");
 	if(!nullcInitStringModule())
-		strcat(initError, "ERROR: Failed to init std.string module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.string module\r\n");
 
 	if(!nullcInitCanvasModule())
-		strcat(initError, "ERROR: Failed to init img.canvas module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init img.canvas module\r\n");
 	if(!nullcInitWindowModule())
-		strcat(initError, "ERROR: Failed to init win.window module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init win.window module\r\n");
 
 	if(!nullcInitVectorModule())
-		strcat(initError, "ERROR: Failed to init old.vector module\r\n");
-	if(!nullcInitListModule())
-		strcat(initError, "ERROR: Failed to init old.list module\r\n");
-	if(!nullcInitMapModule())
-		strcat(initError, "ERROR: Failed to init std.map module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init old.vector module\r\n");
 	if(!nullcInitRandomModule())
-		strcat(initError, "ERROR: Failed to init std.random module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule())
-		strcat(initError, "ERROR: Failed to init std.time module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.time module\r\n");
 	if(!nullcInitGCModule())
-		strcat(initError, "ERROR: Failed to init std.gc module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init std.gc module\r\n");
+	if(!nullcInitMemoryModule())
+		strcat(initErrorBuf, "ERROR: Failed to init std.memory module\r\n");
 
 	if(!nullcInitPugiXMLModule())
-		strcat(initError, "ERROR: Failed to init ext.pugixml module\r\n");
+		strcat(initErrorBuf, "ERROR: Failed to init ext.pugixml module\r\n");
 
 	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
-	nullcBindModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);
+	nullcBindModuleFunctionHelper("ide.debug", IDEDebugBreak, "_debugBreak", 0);
 
 	// Save a list of base modules
 	while(const char* moduleName = nullcEnumerateModules((unsigned)baseModules.size()))
@@ -579,7 +590,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		return 0;
 
 	if(!nullcDebugSetBreakFunction(NULL, IDEDebugBreakEx))
-		strcat(initError, GetLastNullcErrorWindows());
+		strcat(initErrorBuf, GetLastNullcErrorWindows());
 
 	WORD wVersionRequested = MAKEWORD(2, 2);
 	WSADATA wsaData;
@@ -590,7 +601,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	RemoteData::localIP = inet_ntoa(*(struct in_addr *)*RemoteData::localHost->h_addr_list);
 
 	if(!InitializeCriticalSectionAndSpinCount(&pipeSection, 0x80000400))
-		strcat(initError, "Failed to create critical section for remote debugging");
+		strcat(initErrorBuf, "Failed to create critical section for remote debugging");
 
 	HACCEL hAccelTable = LoadAccelerators(hInstance, (LPCTSTR)IDR_SHORTCUTS);
 
@@ -607,6 +618,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	DeleteCriticalSection(&pipeSection);
 
 	nullcTerminate();
+
+	delete[] ideExecutionErrorBuf;
+	delete[] initErrorBuf;
 
 	return (int) msg.wParam;
 }
@@ -730,10 +744,24 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	SendMessage(hContinue, WM_SETFONT, (WPARAM)fontDefault, 0);
 
-	hJITEnabled = CreateWindow("BUTTON", "X86 JIT", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-140, 185, 130, 30, hWnd, NULL, hInstance, NULL);
-	if(!hJITEnabled)
+	hExecutionType = CreateWindow("COMBOBOX", "TEST", WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_CHILD, 800-140, 185, 130, 300, hWnd, NULL, hInstance, NULL);
+	if(!hExecutionType)
 		return 0;
-	SendMessage(hJITEnabled, WM_SETFONT, (WPARAM)fontDefault, 0);
+	SendMessage(hExecutionType, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	ComboBox_AddString(hExecutionType, "VM");
+	ComboBox_AddString(hExecutionType, "JiT");
+
+#if defined(NULLC_LLVM_SUPPORT)
+	ComboBox_AddString(hExecutionType, "LLVM");
+#else
+	ComboBox_AddString(hExecutionType, "LLVM (Not Available)");
+#endif
+
+	ComboBox_AddString(hExecutionType, "Expression Eval");
+	ComboBox_AddString(hExecutionType, "Instruction Eval");
+
+	ComboBox_SetCurSel(hExecutionType, 0);
 
 	hShowTemporaries = CreateWindow("BUTTON", "Show temps", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-280, 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hShowTemporaries)
@@ -877,7 +905,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	unsigned int width = (800 - 25) / 4;
 
-	hCode = CreateWindow("EDIT", initError, WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
+	hCode = CreateWindow("EDIT", initErrorBuf, WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY,
 		5, 225, width*2, 165, hWnd, NULL, hInstance, NULL);
 	if(!hCode)
 		return 0;
@@ -962,7 +990,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 }
 
 // zero-terminated safe sprintf
-int	safeprintf(char* dst, size_t size, const char* src, ...)
+size_t safeprintf(char* dst, size_t size, const char* src, ...)
 {
 	if(size == 0)
 		return 0;
@@ -971,11 +999,11 @@ int	safeprintf(char* dst, size_t size, const char* src, ...)
 	va_start(args, src);
 
 	int result = vsnprintf(dst, size, src, args);
-	dst[size-1] = '\0';
+	dst[size - 1] = '\0';
 
 	va_end(args);
 
-	return result;
+	return result == -1 ? 0 : (result > size ? size : result);
 }
 
 ExternVarInfo	*codeVars = NULL;
@@ -985,8 +1013,6 @@ ExternFuncInfo	*codeFunctions = NULL;
 ExternLocalInfo	*codeLocals = NULL;
 ExternMemberInfo*codeTypeExtra = NULL;
 char			*codeSymbols = NULL;
-unsigned int	codeInstCount = 0;
-VMCmd			*codeInst = NULL;
 
 struct TreeItemExtra
 {
@@ -1005,28 +1031,29 @@ std::vector<char*> externalBlocks;
 
 const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 {
-	static char val[256];
+	const unsigned valSize = 512;
+	static char val[valSize];
 
 	switch(type.type)
 	{
 	case ExternTypeInfo::TYPE_CHAR:
 		if(codeSymbols[type.offsetToName] == 'b')
 		{
-			safeprintf(val, 256, *(unsigned char*)ptr ? "true" : "false");
+			safeprintf(val, valSize, *(unsigned char*)ptr ? "true" : "false");
 		}else{
 			if(strcmp(codeSymbols + type.offsetToName, "uchar") == 0)
-				safeprintf(val, 256, "'%c' (%u)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
+				safeprintf(val, valSize, "'%c' (%u)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
 			else if(*(unsigned char*)ptr)
-				safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(char*)ptr);
+				safeprintf(val, valSize, "'%c' (%d)", *(unsigned char*)ptr, (int)*(char*)ptr);
 			else
-				safeprintf(val, 256, "0");
+				safeprintf(val, valSize, "0");
 		}
 		break;
 	case ExternTypeInfo::TYPE_SHORT:
 		if(strcmp(codeSymbols + type.offsetToName, "ushort") == 0)
-			safeprintf(val, 256, "%u", *(unsigned short*)ptr);
+			safeprintf(val, valSize, "%u", *(unsigned short*)ptr);
 		else
-			safeprintf(val, 256, "%d", *(short*)ptr);
+			safeprintf(val, valSize, "%d", *(short*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_INT:
 		if(type.subCat == ExternTypeInfo::CAT_CLASS)
@@ -1036,24 +1063,24 @@ const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 			for(unsigned i = 0; i < type.constantCount && i < *(unsigned*)ptr; i++)
 				memberName += (unsigned)strlen(memberName) + 1;
 
-			safeprintf(val, 256, "%s (%d)", memberName, *(int*)ptr);
+			safeprintf(val, valSize, "%s (%d)", memberName, *(int*)ptr);
 		}
 		else
 		{
-			safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "uint") == 0 ? "%u" : "%d") : "0x%x", *(int*)ptr);
+			safeprintf(val, valSize, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "uint") == 0 ? "%u" : "%d") : "0x%x", *(int*)ptr);
 		}
 		break;
 	case ExternTypeInfo::TYPE_LONG:
-		safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "ulong") == 0 ? "%llu" : "%lld") : "0x%llx", *(long long*)ptr);
+		safeprintf(val, valSize, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "ulong") == 0 ? "%llu" : "%lld") : "0x%llx", *(long long*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_FLOAT:
-		safeprintf(val, 256, "%f", *(float*)ptr);
+		safeprintf(val, valSize, "%f", *(float*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_DOUBLE:
-		safeprintf(val, 256, "%f", *(double*)ptr);
+		safeprintf(val, valSize, "%f", *(double*)ptr);
 		break;
 	default:
-		safeprintf(val, 256, "not basic type");
+		safeprintf(val, valSize, "not basic type");
 	}
 	return val;
 }
@@ -1068,7 +1095,9 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 
 	HTREEITEM child = update ? TreeView_GetChild(hWatch, parent) : NULL;
 
-	char name[256];
+	const unsigned nameSize = 256;
+	char name[nameSize];
+
 	HTREEITEM lastItem;
 
 	ExternTypeInfo	&subType = codeTypes[type.subType];
@@ -1086,7 +1115,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 	}
 	if(type.defaultAlign == 0xff)
 	{
-		safeprintf(name, 256, "base: %p", ptr);
+		safeprintf(name, nameSize, "base: %p", ptr);
 		helpInsert.item.mask = TVIF_TEXT;
 		helpInsert.item.pszText = name;
 		HTREEITEM lastItem;
@@ -1097,17 +1126,17 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		if(i > 100)
 			break;
 		char *it = name;
-		memset(name, 0, 256);
+		memset(name, 0, nameSize);
 
-		it += safeprintf(it, 256 - int(it - name), "[%d]: ", i);
+		it += safeprintf(it, nameSize - int(it - name), "[%d]: ", i);
 
 		bool simpleType = subType.subCat == ExternTypeInfo::CAT_NONE || (subType.subCat == ExternTypeInfo::CAT_CLASS && subType.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = subType.subCat == ExternTypeInfo::CAT_POINTER;
 
 		if(&subType == &codeTypes[NULLC_TYPE_TYPEID])
-			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
+			it += safeprintf(it, nameSize - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
 		else if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
+			it += safeprintf(it, nameSize - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1134,7 +1163,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 	}
 	if(arrSize > 100)
 	{
-		safeprintf(name, 256, "[101]-[%d]...", arrSize);
+		safeprintf(name, nameSize, "[101]-[%d]...", arrSize);
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 	}
@@ -1150,17 +1179,18 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 	HTREEITEM child = update ? TreeView_GetChild(hWatch, parent) : NULL;
 
-	char name[256];
+	const unsigned nameSize = 256;
+	char name[nameSize];
 
 	if(type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE)
 	{
 		char *it = name;
-		memset(name, 0, 256);
+		memset(name, 0, nameSize);
 
 		ExternTypeInfo &memberType = codeTypes[NULLC_TYPE_TYPEID];
 
-		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, "$typeid");
-		it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
+		it += safeprintf(it, nameSize - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, "$typeid");
+		it += safeprintf(it, nameSize - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1175,21 +1205,21 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	for(unsigned int i = 0; i < type.memberCount; i++)
 	{
 		char *it = name;
-		memset(name, 0, 256);
+		memset(name, 0, nameSize);
 
 		ExternTypeInfo &memberType = codeTypes[codeTypeExtra[type.memberOffset + i].type];
 
 		unsigned localOffset = codeTypeExtra[type.memberOffset + i].offset;
 
-		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, memberName);
+		it += safeprintf(it, nameSize - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, memberName);
 
 		bool simpleType = memberType.subCat == ExternTypeInfo::CAT_NONE || (memberType.subCat == ExternTypeInfo::CAT_CLASS && memberType.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = memberType.subCat == ExternTypeInfo::CAT_POINTER;
 
 		if(&memberType == &codeTypes[NULLC_TYPE_TYPEID])
-			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr + localOffset) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr + localOffset)].offsetToName : "invalid: out of range");
+			it += safeprintf(it, nameSize - int(it - name), " = %s", *(unsigned*)(ptr + localOffset) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr + localOffset)].offsetToName : "invalid: out of range");
 		else if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr + localOffset));
+			it += safeprintf(it, nameSize - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr + localOffset));
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1226,13 +1256,15 @@ void FillAutoInfo(char* ptr, HTREEITEM parent)
 	helpInsert.hInsertAfter = TVI_LAST;
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
-	char name[256];
 
-	safeprintf(name, 256, "typeid type = %d (%s)", *(int*)ptr, codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
+	const unsigned nameSize = 256;
+	char name[nameSize];
+
+	safeprintf(name, nameSize, "typeid type = %d (%s)", *(int*)ptr, codeSymbols + codeTypes[*(int*)(ptr)].offsetToName);
 	helpInsert.item.pszText = name;
 	TreeView_InsertItem(hVars, &helpInsert);
 
-	safeprintf(name, 256, "%s ref ptr = 0x%x", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName, *(int*)(ptr + 4));
+	safeprintf(name, nameSize, "%s ref ptr = 0x%x", codeSymbols + codeTypes[*(int*)(ptr)].offsetToName, *(int*)(ptr + 4));
 
 	// Find parent type
 	ExternTypeInfo *parentType = NULL;
@@ -1258,15 +1290,17 @@ void FillAutoArrayInfo(char* ptr, HTREEITEM parent)
 	helpInsert.hInsertAfter = TVI_LAST;
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
-	char name[256];
+
+	const unsigned nameSize = 256;
+	char name[nameSize];
 
 	NULLCAutoArray *arr = (NULLCAutoArray*)ptr;
 
-	safeprintf(name, 256, "typeid type = %d (%s)", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
+	safeprintf(name, nameSize, "typeid type = %d (%s)", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
 	helpInsert.item.pszText = name;
 	TreeView_InsertItem(hVars, &helpInsert);
 
-	safeprintf(name, 256, "%s[] data = 0x%x", codeSymbols + codeTypes[arr->typeID].offsetToName, arr->ptr);
+	safeprintf(name, nameSize, "%s[] data = 0x%x", codeSymbols + codeTypes[arr->typeID].offsetToName, arr->ptr);
 
 	if(!arr->ptr)
 		return;
@@ -1299,24 +1333,26 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	helpInsert.hInsertAfter = TVI_LAST;
 	helpInsert.item.mask = TVIF_TEXT;
 	helpInsert.item.cchTextMax = 0;
-	char name[256];
+
+	const unsigned nameSize = 256;
+	char name[nameSize];
 
 	ExternFuncInfo	&func = codeFunctions[*(int*)(ptr + NULLC_PTR_SIZE)];
 	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset].type];
 
 	char *it = name;
-	it += safeprintf(it, 256 - int(it - name), "function %d %s %s(", *(int*)(ptr + NULLC_PTR_SIZE), codeSymbols + returnType.offsetToName, codeSymbols + func.offsetToName);
+	it += safeprintf(it, nameSize - int(it - name), "function %d %s %s(", *(int*)(ptr + NULLC_PTR_SIZE), codeSymbols + returnType.offsetToName, codeSymbols + func.offsetToName);
 	for(unsigned int arg = 0; arg < func.paramCount; arg++)
 	{
 		ExternLocalInfo &lInfo = codeLocals[func.offsetToFirstLocal + arg];
-		it += safeprintf(it, 256 - int(it - name), "%s %s%s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName, arg == func.paramCount - 1 ? "" : ", ");
+		it += safeprintf(it, nameSize - int(it - name), "%s %s%s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName, arg == func.paramCount - 1 ? "" : ", ");
 	}
-	it += safeprintf(it, 256 - int(it - name), ")");
+	it += safeprintf(it, nameSize - int(it - name), ")");
 
 	helpInsert.item.pszText = name;
 	TreeView_InsertItem(hVars, &helpInsert);
 
-	safeprintf(name, 256, "%s context = 0x%x", func.contextType == ~0u ? "void ref" : codeSymbols + codeTypes[func.contextType].offsetToName, *(int*)(ptr));
+	safeprintf(name, nameSize, "%s context = 0x%x", func.contextType == ~0u ? "void ref" : codeSymbols + codeTypes[func.contextType].offsetToName, *(int*)(ptr));
 	helpInsert.item.pszText = name;
 	HTREEITEM contextList = TreeView_InsertItem(hVars, &helpInsert);
 
@@ -1395,7 +1431,9 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	codeTypeExtra	= stateRemote ? RemoteData::typeExtra : nullcDebugTypeExtraInfo(NULL);
 	codeSymbols		= stateRemote ? RemoteData::symbols : nullcDebugSymbols(NULL);
 
-	char name[256];
+	const unsigned nameSize = 256;
+	char name[nameSize];
+
 	unsigned int offset = 0;
 
 	for(unsigned int i = 0; i < variableCount; i++)
@@ -1403,16 +1441,16 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		ExternTypeInfo &type = codeTypes[codeVars[i].type];
 
 		char *it = name;
-		memset(name, 0, 256);
-		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", data + codeVars[i].offset, codeSymbols + type.offsetToName, codeSymbols + codeVars[i].offsetToName);
+		memset(name, 0, nameSize);
+		it += safeprintf(it, nameSize - int(it - name), "0x%x: %s %s", data + codeVars[i].offset, codeSymbols + type.offsetToName, codeSymbols + codeVars[i].offsetToName);
 
 		bool simpleType = type.subCat == ExternTypeInfo::CAT_NONE || (type.subCat == ExternTypeInfo::CAT_CLASS && type.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = type.subCat == ExternTypeInfo::CAT_POINTER;
 
 		if(&type == &codeTypes[NULLC_TYPE_TYPEID])
-			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
+			it += safeprintf(it, nameSize - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
 		else if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + codeVars[i].offset));
+			it += safeprintf(it, nameSize - int(it - name), " = %s", GetBasicVariableInfo(type, data + codeVars[i].offset));
 
 		if(showTemps || (strstr(name, "$temp") == 0 && strstr(name, "$vtbl") == 0))
 		{
@@ -1442,9 +1480,6 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
 	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
 
-	codeInstCount = stateRemote ? 0 : 0;
-	codeInst = stateRemote ? NULL : nullcDebugCode(&codeInstCount);
-
 	if(!mainCodeWnd && stateRemote)
 		mainCodeWnd = TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)).window;
 
@@ -1458,7 +1493,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	while(int address = stateRemote ? RemoteData::callStack[csPos++] : nullcDebugGetStackFrame())
 	{
 		// Find corresponding function
-		ExternFuncInfo *func = nullcDebugConvertAddressToFunction(address, codeFunctions, functionCount);
+		ExternFuncInfo *func = nullcDebugConvertAddressToFunction(address - 1, codeFunctions, functionCount);
 
 		if(address != -1)
 		{
@@ -1548,15 +1583,15 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			offset += alignOffset;
 
 			char *it = name;
-			it += safeprintf(it, 256 - int(it - name), "0x%x: function %s(", data + offset, codeSymbols + function.offsetToName);
+			it += safeprintf(it, nameSize - int(it - name), "0x%x: function %s(", data + offset, codeSymbols + function.offsetToName);
 			for(unsigned int arg = 0; arg < function.paramCount; arg++)
 			{
 				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + arg];
-				it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+				it += safeprintf(it, nameSize - int(it - name), "%s %s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
 				if(arg != function.paramCount - 1)
-					it += safeprintf(it, 256 - int(it - name), ", ");
+					it += safeprintf(it, nameSize - int(it - name), ", ");
 			}
-			it += safeprintf(it, 256 - int(it - name), ")");
+			it += safeprintf(it, nameSize - int(it - name), ")");
 
 			helpInsert.item.mask = TVIF_TEXT;
 			helpInsert.item.pszText = name;
@@ -1572,15 +1607,15 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 					break;
 
 				char *it = name;
-				it += safeprintf(it, 256, "0x%x: %s %s", data + offset + lInfo.offset, codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+				it += safeprintf(it, nameSize, "0x%x: %s %s", data + offset + lInfo.offset, codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
 
 				bool simpleType = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE || (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_CLASS && codeTypes[lInfo.type].type != ExternTypeInfo::TYPE_COMPLEX);
 				bool pointerType = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER;
 
 				if(simpleType || pointerType)
-					it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset));
+					it += safeprintf(it, nameSize - int(it - name), " = %s", GetBasicVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset));
 				else if(lInfo.type == 8)	// for typeid
-					it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + offset + lInfo.offset)].offsetToName);
+					it += safeprintf(it, nameSize - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + offset + lInfo.offset)].offsetToName);
 
 				if(showTemps || (strstr(codeSymbols + lInfo.offsetToName, "$temp") == 0 && strstr(codeSymbols + lInfo.offsetToName, "$vtbl") == 0))
 				{
@@ -1611,7 +1646,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
 
 				char *it = name;
-				it += safeprintf(it, 256, "0x%x: %s %s = %p", ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
+				it += safeprintf(it, nameSize, "0x%x: %s %s = %p", ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
 
 				TVINSERTSTRUCT localInfo;
 				localInfo.hParent = lastItem;
@@ -1634,7 +1669,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
 
 				char *it = name;
-				it += safeprintf(it, 256, "0x%x: %s %s = %p", ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(char**)ptr);
+				it += safeprintf(it, nameSize, "0x%x: %s %s = %p", ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(char**)ptr);
 
 				TVINSERTSTRUCT localInfo;
 				localInfo.hParent = lastItem;
@@ -1669,7 +1704,9 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 
 void UpdateWatchedVariables()
 {
-	char name[256];
+	const unsigned nameSize = 256;
+	char name[nameSize];
+
 	HTREEITEM elem = TreeView_GetRoot(hWatch);
 	while(elem)
 	{
@@ -1687,16 +1724,16 @@ void UpdateWatchedVariables()
 		const ExternTypeInfo &type = *extra.type;
 
 		char *it = name;
-		memset(name, 0, 256);
-		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", extra.address, codeSymbols + type.offsetToName, extra.name);
+		memset(name, 0, nameSize);
+		it += safeprintf(it, nameSize - int(it - name), "0x%x: %s %s", extra.address, codeSymbols + type.offsetToName, extra.name);
 
 		bool simpleType = type.subCat == ExternTypeInfo::CAT_NONE || (type.subCat == ExternTypeInfo::CAT_CLASS && type.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = type.subCat == ExternTypeInfo::CAT_POINTER;
 
 		if(&type == &codeTypes[NULLC_TYPE_TYPEID])
-			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(extra.address)].offsetToName);
+			it += safeprintf(it, nameSize - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(extra.address)].offsetToName);
 		else if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, (char*)extra.address));
+			it += safeprintf(it, nameSize - int(it - name), " = %s", GetBasicVariableInfo(type, (char*)extra.address));
 
 		item.pszText = name;
 		TreeView_SetItem(hWatch, &item);
@@ -1835,6 +1872,45 @@ unsigned int ConvertLineToInstruction(const char *source, unsigned int line, con
 	return 0;
 }
 
+std::vector<std::string>	activeDependencies;
+
+void RegisterDependency(const char *fileName)
+{
+	activeDependencies.push_back(fileName);
+}
+
+bool CheckFile(const char *name)
+{
+	if(FILE *file = fopen(name, "r"))
+	{
+		fclose(file);
+		return true;
+	}
+
+	return false;
+}
+
+std::string ResolveSourceFile(const char* name)
+{
+	char tmp[256];
+	sprintf(tmp, "%s", name);
+
+	if(CheckFile(tmp))
+		return tmp;
+
+	sprintf(tmp, "translation/%s", name);
+
+	if(CheckFile(tmp))
+		return tmp;
+
+	sprintf(tmp, "../NULLC/translation/%s", name);
+
+	if(CheckFile(tmp))
+		return tmp;
+
+	return "";
+}
+
 void IdeSetBreakpoints()
 {
 	nullcDebugClearBreakpoints();
@@ -1869,6 +1945,67 @@ void IdeSetBreakpoints()
 		}
 	}
 }
+
+TabbedFiles::TabInfo* IdePrepareActiveSourceForBuild()
+{
+	unsigned id = TabbedFiles::GetCurrentTab(hTabs);
+
+	if(id == richEdits.size())
+		return NULL;
+
+	TabbedFiles::TabInfo &mainTabInfo = TabbedFiles::GetTabInfo(hTabs, id);
+
+	RichTextarea::ResetLineStyle(mainTabInfo.window);
+
+	for(unsigned int i = 0; i < richEdits.size(); i++)
+	{
+		if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
+			continue;
+
+		if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window))
+		{
+			TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
+			RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
+			InvalidateRect(hTabs, NULL, true);
+		}
+	}
+
+	// Remove all non-base modules
+	id = 0;
+	while(const char* moduleName = nullcEnumerateModules(id))
+	{
+		if(std::find(baseModules.begin(), baseModules.end(), NULLC::GetStringHash(moduleName)) == baseModules.end())
+		{
+			nullcRemoveModule(moduleName);
+		}
+		else
+		{
+			id++;
+		}
+	}
+
+	return &mainTabInfo;
+}
+
+void IdeUpdateModuleImportPaths(TabbedFiles::TabInfo *info)
+{
+	nullcClearImportPaths();
+
+	nullcAddImportPath("Modules/");
+	nullcAddImportPath("../Modules/");
+
+	if(const char *pos = strrchr(info->name, '\\'))
+	{
+		char path[512];
+		NULLC::SafeSprintf(path, 1024, "%.*s", unsigned(pos - info->name) + 1, info->name);
+
+		for(unsigned i = 0; i < unsigned(strlen(path)); i++)
+			path[i] = path[i] == '\\' ? '/' : path[i];
+
+		nullcAddImportPath(path);
+	}
+}
+
 void IdeRun(bool debug)
 {
 	if(!runRes.finished)
@@ -1879,62 +2016,126 @@ void IdeRun(bool debug)
 		runRes.finished = true;
 		return;
 	}
-	unsigned int id = TabbedFiles::GetCurrentTab(hTabs);
-	if(id == richEdits.size())
-		return;
-	HWND wnd = TabbedFiles::GetTabInfo(hTabs, id).window;
-	mainCodeWnd = wnd;
-	const char *source = RichTextarea::GetAreaText(wnd);
-	RichTextarea::ResetLineStyle(wnd);
 
-	for(unsigned int i = 0; i < richEdits.size(); i++)
-	{
-		if(!TabbedFiles::GetTabInfo(hTabs, i).dirty)
-			continue;
-		if(SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window))
-		{
-			TabbedFiles::GetTabInfo(hTabs, i).dirty = false;
-			RichTextarea::ResetUpdate(TabbedFiles::GetTabInfo(hTabs, i).window);
-			InvalidateRect(hTabs, NULL, true);
-		}
-	}
 #ifndef _DEBUG
 	FreeConsole();
 #endif
 
-	// Remove all non-base modules
-	id = 0;
-	while(const char* moduleName = nullcEnumerateModules(id))
-	{
-		if(std::find(baseModules.begin(), baseModules.end(), NULLC::GetStringHash(moduleName)) == baseModules.end())
-		{
-			nullcRemoveModule(moduleName);
-		}else{
-			id++;
-		}
-	}
-
 	SetWindowText(hCode, "");
 	SetWindowText(hResult, "");
 
-	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
+	nullcSetExecutorStackSize(8 * 1024 * 1024);
 
-	nullres good = nullcBuild(source);
-
-	if(!good)
+	if(TabbedFiles::TabInfo *activeTab = IdePrepareActiveSourceForBuild())
 	{
-		SetWindowText(hCode, GetLastNullcErrorWindows());
-		TabbedFiles::SetCurrentTab(hDebugTabs, 0);
-	}else{
-		if(debug)
+		mainCodeWnd = activeTab->window;
+		const char *source = RichTextarea::GetAreaText(activeTab->window);
+
+		IdeUpdateModuleImportPaths(activeTab);
+
+		nullres good = false;
+
+		if(ComboBox_GetCurSel(hExecutionType) == 0)
 		{
-			// Cache all source code in linear form
-			for(unsigned int i = 0; i < richEdits.size(); i++)
-				RichTextarea::GetAreaText(richEdits[i]);
-			IdeSetBreakpoints();
+			nullcSetExecutor(NULLC_REG_VM);
+
+			good = nullcBuildWithModuleName(source, activeTab->last);
 		}
-		SetWindowText(hButtonCalc, "Abort");
-		calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
+		else if(ComboBox_GetCurSel(hExecutionType) == 1)
+		{
+			nullcSetExecutor(NULLC_X86);
+
+			good = nullcBuildWithModuleName(source, activeTab->last);
+		}
+		else if(ComboBox_GetCurSel(hExecutionType) == 2)
+		{
+			nullcSetExecutor(NULLC_LLVM);
+
+			good = nullcBuildWithModuleName(source, activeTab->last);
+		}
+		else if(ComboBox_GetCurSel(hExecutionType) == 3)
+		{
+			good = nullcCompile(source);
+
+			if(good)
+			{
+				double time = myGetPreciseTime();
+
+				RunResult &rres = runRes;
+				rres.finished = false;
+
+				char val[1024];
+				nullres goodRun = nullcTestEvaluateExpressionTree(val, 1024);
+
+				rres.time = myGetPreciseTime() - time;
+				rres.result = goodRun;
+				rres.finished = true;
+
+				if(goodRun)
+				{
+					char result[1024];
+					_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+					result[1023] = '\0';
+					SetWindowText(hResult, result);
+				}
+
+				SendMessage(rres.wnd, WM_USER + 1, 0, 0);
+
+				return;
+			}
+		}
+		else if(ComboBox_GetCurSel(hExecutionType) == 4)
+		{
+			good = nullcCompile(source);
+
+			if(good)
+			{
+				double time = myGetPreciseTime();
+
+				RunResult &rres = runRes;
+				rres.finished = false;
+
+				char val[1024];
+				nullres goodRun = nullcTestEvaluateInstructionTree(val, 1024);
+
+				rres.time = myGetPreciseTime() - time;
+				rres.result = goodRun;
+				rres.finished = true;
+
+				if(goodRun)
+				{
+					char result[1024];
+					_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+					result[1023] = '\0';
+					SetWindowText(hResult, result);
+				}
+
+				SendMessage(rres.wnd, WM_USER + 1, 0, 0);
+
+				return;
+			}
+		}
+
+		if(!good)
+		{
+			SetWindowText(hCode, GetLastNullcErrorWindows());
+
+			TabbedFiles::SetCurrentTab(hDebugTabs, 0);
+		}
+		else
+		{
+			if(debug)
+			{
+				// Cache all source code in linear form
+				for(unsigned int i = 0; i < richEdits.size(); i++)
+					RichTextarea::GetAreaText(richEdits[i]);
+
+				IdeSetBreakpoints();
+			}
+
+			SetWindowText(hButtonCalc, "Abort");
+			calcThread = CreateThread(NULL, 1024*1024, CalcThread, &runRes, NULL, 0);
+		}
 	}
 }
 
@@ -2187,7 +2388,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 	OPENFILENAME openData = { sizeof(OPENFILENAME), hWnd, NULL, "NULLC Files\0*.nc\0All Files\0*.*\0\0", NULL, 0, 0, fileName, 512,
 		NULL, 0, NULL, NULL, OFN_ALLOWMULTISELECT | OFN_EXPLORER, 0, 0, 0, 0, 0, 0, NULL, 0, 0 };
 
-	char	result[1024];
+	char result[1024];
 
 	__try
 	{
@@ -2243,10 +2444,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				RefreshBreakpoints();
 				FillVariableInfoTree();
 				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
-			}else{
-				_snprintf(result, 1024, "%s", GetLastNullcErrorWindows());
-				result[1023] = '\0';
-				SetWindowText(hCode, result);
+			}
+			else
+			{
+				SetWindowText(hCode, GetLastNullcErrorWindows());
 				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 
 				FillVariableInfoTree();
@@ -2341,21 +2542,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 							externalBlocks.push_back(ptr);
 						break;
 					}
-					char name[256];
+
+					const unsigned nameSize = 256;
+					char name[nameSize];
 
 					const ExternTypeInfo &realType = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) ? codeTypes[*(unsigned*)ptr] : type;
 
 					char *it = name;
-					memset(name, 0, 256);
-					it += safeprintf(it, 256 - int(it - name), "0x%x: %s ###", ptr, codeSymbols + realType.offsetToName);
+					memset(name, 0, nameSize);
+					it += safeprintf(it, nameSize - int(it - name), "0x%x: %s ###", ptr, codeSymbols + realType.offsetToName);
 
 					bool simpleType = realType.subCat == ExternTypeInfo::CAT_NONE || (realType.subCat == ExternTypeInfo::CAT_CLASS && realType.type != ExternTypeInfo::TYPE_COMPLEX);
 					bool pointerType = realType.subCat == ExternTypeInfo::CAT_POINTER;
 
 					if(&realType == &codeTypes[NULLC_TYPE_TYPEID])
-						it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)ptr].offsetToName);
+						it += safeprintf(it, nameSize - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)ptr].offsetToName);
 					else if(simpleType || pointerType)
-						it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(realType, ptr));
+						it += safeprintf(it, nameSize - int(it - name), " = %s", GetBasicVariableInfo(realType, ptr));
 
 					TVINSERTSTRUCT helpInsert;
 					helpInsert.hParent = extra->item;
@@ -2461,7 +2664,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hTabs, SW_SHOW);
 				ShowWindow(hButtonCalc, SW_SHOW);
 				ShowWindow(hResult, SW_SHOW);
-				ShowWindow(hJITEnabled, SW_SHOW);
+				ShowWindow(hExecutionType, SW_SHOW);
 				ShowWindow(hShowTemporaries, SW_SHOW);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
 
@@ -2769,7 +2972,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hTabs, SW_HIDE);
 				ShowWindow(hButtonCalc, SW_HIDE);
 				ShowWindow(hResult, SW_HIDE);
-				ShowWindow(hJITEnabled, SW_HIDE);
+				ShowWindow(hExecutionType, SW_HIDE);
 				ShowWindow(hShowTemporaries, SW_HIDE);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
 
@@ -2864,6 +3067,103 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				fclose(fHTML);
 			}
 				break;
+			case ID_FILE_TRANSLATETOC:
+			{
+				if(TabbedFiles::TabInfo *activeTab = IdePrepareActiveSourceForBuild())
+				{
+					const char *source = RichTextarea::GetAreaText(activeTab->window);
+
+					IdeUpdateModuleImportPaths(activeTab);
+
+					if(!nullcCompile(source))
+					{
+						SetWindowText(hCode, GetLastNullcErrorWindows());
+
+						TabbedFiles::SetCurrentTab(hDebugTabs, 0);
+						break;
+					}
+
+					// Create file name
+					char cleanName[1024];
+					safeprintf(cleanName, 1024, "%s", activeTab->last);
+
+					if(char* pos = strrchr(cleanName, '.'))
+						*pos = 0;
+
+					safeprintf(result, 1024, "%s.cpp", cleanName);
+
+					activeDependencies.clear();
+
+					if(!nullcTranslateToC(result, "main", RegisterDependency))
+					{
+						SetWindowText(hCode, GetLastNullcErrorWindows());
+
+						nullcClean();
+
+						TabbedFiles::SetCurrentTab(hDebugTabs, 0);
+					}
+					else
+					{
+						nullcClean();
+
+						std::string cmdLine;
+
+						cmdLine += "g++ -g ";
+						cmdLine += result;
+						cmdLine += " -lstdc++";
+						cmdLine += " -Itranslation";
+						cmdLine += " -I../NULLC/translation";
+						cmdLine += " -O2";
+
+						std::string runtimeLocation = ResolveSourceFile("runtime.cpp");
+
+						if(runtimeLocation.empty())
+						{
+							SetWindowText(hCode, "Failed to find 'runtime.cpp' input file");
+							break;
+						}
+
+						cmdLine += " " + runtimeLocation;
+
+						for(unsigned i = 0; i < activeDependencies.size(); i++)
+						{
+							std::string dependency = activeDependencies[i];
+
+							cmdLine += " " + dependency;
+
+							if(strstr(dependency.c_str(), "import_"))
+							{
+								char tmp[1024];
+								safeprintf(tmp, 1024, "%s", dependency.c_str() + strlen("import_"));
+
+								if(char *pos = strstr(tmp, "_nc.cpp"))
+									strcpy(pos, "_bind.cpp");
+
+								std::string bindLocation = ResolveSourceFile(tmp);
+
+								if(!bindLocation.empty())
+									cmdLine += " " + bindLocation;
+							}
+						}
+
+						safeprintf(result, 1024, "%s.cmdline.txt", cleanName);
+
+						if(FILE *fCmdLine = fopen(result, "wb"))
+						{
+							fprintf(fCmdLine, "%s", cmdLine.c_str());
+							fclose(fCmdLine);
+						}
+						else
+						{
+							char msg[1024];
+							safeprintf(msg, 1024, "Failed to save '%s' file", result);
+
+							SetWindowText(hCode, msg);
+						}
+					}
+				}
+			}
+				break;
 			case ID_CLOSE_TAB:
 				TabbedFiles::RemoveTab(hTabs, TabbedFiles::GetCurrentTab(hTabs));
 				break;
@@ -2926,31 +3226,36 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			EnableMenuItem(GetMenu(hWnd), ID_FILE_SAVE, TabbedFiles::GetTabInfo(hTabs, id).dirty ? MF_ENABLED : MF_DISABLED);
 
 			TabbedFiles::TabInfo &info = stateRemote ? TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)) : TabbedFiles::GetTabInfo(hTabs, id);
-			HWND wnd = info.window;
-			if(!RichTextarea::NeedUpdate(wnd) || (GetTickCount()-lastUpdate < 100))
+
+			if(!RichTextarea::NeedUpdate(info.window) || (GetTickCount()-lastUpdate < 100))
 				break;
+
 			if(info.name[0] != '?')
 				SetWindowText(hCode, "");
 
-			RichTextarea::ResetUpdate(wnd);
+			RichTextarea::ResetUpdate(info.window);
 			needTextUpdate = false;
 			lastUpdate = GetTickCount();
 
+			const char *source = RichTextarea::GetAreaText(info.window);
+
+			IdeUpdateModuleImportPaths(&info);
+
 			const char *compileErr = NULL;
-			if(!nullcCompile((char*)RichTextarea::GetAreaText(wnd)))
+			if(!nullcCompile(source))
 				compileErr = GetLastNullcErrorWindows();
 
-			RichTextarea::BeginStyleUpdate(wnd);
+			RichTextarea::BeginStyleUpdate(info.window);
 
-			colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection);
+			colorer->ColorText(info.window, (char*)source, RichTextarea::SetStyleToSelection);
 
 			if(compileErr)
 			{
 				SetWindowText(hCode, compileErr);
 				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 			}
-			RichTextarea::EndStyleUpdate(wnd);
-			RichTextarea::UpdateArea(wnd);
+			RichTextarea::EndStyleUpdate(info.window);
+			RichTextarea::UpdateArea(info.window);
 		}
 			break;
 		case WM_GETMINMAXINFO:
@@ -2974,19 +3279,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			unsigned int middleOffsetY = mainPadding + topHeight + subPadding;
 
 			unsigned int tabHeight = 20;
-			SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
-			SetWindowPos(hAttachTabs,	HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+
+			if(hTabs)
+				SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+			if(hAttachTabs)
+				SetWindowPos(hAttachTabs,	HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
 
 			areaWidth = width - mainPadding * 2;
 			areaHeight = topHeight - tabHeight;
 			for(unsigned int i = 0; i < richEdits.size(); i++)
-				SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			{
+				if(richEdits[i])
+					SetWindowPos(richEdits[i], HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			}
 			for(unsigned int i = 0; i < attachedEdits.size(); i++)
-				SetWindowPos(attachedEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
-			SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
-			SetWindowPos(hAttachPanel,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+			{
+				if(attachedEdits[i])
+					SetWindowPos(attachedEdits[i], HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			}
 
-			SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
+			if(hNewTab)
+				SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+
+			if(hAttachPanel)
+				SetWindowPos(hAttachPanel,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+
+			if(hAttachList)
+				SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
 
 			unsigned int buttonWidth = 120;
 			unsigned int resultWidth = width - 4 * buttonWidth - 3 * mainPadding - subPadding * 3;
@@ -2995,36 +3314,77 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
 			unsigned int x86OffsetX = resultOffsetX + buttonWidth + resultWidth + subPadding;
 
-			SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
-			SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - buttonWidth - subPadding, middleOffsetY, buttonWidth, middleHeight, NULL);
+			if(hButtonCalc)
+				SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
-			SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hAttachAdd,	HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hAttachAddName,HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
-			SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+			if(hResult)
+				SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
+
+			if(hContinue)
+				SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hExecutionType)
+				SetWindowPos(hExecutionType,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, 300, NULL);
+
+			if(hShowTemporaries)
+				SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - buttonWidth - subPadding, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hAttachDo)
+				SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hAttachAdd)
+				SetWindowPos(hAttachAdd,	HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hAttachAddName)
+				SetWindowPos(hAttachAddName,HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
+
+			if(hAttachBack)
+				SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 			unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
 
 			unsigned int leftOffsetX = mainPadding;
-			SetWindowPos(hDebugTabs,	HWND_TOP, leftOffsetX, bottomOffsetY, width - mainPadding * 2, 20, NULL);
-			SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
-			SetWindowPos(hVars,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
-			SetWindowPos(hWatch,		HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+			if(hDebugTabs)
+				SetWindowPos(hDebugTabs,	HWND_TOP, leftOffsetX, bottomOffsetY, width - mainPadding * 2, 20, NULL);
 
-			SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
+			if(hCode)
+				SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
 
-			InvalidateRect(hNewTab, NULL, true);
-			InvalidateRect(hButtonCalc, NULL, true);
-			InvalidateRect(hResult, NULL, true);
-			InvalidateRect(hJITEnabled, NULL, true);
-			InvalidateRect(hShowTemporaries, NULL, true);
-			InvalidateRect(hStatus, NULL, true);
-			InvalidateRect(hVars, NULL, true);
-			InvalidateRect(hWatch, NULL, true);
-			InvalidateRect(hDebugTabs, NULL, true);
+			if(hVars)
+				SetWindowPos(hVars,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+
+			if(hWatch)
+				SetWindowPos(hWatch,		HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+
+			if(hStatus)
+				SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
+
+			if(hNewTab)
+				InvalidateRect(hNewTab, NULL, true);
+
+			if(hButtonCalc)
+				InvalidateRect(hButtonCalc, NULL, true);
+
+			if(hResult)
+				InvalidateRect(hResult, NULL, true);
+
+			if(hExecutionType)
+				InvalidateRect(hExecutionType, NULL, true);
+
+			if(hShowTemporaries)
+				InvalidateRect(hShowTemporaries, NULL, true);
+
+			if(hStatus)
+				InvalidateRect(hStatus, NULL, true);
+
+			if(hVars)
+				InvalidateRect(hVars, NULL, true);
+
+			if(hWatch)
+				InvalidateRect(hWatch, NULL, true);
+
+			if(hDebugTabs)
+				InvalidateRect(hDebugTabs, NULL, true);
 		}
 			break;
 		case WM_ERASEBKGND:

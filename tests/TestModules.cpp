@@ -32,13 +32,13 @@ NULLC_BIND int myFoo(int x){ return x + 15; }
 const char	*testFunctionAutobinding =
 "int myFoo(int x);\r\n\
 return myFoo(5);";
-TEST_RESULT_SIMPLE("Automatic function binding", testFunctionAutobinding, "20");
+TEST_RESULT_SIMPLE("Automatic function binding [skip_c]", testFunctionAutobinding, "20");
 
 LOAD_MODULE(test_Autobind, "test.autobind", "int myFoo(int x);");
 const char	*testFunctionAutobinding2 =
 "import test.autobind;\r\n\
 return myFoo(2);";
-TEST_RESULT("Automatic function binding 2", testFunctionAutobinding2, "17");
+TEST_RESULT("Automatic function binding 2 [skip_c]", testFunctionAutobinding2, "17");
 
 #endif
 
@@ -195,3 +195,78 @@ class int4 : int2{ int z, w; void int4(){} }\r\n\
 auto x = new int3(1, 2, new int4, 4);\r\n\
 return x.z;";
 TEST_RESULT("Derived type import preserves base class information 3", testDerivedTypeImport3, "2");
+
+LOAD_MODULE(test_fwddecl1a, "test.fwddecl1a", "class Node; Node ref a;");
+LOAD_MODULE(test_fwddecl1b, "test.fwddecl1b", "import test.fwddecl1a; class Node{ int x = 2; int y = 3; int sum(){ return x + y; } }");
+const char	*testForwardDecl1 =
+"import test.fwddecl1a;\r\n\
+import test.fwddecl1b;\r\n\
+import std.typeinfo;\r\n\
+a = new Node();\r\n\
+a.y = 10;\r\n\
+return sizeof(*a) + a.y + typeid(a).memberCount() == 20;";
+TEST_RESULT("Forward declaration import 1", testForwardDecl1, "1");
+
+LOAD_MODULE(test_fwddecl1c, "test.fwddecl1c", "import test.fwddecl1a; import test.fwddecl1b; a = new Node(); a.y = 10;");
+const char	*testForwardDecl2 =
+"import test.fwddecl1c;\r\n\
+auto b = new Node();\r\n\
+b.y = 20;\r\n\
+return sizeof(*a) + a.y == 18 && sizeof(*b) + b.y == 28;";
+TEST_RESULT("Forward declaration import 2", testForwardDecl2, "1");
+
+LOAD_MODULE(test_fwddecl2a, "test.fwddecl2a", "class Node; Node ref a;");
+LOAD_MODULE(test_fwddecl2b, "test.fwddecl2b", "import test.fwddecl2a; class Node extendable { int x = 2; int y = 3; int sum(){ return x + y; } }");
+LOAD_MODULE(test_fwddecl2c, "test.fwddecl2c", "import test.fwddecl2a; import test.fwddecl2b; a = new Node(); a.y = 10;");
+const char	*testTransitiveImport1 =
+"import test.fwddecl2c;\r\n\
+auto b = new Node();\r\n\
+b.y = 20; \r\n\
+return a.sum() == 12 && b.sum() == 22 && typeid(b) == Node;";
+TEST_RESULT("Transitive module import 1", testTransitiveImport1, "1");
+
+const char	*testTransitiveImport2 =
+"import test.fwddecl2c;\r\n\
+class Node2 : Node\r\n\
+{\r\n\
+	int z = 400;\r\n\
+	int sum(){ return x + y + z; }\r\n\
+}\r\n\
+return Node2().sum() == 405;";
+TEST_RESULT("Transitive module import 2", testTransitiveImport2, "1");
+
+LOAD_MODULE(test_typedef_import, "test.typedef_import", "class Instance<T>{ T a; } void operator=(Instance ref a, int b){ a.a = b; } class Test{ typedef Instance<int> A; A x = 2; } Test t;");
+const char	*testClassTypedefImportOrder1 =
+"import test.typedef_import;\r\n\
+Test x;\r\n\
+return t.x.a + x.x.a;";
+TEST_RESULT("Class typedef import order test 1", testClassTypedefImportOrder1, "4");
+
+const char	*testClassTypedefImportOrder2 =
+"import test.typedef_import;\r\n\
+int Test.y(){ A b = x; return b.a * 2; }\r\n\
+Test x;\r\n\
+return t.y + x.y;";
+TEST_RESULT("Class typedef import order test 2", testClassTypedefImportOrder2, "8");
+
+LOAD_MODULE(test_nested_nested_a, "test.nested.nested_a", "int foo(int x){ return -x; }");
+LOAD_MODULE(test_nested_nested_b, "test.nested.nested_b", "import std.vector; import nested_a; int bar(int x){ return foo(x) * 2; }");
+const char	*testNestedModuleSearch1 =
+"import test.nested.nested_b;\r\n\
+return bar(4) == -8;";
+TEST_RESULT("Nested module search 1", testNestedModuleSearch1, "1");
+
+LOAD_MODULE(test_nested_a, "test.nested_a", "assert(false, \"wasn't imported\"); int foo(int x){ return x; }");
+const char	*testNestedModuleSearch2 =
+"import test.nested.nested_b;\r\n\
+return bar(4) == -8;";
+TEST_RESULT("Nested module search 2 (unrelated file in outer folder)", testNestedModuleSearch2, "1");
+
+LOAD_MODULE(test_nested_deep_nested_a, "test.nested.deep.nested_a", "int foo(int x){ return -x; }");
+LOAD_MODULE(test_nested_deep_nested_b, "test.nested.deep.nested_b", "import nested_a; int bar(int x){ return foo(x) * 2; }");
+LOAD_MODULE(test_nested_nested_c, "test.nested.nested_c", "import deep.nested_b; int test(int x){ return bar(-x) * 2; }");
+LOAD_MODULE(test_nested_nested_d, "test.nested.nested_d", "import nested_c; int test2(int x){ return test(x * 10); }");
+const char	*testNestedModuleSearch3 =
+"import test.nested.nested_d;\r\n\
+return test2(4) == 160;";
+TEST_RESULT("Nested module search 3 (multiple levels)", testNestedModuleSearch3, "1");

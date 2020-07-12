@@ -366,6 +366,12 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 
 void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr name)
 {
+	if(ctx.depth > 1024)
+	{
+		PrintIndented(ctx, name, expression, "{...}");
+		return;
+	}
+
 	if(ExprError *node = getType<ExprError>(expression))
 	{
 		if(!node->values.empty())
@@ -624,6 +630,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprZeroInitialize *node = getType<ExprZeroInitialize>(expression))
+	{
+		PrintEnterBlock(ctx, name, node, "ExprZeroInitialize()");
+
+		PrintGraph(ctx, node->address, "address");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
 	{
 		PrintEnterBlock(ctx, name, node, "ExprArraySetup()");
@@ -732,6 +746,23 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprShortFunctionOverloadSet *node = getType<ExprShortFunctionOverloadSet>(expression))
+	{
+		PrintEnterBlock(ctx, name, node, "ExprShortFunctionOverloadSet()");
+
+		PrintEnterBlock(ctx, InplaceStr("functions"), 0);
+
+		for(ShortFunctionHandle *arg = node->functions.head; arg; arg = arg->next)
+		{
+			PrintIndented(ctx, name, arg->function->type, "%.*s: f%04x", FMT_ISTR(arg->function->name->name), arg->function->uniqueId);
+
+			PrintGraph(ctx, arg->context, "context");
+		}
+
+		PrintLeaveBlock(ctx);
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
 	{
 		PrintEnterBlock(ctx, name, node, "ExprFunctionCall()");
@@ -777,7 +808,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintEnterBlock(ctx, InplaceStr("variables"), 0);
 
-		for(VariableHandle *value = node->classType->members.head; value; value = value->next)
+		for(MemberHandle *value = node->classType->members.head; value; value = value->next)
 			PrintIndented(ctx, InplaceStr(), value->variable->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(value->variable->name->name), value->variable->uniqueId, value->variable->offset);
 
 		PrintLeaveBlock(ctx);
@@ -908,8 +939,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node, "ExprSequence()");
 
-		for(ExprBase *value = node->expressions.head; value; value = value->next)
-			PrintGraph(ctx, value, "");
+		for(unsigned i = 0; i < node->expressions.size(); i++)
+			PrintGraph(ctx, node->expressions[i], "");
 
 		PrintLeaveBlock(ctx);
 	}

@@ -308,672 +308,192 @@ int TestExtM4(double x1, double x2, double x3, double x4, int y, int z)
 #undef fpart
 }
 
-LOAD_MODULE_BIND(test_ext1, "test.ext1", "char char_(char a); short short_(short a); int int_(int a); long long_(long a); float float_(float a); double double_(double a);")
+struct TestExtG8Foo
 {
-	nullcBindModuleFunction("test.ext1", (void (*)())TestInt, "char_", 0);
-	nullcBindModuleFunction("test.ext1", (void (*)())TestInt, "short_", 0);
-	nullcBindModuleFunction("test.ext1", (void (*)())TestInt, "int_", 0);
-	nullcBindModuleFunction("test.ext1", (void (*)())TestLong, "long_", 0);
-	nullcBindModuleFunction("test.ext1", (void (*)())TestFloat, "float_", 0);
-	nullcBindModuleFunction("test.ext1", (void (*)())TestDouble, "double_", 0);
-}
-
-const char	*testExternalCallBasic1 = "import test.ext1;\r\n	auto Char = char_;\r\n		return Char(24);";
-TEST_RESULT("External function call. char type.", testExternalCallBasic1, "24");
-const char	*testExternalCallBasic2 = "import test.ext1;\r\n	auto Short = short_;\r\n	return Short(57);";
-TEST_RESULT("External function call. short type.", testExternalCallBasic2, "57");
-const char	*testExternalCallBasic3 = "import test.ext1;\r\n		auto Int = int_;\r\n		return Int(2458);";
-TEST_RESULT("External function call. int type.", testExternalCallBasic3, "2458");
-const char	*testExternalCallBasic4 = "import test.ext1;\r\n	auto Long = long_;\r\n		return Long(14841324198l);";
-TEST_RESULT("External function call. long type.", testExternalCallBasic4, "14841324198L");
-const char	*testExternalCallBasic5 = "import test.ext1;\r\n	auto Float = float_;\r\n	return int(Float(3.0));";
-TEST_RESULT("External function call. float type.", testExternalCallBasic5, "3");
-const char	*testExternalCallBasic6 = "import test.ext1;\r\n	auto Double = double_;\r\n	return int(Double(2.0));";
-TEST_RESULT("External function call. double type.", testExternalCallBasic6, "2");
-
-LOAD_MODULE_BIND(test_ext2, "test.ext2", "int Call(char a, short b, int c, long d, char e, short f, int g, long h, char i, short j, int k, long l);")
-{
-	nullcBindModuleFunction("test.ext2", (void (*)())TestExt2, "Call", 0);
-}
-const char	*testExternalCall2 =
-"import test.ext2;\r\n\
-return Call(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);";
-TEST_RESULT("External function call. Integer types, arguments through stack.", testExternalCall2, "1");
-
-LOAD_MODULE_BIND(test_ext3, "test.ext3", "int Call(char a, short b, int c, long d, char e, short f, int g, long h, char i, short j, int k, long l);")
-{
-	nullcBindModuleFunction("test.ext3", (void (*)())TestExt3, "Call", 0);
-}
-const char	*testExternalCall3 =
-"import test.ext3;\r\n\
-return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12);";
-TEST_RESULT("External function call. Integer types, arguments through stack. Sign-extend.", testExternalCall3, "1");
-
-LOAD_MODULE_BIND(test_ext4, "test.ext4", "int Call(char a, short b, int c, long d, float e, double f, char g, short h, int i, long j, float k, double l);")
-{
-	nullcBindModuleFunction("test.ext4", (void (*)())TestExt4, "Call", 0);
-}
-const char	*testExternalCall4 =
-"import test.ext4;\r\n\
-return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12);";
-TEST_RESULT("External function call. Basic types, arguments through stack. sx", testExternalCall4, "1");
-
-LOAD_MODULE_BIND(test_ext4d, "test.ext4d", "int Call(float a, double b, int c, long d, float e, double f, float g, double h, int i, long j, float k, double l);")
-{
-	nullcBindModuleFunction("test.ext4d", (void (*)())TestExt4d, "Call", 0);
-}
-const char	*testExternalCall4d =
-"import test.ext4d;\r\n\
-return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12);";
-TEST_RESULT("External function call. Basic types (more FP), arguments through stack. sx", testExternalCall4d, "1");
-
-LOAD_MODULE_BIND(test_ext5, "test.ext5", "int Call(char a, short b, int c, char d, short e, int f);")
-{
-	nullcBindModuleFunction("test.ext5", (void (*)())TestExt5, "Call", 0);
-}
-const char	*testExternalCall5 =
-"import test.ext5;\r\n\
-return Call(-1, -2, -3, -4, -5, -6);";
-TEST_RESULT("External function call. Integer types (-long), arguments in registers. sx", testExternalCall5, "1");
-
-LOAD_MODULE_BIND(test_ext6, "test.ext6", "int Call(char a, short b, int c, long d, long e, int f);")
-{
-	nullcBindModuleFunction("test.ext6", (void (*)())TestExt6, "Call", 0);
-}
-const char	*testExternalCall6 =
-"import test.ext6;\r\n\
-return Call(-1, -2, -3, -4, -5, -6);";
-TEST_RESULT("External function call. Integer types, arguments in registers. sx", testExternalCall6, "1");
-
-LOAD_MODULE_BIND(test_ext7, "test.ext7", "int Call(char a, short b, double c, double d, long e, int f);")
-{
-	nullcBindModuleFunction("test.ext7", (void (*)())TestExt7, "Call", 0);
-}
-const char	*testExternalCall7 =
-"import test.ext7;\r\n\
-return Call(-1, -2, -3, -4, -5, -6);";
-TEST_RESULT("External function call. Integer types and double, arguments in registers. sx", testExternalCall7, "1");
-
-LOAD_MODULE_BIND(test_ext8, "test.ext8", "int Call(float a, float b, double c, double d, float e, float f);")
-{
-	nullcBindModuleFunction("test.ext8", (void (*)())TestExt8, "Call", 0);
-}
-const char	*testExternalCall8 =
-"import test.ext8;\r\n\
-return Call(-1, -2, -3, -4, -5, -6);";
-TEST_RESULT("External function call. float and double, arguments in registers. sx", testExternalCall8, "1");
-
-LOAD_MODULE_BIND(test_ext8ex, "test.ext8ex", "int Call(float a, b, double c, d, float e, f, double g, h, float i, j);")
-{
-	nullcBindModuleFunction("test.ext8ex", (void (*)())TestExt8_ex, "Call", 0);
-}
-const char	*testExternalCall8Ex =
-"import test.ext8ex;\r\n\
-return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10);";
-TEST_RESULT("External function call. more float and double, registers. sx", testExternalCall8Ex, "1");
-
-LOAD_MODULE_BIND(test_ext9, "test.ext9", "int Call(char a, short b, int c, long d, float e, double f);")
-{
-	nullcBindModuleFunction("test.ext9", (void (*)())TestExt9, "Call", 0);
-}
-const char	*testExternalCall9 =
-"import test.ext9;\r\n\
-return Call(-1, -2, -3, -4, -5, -6);";
-TEST_RESULT("External function call. Basic types, arguments in registers. sx", testExternalCall9, "1");
-
-LOAD_MODULE_BIND(test_extA, "test.extA", "void ref GetPtr(int i); int Call(void ref a, int b, long c, void ref d);")
-{
-	nullcBindModuleFunction("test.extA", (void (*)())TestGetPtr, "GetPtr", 0);
-	nullcBindModuleFunction("test.extA", (void (*)())TestExt10, "Call", 0);
-}
-const char	*testExternalCallA =
-"import test.extA;\r\n\
-return Call(GetPtr(1), -2, -3, GetPtr(4));";
-TEST_RESULT("External function call. Pointer w/o sign extend, arguments in registers. sx", testExternalCallA, "1");
-
-LOAD_MODULE_BIND(test_extB, "test.extB", "class Foo{} int Call(char a, Foo b, int c, Foo d, float e, double f);")
-{
-	nullcBindModuleFunction("test.extB", (void (*)())TestExt11, "Call", 0);
-}
-const char	*testExternalCallB =
-"import test.extB;\r\n\
-Foo a, b;\r\n\
-return Call(-1, a, -3, b, -5, -6);";
-TEST_RESULT("External function call. Class types sizeof() == 0, arguments in registers. sx", testExternalCallB, "1");
-
-LOAD_MODULE_BIND(test_extE, "test.extE", "int Call(int[] a);")
-{
-	nullcBindModuleFunction("test.extE", (void (*)())TestExt14e, "Call", 0);
-}
-const char	*testExternalCalle =
-"import test.extE;\r\n\
-int[2] arr = { 1, 2 };\r\n\
-return Call(arr);";
-TEST_RESULT("External function call. int[] argument in registers.", testExternalCalle, "3");
-
-LOAD_MODULE_BIND(test_extE2, "test.extE2", "int[] Call(int[] a);")
-{
-	nullcBindModuleFunction("test.extE2", (void (*)())TestExt14, "Call", 0);
-}
-const char	*testExternalCallE =
-"import test.extE2;\r\n\
-int[2] arr = { 1, 0 };\r\n\
-return Call(arr)[1];";
-TEST_RESULT("External function call. Complex return, arguments in registers.", testExternalCallE, "1");
-
-LOAD_MODULE_BIND(test_extC, "test.extC", "int Call(int[] a, int[] b, typeid u);")
-{
-	nullcBindModuleFunction("test.extC", (void (*)())TestExt12, "Call", 0);
-}
-const char	*testExternalCallC =
-"import test.extC;\r\n\
-int[] arr = new int[2];\r\n\
-arr[0] = 1; arr[1] = 2;\r\n\
-return Call(arr, {3, 4}, int);";
-TEST_RESULT("External function call. Complex built-ins, arguments in registers.", testExternalCallC, "1");
-
-LOAD_MODULE_BIND(test_extC2, "test.extC2", "int Call(auto ref x);")
-{
-	nullcBindModuleFunction("test.extC2", (void (*)())TestExtC2, "Call", 0);
-}
-const char *testExternalCallC2 = "import test.extC2; return Call(3);";
-TEST_RESULT("External function call. auto ref argument.", testExternalCallC2, "1");
-
-LOAD_MODULE_BIND(test_extC3, "test.extC3", "auto ref Call(auto ref x);")
-{
-	nullcBindModuleFunction("test.extC3", (void (*)())TestExtC3, "Call", 0);
-}
-const char *testExternalCallC3 = "import test.extC3; return int(Call(3));";
-TEST_RESULT("External function call. auto ref return.", testExternalCallC3, "1");
-
-LOAD_MODULE_BIND(test_extD, "test.extD", "int[] Call(int[] a, int[] b, typeid u);")
-{
-	nullcBindModuleFunction("test.extD", (void (*)())TestExt13, "Call", 0);
-}
-const char	*testExternalCallD =
-"import test.extD;\r\n\
-int[] arr = new int[2];\r\n\
-arr[0] = 1; arr[1] = 2;\r\n\
-return Call(arr, {3, 4}, int)[1];";
-TEST_RESULT("External function call. Complex built-in return, arguments in registers.", testExternalCallD, "1");
-
-LOAD_MODULE_BIND(test_extF, "test.extF",
-"class Char{ char a; } int Call(Char a);\r\n\
-class Short{ short a; } int Call(Short a);\r\n\
-class Int{ int a; } int Call(Int a);\r\n\
-class Long{ long a; } int Call(Long a);\r\n\
-class Float{ float a; } int Call(Float a);\r\n\
-class Double{ double a; } int Call(Double a);")
-{
-	nullcBindModuleFunction("test.extF", (void (*)())TestExtF1, "Call", 0);
-	nullcBindModuleFunction("test.extF", (void (*)())TestExtF2, "Call", 1);
-	nullcBindModuleFunction("test.extF", (void (*)())TestExtF3, "Call", 2);
-	nullcBindModuleFunction("test.extF", (void (*)())TestExtF4, "Call", 3);
-	nullcBindModuleFunction("test.extF", (void (*)())TestExtF5, "Call", 4);
-	nullcBindModuleFunction("test.extF", (void (*)())TestExtF6, "Call", 5);
-}
-const char *testExternalCallClass1 = "import test.extF; Char x; x.a = -1; return Call(x);";
-TEST_RESULT("External function call. char inside a class, argument in registers.", testExternalCallClass1, "1");
-const char *testExternalCallClass2 = "import test.extF; Short x; x.a = -2; return Call(x);";
-TEST_RESULT("External function call. short inside a class, argument in registers.", testExternalCallClass2, "1");
-const char *testExternalCallClass3 = "import test.extF; Int x; x.a = -3; return Call(x);";
-TEST_RESULT("External function call. int inside a class, argument in registers.", testExternalCallClass3, "1");
-const char *testExternalCallClass4 = "import test.extF; Long x; x.a = -4; return Call(x);";
-TEST_RESULT("External function call. long inside a class, argument in registers.", testExternalCallClass4, "1");
-const char *testExternalCallClass5 = "import test.extF; Float x; x.a = -5; return Call(x);";
-TEST_RESULT("External function call. float inside a class, argument in registers.", testExternalCallClass5, "1");
-const char *testExternalCallClass6 = "import test.extF; Double x; x.a = -6; return Call(x);";
-TEST_RESULT("External function call. double inside a class, argument in registers.", testExternalCallClass6, "1");
-
-LOAD_MODULE_BIND(test_extG, "test.extG", "class Zomg{ long x,y,z; } int Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG", (void (*)())TestExtG, "Call", 0);
-}
-const char	*testExternalCallG =
-"import test.extG;\r\n\
-Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. Complex argument (24 bytes) in registers.", testExternalCallG, "1");
-
-LOAD_MODULE_BIND(test_extG2, "test.extG2", "class Zomg{ char x; int y; } int Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG2", (void (*)())TestExtG2, "Call", 0);
-}
-const char	*testExternalCallG2 =
-"import test.extG2;\r\n\
-Zomg z; z.x = -1; z.y = -2;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { char; int; } in argument.", testExternalCallG2, "1");
-
-LOAD_MODULE_BIND(test_extG3, "test.extG3", "class Zomg{ int x; char y; } int Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG3", (void (*)())TestExtG3, "Call", 0);
-}
-const char	*testExternalCallG3 =
-"import test.extG3;\r\n\
-Zomg z; z.x = -1; z.y = -2;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { int; char; } in argument.", testExternalCallG3, "1");
-
-LOAD_MODULE_BIND(test_extG4, "test.extG4", "class Zomg{ int x; char y; short z; } int Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG4", (void (*)())TestExtG4, "Call", 0);
-}
-const char	*testExternalCallG4 =
-"import test.extG4;\r\n\
-Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { int; char; short; } in argument.", testExternalCallG4, "1");
-
-LOAD_MODULE_BIND(test_extG5, "test.extG5", "class Zomg{ int x; short y; char z; } int Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG5", (void (*)())TestExtG5, "Call", 0);
-}
-const char	*testExternalCallG5 =
-"import test.extG5;\r\n\
-Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { int; short; char; } in argument.", testExternalCallG5, "1");
-
-LOAD_MODULE_BIND(test_extG6, "test.extG6", "class Zomg{ int x; int ref y; } int Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG6", (void (*)())TestExtG6, "Call", 0);
-}
-const char	*testExternalCallG6 =
-"import test.extG6;\r\n\
-int u = -2;\r\n\
-Zomg z; z.x = -1; z.y = &u;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { int; int ref; } in argument.", testExternalCallG6, "1");
-
-LOAD_MODULE_BIND(test_extG7, "test.extG7", "class Zomg{ float x; double y; } int Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG7", (void (*)())TestExtG7, "Call", 0);
-}
-const char	*testExternalCallG7 =
-"import test.extG7;\r\n\
-Zomg z; z.x = -1; z.y = -2;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { float; double; } in argument.", testExternalCallG7, "1");
-
-struct TestExtG8Foo{ float a; float b; int c; };
+	float a; float b; int c;
+};
 int TestExtG8(TestExtG8Foo x)
 {
 	return x.a == -1.0f && x.b == -2.0f && x.c == -3;
 }
 
-LOAD_MODULE_BIND(test_extG8, "test.extG8", "class Zomg{ float x; float y; int z; } int Call(Zomg a);")
+struct TestExtG9Foo
 {
-	nullcBindModuleFunction("test.extG8", (void (*)())TestExtG8, "Call", 0);
-}
-const char	*testExternalCallG8 =
-"import test.extG8;\r\n\
-Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { float; float; int; } in argument.", testExternalCallG8, "1");
-
-struct TestExtG9Foo{ long long a; float b; float c; };
+	long long a; float b; float c;
+};
 int TestExtG9(TestExtG9Foo x)
 {
 	return x.a == -1 && x.b == -2.0f && x.c == -3.0f;
 }
 
-LOAD_MODULE_BIND(test_extG9, "test.extG9", "class Zomg{ long x; float y; float z; } int Call(Zomg a);")
+struct TestExtG10FooSub
 {
-	nullcBindModuleFunction("test.extG9", (void (*)())TestExtG9, "Call", 0);
-}
-const char	*testExternalCallG9 =
-"import test.extG9;\r\n\
-Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { long; float; float; } in argument.", testExternalCallG9, "1");
-
-struct TestExtG10FooSub{ int a; int b; int c; };
-struct TestExtG10Foo{ TestExtG10FooSub a; float b; };
+	int a; int b; int c;
+};
+struct TestExtG10Foo
+{
+	TestExtG10FooSub a; float b;
+};
 int TestExtG10(TestExtG10Foo x)
 {
 	return x.a.a == -1 && x.a.b == -2 && x.a.c == -3 && x.b == -4.0f;
 }
 
-LOAD_MODULE_BIND(test_extG10, "test.extG10", "class ZomgSub{ int x, y, z; } class Zomg{ ZomgSub x; float y; } int Call(Zomg a);")
+struct TestExtG11Foo
 {
-	nullcBindModuleFunction("test.extG10", (void (*)())TestExtG10, "Call", 0);
-}
-const char	*testExternalCallG10 =
-"import test.extG10;\r\n\
-Zomg z; z.x.x = -1; z.x.y = -2; z.x.z = -3; z.y = -4;\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { { int; int; int; }; float; } in argument.", testExternalCallG10, "1");
-
-struct TestExtG11Foo{ NULLCArray a; };
+	NULLCArray a;
+};
 int TestExtG11(TestExtG11Foo x)
 {
 	return x.a.len == 2 && ((int*)x.a.ptr)[0] == 1 && ((int*)x.a.ptr)[1] == 2;
 }
 
-LOAD_MODULE_BIND(test_extG11, "test.extG11", "class Zomg{ int[] x; } int Call(Zomg a);")
+struct TestExtG12Foo
 {
-	nullcBindModuleFunction("test.extG11", (void (*)())TestExtG11, "Call", 0);
-}
-const char	*testExternalCallG11 =
-"import test.extG11;\r\n\
-Zomg z; z.x = { 1, 2 };\r\n\
-return Call(z);";
-TEST_RESULT("External function call. { int[]; } in argument.", testExternalCallG11, "1");
-
-struct TestExtG12Foo{ double a; double b; };
+	double a; double b;
+};
 int TestExtG12(float x, float y, float z, TestExtG12Foo a, TestExtG12Foo b, TestExtG12Foo c)
 {
 	return x == 1.0 && y == 2.0 && z == 3.0 && a.a == 4.0 && a.b == 5.0 && b.a == 6.0 && b.b == 7.0 && c.a == 8.0 && c.b == 9.0;
 }
 
-LOAD_MODULE_BIND(test_extG12, "test.extG12", "class Zomg{ double a; double b; } int Call(float x, y, z, Zomg a, b, c);")
+struct ReturnBig1
 {
-	nullcBindModuleFunction("test.extG12", (void (*)())TestExtG12, "Call", 0);
-}
-const char	*testExternalCallG12 =
-"import test.extG12;\r\n\
-Zomg a; a.a = 4; a.b = 5;\r\n\
-Zomg b; b.a = 6; b.b = 7;\r\n\
-Zomg c; c.a = 8; c.b = 9;\r\n\
-return Call(1, 2, 3, a, b, c);";
-TEST_RESULT("External function call. Floating point register overflow mid argument.", testExternalCallG12, "1");
-
-LOAD_MODULE_BIND(test_extG2b, "test.extG2b", "class Zomg{ char x; int y; } Zomg Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG2b", (void (*)())TestExtG2b, "Call", 0);
-}
-const char	*testExternalCallG2b =
-"import test.extG2b;\r\n\
-Zomg z; z.x = -1; z.y = -2;\r\n\
-z = Call(z);\r\n\
-return z.x == 1;";
-TEST_RESULT("External function call. { char; int; } returned.", testExternalCallG2b, "1");
-
-LOAD_MODULE_BIND(test_extG3b, "test.extG3b", "class Zomg{ int x; char y; } Zomg Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG3b", (void (*)())TestExtG3b, "Call", 0);
-}
-const char	*testExternalCallG3b =
-"import test.extG3b;\r\n\
-Zomg z; z.x = -1; z.y = -2;\r\n\
-z = Call(z);\r\n\
-return z.x == 1;";
-TEST_RESULT("External function call. { int; char; } returned.", testExternalCallG3b, "1");
-
-LOAD_MODULE_BIND(test_extG4b, "test.extG4b", "class Zomg{ int x; char y; short z; } Zomg Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG4b", (void (*)())TestExtG4b, "Call", 0);
-}
-const char	*testExternalCallG4b =
-"import test.extG4b;\r\n\
-Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
-z = Call(z);\r\n\
-return z.x == 1;";
-TEST_RESULT("External function call. { int; char; short; } returned.", testExternalCallG4b, "1");
-
-LOAD_MODULE_BIND(test_extG5b, "test.extG5b", "class Zomg{ int x; short y; char z; } Zomg Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG5b", (void (*)())TestExtG5b, "Call", 0);
-}
-const char	*testExternalCallG5b =
-"import test.extG5b;\r\n\
-Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
-z = Call(z);\r\n\
-return z.x == 1;";
-TEST_RESULT("External function call. { int; short; char; } returned.", testExternalCallG5b, "1");
-
-LOAD_MODULE_BIND(test_extG6b, "test.extG6b", "class Zomg{ int x; int ref y; } Zomg Call(Zomg a);")
-{
-	nullcBindModuleFunction("test.extG6b", (void (*)())TestExtG6b, "Call", 0);
-}
-const char	*testExternalCallG6b =
-"import test.extG6b;\r\n\
-int u = -2;\r\n\
-Zomg z; z.x = -1; z.y = &u;\r\n\
-z = Call(z);\r\n\
-return z.x == 1;";
-TEST_RESULT("External function call. { int; int ref; } returned.", testExternalCallG6b, "1");
-
-LOAD_MODULE_BIND(test_extG7b, "test.extG7b", "class Zomg{ int x; } Zomg Call(auto ref a);")
-{
-	nullcBindModuleFunction("test.extG7b", (void (*)())TestExtG7b, "Call", 0);
-}
-const char	*testExternalCallG7b =
-"import test.extG7b;\r\n\
-Zomg z;\r\n\
-z = Call(new int(3));\r\n\
-return z.x == 1;";
-TEST_RESULT("External function call. auto ref. { int; } returned.", testExternalCallG7b, "1");
-
-LOAD_MODULE_BIND(test_extK, "test.extK", "int Call(int ref a, b);")
-{
-	nullcBindModuleFunction("test.extK", (void (*)())TestExtK, "Call", 0);
-}
-const char	*testExternalCallK = "import test.extK;\r\n int a = 1, b = 2;\r\n	return Call(&a, &b);";
-TEST_RESULT("External function call. References.", testExternalCallK, "1");
-
-LOAD_MODULE_BIND(test_extK2, "test.extK2", "int Call(auto ref a, int ref b);")
-{
-	nullcBindModuleFunction("test.extK2", (void (*)())TestExtK2, "Call", 0);
-}
-const char	*testExternalCallK2 = "import test.extK2;\r\n int a = 3, b = 2;\r\n	return Call(a, &b);";
-TEST_RESULT("External function call. auto ref and int ref.", testExternalCallK2, "1");
-
-LOAD_MODULE_BIND(test_extK3, "test.extK3", "auto ref Call(auto ref a, int ref b);")
-{
-	nullcBindModuleFunction("test.extK3", (void (*)())TestExtK3, "Call", 0);
-}
-const char	*testExternalCallK3 = "import test.extK3;\r\n int a = 3, b = 2;\r\nauto ref u = Call(a, &b); return int(u) == 30 && b == 20;";
-TEST_RESULT("External function call. auto ref and int ref, auto ref return.", testExternalCallK3, "1");
-
-LOAD_MODULE_BIND(test_extK4, "test.extK4", "int Call(auto ref x, y, z, w, a, b, c);")
-{
-	nullcBindModuleFunction("test.extK4", (void (*)())TestExtK4, "Call", 0);
-}
-const char	*testExternalCallK4 = "import test.extK4;\r\n return Call(1, 2, 3, 4, 5, 6, 7);";
-TEST_RESULT("External function call. a lot of auto ref parameters.", testExternalCallK4, "1");
-
-LOAD_MODULE_BIND(test_extK5, "test.extK5", "int Call(int[] x, y, z, int w);")
-{
-	nullcBindModuleFunction("test.extK5", (void (*)())TestExtK5, "Call", 0);
-}
-const char	*testExternalCallK5 = "import test.extK5;\r\n return Call({10}, {20,2}, {30,1,2}, 4);";
-TEST_RESULT("External function call. int[] fills registers and int on stack", testExternalCallK5, "1");
-
-LOAD_MODULE_BIND(test_extK6, "test.extK6", "int Call(int[] x, int w, int[] y, z);")
-{
-	nullcBindModuleFunction("test.extK6", (void (*)())TestExtK6, "Call", 0);
-}
-const char	*testExternalCallK6 = "import test.extK6;\r\n return Call({10}, 4, {20,2}, {30,1,2});";
-TEST_RESULT("External function call. Class divided between reg/stack (amd64)", testExternalCallK6, "1");
-
-LOAD_MODULE_BIND(test_extL, "test.extL", "void Call(int ref a);")
-{
-	nullcBindModuleFunction("test.extL", (void (*)())TestExtL, "Call", 0);
-}
-const char	*testExternalCallL = "import test.extL;\r\n int a = 2;\r\nCall(&a); return a;";
-TEST_RESULT("External function call. void return type.", testExternalCallL, "1");
-
-LOAD_MODULE_BIND(test_extM1, "test.extM1", "int Call(double a, b, c, d);")
-{
-	nullcBindModuleFunction("test.extM1", (void (*)())TestExtM1, "Call", 0);
-}
-const char	*testExternalCallM1 = "import test.extM1;\r\n double a = 1.6; return Call(a, 2.0, 3.0, 4.0);";
-TEST_RESULT("External function call. alignment test 1.", testExternalCallM1, "1");
-
-LOAD_MODULE_BIND(test_extM2, "test.extM2", "int Call(double a, b, c, d, int e);")
-{
-	nullcBindModuleFunction("test.extM2", (void (*)())TestExtM2, "Call", 0);
-}
-const char	*testExternalCallM2 = "import test.extM2;\r\n double a = 1.6; return Call(a, 2.0, 3.0, 4.0, 5);";
-TEST_RESULT("External function call. alignment test 2.", testExternalCallM2, "1");
-
-LOAD_MODULE_BIND(test_extM3, "test.extM3", "class Foo{ int x; } int Foo:Call(double a, b, c, d);")
-{
-	nullcBindModuleFunction("test.extM3", (void (*)())TestExtM3, "Foo::Call", 0);
-}
-const char	*testExternalCallM3 = "import test.extM3;\r\n Foo m; m.x = 5; double a = 1.6; return m.Call(a, 2.0, 3.0, 4.0);";
-TEST_RESULT("External function call. alignment test 3.", testExternalCallM3, "1");
-
-LOAD_MODULE_BIND(test_extM4, "test.extM4", "int Call(double a, b, c, d, int e, f);")
-{
-	nullcBindModuleFunction("test.extM4", (void (*)())TestExtM4, "Call", 0);
-}
-const char	*testExternalCallM4 = "import test.extM4;\r\n double a = 1.6; return Call(a, 2.0, 3.0, 4.0, 5, 6);";
-TEST_RESULT("External function call. alignment test 4.", testExternalCallM4, "1");
-
-// big argument tests
-// big arguments with int and float/double
-
-#if !defined(NULLC_LLVM_SUPPORT)
-
-struct ReturnBig1{ int a, b, c, d; };
+	int a, b, c, d;
+};
 ReturnBig1 TestReturnBig1()
 {
 	ReturnBig1 x = { 1, 2, 3, 4 };
 	return x;
 }
-LOAD_MODULE_BIND(test_big1, "test.big1", "class X{ int a, b, c, d; } X Call();")
-{
-	nullcBindModuleFunction("test.big1", (void (*)())TestReturnBig1, "Call", 0);
-}
-const char	*testBigReturnType1 = "import test.big1;\r\n X x; x = Call(); return x.a == 1 && x.b == 2 && x.c == 3 && x.d == 4;";
-TEST_RESULT("External function call. Big return type 1.", testBigReturnType1, "1");
 
-struct ReturnBig2{ float a, b, c; };
+struct ReturnBig2
+{
+	float a, b, c;
+};
 ReturnBig2 TestReturnBig2()
 {
 	ReturnBig2 x = { 1, 2, 3 };
 	return x;
 }
-LOAD_MODULE_BIND(test_big2, "test.big2", "class X{ float a, b, c; } X Call();")
-{
-	nullcBindModuleFunction("test.big2", (void (*)())TestReturnBig2, "Call", 0);
-}
-const char	*testBigReturnType2 = "import test.big2;\r\n X x; x = Call(); return x.a == 1.0f && x.b == 2.0f && x.c == 3.0f;";
-TEST_RESULT("External function call. Big return type 2.", testBigReturnType2, "1");
 
-struct ReturnBig3{ float a; double b; };
+struct ReturnBig3
+{
+	float a; double b;
+};
 ReturnBig3 TestReturnBig3()
 {
 	ReturnBig3 x = { 1, 2 };
 	return x;
 }
-LOAD_MODULE_BIND(test_big3, "test.big3", "class X{ float a; double b; } X Call();")
-{
-	nullcBindModuleFunction("test.big3", (void (*)())TestReturnBig3, "Call", 0);
-}
-const char	*testBigReturnType3 = "import test.big3;\r\n X x; x = Call(); return x.a == 1.0f && x.b == 2.0;";
-TEST_RESULT("External function call. Big return type 3.", testBigReturnType3, "1");
 
-struct ReturnBig4{ int a; float b; };
+struct ReturnBig4
+{
+	int a; float b;
+};
 ReturnBig4 TestReturnBig4()
 {
 	ReturnBig4 x = { 1, 2 };
 	return x;
 }
-LOAD_MODULE_BIND(test_big4, "test.big4", "class X{ int a; float b; } X Call();")
-{
-	nullcBindModuleFunction("test.big4", (void (*)())TestReturnBig4, "Call", 0);
-}
-const char	*testBigReturnType4 = "import test.big4;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
-TEST_RESULT("External function call. Big return type 4.", testBigReturnType4, "1");
 
-struct ReturnBig5{ int a; double b; };
+struct ReturnBig5
+{
+	int a; double b;
+};
 ReturnBig5 TestReturnBig5()
 {
 	ReturnBig5 x = { 1, 2 };
 	return x;
 }
-LOAD_MODULE_BIND(test_big5, "test.big5", "class X{ int a; double b; } X Call();")
-{
-	nullcBindModuleFunction("test.big5", (void (*)())TestReturnBig5, "Call", 0);
-}
-const char	*testBigReturnType5 = "import test.big5;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
-TEST_RESULT("External function call. Big return type 5.", testBigReturnType5, "1");
 
-struct ReturnBig6{ double a; int b; };
+struct ReturnBig6
+{
+	double a; int b;
+};
 ReturnBig6 TestReturnBig6()
 {
 	ReturnBig6 x = { 4, 8 };
 	return x;
 }
-LOAD_MODULE_BIND(test_big6, "test.big6", "class X{ double a; int b; } X Call();")
-{
-	nullcBindModuleFunction("test.big6", (void (*)())TestReturnBig6, "Call", 0);
-}
-const char	*testBigReturnType6 = "import test.big6;\r\n X x; x = Call(); return x.a == 4 && x.b == 8.0;";
-TEST_RESULT("External function call. Big return type 6.", testBigReturnType6, "1");
 
-struct ReturnBig7{ float a; int b; };
+struct ReturnBig7
+{
+	float a; int b;
+};
 ReturnBig7 TestReturnBig7()
 {
 	ReturnBig7 x = { 2, 16 };
 	return x;
 }
 
-LOAD_MODULE_BIND(test_big7, "test.big7", "class X{ float a; int b; } X Call();")
+struct ReturnBig8
 {
-	nullcBindModuleFunction("test.big7", (void (*)())TestReturnBig7, "Call", 0);
-
-}
-const char	*testBigReturnType7 = "import test.big7;\r\n X x; x = Call(); return x.a == 2 && x.b == 16.0;";
-TEST_RESULT("External function call. Big return type 7.", testBigReturnType7, "1");
-
-struct ReturnBig8{ float a; float b; int c; };
+	float a; float b; int c;
+};
 ReturnBig8 TestReturnBig8()
 {
 	ReturnBig8 x = { 4, 8, 16 };
 	return x;
 }
-LOAD_MODULE_BIND(test_big8, "test.big8", "class X{ float a; float b; int c; } X Call();")
-{
-	nullcBindModuleFunction("test.big8", (void (*)())TestReturnBig8, "Call", 0);
-}
-const char	*testBigReturnType8 = "import test.big8;\r\n X x; x = Call(); return x.a == 4 && x.b == 8.0 && x.c == 16.0;";
-TEST_RESULT("External function call. Big return type 8.", testBigReturnType8, "1");
 
-struct ReturnSmall1{ float a; };
+struct ReturnSmall1
+{
+	float a;
+};
 ReturnSmall1 TestReturnSmall1()
 {
 	ReturnSmall1 x = { 4 };
 	return x;
 }
-LOAD_MODULE_BIND(test_small1, "test.small1", "class X{ float a; } X Call();")
-{
-	nullcBindModuleFunction("test.small1", (void (*)())TestReturnSmall1, "Call", 0);
-}
-const char	*testSmallReturnType1 = "import test.small1;\r\n X x; x = Call(); return x.a == 4.0f;";
-TEST_RESULT("External function call. Small return type 1.", testSmallReturnType1, "1");
 
-struct ReturnSmall2{ double a; };
+struct ReturnSmall2
+{
+	double a;
+};
 ReturnSmall2 TestReturnSmall2()
 {
 	ReturnSmall2 x = { 6 };
 	return x;
 }
-LOAD_MODULE_BIND(test_small2, "test.small2", "class X{ double a; } X Call();")
-{
-	nullcBindModuleFunction("test.small2", (void (*)())TestReturnSmall2, "Call", 0);
-}
-const char	*testSmallReturnType2 = "import test.small2;\r\n X x; x = Call(); return x.a == 6.0;";
-TEST_RESULT("External function call. Small return type 2.", testSmallReturnType2, "1");
 
-struct ReturnSmall3{ };
+struct ReturnSmall3
+{
+};
 ReturnSmall3 TestReturnSmall3()
 {
 	ReturnSmall3 x;
 	return x;
 }
-LOAD_MODULE_BIND(test_small3, "test.small3", "class X{} X Call();")
-{
-	nullcBindModuleFunction("test.small3", (void (*)())TestReturnSmall3, "Call", 0);
-}
-const char	*testSmallReturnType3 = "import test.small3;\r\n X x; x = Call(); return 1;";
-TEST_RESULT("External function call. Small return type 3.", testSmallReturnType3, "1");
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+
+#define LOAD_MODULE_BIND_(id, name, code) LOAD_MODULE_BIND(id##_Raw, name, code)
+#define TEST_CODE(x) x##_Raw
+#define BIND_FUNCTION(moduleId, function, name, index) nullcBindModuleFunction(moduleId, (void (*)())function, name, index);
+#define TEST_RESULT_(name, id, result) TEST_RESULT(name " [raw]", id##_Raw, result)
+#define MODULE_SUFFIX ""
+#define ALL_EXTERNAL_CALLS 0
+
+#include "TestExternalCallInt.h"
+
+#undef LOAD_MODULE_BIND_
+#undef TEST_CODE
+#undef BIND_FUNCTION
+#undef TEST_RESULT_
+#undef MODULE_SUFFIX
+#undef ALL_EXTERNAL_CALLS
 
 #endif
+
+#define LOAD_MODULE_BIND_(id, name, code) LOAD_MODULE_BIND(id##_Wrap, name ".wrap", code)
+#define TEST_CODE(x) x##_Wrap
+#define BIND_FUNCTION(moduleId, function, name, index) nullcBindModuleFunctionHelper(moduleId ".wrap", function, name, index);
+#define TEST_RESULT_(name, id, result) TEST_RESULT(name " [wrap]", id##_Wrap, result)
+#define MODULE_SUFFIX ".wrap"
+#define ALL_EXTERNAL_CALLS 1
+
+#include "TestExternalCallInt.h"
 
 #if !defined(ANDROID)
 

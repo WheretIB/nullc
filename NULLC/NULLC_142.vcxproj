@@ -1,0 +1,368 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectName>NULLC</ProjectName>
+    <ProjectGuid>{5914662D-EBDB-4F94-8A1C-BC26E3E8B8C7}</ProjectGuid>
+    <RootNamespace>NULLC</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.40219.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\bin\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\bin\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\temp\$(ProjectName)_$(Platform)\$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\temp\$(ProjectName)_$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\bin\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\bin\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\temp\$(ProjectName)_$(Platform)\$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\temp\$(ProjectName)_$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(TargetPath)</OutputFile>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+    </Lib>
+    <MASM>
+      <UseSafeExceptionHandlers>true</UseSafeExceptionHandlers>
+    </MASM>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(TargetPath)</OutputFile>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+    </Lib>
+    <MASM>
+      <UseSafeExceptionHandlers>false</UseSafeExceptionHandlers>
+    </MASM>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <AssemblerOutput>
+      </AssemblerOutput>
+      <AssemblerListingLocation>
+      </AssemblerListingLocation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(TargetPath)</OutputFile>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+    </Lib>
+    <MASM>
+      <UseSafeExceptionHandlers>true</UseSafeExceptionHandlers>
+    </MASM>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <AssemblerOutput>
+      </AssemblerOutput>
+      <AssemblerListingLocation>
+      </AssemblerListingLocation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(TargetPath)</OutputFile>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+    </Lib>
+    <MASM>
+      <UseSafeExceptionHandlers>false</UseSafeExceptionHandlers>
+    </MASM>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\external\dyncall\dyncall_api.c" />
+    <ClCompile Include="..\external\dyncall\dyncall_callvm.c" />
+    <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c" />
+    <ClCompile Include="..\external\dyncall\dyncall_struct.c" />
+    <ClCompile Include="..\external\dyncall\dyncall_vector.c" />
+    <ClCompile Include="BinaryCache.cpp" />
+    <ClCompile Include="Bytecode.cpp" />
+    <ClCompile Include="CodeGenRegVm_X86.cpp" />
+    <ClCompile Include="Executor_RegVm.cpp" />
+    <ClCompile Include="ExpressionGraph.cpp" />
+    <ClCompile Include="ExpressionTranslate.cpp" />
+    <ClCompile Include="ExpressionTree.cpp" />
+    <ClCompile Include="ExpressionEval.cpp" />
+    <ClCompile Include="includes\memory.cpp" />
+    <ClCompile Include="InstructionTreeLlvm.cpp" />
+    <ClCompile Include="InstructionTreeRegVm.cpp" />
+    <ClCompile Include="InstructionTreeRegVmLower.cpp" />
+    <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp" />
+    <ClCompile Include="InstructionTreeVm.cpp" />
+    <ClCompile Include="InstructionTreeVmCommon.cpp" />
+    <ClCompile Include="InstructionTreeVmEval.cpp" />
+    <ClCompile Include="InstructionTreeVmGraph.cpp" />
+    <ClCompile Include="Instruction_X86.cpp" />
+    <ClCompile Include="nullc.cpp" />
+    <ClCompile Include="ParseGraph.cpp" />
+    <ClCompile Include="ParseTree.cpp" />
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="StrAlgo.cpp" />
+    <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="Lexer.cpp" />
+    <ClCompile Include="StdLib.cpp" />
+    <ClCompile Include="Executor_Common.cpp" />
+    <ClCompile Include="CodeGen_X86.cpp" />
+    <ClCompile Include="Executor_X86.cpp" />
+    <ClCompile Include="Translator_X86.cpp" />
+    <ClCompile Include="Linker.cpp" />
+    <ClCompile Include="includes\dynamic.cpp" />
+    <ClCompile Include="includes\file.cpp" />
+    <ClCompile Include="includes\gc.cpp" />
+    <ClCompile Include="includes\io.cpp" />
+    <ClCompile Include="includes\math.cpp" />
+    <ClCompile Include="includes\random.cpp" />
+    <ClCompile Include="includes\string.cpp" />
+    <ClCompile Include="includes\time.cpp" />
+    <ClCompile Include="includes\typeinfo.cpp" />
+    <ClCompile Include="includes\window.cpp" />
+    <ClCompile Include="includes\canvas.cpp" />
+    <ClCompile Include="includes\pugi.cpp" />
+    <ClCompile Include="..\external\pugixml\pugixml.cpp" />
+    <ClCompile Include="includes\vector.cpp" />
+    <ClCompile Include="Executor_LLVM.cpp" />
+    <ClCompile Include="TypeTree.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\external\dyncall\dyncall.h" />
+    <ClInclude Include="..\external\dyncall\dyncall_callvm.h" />
+    <ClInclude Include="..\external\dyncall\dyncall_types.h" />
+    <ClInclude Include="Allocator.h" />
+    <ClInclude Include="Array.h" />
+    <ClInclude Include="BinaryCache.h" />
+    <ClInclude Include="Bytecode.h" />
+    <ClInclude Include="CodeGenRegVm_X86.h" />
+    <ClInclude Include="DenseMap.h" />
+    <ClInclude Include="Executor_RegVm.h" />
+    <ClInclude Include="ExpressionGraph.h" />
+    <ClInclude Include="ExpressionTranslate.h" />
+    <ClInclude Include="ExpressionTree.h" />
+    <ClInclude Include="ExpressionEval.h" />
+    <ClInclude Include="HashMap.h" />
+    <ClInclude Include="includes\memory.h" />
+    <ClInclude Include="InstructionTreeLlvm.h" />
+    <ClInclude Include="InstructionTreeRegVm.h" />
+    <ClInclude Include="InstructionTreeRegVmLower.h" />
+    <ClInclude Include="InstructionTreeRegVmLowerGraph.h" />
+    <ClInclude Include="InstructionTreeVm.h" />
+    <ClInclude Include="InstructionTreeVmCommon.h" />
+    <ClInclude Include="InstructionTreeVmEval.h" />
+    <ClInclude Include="InstructionTreeVmGraph.h" />
+    <ClInclude Include="IntrusiveList.h" />
+    <ClInclude Include="nullbind.h" />
+    <ClInclude Include="nullc.h" />
+    <ClInclude Include="nullc_debug.h" />
+    <ClInclude Include="nullc_internal.h" />
+    <ClInclude Include="nullc_remote.h" />
+    <ClInclude Include="nullcdef.h" />
+    <ClInclude Include="Output.h" />
+    <ClInclude Include="ParseGraph.h" />
+    <ClInclude Include="ParseTree.h" />
+    <ClInclude Include="Pool.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="StrAlgo.h" />
+    <ClInclude Include="Compiler.h" />
+    <ClInclude Include="Lexer.h" />
+    <ClInclude Include="StdLib.h" />
+    <ClInclude Include="Executor_Common.h" />
+    <ClInclude Include="CodeGen_X86.h" />
+    <ClInclude Include="Executor_X86.h" />
+    <ClInclude Include="Instruction_X86.h" />
+    <ClInclude Include="Trace.h" />
+    <ClInclude Include="Translator_X86.h" />
+    <ClInclude Include="Linker.h" />
+    <ClInclude Include="includes\dynamic.h" />
+    <ClInclude Include="includes\file.h" />
+    <ClInclude Include="includes\gc.h" />
+    <ClInclude Include="includes\io.h" />
+    <ClInclude Include="includes\math.h" />
+    <ClInclude Include="includes\random.h" />
+    <ClInclude Include="includes\string.h" />
+    <ClInclude Include="includes\time.h" />
+    <ClInclude Include="includes\typeinfo.h" />
+    <ClInclude Include="includes\window.h" />
+    <ClInclude Include="includes\canvas.h" />
+    <ClInclude Include="includes\pugi.h" />
+    <ClInclude Include="..\external\pugixml\pugiconfig.hpp" />
+    <ClInclude Include="..\external\pugixml\pugixml.hpp" />
+    <ClInclude Include="includes\vector.h" />
+    <ClInclude Include="Executor_LLVM.h" />
+    <ClInclude Include="Tree.h" />
+    <ClInclude Include="TypeTree.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Modules\std\algorithm.nc" />
+    <None Include="..\Modules\std\dynamic.nc" />
+    <None Include="..\Modules\std\event.nc" />
+    <None Include="..\Modules\std\file.nc" />
+    <None Include="..\Modules\std\gc.nc" />
+    <None Include="..\Modules\std\hashmap.nc" />
+    <None Include="..\Modules\std\io.nc" />
+    <None Include="..\Modules\std\list.nc" />
+    <None Include="..\Modules\std\map.nc" />
+    <None Include="..\Modules\std\math.nc" />
+    <None Include="..\Modules\std\math_swizzle.nc" />
+    <None Include="..\Modules\std\memory.nc" />
+    <None Include="..\Modules\std\random.nc" />
+    <None Include="..\Modules\std\range.nc" />
+    <None Include="..\Modules\std\string.nc" />
+    <None Include="..\Modules\std\stringio.nc" />
+    <None Include="..\Modules\std\time.nc" />
+    <None Include="..\Modules\std\typeinfo.nc" />
+    <None Include="..\Modules\std\vector.nc" />
+    <None Include="..\Modules\win\window.nc" />
+    <None Include="..\Modules\win\window_ex.nc" />
+    <None Include="..\Modules\img\canvas.nc" />
+    <None Include="..\Modules\ext\pugixml.nc" />
+    <None Include="..\Modules\old\list.nc" />
+    <None Include="..\Modules\old\vector.nc" />
+    <None Include="..\nullc.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\external\dyncall\dyncall_call_x64_generic_masm.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </MASM>
+    <MASM Include="..\external\dyncall\dyncall_call_x86_generic_masm.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </MASM>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
+  </ImportGroup>
+</Project>

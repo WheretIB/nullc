@@ -1197,3 +1197,129 @@ b.x = 10; b.y = 20; b.z = 30; b.w = 40;\r\n\
 \r\n\
 return a.sum(a, b);";
 TEST_RESULT("Member functions are analyzed when the class is complete", testMemberFunctionsWorkWithCompleteClass, "33");
+
+const char	*testClassMemberInitializers1 =
+"class Test\r\n\
+{\r\n\
+	int a = 1;\r\n\
+	int b = 2;\r\n\
+	int c = 3;\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+\r\n\
+return t.a + t.b + t.c;";
+TEST_RESULT("Class member initializers 1", testClassMemberInitializers1, "6");
+
+const char	*testClassMemberInitializers2 =
+"class Test\r\n\
+{\r\n\
+	int a = 1;\r\n\
+	int b = 2;\r\n\
+	int c = 3;\r\n\
+\r\n\
+	void Test()\r\n\
+	{\r\n\
+		b = 10;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+\r\n\
+return t.a + t.b + t.c;";
+TEST_RESULT("Class member initializers 2", testClassMemberInitializers2, "14");
+
+const char	*testClassMemberInitializers3 =
+"class Test\r\n\
+{\r\n\
+	int[16] a = 1;\r\n\
+	int[8] b = 2;\r\n\
+	int[4] c = 3;\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+\r\n\
+return t.a[10] + t.b[3] + t.c[1];";
+TEST_RESULT("Class member initializers 3", testClassMemberInitializers3, "6");
+
+const char	*testClassMemberInitializers4 =
+"class Test\r\n\
+{\r\n\
+	int b = 10;\r\n\
+	int c = b * 2;\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+\r\n\
+return t.b + t.c;";
+TEST_RESULT("Class member initializers 4", testClassMemberInitializers4, "30");
+
+const char	*testClassMemberInitializers5 =
+"class Test\r\n\
+{\r\n\
+	int ref(int) a = auto(int x){ return b + x * 2; };\r\n\
+	int b = 10;\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+\r\n\
+return t.a(3);";
+TEST_RESULT("Class member initializers 5", testClassMemberInitializers5, "16");
+
+const char	*testClassMemberInitializers6 =
+"class Test\r\n\
+{\r\n\
+	int[] a = { 1, 2, 3, 4 };\r\n\
+	int[] b = { for(int i = 1; i <= 10; i++) yield i; };\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+\r\n\
+return t.a[2] + t.b[8];";
+TEST_RESULT("Class member initializers 6", testClassMemberInitializers6, "12");
+
+const char	*testClassStaticIf1 =
+"class Test\r\n\
+{\r\n\
+	@if(1)\r\n\
+	{\r\n\
+		int x = 1, y = 2;\r\n\
+	}\r\n\
+\r\n\
+	int s()\r\n\
+	{\r\n\
+		return x + y;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+return t.s();";
+TEST_RESULT("Class static if 1", testClassStaticIf1, "3");
+
+const char	*testClassStaticIf2 =
+"class Test\r\n\
+{\r\n\
+	int a = 1, b = 2;\r\n\
+\r\n\
+	@if(1){ int c, d; }\r\n\
+}\r\n\
+\r\n\
+Test a;\r\n\
+\r\n\
+return sizeof(Test) + a.c;";
+TEST_RESULT("Class static if 2", testClassStaticIf2, "16");
+
+const char	*testClassConstantVisibility =
+"class Test\r\n\
+{\r\n\
+	const int a = 1, b = 2;\r\n\
+\r\n\
+	int s()\r\n\
+	{\r\n\
+		return a + b;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test t;\r\n\
+return t.s();";
+TEST_RESULT("Class constant visibility", testClassConstantVisibility, "3");

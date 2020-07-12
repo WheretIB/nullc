@@ -1,8 +1,11 @@
 #include "handler.h"
 
+#pragma warning(disable: 4996)
+
 #include <algorithm>
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
@@ -17,11 +20,10 @@
 #include "../../NULLC/includes/math.h"
 #include "../../NULLC/includes/string.h"
 #include "../../NULLC/includes/vector.h"
-#include "../../NULLC/includes/list.h"
-#include "../../NULLC/includes/map.h"
 #include "../../NULLC/includes/random.h"
 #include "../../NULLC/includes/time.h"
 #include "../../NULLC/includes/gc.h"
+#include "../../NULLC/includes/memory.h"
 
 #include "../../NULLC/includes/window.h"
 #include "../../NULLC/includes/canvas.h"
@@ -31,6 +33,10 @@
 #include "context.h"
 #include "debug.h"
 #include "schema.h"
+
+#if defined(_WIN32)
+#include <Windows.h>
+#endif
 
 NULLC_PRINT_FORMAT_CHECK(1, 2) std::string ToString(const char *format, ...)
 {
@@ -78,13 +84,13 @@ void SendResponse(Context& ctx, rapidjson::Document &doc)
 	fflush(stdout);
 }
 
-bool RespondWithError(Context& ctx, rapidjson::Document &doc, const char *message)
+bool RespondWithError(Context& ctx, rapidjson::Document &doc, const std::string& message)
 {
 	if(ctx.infoMode)
-		fprintf(stderr, "INFO: RespondWithError('%s')\r\n", message);
+		fprintf(stderr, "INFO: RespondWithError('%s')\r\n", message.c_str());
 
 	doc.AddMember("success", false, doc.GetAllocator());
-	doc.AddMember("message", std::string(message), doc.GetAllocator());
+	doc.AddMember("message", message, doc.GetAllocator());
 
 	SendResponse(ctx, doc);
 
@@ -485,6 +491,11 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		auto pos = ctx.launchArgs.program->find_last_of('/') != std::string::npos ? ctx.launchArgs.program->find_last_of('/') : ctx.launchArgs.program->find_last_of('\\');
 
 		ctx.rootPath = ctx.launchArgs.program->substr(0, pos + 1);
+
+#if defined(_WIN32)
+		if (!ctx.rootPath.empty())
+			SetCurrentDirectoryA(ctx.rootPath.c_str());
+#endif
 	}
 
 	// Initialize nullc with target module path
@@ -569,7 +580,7 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 
 	nullcSetOptimizationLevel(0);
 
-	nullcSetExecutor(NULLC_VM);
+	nullcSetExecutor(NULLC_REG_VM);
 
 	if(!nullcDebugSetBreakFunction(&ctx, OnDebugBreak))
 	{
@@ -591,14 +602,14 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		return RespondWithError(ctx, response, "failed to init std.math module");
 	if(!nullcInitStringModule())
 		return RespondWithError(ctx, response, "failed to init std.string module");
-	if(!nullcInitMapModule())
-		return RespondWithError(ctx, response, "failed to init std.map module");
 	if(!nullcInitRandomModule())
 		return RespondWithError(ctx, response, "failed to init std.random module");
 	if(!nullcInitTimeModule())
 		return RespondWithError(ctx, response, "failed to init std.time module");
 	if(!nullcInitGCModule())
 		return RespondWithError(ctx, response, "failed to init std.gc module");
+	if(!nullcInitMemoryModule())
+		return RespondWithError(ctx, response, "failed to init std.memory module");
 
 	if(!nullcInitCanvasModule())
 		return RespondWithError(ctx, response, "failed to init img.canvas module");
@@ -632,9 +643,13 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 	// Compile nullc program
 	if(!nullcBuild(source))
 	{
+		std::string error = "failed to compile source file:\n";
+
+		error += nullcGetLastError();
+
 		nullcTerminate();
 
-		return RespondWithError(ctx, response, "failed to compile source file");
+		return RespondWithError(ctx, response, error);
 	}
 
 	response.AddMember("success", true, response.GetAllocator());
@@ -668,7 +683,7 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 
 		std::string moduleSourcePath = ToString("%s%s", ctx.modulePath.c_str(), name.c_str());
 
-		if(FILE *fIn = fopen(moduleSourcePath.c_str(), "rb"))
+		if(FILE *fInModule = fopen(moduleSourcePath.c_str(), "rb"))
 		{
 			source.path = moduleSourcePath;
 
@@ -676,13 +691,13 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 
 			source.origin = "module path";
 
-			fclose(fIn);
+			fclose(fInModule);
 		}
 		else if(ctx.launchArgs.workspaceFolder)
 		{
 			std::string rootSourcePath = ToString("%s/%s", ctx.launchArgs.workspaceFolder->c_str(), name.c_str());
 
-			if(FILE *fIn = fopen(rootSourcePath.c_str(), "rb"))
+			if(FILE *fInRoot = fopen(rootSourcePath.c_str(), "rb"))
 			{
 				source.path = rootSourcePath;
 
@@ -690,7 +705,7 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 
 				source.origin = "workspace";
 
-				fclose(fIn);
+				fclose(fInRoot);
 			}
 			else
 			{
@@ -926,16 +941,16 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 			{
 				stackFrame.name += "(";
 
-				for(unsigned i = 0; i < function->paramCount + 1; i++)
+				for(unsigned k = 0; k < function->paramCount + 1; k++)
 				{
-					auto& localInfo = locals[function->offsetToFirstLocal + i];
+					auto& localInfo = locals[function->offsetToFirstLocal + k];
 
 					const char* name = symbols + localInfo.offsetToName;
 
 					if(*name == '$')
 						continue;
 
-					if(i != 0)
+					if(k != 0)
 						stackFrame.name += ", ";
 
 					if(args.format->parameterTypes && *args.format->parameterTypes)
@@ -1464,7 +1479,26 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 		auto &type = types[reference.type];
 
-		if(type.subCat == ExternTypeInfo::CAT_CLASS)
+		if(reference.type == NULLC_TYPE_AUTO_REF)
+		{
+			if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+			{
+				data.variables.push_back(GetVariableInfo(ctx, NULLC_TYPE_TYPEID, "[type]", reference.ptr, showHex));
+
+				unsigned targetType = *(unsigned*)(reference.ptr);
+
+				// Search for reference type
+				for(unsigned i = 0; i < typeCount; i++)
+				{
+					if(types[i].subCat == ExternTypeInfo::CAT_POINTER && types[i].subType == targetType)
+					{
+						data.variables.push_back(GetVariableInfo(ctx, i, "[ptr]", reference.ptr + 4, showHex));
+						break;
+					}
+				}
+			}
+		}
+		else if(type.subCat == ExternTypeInfo::CAT_CLASS)
 		{
 			bool isExtendable = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0;
 

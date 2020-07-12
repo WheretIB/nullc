@@ -71,6 +71,41 @@ bool UseNonStaticTemplate(ExpressionTranslateContext &ctx, FunctionData *functio
 	return false;
 }
 
+unsigned GetNaturalClassAlignment(TypeClass *type)
+{
+	unsigned maximumAlignment = 0;
+
+	// Additional padding may apply to preserve the alignment of members
+	for(MemberHandle *curr = type->members.head; curr; curr = curr->next)
+		maximumAlignment = maximumAlignment > curr->variable->alignment ? maximumAlignment : curr->variable->alignment;
+
+	return maximumAlignment;
+}
+
+void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *function);
+
+void PrintEscapedTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
+{
+	if(TypeClass *typeClass = getType<TypeClass>(type))
+	{
+		if(typeClass->scope->ownerFunction)
+		{
+			TranslateFunctionName(ctx, typeClass->scope->ownerFunction);
+			Print(ctx, "_");
+		}
+		else if(typeClass->scope != ctx.ctx.globalScope && !typeClass->scope->ownerType && !typeClass->scope->ownerFunction && !typeClass->scope->ownerNamespace)
+		{
+			Print(ctx, "scope_%d_", typeClass->scope->uniqueId);
+		}
+
+		PrintEscapedName(ctx, typeClass->name);
+	}
+	else
+	{
+		PrintEscapedName(ctx, type->name);
+	}
+}
+
 void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 {
 	if(isType<TypeVoid>(type))
@@ -115,7 +150,7 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(isType<TypeNullptr>(type))
 	{
-		Print(ctx, "__nullptr");
+		Print(ctx, "_nullptr");
 	}
 	else if(isType<TypeGeneric>(type))
 	{
@@ -168,7 +203,7 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
-		PrintEscapedName(ctx, typeClass->name);
+		PrintEscapedTypeName(ctx, typeClass);
 	}
 	else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
 	{
@@ -266,11 +301,17 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
-		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+		if(typeClass->importModule && typeClass->isInternal)
+			return;
+
+		if(!typeClass->completed)
+			return;
+
+		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			TranslateTypeDefinition(ctx, curr->variable->type);
 
 		Print(ctx, "struct ");
-		PrintEscapedName(ctx, typeClass->name);
+		PrintEscapedTypeName(ctx, typeClass);
 		PrintLine(ctx);
 
 		PrintIndentedLine(ctx, "{");
@@ -279,7 +320,7 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 		unsigned offset = 0;
 		unsigned index = 0;
 
-		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+		for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 		{
 			if(curr->variable->offset > offset)
 				PrintIndentedLine(ctx, "char pad_%d[%d];", index, int(curr->variable->offset - offset));
@@ -351,17 +392,20 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 	{
 		if(name.length() > function->scope->ownerType->name.length() + 2)
 		{
-			InplaceStr operatorName = GetOperatorName(InplaceStr(name.begin + function->scope->ownerType->name.length() + 2, name.end));
+			InplaceStr namePart = InplaceStr(name.begin + function->scope->ownerType->name.length() + 2, name.end);
+			InplaceStr operatorName = GetOperatorName(namePart);
 
 			if(!operatorName.empty())
 			{
-				PrintEscapedName(ctx, function->scope->ownerType->name);
+				PrintEscapedTypeName(ctx, function->scope->ownerType);
 				Print(ctx, "__");
 				PrintEscapedName(ctx, operatorName);
 			}
 			else
 			{
-				PrintEscapedName(ctx, name);
+				PrintEscapedTypeName(ctx, function->scope->ownerType);
+				Print(ctx, "__");
+				PrintEscapedName(ctx, namePart);
 			}
 		}
 		else
@@ -372,7 +416,7 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
 		{
 			Print(ctx, "_");
-			PrintEscapedName(ctx, alias->type->name);
+			PrintEscapedTypeName(ctx, alias->type);
 			Print(ctx, "_");
 		}
 
@@ -386,7 +430,7 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
 		{
 			Print(ctx, "_");
-			PrintEscapedName(ctx, alias->type->name);
+			PrintEscapedTypeName(ctx, alias->type);
 			Print(ctx, "_");
 		}
 
@@ -400,7 +444,7 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
 		{
 			Print(ctx, "_");
-			PrintEscapedName(ctx, alias->type->name);
+			PrintEscapedTypeName(ctx, alias->type);
 			Print(ctx, "_");
 		}
 
@@ -706,6 +750,12 @@ void TranslateUnaryOp(ExpressionTranslateContext &ctx, ExprUnaryOp *expression)
 
 void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression)
 {
+	if(isType<TypeEnum>(expression->type))
+	{
+		TranslateTypeName(ctx, expression->type);
+		Print(ctx, "(");
+	}
+
 	if(expression->op == SYN_BINARY_OP_POW)
 	{
 		Print(ctx, "__nullcPow((");
@@ -824,11 +874,20 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 		if(isType<TypeEnum>(expression->rhs->type))
 			Print(ctx, ".value");
 	}
+
+	if(isType<TypeEnum>(expression->type))
+	{
+		Print(ctx, ")");
+	}
 }
 
 void TranslateGetAddress(ExpressionTranslateContext &ctx, ExprGetAddress *expression)
 {
 	Print(ctx, "&");
+
+	if(expression->variable->variable->scope == ctx.ctx.globalScope)
+		Print(ctx, "::");
+
 	TranslateVariableName(ctx, expression->variable->variable);
 }
 
@@ -904,7 +963,7 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 
 	ExprSequence *closures = getType<ExprSequence>(expression->closures);
 
-	if(closures && !closures->expressions.head)
+	if(closures && closures->expressions.empty())
 		closures = NULL;
 
 	if(!ctx.currentFunction)
@@ -988,7 +1047,7 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 
 	ExprSequence *closures = getType<ExprSequence>(expression->closures);
 
-	if(closures && !closures->expressions.head)
+	if(closures && closures->expressions.empty())
 		closures = NULL;
 
 	if(expression->value->type == ctx.ctx.typeVoid)
@@ -1037,10 +1096,28 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 
 void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDefinition *expression)
 {
-	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->variable->name->name));
+	VariableData *variable = expression->variable->variable;
+
+	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(variable->name->name));
+
+	TypeBase *type = variable->type;
 
 	if(expression->initializer)
 	{
+		// Zero-initialize classes beforehand (if they are stored in a real local)
+		bool zeroInitialize = !(variable->isVmAlloca || variable->lookupOnly) && isType<TypeClass>(type);
+
+		if(zeroInitialize)
+		{
+			assert(!(variable->isVmAlloca || variable->lookupOnly));
+
+			Print(ctx, "(memset(&");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ", 0, sizeof(");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ")), ");
+		}
+
 		if(ExprBlock *blockInitializer = getType<ExprBlock>(expression->initializer))
 		{
 			// Translate block initializer as a sequence
@@ -1070,10 +1147,100 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 		{
 			Translate(ctx, expression->initializer);
 		}
+
+		if(zeroInitialize)
+			Print(ctx, ")");
+	}
+	else if(variable->isVmAlloca || variable->lookupOnly || variable->scope->ownerNamespace)
+	{
+		Print(ctx, "0");
 	}
 	else
 	{
+		if(isType<TypeVoid>(type))
+		{
+			Print(ctx, "0");
+		}
+		else if(isType<TypeBool>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = false");
+		}
+		else if(isType<TypeChar>(type) || isType<TypeShort>(type) || isType<TypeInt>(type) || isType<TypeLong>(type) || isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeNullptr>(type) || isType<TypeRef>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = 0");
+		}
+		else if(isType<TypeFloat>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = 0.0f");
+		}
+		else if(isType<TypeDouble>(type))
+		{
+			TranslateVariableName(ctx, variable);
+			Print(ctx, " = 0.0");
+		}
+		else if(isType<TypeAutoRef>(type) || isType<TypeAutoArray>(type) || isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) || isType<TypeFunction>(type) || isType<TypeClass>(type) || isType<TypeEnum>(type))
+		{
+			Print(ctx, "memset(&");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ", 0, sizeof(");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, "))");
+		}
+		else
+		{
+			assert(!"unknown type");
+		}
+	}
+}
+
+void TranslateZeroInitialize(ExpressionTranslateContext &ctx, ExprZeroInitialize *expression)
+{
+	TypeRef *refType = getType<TypeRef>(expression->address->type);
+
+	assert(refType);
+
+	TypeBase *type = refType->subType;
+
+	if(isType<TypeVoid>(type))
+	{
 		Print(ctx, "0");
+	}
+	else if(isType<TypeBool>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = false");
+	}
+	else if(isType<TypeChar>(type) || isType<TypeShort>(type) || isType<TypeInt>(type) || isType<TypeLong>(type) || isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeNullptr>(type) || isType<TypeRef>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = 0");
+	}
+	else if(isType<TypeFloat>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = 0.0f");
+	}
+	else if(isType<TypeDouble>(type))
+	{
+		Print(ctx, "*(");
+		Translate(ctx, expression->address);
+		Print(ctx, ") = 0.0");
+	}
+	else if(isType<TypeAutoRef>(type) || isType<TypeAutoArray>(type) || isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) || isType<TypeFunction>(type) || isType<TypeClass>(type) || isType<TypeEnum>(type))
+	{
+		Print(ctx, "memset(");
+		Translate(ctx, expression->address);
+		Print(ctx, ", 0, %d)", unsigned(type->size));
+	}
+	else
+	{
+		assert(!"unknown type");
 	}
 }
 
@@ -1107,6 +1274,15 @@ void TranslateVariableDefinitions(ExpressionTranslateContext &ctx, ExprVariableD
 
 void TranslateVariableAccess(ExpressionTranslateContext &ctx, ExprVariableAccess *expression)
 {
+	if(expression->variable->type == ctx.ctx.typeVoid)
+	{
+		Print(ctx, "void()");
+		return;
+	}
+
+	if(expression->variable->scope == ctx.ctx.globalScope)
+		Print(ctx, "::");
+
 	TranslateVariableName(ctx, expression->variable);
 }
 
@@ -1128,7 +1304,7 @@ void TranslateFunctionContextAccess(ExpressionTranslateContext &ctx, ExprFunctio
 	}
 	else
 	{
-		TranslateVariableName(ctx, expression->function->contextVariable);
+		TranslateVariableName(ctx, expression->contextVariable);
 	}
 }
 
@@ -1205,8 +1381,33 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 			if(isArgument || variable == expression->contextArgument->variable->variable)
 				continue;
 
+			if(variable->type == ctx.ctx.typeVoid)
+				continue;
+
 			PrintIndent(ctx);
+
+			if(TypeClass *typeClass = getType<TypeClass>(variable->type))
+			{
+				if(GetNaturalClassAlignment(typeClass) != variable->alignment)
+					Print(ctx, "NULLC_ALIGN_MSVC(%d) ", variable->alignment);
+			}
+			else if(variable->type->alignment != variable->alignment)
+			{
+				Print(ctx, "NULLC_ALIGN_MSVC(%d) ", variable->alignment);
+			}
+
 			TranslateTypeName(ctx, variable->type);
+
+			if(TypeClass *typeClass = getType<TypeClass>(variable->type))
+			{
+				if(GetNaturalClassAlignment(typeClass) != variable->alignment)
+					Print(ctx, " NULLC_ALIGN_GCC(%d)", variable->alignment);
+			}
+			else if(variable->type->alignment != variable->alignment)
+			{
+				Print(ctx, " NULLC_ALIGN_GCC(%d)", variable->alignment);
+			}
+
 			Print(ctx, " ");
 			TranslateVariableName(ctx, variable);
 			Print(ctx, ";");
@@ -1469,8 +1670,10 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 
 void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	unsigned loopContinueId = ctx.nextLoopContinueId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
+	ctx.loopContinueIdStack.push_back(loopContinueId);
 
 	Translate(ctx, expression->initializer);
 	Print(ctx, ";");
@@ -1492,7 +1695,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 
 	PrintLine(ctx);
 
-	Print(ctx, "continue_%d:;", loopId);
+	Print(ctx, "continue_%d:;", loopContinueId);
 	PrintLine(ctx);
 
 	PrintIndentedLine(ctx, "// Increment");
@@ -1506,17 +1709,20 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
+	ctx.loopContinueIdStack.pop_back();
 }
 
 void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	unsigned loopContinueId = ctx.nextLoopContinueId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
+	ctx.loopContinueIdStack.push_back(loopContinueId);
 
 	Print(ctx, "while(");
 	Translate(ctx, expression->condition);
@@ -1531,24 +1737,27 @@ void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 
 	Print(ctx, ";");
 
-	Print(ctx, "continue_%d:;", loopId);
+	Print(ctx, "continue_%d:;", loopContinueId);
 	PrintLine(ctx);
 
 	PrintLine(ctx);
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
+	ctx.loopContinueIdStack.pop_back();
 }
 
 void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	unsigned loopContinueId = ctx.nextLoopContinueId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
+	ctx.loopContinueIdStack.push_back(loopContinueId);
 
 	Print(ctx, "do");
 	PrintLine(ctx);
@@ -1562,7 +1771,7 @@ void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 	Print(ctx, ";");
 	PrintLine(ctx);
 
-	Print(ctx, "continue_%d:;", loopId);
+	Print(ctx, "continue_%d:;", loopContinueId);
 	PrintLine(ctx);
 
 	ctx.depth--;
@@ -1574,17 +1783,18 @@ void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 	Print(ctx, ");");
 	PrintLine(ctx);
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
+	ctx.loopContinueIdStack.pop_back();
 }
 
 void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 {
-	unsigned loopId = ctx.nextLoopId++;
-	ctx.loopIdStack.push_back(loopId);
+	unsigned loopBreakId = ctx.nextLoopBreakId++;
+	ctx.loopBreakIdStack.push_back(loopBreakId);
 
 	Print(ctx, "{");
 	PrintLine(ctx);
@@ -1607,33 +1817,36 @@ void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 		PrintLine(ctx);
 
 		ctx.depth++;
-		PrintIndentedLine(ctx, "goto switch_%d_case_%d;", loopId, i);
+		PrintIndentedLine(ctx, "goto switch_%d_case_%d;", loopBreakId, i);
 		ctx.depth--;
 	}
 
-	if(expression->defaultBlock)
-		PrintIndentedLine(ctx, "goto switch_%d_default;", loopId);
+	PrintIndentedLine(ctx, "goto switch_%d_default;", loopBreakId);
 
 	i = 0;
 	for(ExprBase *curr = expression->blocks.head; curr; curr = curr->next, i++)
 	{
-		Print(ctx, "switch_%d_case_%d:", loopId, i);
+		Print(ctx, "switch_%d_case_%d:", loopBreakId, i);
 		PrintLine(ctx);
 
 		PrintIndent(ctx);
 		Translate(ctx, curr);
 
-		if(curr->next || expression->defaultBlock)
+		if(curr->next)
 			PrintLine(ctx);
 	}
 
+	Print(ctx, "switch_%d_default:", loopBreakId);
+	PrintLine(ctx);
+
 	if(expression->defaultBlock)
 	{
-		Print(ctx, "switch_%d_default:", loopId);
-		PrintLine(ctx);
-
 		PrintIndent(ctx);
 		Translate(ctx, expression->defaultBlock);
+	}
+	else
+	{
+		PrintIndentedLine(ctx, ";");
 	}
 
 	PrintLine(ctx);
@@ -1641,18 +1854,18 @@ void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
 
-	Print(ctx, "break_%d:", loopId);
+	Print(ctx, "break_%d:", loopBreakId);
 	PrintLine(ctx);
 	PrintIndent(ctx);
 
-	ctx.loopIdStack.pop_back();
+	ctx.loopBreakIdStack.pop_back();
 }
 
 void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
 {
 	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
 	{
-		if(closures->expressions.head)
+		if(!closures->expressions.empty())
 		{
 			Translate(ctx, expression->closures);
 			Print(ctx, ";");
@@ -1661,14 +1874,14 @@ void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
 		}
 	}
 
-	Print(ctx, "goto break_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
+	Print(ctx, "goto break_%d;", ctx.loopBreakIdStack[ctx.loopBreakIdStack.size() - expression->depth]);
 }
 
 void TranslateContinue(ExpressionTranslateContext &ctx, ExprContinue *expression)
 {
 	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
 	{
-		if(closures->expressions.head)
+		if(!closures->expressions.empty())
 		{
 			Translate(ctx, expression->closures);
 			Print(ctx, ";");
@@ -1677,7 +1890,7 @@ void TranslateContinue(ExpressionTranslateContext &ctx, ExprContinue *expression
 		}
 	}
 
-	Print(ctx, "goto continue_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
+	Print(ctx, "goto continue_%d;", ctx.loopContinueIdStack[ctx.loopContinueIdStack.size() - expression->depth]);
 }
 
 void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
@@ -1718,7 +1931,7 @@ void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
 
 void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression)
 {
-	if(!expression->expressions.head)
+	if(expression->expressions.empty())
 	{
 		Print(ctx, "/*empty sequence*/");
 		return;
@@ -1729,13 +1942,13 @@ void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression
 
 	ctx.depth++;
 
-	for(ExprBase *curr = expression->expressions.head; curr; curr = curr->next)
+	for(unsigned i = 0; i < expression->expressions.size(); i++)
 	{
 		PrintIndent(ctx);
 
-		Translate(ctx, curr);
+		Translate(ctx, expression->expressions[i]);
 
-		if(curr->next)
+		if(i + 1 < expression->expressions.size())
 			Print(ctx, ", ");
 
 		PrintLine(ctx);
@@ -1818,8 +2031,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		assert(strstr(data->name.begin, ".nc") != NULL);
 
 		unsigned fileSize = 0;
-		int needDelete = false;
 		char *fileContent = NULL;
+		bool bytecodeFile = false;
 
 		const unsigned pathLength = 1024;
 		char path[pathLength];
@@ -1829,7 +2042,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		{
 			NULLC::SafeSprintf(path, pathLength, "%s%.*s", modulePath, FMT_ISTR(data->name));
 
-			fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
+			fileContent = (char*)NULLC::fileLoad(path, &fileSize);
 
 			if(fileContent)
 				break;
@@ -1848,6 +2061,19 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			}
 
 			fileContent = FindSource((ByteCode*)bytecode);
+			bytecodeFile = true;
+		}
+
+		const unsigned nextModuleRootLength = 1024;
+		char nextModuleRootBuf[nextModuleRootLength];
+
+		const char *nextModuleRoot = NULL;
+
+		if(const char *pos = data->name.rfind('/'))
+		{
+			NULLC::SafeSprintf(nextModuleRootBuf, nextModuleRootLength, "%.*s", unsigned(pos - data->name.begin), data->name.begin);
+
+			nextModuleRoot = nextModuleRootBuf;
 		}
 
 		CompilerContext compilerCtx(ctx.allocator, 0, ArrayView<InplaceStr>());
@@ -1865,10 +2091,15 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		compilerCtx.outputCtx.tempBuf = ctx.output.tempBuf;
 		compilerCtx.outputCtx.tempBufSize = ctx.output.tempBufSize;
 
-		ExprModule* nestedModule = AnalyzeModuleFromSource(compilerCtx, fileContent);
+		compilerCtx.code = fileContent;
+		compilerCtx.moduleRoot = nextModuleRoot;
+
+		ExprModule* nestedModule = AnalyzeModuleFromSource(compilerCtx);
 
 		if(!nestedModule)
 		{
+			compilerCtx.code = NULL;
+
 			if(ctx.errorPos)
 				ctx.errorPos = compilerCtx.errorPos;
 
@@ -1878,11 +2109,13 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 				NULLC::SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
 			}
 
-			if(needDelete)
-				NULLC::dealloc(fileContent);
+			if(!bytecodeFile)
+				NULLC::fileFree(fileContent);
 
 			return false;
 		}
+
+		compilerCtx.code = NULL;
 
 		ExpressionTranslateContext nested(compilerCtx.exprCtx, compilerCtx.outputCtx, compilerCtx.allocator);
 
@@ -1894,8 +2127,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		{
 			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), path);
 
-			if(needDelete)
-				NULLC::dealloc(fileContent);
+			if(!bytecodeFile)
+				NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1915,8 +2148,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 			compilerCtx.outputCtx.stream = NULL;
 
-			if(needDelete)
-				NULLC::dealloc(fileContent);
+			if(!bytecodeFile)
+				NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1924,8 +2157,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 		compilerCtx.outputCtx.stream = NULL;
 
-		if(needDelete)
-			NULLC::dealloc(fileContent);
+		if(!bytecodeFile)
+			NULLC::fileFree(fileContent);
 	}
 
 	// Translate all imports (expept base)
@@ -1952,8 +2185,14 @@ void TranslateModuleTypePrototypes(ExpressionTranslateContext &ctx)
 
 		if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
+			if(TypeClass *typeClass = getType<TypeClass>(type))
+			{
+				if(typeClass->importModule && typeClass->isInternal)
+					continue;
+			}
+
 			Print(ctx, "struct ");
-			PrintEscapedName(ctx, typeStruct->name);
+			PrintEscapedTypeName(ctx, typeStruct);
 			Print(ctx, ";");
 			PrintLine(ctx);
 		}
@@ -2088,9 +2327,35 @@ void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
 		if(variable->isVmAlloca)
 			continue;
 
+		if(variable->type == ctx.ctx.typeVoid)
+			continue;
+
+		bool isInternalFunctionContext = false;
+
+		if(TypeRef *typeRef = getType<TypeRef>(variable->type))
+		{
+			if(TypeClass *typeClass = getType<TypeClass>(typeRef->subType))
+				isInternalFunctionContext = typeClass->isInternal;
+		}
+
+		InplaceStr name = variable->name->name;
+
 		if(variable->importModule)
 		{
+			// Skip internal function context
+			if(isInternalFunctionContext)
+				continue;
+
 			Print(ctx, "extern ");
+			TranslateTypeName(ctx, variable->type);
+			Print(ctx, " ");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ";");
+			PrintLine(ctx);
+		}
+		else if(name.length() >= 5 && InplaceStr(name.begin, name.begin + 5) == InplaceStr("$temp"))
+		{
+			Print(ctx, "static ");
 			TranslateTypeName(ctx, variable->type);
 			Print(ctx, " ");
 			TranslateVariableName(ctx, variable);
@@ -2099,6 +2364,10 @@ void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
 		}
 		else if(variable->scope == ctx.ctx.globalScope || variable->scope->ownerNamespace)
 		{
+			// Do not export internal function context
+			if(isInternalFunctionContext)
+				Print(ctx, "static ");
+
 			TranslateTypeName(ctx, variable->type);
 			Print(ctx, " ");
 			TranslateVariableName(ctx, variable);
@@ -2188,7 +2457,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 		{
 			unsigned count = 0;
 
-			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -2199,13 +2468,27 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 			Print(ctx, "__nullcTR[%d], ", typeClass->baseClass ? typeClass->baseClass->typeIndex : 0);
 			Print(ctx, "%d, NULLC_CLASS, %d, ", count, typeClass->alignment);
 
-			if(typeClass->hasFinalizer && typeClass->extendable)
-				Print(ctx, "NULLC_TYPE_FLAG_HAS_FINALIZER | NULLC_TYPE_FLAG_IS_EXTENDABLE");
-			else if(typeClass->hasFinalizer)
+			bool hasFlags = false;
+
+			if(typeClass->hasFinalizer)
+			{
 				Print(ctx, "NULLC_TYPE_FLAG_HAS_FINALIZER");
-			else if(typeClass->extendable)
-				Print(ctx, "NULLC_TYPE_FLAG_IS_EXTENDABLE");
-			else
+				hasFlags = true;
+			}
+
+			if(typeClass->extendable)
+			{
+				Print(ctx, "%sNULLC_TYPE_FLAG_IS_EXTENDABLE", hasFlags ? " | " : "");
+				hasFlags = true;
+			}
+
+			if(!typeClass->completed)
+			{
+				Print(ctx, "%sNULLC_TYPE_FLAG_FORWARD_DECLARATION", hasFlags ? " | " : "");
+				hasFlags = true;
+			}
+
+			if(!hasFlags)
 				Print(ctx, "0");
 
 			Print(ctx, ");");
@@ -2214,7 +2497,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 		{
 			unsigned count = 0;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -2252,7 +2535,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 
 			for(TypeHandle *curr = typeFunction->arguments.head; curr; curr = curr->next)
 			{
-				Print(ctx, ", __nullcTR[%d], 0", curr->type->typeIndex);
+				Print(ctx, ", __nullcTR[%d]", curr->type->typeIndex);
 				Print(ctx, ", 0");
 				Print(ctx, ", \"\"");
 			}
@@ -2264,7 +2547,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 		{
 			unsigned count = 0;
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -2275,7 +2558,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 			PrintIndent(ctx);
 			Print(ctx, "__nullcRegisterMembers(__nullcTR[%d], %d", i, count);
 
-			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			for(MemberHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
 				if(*curr->variable->name->name.begin == '$')
 					continue;
@@ -2365,13 +2648,19 @@ void TranslateModuleGlobalFunctionInformation(ExpressionTranslateContext &ctx)
 			Print(ctx, ", -1");
 
 		if(function->scope->ownerType)
-			Print(ctx, ", FunctionCategory::THISCALL);");
+			Print(ctx, ", FunctionCategory::THISCALL");
 		else if(function->coroutine)
-			Print(ctx, ", FunctionCategory::COROUTINE);");
+			Print(ctx, ", FunctionCategory::COROUTINE");
 		else if(function->contextType != ctx.ctx.typeVoid->refType)
-			Print(ctx, ", FunctionCategory::LOCAL);");
+			Print(ctx, ", FunctionCategory::LOCAL");
 		else
-			Print(ctx, ", FunctionCategory::NORMAL);");
+			Print(ctx, ", FunctionCategory::NORMAL");
+
+		if(*function->name->name.begin == '$')
+			Print(ctx, ", true);");
+		else
+			Print(ctx, ", false);");
+
 		PrintLine(ctx);
 	}
 
@@ -2397,8 +2686,6 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
 	{
 		FunctionData *function = ctx.ctx.functions[i];
-
-		function->functionIndex = i;
 
 		function->nextTranslateRestoreBlock = 1;
 	}
@@ -2445,6 +2732,8 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	ctx.depth++;
 	PrintIndentedLine(ctx, "return 0;");
 	ctx.depth--;
+
+	PrintIndentedLine(ctx, "static int pointerSizeTest[sizeof(void*) == %d ? 1 : -1];", int(sizeof(void*)));
 
 	PrintIndentedLine(ctx, "__nullcFM = __nullcGetFunctionTable();");
 	PrintIndentedLine(ctx, "int __local = 0;");
@@ -2561,6 +2850,8 @@ void Translate(ExpressionTranslateContext &ctx, ExprBase *expression)
 		TranslateYield(ctx, expr);
 	else if(ExprVariableDefinition *expr = getType<ExprVariableDefinition>(expression))
 		TranslateVariableDefinition(ctx, expr);
+	else if(ExprZeroInitialize *expr = getType<ExprZeroInitialize>(expression))
+		TranslateZeroInitialize(ctx, expr);
 	else if(ExprArraySetup *expr = getType<ExprArraySetup>(expression))
 		TranslateArraySetup(ctx, expr);
 	else if(ExprVariableDefinitions *expr = getType<ExprVariableDefinitions>(expression))
@@ -2576,6 +2867,8 @@ void Translate(ExpressionTranslateContext &ctx, ExprBase *expression)
 	else if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(expression))
 		TranslateFunctionAccess(ctx, expr);
 	else if(isType<ExprFunctionOverloadSet>(expression))
+		assert(!"miscompiled tree");
+	else if(isType<ExprShortFunctionOverloadSet>(expression))
 		assert(!"miscompiled tree");
 	else if(ExprFunctionCall *expr = getType<ExprFunctionCall>(expression))
 		TranslateFunctionCall(ctx, expr);

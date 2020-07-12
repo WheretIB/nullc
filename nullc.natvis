@@ -31,7 +31,7 @@
     </Expand>
   </Type>
   
-  <Type Name="NULLC::InplaceStr">
+  <Type Name="InplaceStr">
     <DisplayString>{begin,[end-begin]na}</DisplayString>
   </Type>
   
@@ -103,6 +103,30 @@
           <Exec>pBucket = pBucket->next</Exec>
         </Loop>
       </CustomListItems>
+    </Expand>
+  </Type>
+
+  <Type Name="VmLoweredBlock" IncludeView="deep">
+    <Expand HideRawView="1">
+      <LinkedListItems>
+        <HeadPointer>firstInstruction</HeadPointer>
+        <NextPointer>nextSibling</NextPointer>
+        <ValueNode>*this,view(deep)</ValueNode>
+      </LinkedListItems>
+    </Expand>
+  </Type>
+
+  <Type Name="VmLoweredInstruction" IncludeView="deep">
+    <DisplayString Condition="flag &amp;&amp; helper">{cmd}: {flag->iValue}, {helper->iValue}, {argument->iValue}</DisplayString>
+    <DisplayString Condition="flag">{cmd}: {flag->iValue}, {argument->iValue}</DisplayString>
+    <DisplayString Condition="helper">{cmd}: {helper->iValue}, {argument->iValue}</DisplayString>
+    <DisplayString Condition="argument">{cmd}: {argument->iValue}</DisplayString>
+    <DisplayString>{cmd}</DisplayString>
+    <Expand HideRawView="1">
+      <Item Name="cmd">cmd</Item>
+      <Item Name="flag" Condition="flag">flag->iValue</Item>
+      <Item Name="helper" Condition="helper">helper->iValue</Item>
+      <Item Name="argument" Condition="argument">argument->iValue</Item>
     </Expand>
   </Type>
 </AutoVisualizer>

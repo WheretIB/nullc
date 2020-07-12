@@ -8,7 +8,7 @@ struct FunctionData;
 
 struct ExpressionTranslateContext
 {
-	ExpressionTranslateContext(ExpressionContext &ctx, OutputContext &output, Allocator *allocator): ctx(ctx), output(output), loopIdStack(allocator), allocator(allocator)
+	ExpressionTranslateContext(ExpressionContext &ctx, OutputContext &output, Allocator *allocator): ctx(ctx), output(output), loopBreakIdStack(allocator), loopContinueIdStack(allocator), allocator(allocator)
 	{
 		mainName = "main";
 
@@ -20,7 +20,8 @@ struct ExpressionTranslateContext
 
 		depth = 0;
 
-		nextLoopId = 1;
+		nextLoopBreakId = 1;
+		nextLoopContinueId = 1;
 		nextReturnValueId = 1;
 
 		skipFunctionDefinitions = false;
@@ -42,10 +43,12 @@ struct ExpressionTranslateContext
 
 	unsigned depth;
 
-	unsigned nextLoopId;
+	unsigned nextLoopBreakId;
+	unsigned nextLoopContinueId;
 	unsigned nextReturnValueId;
 
-	SmallArray<unsigned, 32> loopIdStack;
+	SmallArray<unsigned, 32> loopBreakIdStack;
+	SmallArray<unsigned, 32> loopContinueIdStack;
 
 	bool skipFunctionDefinitions;
 

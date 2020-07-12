@@ -147,6 +147,11 @@ public:
 		}
 	}
 
+	unsigned size() const
+	{
+		return count;
+	}
+
 private:
 	unsigned bucketCount;
 	unsigned count;
@@ -307,4 +312,12 @@ private:
 private:
 	SmallDenseSet(const SmallDenseSet&);
 	SmallDenseSet& operator=(const SmallDenseSet&);
+};
+
+struct SmallDenseMapUnsignedHasher
+{
+	unsigned operator()(unsigned value) const
+	{
+		return value * 2654435769u;
+	}
 };

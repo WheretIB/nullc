@@ -4,6 +4,7 @@ struct Allocator;
 
 struct SynBase;
 
+struct VmType;
 struct VmValue;
 struct VmConstant;
 struct VmInstruction;
@@ -14,6 +15,8 @@ struct VmModule;
 struct VariableData;
 struct ScopeData;
 struct TypeBase;
+
+struct ExpressionContext;
 
 bool IsGlobalScope(ScopeData *scope);
 bool IsMemberScope(ScopeData *scope);
@@ -27,6 +30,7 @@ VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int off
 VmConstant* CreateConstantStruct(Allocator *allocator, SynBase *source, char *value, int size, TypeBase *structType);
 VmConstant* CreateConstantBlock(Allocator *allocator, SynBase *source, VmBlock *block);
 VmConstant* CreateConstantFunction(Allocator *allocator, SynBase *source, VmFunction *function);
+VmConstant* CreateConstantZero(Allocator *allocator, SynBase *source, VmType type);
 
 bool DoesConstantIntegerMatch(VmValue* value, long long number);
 bool DoesConstantMatchEither(VmValue* value, int iValue, double dValue, long long lValue);
@@ -39,3 +43,7 @@ unsigned GetAccessSize(VmInstruction *inst);
 bool HasAddressTaken(VariableData *container);
 
 const char* GetInstructionName(VmInstruction *inst);
+
+VariableData* FindGlobalAt(ExpressionContext &exprCtx, unsigned offset);
+
+TypeBase* GetBaseType(ExpressionContext &ctx, VmType type);

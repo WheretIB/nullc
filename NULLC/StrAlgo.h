@@ -73,6 +73,34 @@ public:
 		return !(*this == rhs);
 	}
 
+	const char* find(char ch)
+	{
+		if(empty())
+			return NULL;
+
+		for(const char *pos = begin; pos < end; pos++)
+		{
+			if(*pos == ch)
+				return pos;
+		}
+
+		return NULL;
+	}
+
+	const char* rfind(char ch)
+	{
+		if(empty())
+			return NULL;
+
+		for(const char *pos = end - 1; pos >= begin; pos--)
+		{
+			if(*pos == ch)
+				return pos;
+		}
+
+		return NULL;
+	}
+
 	const char *begin, *end;
 };
 

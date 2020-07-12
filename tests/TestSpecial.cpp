@@ -97,6 +97,59 @@ for(int i in masked)\r\n\
 return sum;";
 TEST_RESULT("Euler 122 (small depth) vector test", testEuler122, "79");
 
+const char	*testEuler45 =
+"long EulerTest45()\r\n\
+{\r\n\
+	long T = 1;\r\n\
+	long P = 1;\r\n\
+	long H = 143;\r\n\
+	long best = 40755;\r\n\
+	for(long num = 1; num < 30000; num++)\r\n\
+	{\r\n\
+		H++;\r\n\
+		long i = H * (2 * H - 1);\r\n\
+		while((T * (T + 1)) >> 1 < i)\r\n\
+			T++;\r\n\
+		while((P * (3 * P - 1)) >> 1 < i)\r\n\
+			P++;\r\n\
+\r\n\
+		if((T * (T + 1)) >> 1 == i && (P * (3 * P - 1)) >> 1 == i)\r\n\
+		{\r\n\
+			best = i;\r\n\
+			break;\r\n\
+		}\r\n\
+	}\r\n\
+	return best;\r\n\
+}\r\n\
+return EulerTest45();";
+TEST_RESULT("Euler 45 (jit optimizer fail)", testEuler45, "1533776805L");
+
+const char	*testEuler100 =
+"import std.math;\r\n\
+\r\n\
+long EulerTest100()\r\n\
+{\r\n\
+	double r = 1;\r\n\
+	double oldR;\r\n\
+	double blue;\r\n\
+\r\n\
+	do\r\n\
+	{\r\n\
+		oldR = r;\r\n\
+		double qb = -(1+2*r), qc = -r*r + r;\r\n\
+		double d = qb*qb - 4 * qc;\r\n\
+\r\n\
+		double sqrtD = sqrt(d);\r\n\
+		blue = (-qb + sqrtD) / 2;\r\n\
+		r = blue * (blue - 1) / r;\r\n\
+	}\r\n\
+	while(r+blue < 1000000000000l);\r\n\
+\r\n\
+	return long(blue);\r\n\
+}\r\n\
+return EulerTest100();";
+TEST_RESULT("Euler 100 (missed code gen error)", testEuler100, "756872327473L");
+
 const char	*testPatternMatching =
 "import std.vector;\r\n\
 \r\n\
@@ -709,3 +762,516 @@ for(i in functionGetContextType(foo).subType().members(functionGetContext(foo)))
 }\r\n\
 return foo();";
 TEST_RESULT("Reflection test 3", testReflection3, "55");
+
+const char	*testBigIntValues =
+"class BigInt\r\n\
+{\r\n\
+	char[256]  data;\r\n\
+	int     size;\r\n\
+}\r\n\
+\r\n\
+BigInt BigInt(int num)\r\n\
+{\r\n\
+	BigInt ret;\r\n\
+\r\n\
+	ret.size = 0;\r\n\
+	while(num)\r\n\
+	{\r\n\
+		ret.data[ret.size] = num % 100;\r\n\
+		ret.size++;\r\n\
+		num /= 100;\r\n\
+	}\r\n\
+	ret.data[ret.size] = 0;\r\n\
+	return ret;\r\n\
+}\r\n\
+\r\n\
+BigInt BigInt(long num)\r\n\
+{\r\n\
+	BigInt ret;\r\n\
+\r\n\
+	ret.size = 0;\r\n\
+	while(num)\r\n\
+	{\r\n\
+		ret.data[ret.size] = num % 100;\r\n\
+		ret.size++;\r\n\
+		num /= 100;\r\n\
+	}\r\n\
+	ret.data[ret.size] = 0;\r\n\
+	return ret;\r\n\
+}\r\n\
+\r\n\
+BigInt ref operator =(BigInt ref a, int num)\r\n\
+{\r\n\
+	a.size = 0;\r\n\
+	while(num)\r\n\
+	{\r\n\
+		a.data[a.size] = num % 100;\r\n\
+		a.size++;\r\n\
+		num /= 100;\r\n\
+	}\r\n\
+	a.data[a.size] = 0;\r\n\
+	return a;\r\n\
+}\r\n\
+\r\n\
+BigInt operator +(BigInt a, b)\r\n\
+{\r\n\
+	BigInt res;\r\n\
+\r\n\
+	if(a.size < b.size)\r\n\
+	{\r\n\
+		res = b;\r\n\
+\r\n\
+		int carry = 0;\r\n\
+		for(int i = 0; i < a.size; i++)\r\n\
+		{\r\n\
+			int sum = b.data[i] + a.data[i] + carry;\r\n\
+			res.data[i] = sum % 100;\r\n\
+			carry = sum / 100;\r\n\
+		}\r\n\
+		for(int i = a.size; i < b.size; i++)\r\n\
+		{\r\n\
+			int sum = res.data[i] + carry;\r\n\
+			res.data[i] = sum % 100;\r\n\
+			carry = sum / 100;\r\n\
+		}\r\n\
+		while(carry)\r\n\
+		{\r\n\
+			res.data[res.size++] = carry % 100;\r\n\
+			carry /= 100;\r\n\
+		}\r\n\
+		return res;\r\n\
+	}\r\n\
+\r\n\
+	res = a;\r\n\
+\r\n\
+	int carry = 0;\r\n\
+	for(int i = 0; i < b.size; i++)\r\n\
+	{\r\n\
+		int sum = a.data[i] + b.data[i] + carry;\r\n\
+		res.data[i] = sum % 100;\r\n\
+		carry = sum / 100;\r\n\
+	}\r\n\
+	for(int i = b.size; i < a.size; i++)\r\n\
+	{\r\n\
+		int sum = res.data[i] + carry;\r\n\
+		res.data[i] = sum % 100;\r\n\
+		carry = sum / 100;\r\n\
+	}\r\n\
+	while(carry)\r\n\
+	{\r\n\
+		res.data[res.size++] = carry % 100;\r\n\
+		carry /= 100;\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+BigInt operator -(BigInt a, b)\r\n\
+{\r\n\
+	assert(a.size >= b.size);\r\n\
+	BigInt res;\r\n\
+	res = a;\r\n\
+	int borrow = 0;\r\n\
+	for(int i = 0; i < b.size; i++)\r\n\
+	{\r\n\
+		int diff = a.data[i] - b.data[i] - borrow;\r\n\
+		if(diff < 0)\r\n\
+		{\r\n\
+			res.data[i] = 100 + diff;\r\n\
+			borrow = 1;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			res.data[i] = diff;\r\n\
+			borrow = 0;\r\n\
+		}\r\n\
+	}\r\n\
+	for(int i = b.size; i < a.size; i++)\r\n\
+	{\r\n\
+		int diff = res.data[i] - borrow;\r\n\
+		if(diff < 0)\r\n\
+		{\r\n\
+			res.data[i] = 100 + diff;\r\n\
+			borrow = 1;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			res.data[i] = diff;\r\n\
+			borrow = 0;\r\n\
+		}\r\n\
+	}\r\n\
+	while(res.size && res.data[res.size-1] == 0)\r\n\
+		res.size--;\r\n\
+	assert(borrow == 0);\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+int operator >(BigInt a, b)\r\n\
+{\r\n\
+	if(a.size > b.size)\r\n\
+		return 1;\r\n\
+	if(b.size > a.size)\r\n\
+		return 0;\r\n\
+	for(int i = a.size-1; i >= 0; i--)\r\n\
+	{\r\n\
+		if(a.data[i] > b.data[i])\r\n\
+			return 1;\r\n\
+		if(a.data[i] < b.data[i])\r\n\
+			return 0;\r\n\
+	}\r\n\
+	return 0;\r\n\
+}\r\n\
+\r\n\
+int operator <(BigInt a, b)\r\n\
+{\r\n\
+	if(a.size < b.size)\r\n\
+		return 1;\r\n\
+	if(b.size < a.size)\r\n\
+		return 0;\r\n\
+	for(int i = a.size-1; i >= 0; i--)\r\n\
+	{\r\n\
+		if(a.data[i] < b.data[i])\r\n\
+			return 1;\r\n\
+		if(a.data[i] > b.data[i])\r\n\
+			return 0;\r\n\
+	}\r\n\
+	return 0;\r\n\
+}\r\n\
+\r\n\
+int operator ==(BigInt a, b)\r\n\
+{\r\n\
+	if(a.size != b.size)\r\n\
+		return 0;\r\n\
+	for(int i = 0; i < a.size; i++)\r\n\
+		if(a.data[i] != b.data[i])\r\n\
+			return 0;\r\n\
+	return 1;\r\n\
+}\r\n\
+\r\n\
+int operator >=(BigInt a, b)\r\n\
+{\r\n\
+	return a > b || a == b;\r\n\
+}\r\n\
+\r\n\
+int operator <=(BigInt a, b)\r\n\
+{\r\n\
+	return a < b || a == b;\r\n\
+}\r\n\
+\r\n\
+BigInt operator *(BigInt a, b)\r\n\
+{\r\n\
+	BigInt res = 0, temp = 0;\r\n\
+	for(int i = 0; i < b.size; i++)\r\n\
+	{\r\n\
+		temp = 0;\r\n\
+		int curr = b.data[i], carry = 0;\r\n\
+		for(int k = 0; k < i; k++)\r\n\
+		{\r\n\
+			temp.data[k] = 0;\r\n\
+			temp.size++;\r\n\
+		}\r\n\
+		for(int k = 0; k < a.size; k++)\r\n\
+		{\r\n\
+			int mult = a.data[k] * curr + carry;\r\n\
+			temp.data[i+k] = mult % 100;\r\n\
+			carry = mult / 100;\r\n\
+			temp.size++;\r\n\
+		}\r\n\
+		while(carry)\r\n\
+		{\r\n\
+			temp.data[temp.size++] = carry % 100;\r\n\
+			carry /= 100;\r\n\
+		}\r\n\
+		res = res + temp;\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+BigInt operator *(BigInt a, short b)\r\n\
+{\r\n\
+	BigInt res;\r\n\
+	res.size = 0;\r\n\
+	long mult, carry = 0;\r\n\
+	for(int k = 0; k < a.size; k++)\r\n\
+	{\r\n\
+		mult = b * a.data[k] + carry;\r\n\
+		res.data[k] = mult % 100;\r\n\
+		carry = mult / 100;\r\n\
+		res.size++;\r\n\
+	}\r\n\
+	while(carry)\r\n\
+	{\r\n\
+		res.data[res.size++] = carry % 100;\r\n\
+		carry /= 100;\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+BigInt operator /(BigInt a, b)\r\n\
+{\r\n\
+	assert(a.size > b.size);\r\n\
+\r\n\
+	BigInt res;\r\n\
+\r\n\
+	res.size = 0;\r\n\
+\r\n\
+	int steps = 0;\r\n\
+\r\n\
+	{\r\n\
+		BigInt c = b;\r\n\
+		while(a > c * BigInt(10))\r\n\
+		{\r\n\
+			c = c * BigInt(10);\r\n\
+			steps++;\r\n\
+		}\r\n\
+	}\r\n\
+\r\n\
+	while(a >= b)\r\n\
+	{\r\n\
+		int mult = 0;\r\n\
+\r\n\
+		BigInt c = b;\r\n\
+\r\n\
+		for(int i = 0; i < steps; i++)\r\n\
+			c = c * BigInt(10);\r\n\
+		steps--;\r\n\
+\r\n\
+		while(a >= c)\r\n\
+		{\r\n\
+			a -= c;\r\n\
+			mult++;\r\n\
+		}\r\n\
+\r\n\
+		res = res * BigInt(10) + BigInt(mult);\r\n\
+	}\r\n\
+\r\n\
+	for(int i = 0; i <= steps; i++)\r\n\
+		res = res * BigInt(10);\r\n\
+\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+long long(BigInt a)\r\n\
+{\r\n\
+	assert(a.size <= 10);\r\n\
+	long sum = 0;\r\n\
+	long shift = 1;\r\n\
+	for(int i = 0; i < a.size; i++)\r\n\
+	{\r\n\
+		sum += shift * a.data[i];\r\n\
+		shift *= 100;\r\n\
+	}\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+BigInt a = 1;\r\n\
+\r\n\
+a = a * 2 * 2 * 5 * 7 * 19 * 23 * 23 * 47 * 47;\r\n\
+\r\n\
+BigInt b = a;\r\n\
+\r\n\
+b = a * a * 41 * 41 * a * a;\r\n\
+\r\n\
+BigInt c = a / BigInt(10);\r\n\
+\r\n\
+BigInt e = b / a / a / a / a;\r\n\
+\r\n\
+return (a == BigInt(3108372260l)) + (long(a) == 3108372260l) + (b - a > a) + (long(c) == 310837226l) + (long(e) == 41 * 41);";
+TEST_RESULT("Big integer value passing", testBigIntValues, "5");
+
+const char	*testMemoryLib =
+"import std.memory;\r\n\
+\r\n\
+char[256] buffer;\r\n\
+int offset = 0;\r\n\
+\r\n\
+bool sb = true;\r\n\
+char sc = 'v';\r\n\
+short ss = 0x1234;\r\n\
+int si = 0x12345678;\r\n\
+long sl = 0x1234567898765432l;\r\n\
+float sf = 2.5f;\r\n\
+double sd = 1.13;\r\n\
+\r\n\
+bool[2] sab = true;\r\n\
+char[2] sac = 'v';\r\n\
+short[2] sas = 0x1234;\r\n\
+int[2] sai = 0x12345678;\r\n\
+long[2] sal = 0x1234567898765432l;\r\n\
+float[2] saf = 2.5f;\r\n\
+double[2] sad = 1.13;\r\n\
+\r\n\
+void write(@T ref value){ memory.write(buffer, offset, *value); offset += sizeof(T); }\r\n\
+void write(@T[] value){ memory.write(buffer, offset, value); offset += sizeof(T) * value.size; }\r\n\
+void read(@T ref value){ memory.read(buffer, offset, value); offset += sizeof(T); }\r\n\
+void read(@T[] value){ memory.read(buffer, offset, value); offset += sizeof(T) * value.size; }\r\n\
+bool compare(@T[] a, @T[] b){ if(a.size != b.size) return false; for(i in a, j in b) if(i != j) return false; return true; }\r\n\
+\r\n\
+write(sb);\r\n\
+write(sc);\r\n\
+write(ss);\r\n\
+write(si);\r\n\
+write(sl);\r\n\
+write(sf);\r\n\
+write(sd);\r\n\
+write(sab);\r\n\
+write(sac);\r\n\
+write(sas);\r\n\
+write(sai);\r\n\
+write(sal);\r\n\
+write(saf);\r\n\
+write(sad);\r\n\
+\r\n\
+double dd;\r\n\
+float df;\r\n\
+long dl;\r\n\
+int di;\r\n\
+short ds;\r\n\
+char dc;\r\n\
+bool db;\r\n\
+\r\n\
+double[2] dad;\r\n\
+float[2] daf;\r\n\
+long[2] dal;\r\n\
+int[2] dai;\r\n\
+short[2] das;\r\n\
+char[2] dac;\r\n\
+bool[2] dab;\r\n\
+\r\n\
+offset = 0;\r\n\
+\r\n\
+read(db);\r\n\
+read(dc);\r\n\
+read(ds);\r\n\
+read(di);\r\n\
+read(dl);\r\n\
+read(df);\r\n\
+read(dd);\r\n\
+read(dab);\r\n\
+read(dac);\r\n\
+read(das);\r\n\
+read(dai);\r\n\
+read(dal);\r\n\
+read(daf);\r\n\
+read(dad);\r\n\
+\r\n\
+assert(sb == db);\r\n\
+assert(sc == dc);\r\n\
+assert(ss == ds);\r\n\
+assert(si == di);\r\n\
+assert(sl == dl);\r\n\
+assert(sf == df);\r\n\
+assert(sd == dd);\r\n\
+\r\n\
+assert(compare(sab, dab));\r\n\
+assert(compare(sac, dac));\r\n\
+assert(compare(sas, das));\r\n\
+assert(compare(sai, dai));\r\n\
+assert(compare(sal, dal));\r\n\
+assert(compare(saf, daf));\r\n\
+assert(compare(sad, dad));\r\n\
+\r\n\
+double dd2;\r\n\
+float df2;\r\n\
+long dl2;\r\n\
+int di2;\r\n\
+short ds2;\r\n\
+char dc2;\r\n\
+bool db2;\r\n\
+\r\n\
+double[] dad2;\r\n\
+float[] daf2;\r\n\
+long[] dal2;\r\n\
+int[] dai2;\r\n\
+short[] das2;\r\n\
+char[] dac2;\r\n\
+bool[] dab2;\r\n\
+\r\n\
+offset = 0;\r\n\
+\r\n\
+db2 = memory.read_bool(buffer, offset); offset += sizeof(db2);\r\n\
+dc2 = memory.read_char(buffer, offset); offset += sizeof(dc2);\r\n\
+ds2 = memory.read_short(buffer, offset); offset += sizeof(ds2);\r\n\
+di2 = memory.read_int(buffer, offset); offset += sizeof(di2);\r\n\
+dl2 = memory.read_long(buffer, offset); offset += sizeof(dl2);\r\n\
+df2 = memory.read_float(buffer, offset); offset += sizeof(df2);\r\n\
+dd2 = memory.read_double(buffer, offset); offset += sizeof(dd2);\r\n\
+dab2 = memory.read_bool_array(buffer, offset, 2); offset += sizeof(db2) * 2;\r\n\
+dac2 = memory.read_char_array(buffer, offset, 2); offset += sizeof(dc2) * 2;\r\n\
+das2 = memory.read_short_array(buffer, offset, 2); offset += sizeof(ds2) * 2;\r\n\
+dai2 = memory.read_int_array(buffer, offset, 2); offset += sizeof(di2) * 2;\r\n\
+dal2 = memory.read_long_array(buffer, offset, 2); offset += sizeof(dl2) * 2;\r\n\
+daf2 = memory.read_float_array(buffer, offset, 2); offset += sizeof(df2) * 2;\r\n\
+dad2 = memory.read_double_array(buffer, offset, 2); offset += sizeof(dd2) * 2;\r\n\
+\r\n\
+assert(sb == db2);\r\n\
+assert(sc == dc2);\r\n\
+assert(ss == ds2);\r\n\
+assert(si == di2);\r\n\
+assert(sl == dl2);\r\n\
+assert(sf == df2);\r\n\
+assert(sd == dd2);\r\n\
+\r\n\
+assert(compare(sab, dab2));\r\n\
+assert(compare(sac, dac2));\r\n\
+assert(compare(sas, das2));\r\n\
+assert(compare(sai, dai2));\r\n\
+assert(compare(sal, dal2));\r\n\
+assert(compare(saf, daf2));\r\n\
+assert(compare(sad, dad2));\r\n\
+\r\n\
+assert(memory.as_float(memory.as_int(34.7f)) == 34.7f);\r\n\
+assert(memory.as_double(memory.as_long(34.7)) == 34.7);\r\n\
+\r\n\
+char[256] buffer2;\r\n\
+memory.copy(buffer2, 128, buffer, 0, 128);\r\n\
+\r\n\
+return memory.compare(buffer2, 128, buffer, 0, 128) == 0;";
+TEST_RESULT("std.memory test", testMemoryLib, "1");
+
+const char	*testNullcInNullc =
+"import nullc_in_nullc.parser;\r\n\
+\r\n\
+import nullc_in_nullc.analyzer;\r\n\
+import nullc_in_nullc.expressioneval;\r\n\
+\r\n\
+char[] code = @\"class Test{\r\n\
+int x, y;\r\n\
+int sum{ get{ return x + y; } };\r\n\
+int[2] xy{ get{ return {x, y}; } set{ x = r[0]; y = r[1]; } };\r\n\
+double doubleX{ get{ return x; } set(value){ x = value; return y; } };\r\n\
+}\r\n\
+Test a;\r\n\
+a.x = 14;\r\n\
+a.y = 15;\r\n\
+int c = a.sum;\r\n\
+a.xy = { 5, 1 };\r\n\
+double b;\r\n\
+b = a.doubleX = 5.0;\r\n\
+return a.sum;\";\r\n\
+\r\n\
+ParseContext syntaxCtx;\r\n\
+\r\n\
+auto syntaxModule = Parse(syntaxCtx, code);\r\n\
+\r\n\
+if(syntaxModule)\r\n\
+{\r\n\
+	ExpressionContext expressionCtx;\r\n\
+\r\n\
+	auto expressionModule = Analyze(expressionCtx, syntaxModule, code);\r\n\
+\r\n\
+	if(expressionModule)\r\n\
+	{\r\n\
+		char[256] errorBuf;\r\n\
+		char[] result = TestEvaluation(expressionCtx, expressionModule, errorBuf);\r\n\
+\r\n\
+		if(result != nullptr)\r\n\
+			return int(result);\r\n\
+\r\n\
+		return -3;\r\n\
+	}\r\n\
+\r\n\
+	return -2;\r\n\
+}\r\n\
+\r\n\
+return -1;";
+TEST_RESULT_SIMPLE("nullc compiler", testNullcInNullc, "6");

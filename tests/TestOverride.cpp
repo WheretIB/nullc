@@ -13,7 +13,7 @@ override(funcA, funcB);\r\n\
 override(funcB, auto(int y){ return y * 3 - 2; });\r\n\
 \r\n\
 return funcA(5) * funcB(5);";
-TEST("Function override between internal functions", testFunctionOverrideInternal, "130")
+TEST("Function override between internal functions [skip_c]", testFunctionOverrideInternal, "130")
 {
 	CHECK_INT("a", 0, -5, lastFailed);
 	CHECK_INT("b", 0, 10, lastFailed);
@@ -31,8 +31,8 @@ int RewriteB(int x)
 
 LOAD_MODULE_BIND(func_rewrite, "func.rewrite", "int funcA(int x); int funcNew(int x);")
 {
-	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteA, "funcA", 0);
-	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteB, "funcNew", 0);
+	nullcBindModuleFunctionHelper("func.rewrite", RewriteA, "funcA", 0);
+	nullcBindModuleFunctionHelper("func.rewrite", RewriteB, "funcNew", 0);
 }
 
 const char	*testFunctionOverrideInternalExternal =
@@ -48,7 +48,7 @@ override(funcA, funcB);\r\n\
 override(funcB, funcNew);\r\n\
 \r\n\
 return funcA(5) * funcB(5);";
-TEST_VM("Function override between internal and external functions", testFunctionOverrideInternalExternal, "130")
+TEST("Function override between internal and external functions [skip_c]", testFunctionOverrideInternalExternal, "130")
 {
 	CHECK_INT("a", 0, -5, lastFailed);
 	CHECK_INT("b", 0, 10, lastFailed);
@@ -90,7 +90,7 @@ override(funcA, funcB);\r\n\
 override(funcB, funcNew);\r\n\
 \r\n\
 return a_(5) * b_(5);";
-TEST_VM("Function override between internal and external functions (with function pointers)", testFunctionOverrideInternalExternalPtr, "130")
+TEST("Function override between internal and external functions (with function pointers)", testFunctionOverrideInternalExternalPtr, "130")
 {
 	CHECK_INT("a", 0, -5, lastFailed);
 	CHECK_INT("b", 0, 10, lastFailed);

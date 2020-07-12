@@ -10,11 +10,12 @@ COMP_CFLAGS=-g -Wall -Wextra -D NULLC_NO_EXECUTOR
 DYNCALL_FLAGS=-g -Wall -Wextra
 STDLIB_FLAGS=-lstdc++ -lm
 FUZZ_FLAGS=
+ALIGN_FLAGS=
 
 ifeq ($(config),release)
-	REG_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
-	COMP_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
-	DYNCALL_FLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
+	REG_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
+	COMP_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
+	DYNCALL_FLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)
@@ -41,25 +42,31 @@ ifeq ($(check),fuzz)
 	FUZZ_FLAGS = -fsanitize=fuzzer -DSANITIZE_FUZZER
 endif
 
+ifeq ($(CXX),clang)
+	ALIGN_FLAGS += -mllvm -align-all-nofallthru-blocks=4
+endif
+
 LIB_SOURCES = \
   NULLC/BinaryCache.cpp \
   NULLC/Bytecode.cpp \
   NULLC/CodeGen_X86.cpp \
+  NULLC/CodeGenRegVm_X86.cpp \
   NULLC/Compiler.cpp \
   NULLC/Executor_Common.cpp \
-  NULLC/Executor.cpp \
   NULLC/Executor_X86.cpp \
   NULLC/ExpressionEval.cpp \
   NULLC/ExpressionGraph.cpp \
   NULLC/ExpressionTranslate.cpp \
   NULLC/ExpressionTree.cpp \
   NULLC/InstructionTreeLlvm.cpp \
+  NULLC/InstructionTreeRegVm.cpp \
+  NULLC/InstructionTreeRegVmLower.cpp \
+  NULLC/InstructionTreeRegVmLowerGraph.cpp \
   NULLC/InstructionTreeVm.cpp \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
   NULLC/InstructionTreeVmGraph.cpp \
-  NULLC/InstructionTreeVmLower.cpp \
-  NULLC/InstructionTreeVmLowerGraph.cpp \
+  NULLC/Instruction_X86.cpp \
   NULLC/Lexer.cpp \
   NULLC/Linker.cpp \
   NULLC/nullc.cpp \
@@ -71,25 +78,30 @@ LIB_SOURCES = \
   NULLC/Translator_X86.cpp \
   NULLC/TypeTree.cpp
 
+LIB_SOURCES_VM = \
+  NULLC/Executor_RegVm.cpp
+
 LIB_TARGETS = \
   temp/BinaryCache.o \
   temp/Bytecode.o \
   temp/CodeGen_X86.o \
+  temp/CodeGenRegVm_X86.o \
   temp/Compiler.o \
   temp/Executor_Common.o \
-  temp/Executor.o \
   temp/Executor_X86.o \
   temp/ExpressionEval.o \
   temp/ExpressionGraph.o \
   temp/ExpressionTranslate.o \
   temp/ExpressionTree.o \
   temp/InstructionTreeLlvm.o \
+  temp/InstructionTreeRegVm.o \
+  temp/InstructionTreeRegVmLower.o \
+  temp/InstructionTreeRegVmLowerGraph.o \
   temp/InstructionTreeVm.o \
   temp/InstructionTreeVmCommon.o \
   temp/InstructionTreeVmEval.o \
   temp/InstructionTreeVmGraph.o \
-  temp/InstructionTreeVmLower.o \
-  temp/InstructionTreeVmLowerGraph.o \
+  temp/Instruction_X86.o \
   temp/Lexer.o \
   temp/Linker.o \
   temp/nullc.o \
@@ -101,22 +113,8 @@ LIB_TARGETS = \
   temp/Translator_X86.o \
   temp/TypeTree.o
 
-
-STDLIB_SOURCES = \
-  NULLC/includes/canvas.cpp \
-  NULLC/includes/dynamic.cpp \
-  NULLC/includes/file.cpp \
-  NULLC/includes/gc.cpp \
-  NULLC/includes/io.cpp \
-  NULLC/includes/list.cpp \
-  NULLC/includes/map.cpp \
-  NULLC/includes/math.cpp \
-  NULLC/includes/pugi.cpp \
-  NULLC/includes/random.cpp \
-  NULLC/includes/string.cpp \
-  NULLC/includes/time.cpp \
-  NULLC/includes/typeinfo.cpp \
-  NULLC/includes/vector.cpp
+LIB_TARGETS_VM = \
+  temp/Executor_RegVm.o
 
 PUGIXML_SOURCES = \
   external/pugixml/pugixml.cpp
@@ -127,15 +125,14 @@ STDLIB_TARGETS = \
   temp/lib/file.o \
   temp/lib/gc.o \
   temp/lib/io.o \
-  temp/lib/list.o \
-  temp/lib/map.o \
   temp/lib/math.o \
   temp/lib/pugi.o \
   temp/lib/random.o \
   temp/lib/string.o \
   temp/lib/time.o \
   temp/lib/typeinfo.o \
-  temp/lib/vector.o
+  temp/lib/vector.o \
+  temp/lib/memory.o
 
 PUGIXML_TARGETS = \
   temp/pugixml.o
@@ -165,8 +162,11 @@ endif
 temp/lib/%.o: NULLC/includes/%.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
-temp/%.o: NULLC/%.cpp
-	$(CXX) $(REG_CFLAGS) -c $< -o $@
+${LIB_TARGETS}: ${LIB_SOURCES}
+	$(CXX) $(REG_CFLAGS) -c $(@:temp/%.o=NULLC/%.cpp) -o $@
+
+${LIB_TARGETS_VM}: ${LIB_SOURCES_VM}
+	$(CXX) $(REG_CFLAGS) $(ALIGN_FLAGS) -c $(@:temp/%.o=NULLC/%.cpp) -o $@
 
 ${PUGIXML_TARGETS}: $(PUGIXML_SOURCES)
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
@@ -176,12 +176,6 @@ temp/dyncall/%.o: external/dyncall/%.c
 
 temp/dyncall_s/%.o: external/dyncall/%.S
 	$(CXX) $(DYNCALL_FLAGS) -c $< -o $@
-
-#~ ${LIB_TARGETS}: ${LIB_SOURCES}
-#~ $(CXX) $(REG_CFLAGS) -c $^ -o $@
-#~
-#~ ${STDLIB_TARGETS}: ${STDLIB_SOURCES}
-#~ $(CXX) $(REG_CFLAGS) -c $^ -o $@
 
 temp/.dummy:
 	mkdir -p temp
@@ -207,7 +201,7 @@ temp/testrun/.dummy:
 	mkdir -p temp/testrun
 	touch temp/testrun/.dummy
 	
-bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS} ${DYNCALL_TARGETS}
+bin/libnullc.a: ${LIB_TARGETS} ${LIB_TARGETS_VM} ${STDLIB_TARGETS} ${PUGIXML_TARGETS} ${DYNCALL_TARGETS}
 	$(AR) rcs $@ $^
 
 clean:
@@ -227,12 +221,13 @@ COMPILERLIB_SOURCES = \
   NULLC/ExpressionTranslate.cpp \
   NULLC/ExpressionTree.cpp \
   NULLC/InstructionTreeLlvm.cpp \
+  NULLC/InstructionTreeRegVm.cpp \
+  NULLC/InstructionTreeRegVmLower.cpp \
+  NULLC/InstructionTreeRegVmLowerGraph.cpp \
   NULLC/InstructionTreeVm.cpp \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
   NULLC/InstructionTreeVmGraph.cpp \
-  NULLC/InstructionTreeVmLower.cpp \
-  NULLC/InstructionTreeVmLowerGraph.cpp \
   NULLC/Lexer.cpp \
   NULLC/nullc.cpp \
   NULLC/ParseGraph.cpp \
@@ -250,12 +245,13 @@ COMPILERLIB_TARGETS = \
   temp/compiler/ExpressionTranslate.o \
   temp/compiler/ExpressionTree.o \
   temp/compiler/InstructionTreeLlvm.o \
+  temp/compiler/InstructionTreeRegVm.o \
+  temp/compiler/InstructionTreeRegVmLower.o \
+  temp/compiler/InstructionTreeRegVmLowerGraph.o \
   temp/compiler/InstructionTreeVm.o \
   temp/compiler/InstructionTreeVmCommon.o \
   temp/compiler/InstructionTreeVmEval.o \
   temp/compiler/InstructionTreeVmGraph.o \
-  temp/compiler/InstructionTreeVmLower.o \
-  temp/compiler/InstructionTreeVmLowerGraph.o \
   temp/compiler/Lexer.o \
   temp/compiler/nullc.o \
   temp/compiler/ParseGraph.o \

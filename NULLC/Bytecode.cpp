@@ -45,14 +45,14 @@ ExternNamespaceInfo* FindFirstNamespace(ByteCode *code)
 	return (ExternNamespaceInfo*)((char*)code + code->offsetToNamespaces);
 }
 
-char* FindCode(ByteCode *code)
+char* FindRegVmCode(ByteCode *code)
 {
-	return ((char*)(code) + code->offsetToCode);
+	return ((char*)(code)+code->regVmOffsetToCode);
 }
 
-ExternSourceInfo* FindSourceInfo(ByteCode *code)
+ExternSourceInfo* FindRegVmSourceInfo(ByteCode *code)
 {
-	return (ExternSourceInfo*)((char*)code + code->offsetToInfo);
+	return (ExternSourceInfo*)((char*)code + code->regVmOffsetToInfo);
 }
 
 char* FindSymbols(ByteCode *code)
@@ -63,4 +63,14 @@ char* FindSymbols(ByteCode *code)
 char* FindSource(ByteCode *code)
 {
 	return (char*)(code) + code->offsetToSource;
+}
+
+unsigned* FindRegVmConstants(ByteCode *code)
+{
+	return (unsigned*)((char*)(code) + code->regVmOffsetToConstants);
+}
+
+unsigned char* FindRegVmRegKillInfo(ByteCode *code)
+{
+	return (unsigned char*)((char*)(code) + code->regVmOffsetToRegKillInfo);
 }

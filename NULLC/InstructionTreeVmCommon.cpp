@@ -2,6 +2,7 @@
 
 #include "TypeTree.h"
 #include "InstructionTreeVm.h"
+#include "ExpressionTree.h"
 
 namespace
 {
@@ -95,10 +96,10 @@ VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int off
 {
 	if(trackUsers && container)
 	{
-		for(unsigned i = 0; i < container->users.size(); i++)
+		if(VmConstant **cached = container->offsetUsers.find(offset + 1))
 		{
-			if(container->users[i]->iValue == offset)
-				return container->users[i];
+			if (VmConstant *constant = *cached)
+				return constant;
 		}
 	}
 
@@ -108,7 +109,10 @@ VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int off
 	result->container = container;
 
 	if(trackUsers && container)
+	{
 		container->users.push_back(result);
+		container->offsetUsers.insert(offset + 1, result);
+	}
 
 	return result;
 }
@@ -140,6 +144,21 @@ VmConstant* CreateConstantFunction(Allocator *allocator, SynBase *source, VmFunc
 	result->fValue = function;
 
 	return result;
+}
+
+VmConstant* CreateConstantZero(Allocator *allocator, SynBase *source, VmType type)
+{
+	if(type == VmType::Int)
+		return CreateConstantInt(allocator, source, 0);
+
+	if(type == VmType::Double)
+		return CreateConstantDouble(allocator, source, 0);
+
+	if(type == VmType::Long)
+		return CreateConstantLong(allocator, source, 0);
+
+	assert(!"unknown type");
+	return NULL;
 }
 
 bool DoesConstantIntegerMatch(VmValue* value, long long number)
@@ -215,10 +234,49 @@ unsigned GetAccessSize(VmInstruction *inst)
 		return 8;
 	case VM_INST_STORE_STRUCT:
 		return inst->arguments[2]->type.size;
+	case VM_INST_MEM_COPY:
+		if(VmConstant *size = getType<VmConstant>(inst->arguments[4]))
+			return size->iValue;
+
+		assert(!"invalid memcopy instruction");
+		break;
+	case VM_INST_ADD_LOAD:
+	case VM_INST_SUB_LOAD:
+	case VM_INST_MUL_LOAD:
+	case VM_INST_DIV_LOAD:
+	case VM_INST_POW_LOAD:
+	case VM_INST_MOD_LOAD:
+	case VM_INST_LESS_LOAD:
+	case VM_INST_GREATER_LOAD:
+	case VM_INST_LESS_EQUAL_LOAD:
+	case VM_INST_GREATER_EQUAL_LOAD:
+	case VM_INST_EQUAL_LOAD:
+	case VM_INST_NOT_EQUAL_LOAD:
+	case VM_INST_SHL_LOAD:
+	case VM_INST_SHR_LOAD:
+	case VM_INST_BIT_AND_LOAD:
+	case VM_INST_BIT_OR_LOAD:
+	case VM_INST_BIT_XOR_LOAD:
+		if(VmConstant *loadInst = getType<VmConstant>(inst->arguments[3]))
+		{
+			switch(loadInst->iValue)
+			{
+			case VM_INST_LOAD_INT:
+			case VM_INST_LOAD_FLOAT:
+				return 4;
+			case VM_INST_LOAD_DOUBLE:
+			case VM_INST_LOAD_LONG:
+				return 8;
+			}
+		}
+
+		assert(!"unknown load type");
+		break;
 	default:
 		break;
 	}
 
+	assert(!"unknown access instruction");
 	return 0;
 }
 
@@ -249,11 +307,28 @@ bool HasAddressTaken(VariableData *container)
 				bool simpleUse = false;
 
 				if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+				{
 					simpleUse = true;
+				}
 				else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+				{
 					simpleUse = true;
+				}
+				else if(inst->cmd == VM_INST_MEM_COPY && (inst->arguments[0] == user || inst->arguments[2] == user))
+				{
+					simpleUse = true;
+				}
+				else if(inst->cmd == VM_INST_RETURN || inst->cmd == VM_INST_CALL)
+				{
+					if(user->isReference)
+						simpleUse = true;
+					else
+						simpleUse = false;
+				}
 				else
+				{
 					simpleUse = false;
+				}
 
 				if(!simpleUse)
 				{
@@ -334,6 +409,8 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "typeid";
 	case VM_INST_SET_RANGE:
 		return "setrange";
+	case VM_INST_MEM_COPY:
+		return "memcopy";
 	case VM_INST_JUMP:
 		return "jmp";
 	case VM_INST_JUMP_Z:
@@ -380,8 +457,40 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "or";
 	case VM_INST_BIT_XOR:
 		return "xor";
-	case VM_INST_LOG_XOR:
-		return "lxor";
+	case VM_INST_ADD_LOAD:
+		return "add_load";
+	case VM_INST_SUB_LOAD:
+		return "sub_load";
+	case VM_INST_MUL_LOAD:
+		return "mul_load";
+	case VM_INST_DIV_LOAD:
+		return "div_load";
+	case VM_INST_POW_LOAD:
+		return "pow_load";
+	case VM_INST_MOD_LOAD:
+		return "mod_load";
+	case VM_INST_LESS_LOAD:
+		return "lt_load";
+	case VM_INST_GREATER_LOAD:
+		return "gt_load";
+	case VM_INST_LESS_EQUAL_LOAD:
+		return "lte_load";
+	case VM_INST_GREATER_EQUAL_LOAD:
+		return "gte_load";
+	case VM_INST_EQUAL_LOAD:
+		return "eq_load";
+	case VM_INST_NOT_EQUAL_LOAD:
+		return "neq_load";
+	case VM_INST_SHL_LOAD:
+		return "shl_load";
+	case VM_INST_SHR_LOAD:
+		return "shr_load";
+	case VM_INST_BIT_AND_LOAD:
+		return "and_load";
+	case VM_INST_BIT_OR_LOAD:
+		return "or_load";
+	case VM_INST_BIT_XOR_LOAD:
+		return "xor_load";
 	case VM_INST_NEG:
 		return "neg";
 	case VM_INST_BIT_NOT:
@@ -404,9 +513,63 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "phi";
 	case VM_INST_BITCAST:
 		return "bitcast";
+	case VM_INST_MOV:
+		return "mov";
+	case VM_INST_DEF:
+		return "def";
+	case VM_INST_PARALLEL_COPY:
+		return "parallel_copy";
 	default:
 		assert(!"unknown instruction");
 	}
 
 	return "unknown";
+}
+
+VariableData* FindGlobalAt(ExpressionContext &exprCtx, unsigned offset)
+{
+	unsigned targetModuleIndex = offset >> 24;
+
+	if(targetModuleIndex)
+		offset = offset & 0xffffff;
+
+	for(unsigned i = 0; i < exprCtx.variables.size(); i++)
+	{
+		VariableData *variable = exprCtx.variables[i];
+
+		unsigned variableModuleIndex = variable->importModule ? variable->importModule->importIndex : 0;
+
+		if(IsGlobalScope(variable->scope) && variableModuleIndex == targetModuleIndex && offset >= variable->offset && (offset < variable->offset + variable->type->size || variable->type->size == 0))
+			return variable;
+	}
+
+	return NULL;
+}
+
+TypeBase* GetBaseType(ExpressionContext &ctx, VmType type)
+{
+	if(type == VmType::Void)
+		return ctx.typeVoid;
+	else if(type == VmType::Int)
+		return ctx.typeInt;
+	else if(type == VmType::Double)
+		return ctx.typeDouble;
+	else if(type == VmType::Long)
+		return ctx.typeLong;
+	else if(type.type == VM_TYPE_POINTER)
+		return type.structType;
+	else if(type.type == VM_TYPE_FUNCTION_REF)
+		return type.structType;
+	else if(type.type == VM_TYPE_ARRAY_REF)
+		return type.structType;
+	else if(type == VmType::AutoRef)
+		return ctx.typeAutoRef;
+	else if(type == VmType::AutoArray)
+		return ctx.typeAutoArray;
+	else if(type.type == VM_TYPE_STRUCT)
+		return type.structType;
+	else
+		assert(!"unknown type");
+
+	return NULL;
 }

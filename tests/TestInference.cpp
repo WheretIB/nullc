@@ -657,3 +657,17 @@ const char	*testShortInlineFunctionNoArguments =
 "int foo(int ref() f){ return f(); }\r\n\
 return foo(<>{ 5; });";
 TEST_RESULT("short inline function with no arguments", testShortInlineFunctionNoArguments, "5");
+
+const char	*testShortInlineFunctionOverloads =
+"float foo(float ref(float) f, int ref x){ return f(1.0f); }\r\n\
+int foo(int ref(int) f)\r\n\
+{\r\n\
+	if(f(1) >= 10)\r\n\
+		return 10;\r\n\
+\r\n\
+	return f(foo(<x>{ return f(x + 1); }));\r\n\
+}\r\n\
+\r\n\
+int bar(int x){ return x + 2; }\r\n\
+return foo(bar);";
+TEST_RESULT("short inline function produces a selection between overloads with each having an expternal context", testShortInlineFunctionOverloads, "45");

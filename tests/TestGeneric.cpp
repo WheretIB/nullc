@@ -123,6 +123,25 @@ TEST("Generic member function test 2 ", testGeneric10a, "1084")
 	CHECK_LONG("c", 0, 14, lastFailed);
 }
 
+const char *testGeneric10c =
+"class Foo\r\n\
+{\r\n\
+	auto foo(generic a){ return a * 2; }\r\n\
+}\r\n\
+Foo x;\r\n\
+\r\n\
+auto a = x.foo(5);\r\n\
+auto b = x.foo(3.5);\r\n\
+auto c = x.foo(7000000000l);\r\n\
+\r\n\
+return long(a * 100 + b * 10 + c);";
+TEST("Generic member function test 3", testGeneric10c, "14000001070L")
+{
+	CHECK_INT("a", 0, 10, lastFailed);
+	CHECK_DOUBLE("b", 0, 7, lastFailed);
+	CHECK_LONG("c", 0, 14000000000ll, lastFailed);
+}
+
 const char *testGeneric11 =
 "int foo(int x)\r\n\
 {\r\n\
@@ -1773,6 +1792,85 @@ int operator+(int a, int ref(int) b){ return a + b(1); }\r\n\
 return 1 + a.f;";
 TEST_RESULT("Class generic function pointer access selection (return type match)", testGeneric154, "3");
 
+const char *testGeneric155 =
+"auto foo(@T x){ return new T(){ this.x = 2 * x; }; }\r\n\
+\r\n\
+class A{ int x = 10; }\r\n\
+class B{ float x = 2.5; }\r\n\
+\r\n\
+return int(foo(A()).x + foo(B()).x + 0.5);";
+TEST_RESULT("Local functions must be analyzed again in a generic function instantiation", testGeneric155, "25");
+
+const char *testGeneric156 =
+"auto foo(generic ref(generic ref(generic)) bar)\r\n\
+{\r\n\
+	return bar(<float x>{ 2 * x; });\r\n\
+}\r\n\
+\r\n\
+int a1 = 2;\r\n\
+auto a = foo(int aa(int ref(int) x){ return x(a1); });\r\n\
+\r\n\
+float b1 = 3.5;\r\n\
+auto b = foo(int bb(int ref(float) x){ return x(b1); });\r\n\
+\r\n\
+return a + b;";
+TEST_RESULT("Same short function instance request with different types", testGeneric156, "11");
+
+const char *testGeneric157 =
+"auto foo(generic a, int ref(int ref(int)) bar)\r\n\
+{\r\n\
+	return bar(<x>{ a * x; });\r\n\
+}\r\n\
+\r\n\
+auto a = foo(2, int aa(int ref(int) x){ return x(5); });\r\n\
+auto b = foo(3.2, int aa(int ref(int) x){ return x(5); });\r\n\
+\r\n\
+return a + b;";
+TEST_RESULT("Same short function instance request with different closure types 1", testGeneric157, "26");
+
+const char *testGeneric158 =
+"auto foo(int a, int ref(int ref(int)) bar, generic c)\r\n\
+{\r\n\
+	return bar(<x>{ a * x; });\r\n\
+}\r\n\
+\r\n\
+auto a = foo(2, int aa(int ref(int) x){ return x(5); }, 1);\r\n\
+auto b = foo(3, int aa(int ref(int) x){ return x(5); }, 2.5);\r\n\
+\r\n\
+return a + b;";
+TEST_RESULT("Same short function instance request with different closure types 2", testGeneric158, "25");
+
+const char *testGeneric159 =
+"auto foo<@T>(int a, int ref(int ref(int)) bar)\r\n\
+{\r\n\
+	return bar(<x>{ a * x; });\r\n\
+}\r\n\
+\r\n\
+auto a = foo with<int>(2, int aa(int ref(int) x){ return x(5); });\r\n\
+auto b = foo with<float>(3, int aa(int ref(int) x){ return x(5); });\r\n\
+\r\n\
+return a + b;";
+TEST_RESULT("Same short function instance request with different closure types 3", testGeneric159, "25");
+
+const char *testGeneric160 =
+"float foo(int idx, float ref(float) f, int ref x)\r\n\
+{\r\n\
+	return f(1.0f);\r\n\
+}\r\n\
+int foo(int idx, int ref(int) f)\r\n\
+{\r\n\
+	if(idx > 4)\r\n\
+		return 2;\r\n\
+\r\n\
+	return f(2 + foo(idx + 1, <x1>{\r\n\
+		return 2 + foo(idx + 1, <x2>{\r\n\
+			return 2 + x1 + x2;\r\n\
+		});\r\n\
+	}));\r\n\
+}\r\n\
+return foo(1, <x>{ x + 2; });";
+TEST_RESULT("Same short function instance request with different closure types 4", testGeneric160, "76");
+
 const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";
@@ -1804,3 +1902,10 @@ const char *testGenericClassOperatorInANamespace =
 auto x = Test.Foo(1), y = Test.Foo(20);\r\n\
 return x + y;";
 TEST_RESULT("Generic operator of a class defined in a namespace", testGenericClassOperatorInANamespace, "21");
+
+const char *testGenericClassMemberFunction =
+"class F{ int x; }\r\n\
+void F:F<@J>(int a){ x = a * sizeof(J); }\r\n\
+auto x = F with<int>(5);\r\n\
+return x.x;";
+TEST_RESULT("Generic member function of a regular class", testGenericClassMemberFunction, "20");

@@ -1,27 +1,11 @@
 #include "dynamic.h"
 #include "../nullc.h"
+#include "../nullbind.h"
 #include "../nullc_debug.h"
 
 namespace NULLCDynamic
 {
 	Linker *linker = NULL;
-
-	void RewriteX86(unsigned dest, unsigned src)
-	{
-		ExternFuncInfo &destFunc = linker->exFunctions[dest];
-		ExternFuncInfo &srcFunc = linker->exFunctions[src];
-		linker->UpdateFunctionPointer(dest, src);
-		if(srcFunc.funcPtr && !destFunc.funcPtr)
-		{
-			nullcThrowError("Internal function cannot be overridden with external function on x86");
-			return;
-		}
-		if(destFunc.funcPtr && !srcFunc.funcPtr)
-		{
-			nullcThrowError("External function cannot be overridden with internal function on x86");
-			return;
-		}
-	}
 
 	void OverrideFunction(NULLCRef dest, NULLCRef src)
 	{
@@ -41,13 +25,8 @@ namespace NULLCDynamic
 			nullcThrowError("Cannot convert from '%s' to '%s'", &linker->exSymbols[linker->exTypes[src.typeID].offsetToName], &linker->exSymbols[linker->exTypes[dest.typeID].offsetToName]);
 			return;
 		}
-		ExternFuncInfo &destFunc = linker->exFunctions[((NULLCFuncPtr*)dest.ptr)->id];
-		ExternFuncInfo &srcFunc = linker->exFunctions[((NULLCFuncPtr*)src.ptr)->id];
-		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-			RewriteX86(((NULLCFuncPtr*)dest.ptr)->id, ((NULLCFuncPtr*)src.ptr)->id);
-		destFunc.address = srcFunc.address;
-		destFunc.funcPtr = srcFunc.funcPtr;
-		destFunc.codeSize = srcFunc.codeSize;
+
+		nullcRedirectFunction(((NULLCFuncPtr*)dest.ptr)->id, ((NULLCFuncPtr*)src.ptr)->id);
 	}
 
 	void Override(NULLCRef dest, NULLCArray code)
@@ -87,16 +66,11 @@ namespace NULLCDynamic
 		}
 		delete[] bytecode;
 
-		ExternFuncInfo &destFunc = linker->exFunctions[((NULLCFuncPtr*)dest.ptr)->id];
-		ExternFuncInfo &srcFunc = linker->exFunctions.back();
-		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-			RewriteX86(((NULLCFuncPtr*)dest.ptr)->id, linker->exFunctions.size() - 1);
-		destFunc.address = srcFunc.address;
-		destFunc.codeSize = srcFunc.codeSize;
+		nullcRedirectFunction(((NULLCFuncPtr*)dest.ptr)->id, linker->exFunctions.size() - 1);
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.dynamic", (void(*)())NULLCDynamic::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.dynamic", NULLCDynamic::funcPtr, name, index)) return false;
 bool	nullcInitDynamicModule(Linker* linker)
 {
 	NULLCDynamic::linker = linker;

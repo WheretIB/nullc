@@ -113,7 +113,7 @@ void RunCompileFailTests()
 
 	TEST_FOR_FAIL("class wrong alignment", "align(13) class test{int a;} return 1;", "ERROR: alignment must be power of two");
 	TEST_FOR_FAIL("class wrong alignment", "align(32) class test{int a;} return 1;", "ERROR: alignment must be less than 16 bytes");
-	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;", "ERROR: auto variable must be initialized in place of definition");
+	TEST_FOR_FAIL("class member auto", "class test{ auto i; } return 1;", "ERROR: member variable type cannot be 'auto'");
 	TEST_FOR_FAIL("class is too big", "class nobiggy{ int[128][128][4] a; } return 1;", "ERROR: class size cannot exceed 65535 bytes");
 
 	TEST_FOR_FAIL("array size not const", "import std.math; int[cos(12) * 16] a; return a[0];", "ERROR: array size cannot be evaluated");
@@ -191,6 +191,8 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("new auto;", "auto a = new auto;", "ERROR: can't allocate objects of type 'auto'");
 	TEST_FOR_FAIL("new void;", "auto a = new void;", "ERROR: can't allocate objects of type 'void'");
 	TEST_FOR_FAIL("new void[];", "auto a = new void[8];", "ERROR: can't allocate objects of type 'void'");
+	TEST_FOR_FAIL("new array", "int a = 10; new (typeof(1)[a])(1);", "ERROR: can't provide constructor arguments to array allocation");
+	TEST_FOR_FAIL("new array", "int a = 10; new (typeof(1)[a]){ *this = 1; };", "ERROR: can't provide custom construction code for array allocation");
 
 	TEST_FOR_FAIL("Array underflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][-1000000];", "ERROR: array index cannot be negative");
 	TEST_FOR_FAIL("Array overflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][1000000];", "ERROR: array index out of bounds");
@@ -222,10 +224,10 @@ int[foo(3)] arr;";
 
 	TEST_FOR_FAIL("Read-only member", "int[] arr; arr.size = 10; return arr.size;", "ERROR: cannot change immutable value of type int");
 	TEST_FOR_FAIL("Read-only member", "auto ref x; x.type = int; return 1;", "ERROR: cannot change immutable value of type typeid");
-	TEST_FOR_FAIL("Read-only member", "auto ref x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from void ref to void");
+	TEST_FOR_FAIL("Read-only member", "auto ref x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from 'void ref' to 'void'");
 	TEST_FOR_FAIL("Read-only member", "auto[] x; x.type = int; return 1;", "ERROR: cannot change immutable value of type typeid");
 	TEST_FOR_FAIL("Read-only member", "auto[] x; x.size = 10; return 1;", "ERROR: cannot change immutable value of type int");
-	TEST_FOR_FAIL("Read-only member", "auto[] x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from void ref to void");
+	TEST_FOR_FAIL("Read-only member", "auto[] x, y; x.ptr = y.ptr; return 1;", "ERROR: cannot convert from 'void ref' to 'void'");
 	TEST_FOR_FAIL("Read-only member", "int[] x = new int[2]; (&x.size)++; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "int[] x = new int[2]; (&x.size)--; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)++; return x.size;", "ERROR: cannot get address of the expression");
@@ -242,7 +244,7 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("number constant overflow (oct)", "return 02777777777777777777777;", "ERROR: overflow in octal constant");
 	TEST_FOR_FAIL("number constant overflow (bin)", "return 011111111111111111111111111111111111111111111111111111111111111111b;", "ERROR: overflow in binary constant");
 
-	TEST_FOR_FAIL("variable with class name", "class Test{} int Test = 5; return Test;", "ERROR: name 'Test' is already taken for a class");
+	TEST_FOR_FAIL("variable with class name", "class Test{} int Test = 5; return Test;", "ERROR: name 'Test' is already taken for a type");
 
 	TEST_FOR_FAIL("List comprehension of void type", "auto fail = { for(;0;){ yield; } };", "ERROR: cannot generate an array of 'void' element type");
 	TEST_FOR_FAIL("List comprehension of unknown type", "auto fail = { for(;0;){} };", "ERROR: not a single element is generated, and an array element type is unknown");
@@ -285,6 +287,8 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function which accepts a 
 
 	TEST_FOR_FAIL("multiple function prototypes", "int foo(); int foo(); int foo(){ return 1; } return 1;", "ERROR: function is already defined");
 	TEST_FOR_FAIL("function prototype after definition", "int foo(){ return 1; } int foo(); return 1;", "ERROR: function 'foo' is being defined with the same set of arguments");
+	TEST_FOR_FAIL("function prototype coroutine mismatch", "int foo(); coroutine int foo(){ return 2; } return foo();", "ERROR: function prototype was not a coroutine");
+	TEST_FOR_FAIL("function prototype coroutine mismatch", "coroutine int foo(); int foo(){ return 2; } return foo();", "ERROR: function prototype was a coroutine");
 
 	TEST_FOR_FAIL("unimplemented local function", "int foo(){ int bar(); return bar(); } return foo();", "ERROR: local function 'bar' went out of scope unimplemented");
 
@@ -296,6 +300,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function which accepts a 
 	TEST_FOR_FAIL("buffer overrun prevention", "int foo(generic a){ return -; /* %s %s %s %s %s %s %s %s %s %s %s %s %s %s */ } return foo(1);", "ERROR: expression not found after '-'");
 	TEST_FOR_FAIL("Infinite instantiation recursion", "auto foo(generic a){ typeof(a) ref x; return foo(x); } return foo(1);", "ERROR: reached maximum generic function instance depth (64)");
 	TEST_FOR_FAIL("Infinite instantiation recursion 2", "auto foo(generic a){ typeof(a) ref(typeof(a) ref, typeof(a) ref, typeof(a) ref) x; return foo(x); } return foo(1);", "ERROR: generated function type name exceeds maximum type length '8192'");
+	TEST_FOR_FAIL("Infinite instantiation recursion 3", "class Foo<T>: Foo<T ref>{} Foo<int> a;", "ERROR: reached maximum generic type instance depth (64)");
 	TEST_FOR_FAIL("auto resolved to void", "void foo(){} auto x = foo();", "ERROR: r-value type is 'void'");
 	TEST_FOR_FAIL("unclear decision at return", "int foo(int x){ return -x; } int foo(float x){ return x * 2.0f; } auto bar(){ return foo; }", "ERROR: ambiguity, there is more than one overloaded function available:");
 
@@ -329,7 +334,7 @@ return bar(foo);",
   at line 4: 'return bar(foo);'\n\
                         ^\n");
 
-	TEST_FOR_FAIL("generic function instance type unknown", "auto y = auto(generic y){ return -y; };", "ERROR: cannot instance generic function, because target type is not known");
+	TEST_FOR_FAIL("generic function instance type unknown", "auto y = auto(generic y){ return -y; };", "ERROR: cannot instantiate generic function, because target type is not known");
 
 	TEST_FOR_FAIL_FULL("cannot instance function in argument list", "int foo(int f){ return f; }\r\nreturn foo(auto(generic y){ return -y; });",
 "ERROR: can't find function 'foo' with following arguments:\n\
@@ -555,7 +560,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo x;", "ERROR: type 'Foo' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a = new Foo;", "ERROR: type 'Foo' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a; auto x = *a;", "ERROR: type 'Foo' is not fully defined");
-	TEST_FOR_FAIL("class prototype", "class Foo; return 1;", "ERROR: type 'Foo' is not fully defined");
 
 	TEST_FOR_FAIL("class undefined", "class bar{ bar[12] arr; }", "ERROR: type 'bar' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class foo; foo[1] f;", "ERROR: type 'foo' is not fully defined");
@@ -580,6 +584,7 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("No constructor", "auto std() { return 1; } auto main() { return typeof(std)(1.0f); }", "ERROR: cannot convert 'float' to 'int ref()'");
 	TEST_FOR_FAIL("Prototype is redeclared as generic", "class Foo; Foo ref a; class Foo<T, U>{ T x; U y; }", "ERROR: type 'Foo' was forward declared as a non-generic type");
+	TEST_FOR_FAIL("Generic type redefinition", "class Foo<T>{} class Foo<T>{} return 1;", "ERROR: 'Foo' is being redefined");
 
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } int a = x.y;", "ERROR: cannot convert 'x' to 'int'");
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x b = 67;", "ERROR: cannot convert 'int' to 'x'");
@@ -593,13 +598,17 @@ return int(y() + z());",
 	TEST_FOR_FAIL("test for bug in function call", "int foo(void ref() f, char[] x = \"x\", int a = 2){ return 5; } return foo(\"f\");", "ERROR: can't find function 'foo' with following arguments:");
 
 	TEST_FOR_FAIL("namespace error", "namespace Test{} class Test{}", "ERROR: name 'Test' is already taken for a namespace");
-	TEST_FOR_FAIL("namespace error", "class Test{} namespace Test{}", "ERROR: name 'Test' is already taken for a class");
+	TEST_FOR_FAIL("namespace error", "class Test{} namespace Test{}", "ERROR: name 'Test' is already taken for a type");
 	TEST_FOR_FAIL("namespace error", "namespace Test{} class Test;", "ERROR: name 'Test' is already taken for a namespace");
-	TEST_FOR_FAIL("namespace error", "class Test; namespace Test{}", "ERROR: name 'Test' is already taken for a class");
+	TEST_FOR_FAIL("namespace error", "class Test; namespace Test{}", "ERROR: name 'Test' is already taken for a type");
 	TEST_FOR_FAIL("namespace error", "namespace Test{} int Test;", "ERROR: name 'Test' is already taken for a namespace");
 	TEST_FOR_FAIL("namespace error", "int Test; namespace Test{}", "ERROR: name 'Test' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ int foo(){ return 12; } } return foo();", "ERROR: unknown identifier 'foo'");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested.x;", "ERROR: unknown identifier 'Nested'");
+
+	TEST_FOR_FAIL("enum error", "namespace Test{} enum Test{ A }", "ERROR: name 'Test' is already taken for a namespace");
+	TEST_FOR_FAIL("enum error", "enum Test{ A } namespace Test{}", "ERROR: name 'Test' is already taken for a type");
+	TEST_FOR_FAIL("enum error", "enum bool{ True, False }", "ERROR: 'bool' is being redefined");
 
 	TEST_FOR_FAIL("no biggy", "int[1024 * 1024 * 1024] f; f[3] = 0;", "ERROR: variable size limit exceeded");
 
@@ -715,6 +724,9 @@ while instantiating generic function foo(generic)\n\
 	TEST_FOR_FAIL("ambiguity (generic, named)", "class Test{ auto foo(generic i){ return -i; } auto foo(generic i, int j = 2){ return i + j; } } auto ref x = new Test; return x.foo(1);", "ERROR: ambiguity, there is more than one overloaded function available for the call:");
 
 	TEST_FOR_FAIL("not extendable", "class A{ int x; } class B : A{ int y; }", "ERROR: type 'A' is not extendable");
+	TEST_FOR_FAIL("no object slicing", "class A extendable {} class B : A{ int y; } B b; A a = b;", "ERROR: cannot convert 'B' to 'A'");
+
+	TEST_FOR_FAIL("no common type", "class A extendable{} class B: A{} class C: A{} auto b = new B(); auto c = new C(); return (b == c ? b : c) == c;", "ERROR: can't find common type between 'B ref' and 'C ref'");
 
 	TEST_FOR_FAIL("unknown type for operation", "return -nullptr;", "ERROR: unary operation '-' is not supported on '__nullptr'");
 	TEST_FOR_FAIL("unknown type for operation", "return ~nullptr;", "ERROR: unary operation '~' is not supported on '__nullptr'");
@@ -724,6 +736,7 @@ while instantiating generic function foo(generic)\n\
 	TEST_FOR_FAIL("unknown type for operation", "auto ref x; return ~x;", "ERROR: unary operation '~' is not supported on 'auto ref'");
 
 	TEST_FOR_FAIL("fake nullptr", "void ref b; int ref a = b;", "ERROR: cannot convert 'void ref' to 'int ref'");
+	TEST_FOR_FAIL("void value", "void ref b; return *b;", "ERROR: cannot dereference type 'void ref'");
 
 	TEST_FOR_FAIL("explicit generic function types", "return foo with int();", "ERROR: '<' not found before explicit generic type alias list");
 	TEST_FOR_FAIL("explicit generic function types", "return foo with<int,>();", "ERROR: type name is expected after ','");
@@ -780,13 +793,14 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("generic function misuse 1", "return 2 + auto(@T x){};", "ERROR: can't find function '+' with following arguments:");
 	TEST_FOR_FAIL("generic function misuse 2", "auto x = { auto(@T x){} };", "ERROR: ambiguity, the expression is a generic function");
-	TEST_FOR_FAIL("generic function misuse 3", "return sizeof((auto(@T x){}));", "ERROR: cannot instance generic function, because target type is not known");
-	TEST_FOR_FAIL("generic function misuse 4", "return typeof(auto(@T x){});", "ERROR: cannot instance generic function, because target type is not known");
+	TEST_FOR_FAIL("generic function misuse 3", "return sizeof((auto(@T x){}));", "ERROR: cannot instantiate generic function, because target type is not known");
+	TEST_FOR_FAIL("generic function misuse 4", "return typeof(auto(@T x){});", "ERROR: cannot instantiate generic function, because target type is not known");
 	TEST_FOR_FAIL("generic function misuse 5", "if(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 6", "for(; auto(@T x){}; ){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 7", "while(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 8", "do{}while(auto(@T x){});", "ERROR: ambiguity, the expression is a generic function");
-
+	TEST_FOR_FAIL("generic function misuse 9", "for(i in auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
+	
 	TEST_FOR_FAIL("fuzzy test 1", "typedef auto Foo;", "ERROR: can't alias 'auto' type");
 	TEST_FOR_FAIL("fuzzy test 2", "\"test\"[];", "ERROR: can't find function '[]' with following arguments:");
 	TEST_FOR_FAIL("fuzzy test 3", "auto[sizeof(4)];", "ERROR: cannot specify array size for auto");
@@ -832,7 +846,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("invalid generic type use 13", "generic foo(); return foo();", "ERROR: return type can't be generic");
 
 	TEST_FOR_FAIL("non-value argument", "int f(typeid x){ return 1; } assert(typeof(f).argument);", "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
-
+	TEST_FOR_FAIL("unresolved type", "typeof(int ref(int, int).argument) a;", "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+	
 	TEST_FOR_FAIL("duplicate enum member name", "enum Bar{ A, A, C, D }", "ERROR: name 'A' is already taken");
 
 	TEST_FOR_FAIL("invalid cast", "int ref(bool ref) x = int f(bool ref x){ return *x; }; return x(2);", "ERROR: cannot convert 'int' to 'bool ref'");
@@ -858,6 +873,16 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("for each variables scope", "auto arr = { { 1, 2, 3, 4 }, { 1, 2, 3, 4 } }; for(auto a in arr, auto b in a){ return 0; }", "ERROR: unknown identifier 'a'");
 
+	TEST_FOR_FAIL("function argument size limit", "class Large{ int x, y, z, w; int[16] pad; } class Huge{ Large[512] b; } auto test8(Huge a, b){ return b.b[110].x; }", "ERROR: function argument size cannot exceed 65536");
+
+	TEST_FOR_FAIL("restore after explicit generic error type", "auto op2<@T>(@T a, b, c, d){ return a - b - c - d; } return op2 with<T>(1000, 2, 3, 4);", "ERROR: 'T' is not a known type name");
+
+	TEST_FOR_FAIL("void conversion", "auto ref a; void(a);", "ERROR: cannot convert 'auto ref' to 'void'");
+	TEST_FOR_FAIL("void conversion", "auto foo(auto ref x){return x.ptr;} auto u = foo(void());", "ERROR: cannot convert 'void' to 'auto ref'");
+
+	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ int bar(int a){ return 8 + y; } return foo(4); }", "ERROR: unknown identifier 'bar'");
+	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ { int bar(int a){ return 8 + y; } return foo(4); } }", "ERROR: unknown identifier 'bar'");
+
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");
@@ -879,21 +904,105 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "Auto int:toString(){}", "ERROR: 'Auto' is not a known type name");
 	TEST_FOR_FAIL("fuzzing test crash", "int a = 4;@if(typeof(a) !=)tn i{f;}ora;", "ERROR: expression not found after binary operation");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{ T x; }Foo a = Foo<int>((;a.x = 6;int foo(Foo a){return a.x;}foo(a);", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "int auto.c(){ return 0; }", "ERROR: cannot add accessor to type 'auto'");
+	TEST_FOR_FAIL("fuzzing test crash", "int auto:c(){ return 0; }", "ERROR: cannot add member function to type 'auto'");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ int bar(); int bar(int x); yield bar; }", "ERROR: ambiguity, there is more than one overloaded function available:");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ auto a = 2; class T{ int b = a; } }", "ERROR: member function 'T::T$' cannot access external variable 'a'");
+	TEST_FOR_FAIL("fuzzing test crash", "auto(@e x=){}", "ERROR: default argument value not found after '='");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ for(a in foo){} }", "ERROR: function 'foo' type is unresolved at this point");
+	TEST_FOR_FAIL("fuzzing test crash", "switch(auto(@n x){}){}", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("fuzzing test crash", "long x = auto r(){};", "ERROR: cannot convert 'void ref()' to 'long'");
+	TEST_FOR_FAIL("fuzzing test crash", "(.target", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.first", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.last", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.return", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.size", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "(.arraySize", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "auto bar<@T,@U>(){ return 1; } return bar with<int,int>() + bar with<>();", "ERROR: type name is expected after 'with'");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}d Foo : o(typeof(Foo<auto ref>o(", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}typeid Foo:foo(typeof(T(= }Foo<void>test3; test3.foo(4", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("fuzzing test crash", "auto foo(generic x){}coroutine auto f(){auto x = foo;}", "ERROR: cannot instantiate generic function, because target type is not known");
+	TEST_FOR_FAIL("fuzzing test crash", "@if{", "ERROR: '(' not found after 'if'");
+	TEST_FOR_FAIL("fuzzing test crash", "@\"", "ERROR: unclosed string constant");
+	TEST_FOR_FAIL("fuzzing test crash", "class const int,", "ERROR: class name expected");
+	TEST_FOR_FAIL("fuzzing test crash", "@if new", "ERROR: '(' not found after 'if'");
+	TEST_FOR_FAIL("fuzzing test crash", " generic  double = typeof  in  typeid[] ", "ERROR: typeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash", "void foo(); (void ref a(){})() += foo();", "ERROR: function must return a value of type 'void ref'");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo{ const auto a = { for(; 1;) yield 1; }; }", "ERROR: member function can't be called without a class instance");
+	TEST_FOR_FAIL("fuzzing test crash", "new short[] >>= void();", "ERROR: second operand type is 'void'");
+	TEST_FOR_FAIL("fuzzing test crash", "void foo(){} typeof(foo())[] x;", "ERROR: cannot define an array of 'void'");
+	TEST_FOR_FAIL("fuzzing test crash", " generic ref  b = b += b; ", "ERROR: variable 'b' is being used while its type is unknown");
+	TEST_FOR_FAIL("fuzzing test crash", "while  bool  bool((bool(+= bool (", "ERROR: '(' not found after 'while'");
+	TEST_FOR_FAIL("fuzzing test crash", "yield{ for(switch  generic[]", "ERROR: ';' not found after initializer in 'for'");
+	TEST_FOR_FAIL("fuzzing test crash", "@?{{?@=@=", "ERROR: name expected after '@'");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto({auto a=2class T i b=a", "ERROR: ')' not found after function variable list");
+	TEST_FOR_FAIL("fuzzing test crash", "auto f<@T>(){} f with<@U>();", "ERROR: cannot take typeid from generic type");
+	TEST_FOR_FAIL("fuzzing test crash", "auto o(@T ref, i}o(&, <", "ERROR: variable name not found after type in function variable list");
+	TEST_FOR_FAIL("fuzzing test crash", "int foo(@T ref(int) f){ return f(5); } foo(<x>{ auto(@t t){} });", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("fuzzing test crash", "auto o(generic ref, r}o(k, <", "ERROR: variable name not found after type in function variable list");
+	TEST_FOR_FAIL("fuzzing test crash", "an[n[n[n[n[n[n[a[n[nn[n[a[n[n[n<", "ERROR: expression not found after binary operation");
+	TEST_FOR_FAIL("fuzzing test crash", "int(new int{ class a{ int R{get} } };", "ERROR: function body expected after 'get'");
+	TEST_FOR_FAIL("fuzzing test crash", "auto foo(generic i, j){}foo(i:2);", "ERROR: can't find function 'foo' with following arguments:");
+	TEST_FOR_FAIL("fuzzing test crash", "class j{ @if(j o(){class j{}}){}}", "ERROR: 'j' is being redefined");
+	TEST_FOR_FAIL("fuzzing test crash", "double fo(do typeof(fo).argument[.", "ERROR: ')' not found after function variable list");
+	TEST_FOR_FAIL("fuzzing test crash", "class X{} int X:foo(){ return 1; } auto ref y; int ref() z = y.foo;", "ERROR: can't convert dynamic function set to 'int ref()'");
+	TEST_FOR_FAIL("fuzzing test crash", "auto ref x; *x = assert;", "ERROR: ambiguity, there is more than one overloaded function available:");
+	TEST_FOR_FAIL("fuzzing test crash", "int(new{ class auto ref x = Foo; void Foo(", "ERROR: type name expected after 'new'");
+	TEST_FOR_FAIL("fuzzing test crash", "class a; a(); class a{}", "ERROR: type 'a' is not fully defined");
+	TEST_FOR_FAIL("fuzzing test crash", "int foo(int ref a){ return *a; } auto bar = foo; class Foo{ float x = 1.0f; } Foo a; bar(a);", "ERROR: cannot convert 'Foo' to 'int ref'");
+	TEST_FOR_FAIL("fuzzing test crash", "enum f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(f(int o(\"\"[@=@=", "ERROR: '{' not found after enum name");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo(Foo(&&duplicate", "ERROR: '{' not found after class name");
+	TEST_FOR_FAIL("fuzzing test crash", "for({ int i; break; }; i < 5; i++){}", "ERROR: break level is greater that loop depth");
+	TEST_FOR_FAIL("fuzzing test crash", "auto(@c=auto(@c", "ERROR: variable name not found after type in function variable list");
+	TEST_FOR_FAIL("fuzzing test crash", "long ro;{typeof(typeof(void o(){ enum X{ A } }).............|void ro(){})............}", "ERROR: member name expected after '.'");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo extendable{ auto f(){ f(); } }", "ERROR: function type is unresolved at this point");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto(){ int i; class X{ const int A = i; } }", "ERROR: expression didn't evaluate to a constant number");
+	TEST_FOR_FAIL("fuzzing test crash", "auto a(){ return a; } a();", "ERROR: function 'a' type is unresolved at this point");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto a(){ yield a; } a();", "ERROR: function 'a' type is unresolved at this point");
+	TEST_FOR_FAIL("fuzzing test crash", "class X{ auto foo(auto ref y){ auto z = y.foo; } }", "ERROR: function type is unresolved at this point");
+	TEST_FOR_FAIL("fuzzing test crash", "(int)[(int)[4 in void k(){ (int)[(int)[4 in(1) ........................ * ....................... *  ........................ * ...................... * .]; }]];", "ERROR: member name expected after '.'");
+	TEST_FOR_FAIL("fuzzing test crash", "class Fo{}bool bool(Fo f){ return true; }(Fo() && int o(){enum f{A}void f.f(){}(void f.c(){f();});return 0;});", "ERROR: name 'f' is already taken for a type");
+	TEST_FOR_FAIL("fuzzing test crash", "int f(){ int foo(@t ref() a){ return 1; } int foo(int ref() b){ return -foo(<>{ f; }); } return 2; }", "ERROR: cannot convert 'int ref()' to 'int'");
+	TEST_FOR_FAIL("fuzzing test crash", "auto foo(int ref() ref() a){} auto foo(@T a, int ref() f){} auto foo(int ref() a){} foo(<>{}, <>{});", "ERROR: function must return a value of type 'int'");
+
+	TEST_FOR_FAIL("fuzzing test crash (eval)", " class @ if {", "ERROR: class name expected");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[typeof(x)(1)] arr;", "ERROR: unknown identifier 'x'");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "int[float(float)] arr;", "ERROR: can't find function 'float::float' with following arguments:");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "@ if(@=", "ERROR: closing ')' not found after 'if' condition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "@if(  double({ typeof(", "ERROR: expression not found after typeof(");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "sizeof  typeof  sizeof[1 ? sizeof", "ERROR: sizeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "sizeof  typeof  sizeof[(auto (float  with", "ERROR: sizeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "sizeof  typeof  sizeof[!float  with", "ERROR: sizeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "void  argument  argument .", "ERROR: ';' not found after variable definition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "typeof @ for(b  in  1  1", "ERROR: typeof must be followed by '('");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "auto []r r[2", "ERROR: ';' not found after variable definition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "int x coroutine void bar1(({x yield}int[2]arr for(i in arr)bar1(", "ERROR: ';' not found after variable definition");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "auto a(){ a; } a();", "ERROR: function 'a' type is unresolved at this point");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "for(i in char ref()(", "ERROR: ')' not found after function argument list");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "class Foo{ const int a = Foo.hasMember; }", "ERROR: expected '(' after 'hasMember'");
+	TEST_FOR_FAIL("fuzzing test crash (eval)", "class vec2 extendable{void foo(){}}int bar(){vec2 ref b;b.foo();return 1;}int[bar()] a;return 1;", "ERROR: array size cannot be evaluated");
+
+	nullcSetModuleAnalyzeMemoryLimit(8 * 1024 * 1024);
+	TEST_FOR_FAIL("fuzzing test crash", "float foo(int idx, float ref(float) f, int ref x){return f(1.0f);}int foo(int idx, int ref(int) f){if(idx > 4)return 2;return f(2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{return 2 + foo(idx + 1, <x>{if(x == 0)f(1);return 2 + x;});});});});});});});});});});});});});}));}return foo(1, <x>{ x + 2; });", "ERROR: memory limit (8388608) reached during compilation (analyze stage)");
+	nullcSetModuleAnalyzeMemoryLimit(256 * 1024 * 1024);
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
 struct Test_testModuleImportsSelf1 : TestQueue
 {
-	static const void* FileHandler(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+	static const char* FileReadHandler(const char* name, unsigned* size)
 	{
 		(void)name;
-		*nullcShouldFreePtr = 0;
 		*size = (unsigned)strlen(testModuleImportsSelf1) + 1;
-		return (const void*)testModuleImportsSelf1;
+		return testModuleImportsSelf1;
+	}
+	static void FileFreeHandler(const char *data)
+	{
+		(void)data;
 	}
 	virtual void Run()
 	{
-		nullcSetFileReadHandler(FileHandler);
+		nullcSetFileReadHandler(FileReadHandler, FileFreeHandler);
 		if(Tests::messageVerbose)
 			printf("Module imports itself 1 \r\n");
 
@@ -915,7 +1024,7 @@ struct Test_testModuleImportsSelf1 : TestQueue
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
 		}
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	}
 };
 Test_testModuleImportsSelf1 testModuleImportSelf1;
@@ -924,21 +1033,24 @@ const char	*testModuleImportsSelf2a = "import b; return 1;";
 const char	*testModuleImportsSelf2b = "import a; return 1;";
 struct Test_testModuleImportsSelf2 : TestQueue
 {
-	static const void* FileHandler(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+	static const char* FileReadHandler(const char* name, unsigned* size)
 	{
-		*nullcShouldFreePtr = 0;
 		if(name[0] == 'a')
 		{
 			*size = (unsigned)strlen(testModuleImportsSelf2a) + 1;
-			return (const void*)testModuleImportsSelf2a;
+			return testModuleImportsSelf2a;
 		}else{
 			*size = (unsigned)strlen(testModuleImportsSelf2b) + 1;
-			return (const void*)testModuleImportsSelf2b;
+			return testModuleImportsSelf2b;
 		}
+	}
+	static void FileFreeHandler(const char *data)
+	{
+		(void)data;
 	}
 	virtual void Run()
 	{
-		nullcSetFileReadHandler(FileHandler);
+		nullcSetFileReadHandler(FileReadHandler, FileFreeHandler);
 		if(Tests::messageVerbose)
 			printf("Module imports itself 2 \r\n");
 
@@ -960,7 +1072,7 @@ struct Test_testModuleImportsSelf2 : TestQueue
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
 		}
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	}
 };
 Test_testModuleImportsSelf2 testModuleImportSelf2;

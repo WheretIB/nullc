@@ -10,7 +10,11 @@
 #include "Tree.h"
 
 #include "Executor_Common.h"
+#include "Linker.h"
+
 #include "includes/typeinfo.h"
+
+typedef uintptr_t markerType;
 
 // memory structure				   |base->
 // small object storage:			marker, data...
@@ -178,25 +182,25 @@ public:
 	}
 	void* GetBasePointer(void* ptr)
 	{
-		if(!sortedPages.size() || ptr < sortedPages[0] || ptr > (char*)sortedPages.back() + sizeof(MyLargeBlock))
+		if(sortedPages.count == 0 || ptr < sortedPages.data[0] || ptr > (char*)sortedPages.data[sortedPages.count - 1] + sizeof(MyLargeBlock))
 			return NULL;
 		// Binary search
 		unsigned int lowerBound = 0;
-		unsigned int upperBound = sortedPages.size() - 1;
+		unsigned int upperBound = sortedPages.count - 1;
 		unsigned int pointer = 0;
 		while(upperBound - lowerBound > 1)
 		{
 			pointer = (lowerBound + upperBound) >> 1;
-			if(ptr < sortedPages[pointer])
+			if(ptr < sortedPages.data[pointer])
 				upperBound = pointer;
-			if(ptr > sortedPages[pointer])
+			if(ptr > sortedPages.data[pointer])
 				lowerBound = pointer;
 		}
-		if(ptr < sortedPages[pointer])
+		if(ptr < sortedPages.data[pointer])
 			pointer--;
-		if(ptr > (char*)sortedPages[pointer]  + sizeof(MyLargeBlock))
+		if(ptr > (char*)sortedPages.data[pointer]  + sizeof(MyLargeBlock))
 			pointer++;
-		MyLargeBlock *best = sortedPages[pointer];
+		MyLargeBlock *best = sortedPages.data[pointer];
 
 		if(ptr < best->page || ptr > (char*)best + sizeof(best->page))
 			return NULL;
@@ -246,12 +250,14 @@ public:
 	MyLargeBlock	*activePages;
 	unsigned int	lastNum;
 
-	FastVector<MyLargeBlock*>	sortedPages;
+	FastVector<MyLargeBlock*> sortedPages;
 };
 
 namespace NULLC
 {
 	const unsigned int poolBlockSize = 64 * 1024;
+
+	bool collectionEnabled = true;
 
 	unsigned int usedMemory = 0;
 
@@ -329,14 +335,18 @@ void* NULLC::AllocObject(int size, unsigned type)
 	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 	{
 		CollectMemory();
+
 		if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 		{
 			nullcThrowError("ERROR: reached global memory maximum");
 			return NULL;
 		}
-	}else if((unsigned int)(usedMemory + size) > collectableMinimum){
+	}
+	else if((unsigned int)(usedMemory + size) > collectableMinimum)
+	{
 		CollectMemory();
 	}
+
 	unsigned int realSize = size;
 	if(size <= 64)
 	{
@@ -555,8 +565,16 @@ void NULLC::CollectBlock(Range& curr)
 	}
 }
 
+void NULLC::SetCollectMemory(bool enabled)
+{
+	collectionEnabled = enabled;
+}
+
 void NULLC::CollectMemory()
 {
+	if(!collectionEnabled)
+		return;
+
 //	printf("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
 
 	double time = (double(clock()) / CLOCKS_PER_SEC);
@@ -662,6 +680,8 @@ void NULLC::ClearBlock(Range& curr)
 
 void NULLC::ClearMemory()
 {
+	collectionEnabled = true;
+
 	usedMemory = 0;
 
 	pool8.Reset();
@@ -714,7 +734,7 @@ NULLCRef NULLC::CopyObject(NULLCRef ptr)
 	NULLCRef ret;
 	ret.typeID = ptr.typeID;
 	unsigned int objSize = linker->exTypes[ret.typeID].size;
-	ret.ptr = (char*)AllocObject(objSize);
+	ret.ptr = (char*)AllocObject(objSize, ptr.typeID);
 	memcpy(ret.ptr, ptr.ptr, objSize);
 	return ret;
 }
@@ -728,7 +748,7 @@ void NULLC::CopyArray(NULLCAutoArray* dst, NULLCAutoArray src)
 	}
 	dst->typeID = src.typeID;
 	dst->len = src.len;
-	dst->ptr = (char*)NULLC::AllocObject(src.len * linker->exTypes[src.typeID].size);
+	dst->ptr = (char*)NULLC::AllocObject(src.len * linker->exTypes[src.typeID].size, src.typeID);
 
 	if(src.len)
 		memcpy(dst->ptr, src.ptr, unsigned(src.len * linker->exTypes[src.typeID].size));
@@ -756,7 +776,7 @@ void NULLC::SwapObjects(NULLCRef l, NULLCRef r)
 
 	char tmpStack[512];
 	// $$ should use some extendable static storage for big objects
-	char *tmp = size < 512 ? tmpStack : (char*)NULLC::AllocObject(size);
+	char *tmp = size < 512 ? tmpStack : (char*)NULLC::AllocObject(size, l.typeID);
 	memcpy(tmp, l.ptr, size);
 	memcpy(l.ptr, r.ptr, size);
 	memcpy(r.ptr, tmp, size);
@@ -804,7 +824,7 @@ NULLCArray NULLC::StrConcatenate(NULLCArray a, NULLCArray b)
 	// If first part is zero-terminated, override zero in the new string
 	int shift = a.len && (a.ptr[a.len-1] == 0);
 	ret.len = a.len + b.len - shift;
-	ret.ptr = (char*)AllocObject(ret.len);
+	ret.ptr = (char*)AllocObject(ret.len, NULLC_TYPE_CHAR);
 	if(!ret.ptr)
 		return ret;
 
@@ -893,7 +913,7 @@ NULLCArray NULLC::ShortToStr(short* r)
 		*curr++ = (char)(abs(number % 10) + '0');
 	if(sign)
 		*curr++ = '-';
-	arr = AllocArray(1, (int)(curr - buf) + 1);
+	arr = AllocArray(1, (int)(curr - buf) + 1, NULLC_TYPE_CHAR);
 	char *str = arr.ptr;
 	do 
 	{
@@ -929,7 +949,7 @@ NULLCArray NULLC::IntToStr(int* r)
 		*curr++ = (char)(abs(number % 10) + '0');
 	if(sign)
 		*curr++ = '-';
-	arr = AllocArray(1, (int)(curr - buf) + 1);
+	arr = AllocArray(1, (int)(curr - buf) + 1, NULLC_TYPE_CHAR);
 	char *str = arr.ptr;
 	do 
 	{
@@ -978,7 +998,7 @@ NULLCArray NULLC::LongToStr(long long* r)
 		*curr++ = (char)(abs(int(number % 10)) + '0');
 	if(sign)
 		*curr++ = '-';
-	arr = AllocArray(1, (int)(curr - buf) + 1);
+	arr = AllocArray(1, (int)(curr - buf) + 1, NULLC_TYPE_CHAR);
 	char *str = arr.ptr;
 	do 
 	{
@@ -1004,7 +1024,7 @@ NULLCArray NULLC::FloatToStr(int precision, bool exponent, float* r)
 
 	char buf[256];
 	SafeSprintf(buf, 256, exponent ? "%.*e" : "%.*f", precision, *r);
-	arr = AllocArray(1, (int)strlen(buf) + 1);
+	arr = AllocArray(1, (int)strlen(buf) + 1, NULLC_TYPE_CHAR);
 	memcpy(arr.ptr, buf, arr.len);
 	return arr;
 }
@@ -1025,7 +1045,7 @@ NULLCArray NULLC::DoubleToStr(int precision, bool exponent, double* r)
 
 	char buf[256];
 	SafeSprintf(buf, 256, exponent ? "%.*e" : "%.*f", precision, *r);
-	arr = AllocArray(1, (int)strlen(buf) + 1);
+	arr = AllocArray(1, (int)strlen(buf) + 1, NULLC_TYPE_CHAR);
 	memcpy(arr.ptr, buf, arr.len);
 	return arr;
 }
@@ -1296,7 +1316,7 @@ void NULLC::AutoArray(NULLCAutoArray* arr, int type, unsigned count)
 
 	arr->typeID = type;
 	arr->len = count;
-	arr->ptr = (char*)AllocObject(count * linker->exTypes[type].size);
+	arr->ptr = (char*)AllocObject(count * linker->exTypes[type].size, type);
 }
 
 void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)

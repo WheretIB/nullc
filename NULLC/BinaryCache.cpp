@@ -1,4 +1,5 @@
 #include "BinaryCache.h"
+
 #include "Lexer.h"
 
 namespace BinaryCache
@@ -20,9 +21,41 @@ void BinaryCache::ClearImportPaths()
 
 void BinaryCache::AddImportPath(const char* path)
 {
+	for(unsigned int i = 0; i < importPaths.size(); i++)
+	{
+		if(strcmp(importPaths[i], path) == 0)
+			return;
+	}
+
 	char *importPath = (char*)NULLC::alloc(int(strlen(path)) + 1);
 	strcpy(importPath, path);
 	importPaths.push_back(importPath);
+}
+
+void BinaryCache::RemoveImportPath(const char* path)
+{
+	for(unsigned int i = 0; i < importPaths.size(); i++)
+	{
+		if(strcmp(importPaths[i], path) == 0)
+		{
+			NULLC::dealloc(importPaths[i]);
+
+			importPaths[i] = importPaths.back();
+			importPaths.pop_back();
+			return;
+		}
+	}
+}
+
+bool BinaryCache::HasImportPath(const char* path)
+{
+	for(unsigned int i = 0; i < importPaths.size(); i++)
+	{
+		if(strcmp(importPaths[i], path) == 0)
+			return true;
+	}
+
+	return false;
 }
 
 const char* BinaryCache::EnumImportPath(unsigned pos)

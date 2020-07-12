@@ -45,14 +45,14 @@ TEST("Integer operation test", testIntOp, "1")
 	CHECK_INT("a", 0, 14, lastFailed);
 	CHECK_INT("b", 0, 3, lastFailed);
 	CHECK_INT("c", 0, 0, lastFailed);
-	int resExp[] = { 17, 11, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
-	for(int i = 0; i < 27; i++)
+	int resExp[] = { 17, 11, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1 };
+	for(int i = 0; i < 33; i++)
 		CHECK_INT("res", i, resExp[i], lastFailed);
 }
 
 const char	*testDoubleOp = 
 "// Floating point tests\r\n\
-double[15] res;\r\n\
+double[13] res;\r\n\
 double a = 14.0, b = 3.0;\r\n\
 res[0] = a+b;\r\n\
 res[1] = a-b;\r\n\
@@ -73,8 +73,8 @@ TEST("Double operation test", testDoubleOp, "17.000000")
 {
 	CHECK_DOUBLE("a", 0, 14.0, lastFailed);
 	CHECK_DOUBLE("b", 0, 3.0, lastFailed);
-	double resExp[] = { 17.0, 11.0, -14.0, 42.0, 14.0/3.0, 2.0, 2744.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0};
-	for(int i = 0; i < 14; i++)
+	double resExp[] = { 17.0, 11.0, -14.0, 42.0, 14.0/3.0, 2.0, 2744.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0};
+	for(int i = 0; i < 13; i++)
 		CHECK_DOUBLE("res", i, resExp[i], lastFailed);
 }
 
@@ -126,8 +126,8 @@ TEST("Long operation test", testLongOp, "1")
 	CHECK_LONG("b", 0, 594967296ll, lastFailed);
 	CHECK_LONG("c", 0, 3ll, lastFailed);
 	long long resExp[] = { 5089934592ll, 3900000000ll, -4494967296ll, -4494967297ll, 2674358537709551616ll, 7, 330196224, 210609828468829063ll, 1, 0, 1, 0, 0, 1,
-		35959738368ll, 105553116266496ll, 561870912, 56771072, 5033163520ll, 4976392448ll, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
-	for(int i = 0; i < 24; i++)
+		35959738368ll, 105553116266496ll, 561870912, 56771072, 5033163520ll, 4976392448ll, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1 };
+	for(int i = 0; i < 34; i++)
 		CHECK_LONG("res", i, resExp[i], lastFailed);
 }
 

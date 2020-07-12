@@ -16,29 +16,31 @@ nullres		nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*
 
 void		nullcClearImportPaths();
 void		nullcAddImportPath(const char* importPath);
+void		nullcRemoveImportPath(const char* importPath);
+nullres		nullcHasImportPath(const char* importPath);
 
-void		nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
+void		nullcSetFileReadHandler(const char* (*fileLoadFunc)(const char* name, unsigned* size), void (*fileFreeFunc)(const char* data));
 void		nullcSetGlobalMemoryLimit(unsigned limit);
 void		nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream));
 void		nullcSetOptimizationLevel(int level);
+void		nullcSetEnableTimeTrace(int enable);
+void		nullcSetModuleAnalyzeMemoryLimit(unsigned bytes);
+void		nullcSetEnableExternalDebugger(int enable);
 
 void		nullcTerminate();
 
 /************************************************************************/
 /*				NULLC execution settings and environment				*/
 
-/*	Change current executor to either NULLC_VM or NULLC_X86	*/
+/*	Change current executor to either NULLC_X86/NULLC_LLVM/NULLC_REGVM	*/
 void		nullcSetExecutor(unsigned id);
-#ifdef NULLC_BUILD_X86_JIT
-/*	Set memory range where JiT parameter stack will be placed.
-	If flagMemoryAllocated is not set, executor will allocate memory itself using VirtualAlloc with base == start.
-	When flagMemoryAllocated is not set, end can be set to NULL, meaning that x86 parameter stack can grow indefinitely.
-	Default mode: start = 0x20000000, end = NULL, flagMemoryAllocated = false	*/
-nullres		nullcSetJiTStack(void* start, void* end, unsigned flagMemoryAllocated);
-#endif
 
-/*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload	*/
+nullres		nullcSetExecutorStackSize(unsigned bytes);
+
+/*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload. Direct binding is not available if NULLC_NO_RAW_EXTERNAL_CALL is set	*/
 nullres		nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index);
+
+nullres		nullcBindModuleFunctionWrapper(const char* module, void *func, void (*ptr)(void *func, char* retBuf, char* argBuf), const char* name, int index);
 
 /*	Builds module and saves its binary into binary cache	*/
 nullres		nullcLoadModuleBySource(const char* module, const char* code);
@@ -58,6 +60,9 @@ const char*	nullcEnumerateModules(unsigned id);
 
 /*	Compiles and links code	*/
 nullres		nullcBuild(const char* code);
+
+/*	Compiles and links code with an additional module name info	*/
+nullres		nullcBuildWithModuleName(const char* code, const char* moduleName);
 
 /*	Run global code	*/
 nullres		nullcRun();
@@ -127,6 +132,9 @@ nullres		nullcGetFunction(const char* name, NULLCFuncPtr* func);
 /*	Set function using function pointer	*/
 nullres		nullcSetFunction(const char* name, NULLCFuncPtr func);
 
+/*	Change one function to target another	*/
+nullres		nullcRedirectFunction(unsigned sourceId, unsigned targetId);
+
 /*	Function returns 1 if passed pointer points to NULLC stack; otherwise, the return value is 0	*/
 nullres		nullcIsStackPointer(void* ptr);
 
@@ -144,10 +152,10 @@ int			nullcInitDynamicModule();
 /************************************************************************/
 /*							Extended functions							*/
 
-/*	Analyzes the code and returns 1 on success	*/
+/*	Analyzes the code and returns 1 on success. Pointer to code string must be available until nullcClean is called */
 nullres		nullcAnalyze(const char* code);
 
-/*	Compiles the code and returns 1 on success	*/
+/*	Compiles the code and returns 1 on success. Pointer to code string must be available until nullcClean is called */
 nullres		nullcCompile(const char* code);
 
 /*	compiled bytecode to be used for linking and executing can be retrieved with this function
@@ -168,6 +176,9 @@ void		nullcClean();
 	Type or function redefinition generates an error.
 	Global variables with the same name are ok. */
 nullres		nullcLinkCode(const char *bytecode);
+
+/*	Link new chunk of code with an additional module name info	*/
+nullres		nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName);
 
 /************************************************************************/
 /*							Internal testing functions					*/

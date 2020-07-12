@@ -77,9 +77,6 @@
     <ClCompile Include="StdLib.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="Executor.cpp">
-      <Filter>Executor</Filter>
-    </ClCompile>
     <ClCompile Include="Executor_Common.cpp">
       <Filter>Executor</Filter>
     </ClCompile>
@@ -105,9 +102,6 @@
       <Filter>Modules\std</Filter>
     </ClCompile>
     <ClCompile Include="includes\io.cpp">
-      <Filter>Modules\std</Filter>
-    </ClCompile>
-    <ClCompile Include="includes\map.cpp">
       <Filter>Modules\std</Filter>
     </ClCompile>
     <ClCompile Include="includes\math.cpp">
@@ -136,9 +130,6 @@
     </ClCompile>
     <ClCompile Include="..\external\pugixml\pugixml.cpp">
       <Filter>Modules\ext\pugi</Filter>
-    </ClCompile>
-    <ClCompile Include="includes\list.cpp">
-      <Filter>Modules\old</Filter>
     </ClCompile>
     <ClCompile Include="includes\vector.cpp">
       <Filter>Modules\old</Filter>
@@ -179,9 +170,6 @@
     <ClCompile Include="InstructionTreeVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="InstructionTreeVmLower.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
     <ClCompile Include="InstructionTreeVmEval.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
@@ -189,9 +177,6 @@
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="ExpressionTranslate.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
-    <ClCompile Include="InstructionTreeVmLowerGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="..\external\dyncall\dyncall_vector.c">
@@ -202,6 +187,27 @@
     </ClCompile>
     <ClCompile Include="InstructionTreeLlvm.cpp">
       <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_RegVm.cpp">
+      <Filter>Executor</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLower.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="CodeGenRegVm_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="Instruction_X86.cpp">
+      <Filter>Executor_X86</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\memory.cpp">
+      <Filter>Modules\std</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -253,9 +259,6 @@
     <ClInclude Include="StdLib.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="Executor.h">
-      <Filter>Executor</Filter>
-    </ClInclude>
     <ClInclude Include="Executor_Common.h">
       <Filter>Executor</Filter>
     </ClInclude>
@@ -289,9 +292,6 @@
     <ClInclude Include="includes\io.h">
       <Filter>Modules\std</Filter>
     </ClInclude>
-    <ClInclude Include="includes\map.h">
-      <Filter>Modules\std</Filter>
-    </ClInclude>
     <ClInclude Include="includes\math.h">
       <Filter>Modules\std</Filter>
     </ClInclude>
@@ -321,9 +321,6 @@
     </ClInclude>
     <ClInclude Include="..\external\pugixml\pugixml.hpp">
       <Filter>Modules\ext\pugi</Filter>
-    </ClInclude>
-    <ClInclude Include="includes\list.h">
-      <Filter>Modules\old</Filter>
     </ClInclude>
     <ClInclude Include="includes\vector.h">
       <Filter>Modules\old</Filter>
@@ -373,9 +370,6 @@
     <ClInclude Include="Allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="InstructionTreeVmLower.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
     <ClInclude Include="InstructionTreeVmEval.h">
       <Filter>Compiler</Filter>
     </ClInclude>
@@ -383,9 +377,6 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="ExpressionTranslate.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="InstructionTreeVmLowerGraph.h">
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="DenseMap.h">
@@ -399,6 +390,24 @@
     </ClInclude>
     <ClInclude Include="InstructionTreeLlvm.h">
       <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_RegVm.h">
+      <Filter>Executor</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLowerGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="CodeGenRegVm_X86.h">
+      <Filter>Executor_X86</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\memory.h">
+      <Filter>Modules\std</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -472,6 +481,9 @@
       <Filter>Modules\std</Filter>
     </None>
     <None Include="..\nullc.natvis" />
+    <None Include="..\Modules\std\memory.nc">
+      <Filter>Modules\std</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="..\external\dyncall\dyncall_call_x64_generic_masm.asm">

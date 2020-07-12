@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Configuration xmlns="http://schemas.microsoft.com/vstudio/vsdconfig/2008">
+
+	<DefineGuid Name="guidNullcDebuggerComponent" Value="54CF3F5D-B698-48CC-A41A-5EF3C2FBB743"/>
+
+	<ManagedComponent
+	  ComponentId="guidNullcDebuggerComponent"
+	  ComponentLevel="9995000"
+	  AssemblyName="nullc_debugger_component">
+
+		<Class Name="nullc_debugger_component.DkmDebugger.NullcStackFilter">
+			<Implements>
+
+				<InterfaceGroup>
+					<NoFilter/>
+					<Interface Name="IDkmCallStackFilter"/>
+					<Interface Name="IDkmInstructionAddressProvider"/>
+				</InterfaceGroup>
+			</Implements>
+		</Class>
+	</ManagedComponent>
+</Configuration>

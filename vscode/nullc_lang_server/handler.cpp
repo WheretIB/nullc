@@ -609,6 +609,22 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 				return;
 			}
 
+			if(SynFunctionArgument *source = getType<SynFunctionArgument>(node->source))
+			{
+				if(source->type && IsInside(source->type, data.position.line, data.position.character) && IsSmaller(response.bestNode, source->type))
+				{
+					response.bestNode = source->type;
+
+					response.targetVariable = nullptr;
+					response.targetFunction = nullptr;
+					response.targetType = node->variable->variable->type;
+
+					if(data.captureScopes)
+						response.debugScopes += " <- selected[type]";
+					return;
+				}
+			}
+
 			if(!IsInside(nameSource, data.position.line, data.position.character))
 			{
 				if(data.captureScopes)
@@ -847,7 +863,12 @@ void SendResponse(Context& ctx, rapidjson::Document &doc)
 	unsigned length = (unsigned)strlen(output);
 
 	if(ctx.debugMode)
-		fprintf(stderr, "DEBUG: Sending message '%.*s%s'\n", (int)(length > 96 ? 96 : length), output, length > 96 ? "..." : "");
+	{
+		if(ctx.debugFullMessages)
+			fprintf(stderr, "DEBUG: Sending message '%s'\n", output);
+		else
+			fprintf(stderr, "DEBUG: Sending message '%.*s%s'\n", (int)(length > 96 ? 96 : length), output, length > 96 ? "..." : "");
+	}
 
 	fprintf(stdout, "Content-Length: %d\r\n", length);
 	fprintf(stdout, "\r\n");
@@ -912,6 +933,91 @@ void RequestConfiguration(Context& ctx)
 	nullcClean();
 }
 
+Document* FindDocument(Context& ctx, rapidjson::Document &response, std::string documentPath)
+{
+	auto documentIt = ctx.documents.find(documentPath);
+
+	if(documentIt == ctx.documents.end())
+	{
+		if(documentPath.find("file:///") == 0)
+		{
+			// Try to open file directly
+			if(FILE *file = fopen(documentPath.c_str() + strlen("file:///"), "rb"))
+			{
+				fseek(file, 0, SEEK_END);
+				unsigned size = unsigned(ftell(file));
+				fseek(file, 0, SEEK_SET);
+
+				char *code = new char[size + 1];
+				fread(code, 1, size, file);
+				code[size] = 0;
+				fclose(file);
+
+				auto &document = ctx.documents[documentPath];
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Directly loaded document '%s'\n", documentPath.c_str());
+
+				document.uri = documentPath;
+				document.code = code;
+				document.temporary = true;
+
+				delete[] code;
+
+				return &document;
+			}
+		}
+
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", documentPath.c_str());
+
+		RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+
+		return nullptr;
+	}
+
+	return &documentIt->second;
+}
+
+struct ScopedDocumentImport
+{
+	ScopedDocumentImport(Context& ctx, Document *document): ctx(ctx)
+	{
+		if(document->uri.find("file:///") == 0)
+		{
+			auto pos = document->uri.rfind('/');
+
+			if(pos != std::string::npos)
+				documentFolder = document->uri.substr(8, pos - 7);
+		}
+
+		if(!documentFolder.empty())
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding temporary import path '%s'\n", documentFolder.c_str());
+
+			if(nullcHasImportPath(documentFolder.c_str()))
+				documentFolder.clear();
+			else
+				nullcAddImportPath(documentFolder.c_str());
+		}
+	}
+
+	~ScopedDocumentImport()
+	{
+		if(!documentFolder.empty())
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Removing temporary import path '%s'\n", documentFolder.c_str());
+
+			nullcRemoveImportPath(documentFolder.c_str());
+		}
+	}
+
+	Context& ctx;
+
+	std::string documentFolder;
+};
+
 bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 {
 	if(!response.IsArray())
@@ -968,11 +1074,24 @@ bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 				ctx.modulePath = modulePath;
 
 				nullcInit();
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.rootPath.c_str());
+
 				nullcAddImportPath(ctx.rootPath.c_str());
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.modulePath.c_str());
+
 				nullcAddImportPath(ctx.modulePath.c_str());
 
 				if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+				{
+					if(ctx.debugMode)
+						fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.defaultModulePath.c_str());
+
 					nullcAddImportPath(ctx.defaultModulePath.c_str());
+				}
 
 				for(auto &&el : ctx.documents)
 					UpdateDiagnostics(ctx, el.second);
@@ -1021,14 +1140,16 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 	if(!ctx.nullcInitialized)
 	{
-		if(arguments["rootUri"].IsString())
+		if(arguments.HasMember("rootUri") && arguments["rootUri"].IsString())
 		{
 			std::string rootUri = UrlDecode(arguments["rootUri"].GetString());
 
 			if(rootUri.find("file:///") == 0)
 			{
 				ctx.rootPath = rootUri.substr(8);
-				ctx.rootPath.push_back('/');
+
+				if(ctx.rootPath.back() != '/' && ctx.rootPath.back() != '\\')
+					ctx.rootPath.push_back('/');
 
 				ctx.modulePath = ctx.rootPath;
 				ctx.modulePath += "Modules/";
@@ -1037,7 +1158,15 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 					fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\n", ctx.modulePath.c_str());
 
 				nullcInit();
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.rootPath.c_str());
+
 				nullcAddImportPath(ctx.rootPath.c_str());
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.modulePath.c_str());
+
 				nullcAddImportPath(ctx.modulePath.c_str());
 			}
 			else
@@ -1059,7 +1188,12 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		}
 
 		if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.defaultModulePath.c_str());
+
 			nullcAddImportPath(ctx.defaultModulePath.c_str());
+		}
 
 		ctx.nullcInitialized = true;
 	}
@@ -1145,18 +1279,16 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	if(!document)
+		return true;
 
 	std::vector<FoldingRange> foldingRanges;
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
+	nullcAnalyze(document->code.c_str());
 
 	if(CompilerContext *context = nullcGetCompilerContext())
 	{
@@ -1248,18 +1380,16 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 
 bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	if(!document)
+		return true;
 
 	auto position = Position(arguments["position"]);
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
+	nullcAnalyze(document->code.c_str());
 
 	Hover hover;
 
@@ -1334,16 +1464,14 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+	if(!document)
+		return true;
 
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	nullcAnalyze(document->code.c_str());
 
 	std::vector<DocumentSymbol> symbols;
 
@@ -1413,7 +1541,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 				symbol.selectionRange = Range(Position(nameBegin->line, nameBegin->column), Position(nameEnd->line, nameEnd->column + nameEnd->length));
 
 				auto hasMember = [](TypeClass *type, VariableData *member) -> bool {
-					for(VariableHandle *curr = type->members.head; curr; curr = curr->next)
+					for(MemberHandle *curr = type->members.head; curr; curr = curr->next)
 					{
 						if(curr->variable->name == member->name)
 							return true;
@@ -1422,7 +1550,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 					return false;
 				};
 
-				for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+				for(MemberHandle *curr = typeClass->members.head; curr; curr = curr->next)
 				{
 					if(!curr->source)
 						continue;
@@ -1431,6 +1559,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 						continue;
 
 					Lexeme *itemBegin = curr->source->begin, *itemEnd = curr->source->end;
+
+					if(!itemBegin || !itemEnd)
+						continue;
 
 					DocumentSymbol item;
 
@@ -1462,6 +1593,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 						continue;
 
 					Lexeme *itemBegin = curr->name->begin, *itemEnd = curr->name->end;
+
+					if(!itemBegin || !itemEnd)
+						continue;
 
 					DocumentSymbol item;
 
@@ -1498,6 +1632,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 						continue;
 
 					Lexeme *itemBegin = curr->name->begin, *itemEnd = curr->name->end;
+
+					if(!itemBegin || !itemEnd)
+						continue;
 
 					DocumentSymbol item;
 
@@ -1537,7 +1674,9 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 	if(symbols.empty())
 	{
-		result.SetNull();
+		// Work-around for Visual Studio, which breaks if 'null' is sent as response here
+		//result.SetNull();
+		result.SetArray();
 	}
 	else
 	{
@@ -1573,14 +1712,10 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	if(!document)
+		return true;
 
 	Position position = Position(arguments["position"]);
 
@@ -1605,7 +1740,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		CompilerContext *context = nullptr;
 	};
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
+	nullcAnalyze(document->code.c_str());
 
 	CompletionList completions;
 
@@ -1803,7 +1940,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 					if(TypeStruct *structType = getType<TypeStruct>(type))
 					{
-						for(VariableHandle *curr = structType->members.head; curr; curr = curr->next)
+						for(MemberHandle *curr = structType->members.head; curr; curr = curr->next)
 						{
 							CompletionItem item;
 
@@ -1995,18 +2132,16 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	if(!document)
+		return true;
 
 	auto position = Position(arguments["position"]);
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
+	nullcAnalyze(document->code.c_str());
 
 	std::vector<LocationLink> locations;
 
@@ -2018,7 +2153,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 			if(result)
 			{
-				auto setupTargetUri = [&ctx, &context, &documentIt](std::string &targetUri, ModuleData *importModule, SynBase *source){
+				auto setupTargetUri = [&ctx, &context, document](std::string &targetUri, ModuleData *importModule, SynBase *source){
 					if(!importModule && source->begin)
 						importModule = context->exprCtx.GetSourceOwner(source->begin);
 
@@ -2031,7 +2166,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 					}
 					else
 					{
-						targetUri = documentIt->first;
+						targetUri = document->uri;
 					}
 				};
 
@@ -2174,20 +2309,18 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	if(!document)
+		return true;
 
 	auto position = Position(arguments["position"]);
 
 	//auto includeDeclaration = arguments["includeDeclaration"].GetBool();
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
+	nullcAnalyze(document->code.c_str());
 
 	std::vector<Location> locations;
 
@@ -2199,7 +2332,7 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 			if(result)
 			{
-				auto getTargetUri = [&ctx, &context, &documentIt](SynBase *source) -> std::string {
+				auto getTargetUri = [&ctx, &context, document](SynBase *source) -> std::string {
 					if(ModuleData *importModule = source->begin ? context->exprCtx.GetSourceOwner(source->begin) : nullptr)
 					{
 						auto path = GetModuleFileName(ctx, importModule);
@@ -2210,7 +2343,7 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						return "";
 					}
 
-					return documentIt->first;
+					return document->uri;
 				};
 
 				if(VariableData *variable = result.targetVariable)
@@ -2277,18 +2410,16 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	if(!document)
+		return true;
 
 	auto position = Position(arguments["position"]);
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
+	nullcAnalyze(document->code.c_str());
 
 	std::vector<DocumentHighlight> highlights;
 
@@ -2354,14 +2485,10 @@ bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjso
 
 bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+	auto document = FindDocument(ctx, response, arguments["textDocument"]["uri"].GetString());
 
-	if(documentIt == ctx.documents.end())
-	{
-		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
-	}
+	if(!document)
+		return true;
 
 	Position position = Position(arguments["position"]);
 
@@ -2386,7 +2513,9 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 		CompilerContext *context = nullptr;
 	};
 
-	nullcAnalyze(documentIt->second.code.c_str());
+	ScopedDocumentImport scopedDocumentImport(ctx, document);
+
+	nullcAnalyze(document->code.c_str());
 
 	SignatureHelp signatureHelp;
 
@@ -2568,6 +2697,8 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 	rapidjson::Value diagnostics;
 	diagnostics.SetArray();
 
+	ScopedDocumentImport scopedDocumentImport(ctx, &document);
+
 	if(!nullcAnalyze(document.code.c_str()))
 	{
 		if(CompilerContext *context = nullcGetCompilerContext())
@@ -2589,6 +2720,15 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 					DiagnosticRelatedInformation info;
 
 					info.location = Location(document.uri, Range(Position(extra->begin->line, extra->begin->column), Position(extra->end->line, extra->end->column + extra->end->length)));
+
+					if(extra->parentModule)
+					{
+						auto path = GetModuleFileName(ctx, extra->parentModule);
+
+						if(!path.empty())
+							info.location.uri = std::string("file:///") + UrlEncode(path);
+					}
+
 					info.message = std::string(extra->messageStart, extra->messageEnd);
 
 					diagnostic.relatedInformation.push_back(info);
@@ -2601,19 +2741,38 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 			{
 				Diagnostic diagnostic;
 
-				diagnostic.range = Range(Position(el->begin->line, el->begin->column), Position(el->end->line, el->end->column + el->end->length));
+				ErrorInfo *mainError = el;
+
+				// Change order of error reports if the error source is in a diffrent module and last related error is in the current module
+				if(mainError->parentModule != nullptr && !el->related.empty() && el->related.back()->parentModule == nullptr)
+					mainError = el->related.back();
+
+				diagnostic.range = Range(Position(mainError->begin->line, mainError->begin->column), Position(mainError->end->line, mainError->end->column + mainError->end->length));
 
 				diagnostic.severity = DiagnosticSeverity::Error;
 				diagnostic.code = "analysis";
 				diagnostic.source = "nullc";
 
-				diagnostic.message = std::string(el->messageStart, el->messageEnd);
+				diagnostic.message = std::string(mainError->messageStart, mainError->messageEnd);
 
 				for(auto &&extra : el->related)
 				{
 					DiagnosticRelatedInformation info;
 
+					// If order was changed, place original error here
+					if(extra == mainError)
+						extra = el;
+
 					info.location = Location(document.uri, Range(Position(extra->begin->line, extra->begin->column), Position(extra->end->line, extra->end->column + extra->end->length)));
+
+					if(extra->parentModule)
+					{
+						auto path = GetModuleFileName(ctx, extra->parentModule);
+
+						if(!path.empty())
+							info.location.uri = std::string("file:///") + UrlEncode(path);
+					}
+
 					info.message = std::string(extra->messageStart, extra->messageEnd);
 
 					diagnostic.relatedInformation.push_back(info);
@@ -2642,7 +2801,9 @@ bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 		if(uri.find("file:///") == 0 && uri.find_last_of('/') != std::string::npos)
 		{
 			ctx.rootPath = uri.substr(8, uri.find_last_of('/') - 8);
-			ctx.rootPath.push_back('/');
+
+			if(ctx.rootPath.back() != '/' && ctx.rootPath.back() != '\\')
+				ctx.rootPath.push_back('/');
 
 			if(ctx.modulePath.empty())
 			{
@@ -2657,11 +2818,24 @@ bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 				fprintf(stderr, "DEBUG: Restarting nullc with root path '%s'\n", ctx.rootPath.c_str());
 
 			nullcInit();
+
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.rootPath.c_str());
+
 			nullcAddImportPath(ctx.rootPath.c_str());
+
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.modulePath.c_str());
+
 			nullcAddImportPath(ctx.modulePath.c_str());
 
 			if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+			{
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Adding import path '%s'\n", ctx.defaultModulePath.c_str());
+
 				nullcAddImportPath(ctx.defaultModulePath.c_str());
+			}
 		}
 	}
 
@@ -2862,7 +3036,17 @@ bool HandleMessage(Context& ctx, char *message, unsigned length)
 		auto idNumber = doc["id"].IsUint() ? doc["id"].GetUint() : ~0u;
 		auto strNumber = doc["id"].IsString() ? doc["id"].GetString() : nullptr;
 
-		return HandleMessage(ctx, idNumber, strNumber, method, doc.HasMember("params") ? doc["params"] : null);
+		bool result = HandleMessage(ctx, idNumber, strNumber, method, doc.HasMember("params") ? doc["params"] : null);
+
+		for(auto it = ctx.documents.begin(); it != ctx.documents.end();)
+		{
+			if(it->second.temporary)
+				it = ctx.documents.erase(it);
+			else
+				++it;
+		}
+
+		return result;
 	}
 
 	return HandleNotification(ctx, method, doc.HasMember("params") ? doc["params"] : null);

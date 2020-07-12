@@ -4,10 +4,10 @@ compiler:
   - clang
   - gcc
 env:
-  - CONFIG=debug
-  - CONFIG=release
-  - CONFIG=sanitize
+  - CONFIG=debug CHECK=none
+  - CONFIG=release CHECK=none
+  - CONFIG=debug CHECK=sanitize
 script: 
-  - if [[ ! ("$TRAVIS_COMPILER" == "clang") && ("$CONFIG" == "debug") ]]; then echo $TRAVIS_COMPILER; make test config=coverage; fi
-  - make test config=$CONFIG
+  - if [[ ! ("$TRAVIS_COMPILER" == "clang") && ("$CONFIG" == "debug") && ! ("CHECK" == "sanitize") ]]; then echo $TRAVIS_COMPILER; make test config=coverage; fi
+  - make test config=$CONFIG check=$CHECK
 after_success: bash codecov.sh

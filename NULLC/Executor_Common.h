@@ -1,13 +1,21 @@
 #pragma once
 
-#include "Bytecode.h"
-#include "Linker.h"
+class Linker;
+
+struct ExternTypeInfo;
+struct ExternMemberInfo;
+struct ExternFuncInfo;
+struct ExternLocalInfo;
+
+struct NULLCRef;
 
 void CommonSetLinker(Linker* linker);
 
 unsigned ConvertFromAutoRef(unsigned int source, unsigned int target);
 
-ExternTypeInfo*	GetTypeList();
+bool AreMembersAligned(ExternTypeInfo *lType, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra);
+
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra);
 
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, bool withVariables);
 void DumpStackFrames();
@@ -18,3 +26,12 @@ void	SetUnmanagableRange(char* base, unsigned int size);
 int		IsPointerUnmanaged(NULLCRef ptr);
 void	MarkUsedBlocks();
 void	ResetGC();
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+typedef struct DCCallVM_ DCCallVM;
+
+void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *argumentStorage, unsigned *resultStorage);
+#endif
+
+int VmIntPow(int power, int number);
+long long VmLongPow(long long power, long long number);

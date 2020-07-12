@@ -93,12 +93,13 @@ int z = 0;\r\n\
 class Foo{ int a; }\r\n\
 void Foo:Foo(int x){ a = x; }\r\n\
 void Foo:finalize(){ z += a; }\r\n\
-auto x = new Foo[4];\r\n\
-(auto(){x[0].a = 10;\r\n\
+Foo[] x;\r\n\
+(auto(){x = new Foo[4];\r\n\
+x[0].a = 10;\r\n\
 x[1].a = 8;\r\n\
 x[2].a = 800;\r\n\
-x[3].a = 2000;\r\n\
-x = nullptr;})();\r\n\
+x[3].a = 2000;})();\r\n\
+x = nullptr;\r\n\
 GC.CollectMemory();\r\n\
 return z;";
 TEST_SIMPLE("Finalize for an array of objects", testFinalizeArray, "2818")

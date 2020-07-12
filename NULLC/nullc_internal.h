@@ -9,6 +9,10 @@
 
 CompilerContext* nullcGetCompilerContext();
 
+#define NULLC_BUILTIN_SQRT 1
+
+nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex, const char* name, int index);
+
 void nullcVisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child));
 void nullcVisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child));
 
