@@ -119,9 +119,13 @@ namespace nullc_debugger_component
                             DkmRuntimeInstanceId runtimeId = new DkmRuntimeInstanceId(DebugHelpers.NullcRuntimeGuid, 0);
 
                             if (DebugHelpers.useNativeInterfaces)
+                            {
                                 processData.nativeRuntimeInstance = DebugHelpers.useDefaultRuntimeInstance ? process.GetNativeRuntimeInstance() : DkmNativeRuntimeInstance.Create(process, runtimeId, DkmRuntimeCapabilities.None, process.GetNativeRuntimeInstance(), null);
+                            }
                             else
+                            {
                                 processData.runtimeInstance = DkmCustomRuntimeInstance.Create(process, runtimeId, null);
+                            }
                         }
 
                         if (processData.module == null)
@@ -208,7 +212,9 @@ namespace nullc_debugger_component
                 if (processData != null)
                 {
                     if (moduleInstance.LoadContext == "nullc embedded code")
+                    {
                         return true;
+                    }
                 }
 
                 return moduleInstance.IsUserCode();
@@ -345,7 +351,9 @@ namespace nullc_debugger_component
                 }
 
                 if (address == 0)
+                {
                     thread.GetCurrentFrameInfo(out address, out _, out _);
+                }
 
                 return address;
             }
@@ -361,7 +369,9 @@ namespace nullc_debugger_component
 
                 // Can't handle steps without an address
                 if (stepper.StartingAddress == null)
+                {
                     return false;
+                }
 
                 var instructionAddress = stepper.StartingAddress.CPUInstructionPart.InstructionPointer;
 

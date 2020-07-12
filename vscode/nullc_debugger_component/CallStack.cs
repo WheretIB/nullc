@@ -40,9 +40,13 @@ namespace nullc_debugger_component
                     entry.dataOffset = dataOffset;
 
                     if (entry.function != null)
+                    {
                         entry.dataSize = (entry.function.stackSize + 0xf) & ~0xf;
+                    }
                     else
+                    {
                         entry.dataSize = bytecode.globalVariableSize;
+                    }
 
                     dataOffset += entry.dataSize;
 

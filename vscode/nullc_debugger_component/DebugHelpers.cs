@@ -29,7 +29,9 @@ namespace nullc_debugger_component
                 T item = container.GetDataItem<T>();
 
                 if (item != null)
+                {
                     return item;
+                }
 
                 item = new T();
 
@@ -86,10 +88,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return BitConverter.ToInt16(variableAddressData, 0);
             }
@@ -100,10 +106,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return BitConverter.ToInt32(variableAddressData, 0);
             }
@@ -114,10 +124,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return BitConverter.ToUInt32(variableAddressData, 0);
             }
@@ -128,10 +142,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return BitConverter.ToInt64(variableAddressData, 0);
             }
@@ -142,10 +160,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return BitConverter.ToUInt64(variableAddressData, 0);
             }
@@ -156,10 +178,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return BitConverter.ToSingle(variableAddressData, 0);
             }
@@ -170,10 +196,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return BitConverter.ToDouble(variableAddressData, 0);
             }
@@ -181,7 +211,9 @@ namespace nullc_debugger_component
             internal static ulong? ReadPointerVariable(DkmProcess process, ulong address)
             {
                 if (!Is64Bit(process))
+                {
                     return ReadUintVariable(process, address);
+                }
 
                 return ReadUlongVariable(process, address);
             }
@@ -199,7 +231,9 @@ namespace nullc_debugger_component
                         var variableAddress = nativeModule?.FindExportName(name, IgnoreDataExports: false);
 
                         if (variableAddress != null)
+                        {
                             return ReadPointerVariable(process, variableAddress.CPUInstructionPart.InstructionPointer);
+                        }
                     }
                 }
 

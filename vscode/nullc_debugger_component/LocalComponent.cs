@@ -224,12 +224,16 @@ namespace nullc_debugger_component
                     int moduleSourceLocation = documentData.bytecode.GetModuleSourceLocation(documentData.moduleIndex);
 
                     if (moduleSourceLocation == -1)
+                    {
                         continue;
+                    }
 
                     int instruction = documentData.bytecode.ConvertLineToInstruction(moduleSourceLocation, line - 1);
 
                     if (instruction == 0)
+                    {
                         continue;
+                    }
 
                     var sourceFileId = DkmSourceFileId.Create(resolvedDocument.DocumentName, null, null, null);
 
@@ -248,9 +252,13 @@ namespace nullc_debugger_component
                         Debug.Assert(nativeInstruction >= documentData.moduleBase);
 
                         if (DebugHelpers.useNativeInterfaces)
+                        {
                             return new DkmInstructionSymbol[1] { DkmNativeInstructionSymbol.Create(resolvedDocument.Module, (uint)(nativeInstruction - documentData.moduleBase)) };
+                        }
                         else
+                        {
                             return new DkmInstructionSymbol[1] { DkmCustomInstructionSymbol.Create(resolvedDocument.Module, DebugHelpers.NullcRuntimeGuid, null, nativeInstruction, null) };
+                        }
                     }
                 }
 
@@ -264,9 +272,13 @@ namespace nullc_debugger_component
                     var finalPath = importPath.Replace('/', '\\');
 
                     if (finalPath.Length == 0)
+                    {
                         finalPath = $"{Path.GetDirectoryName(processPath)}\\";
+                    }
                     else if (!Path.IsPathRooted(finalPath))
+                    {
                         finalPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(processPath), finalPath));
+                    }
 
                     var modulePath = moduleName.Replace('/', '\\');
 
@@ -328,7 +340,9 @@ namespace nullc_debugger_component
                         int nullcInstruction = (int)instructionSymbol.Offset;
 
                         if (nullcInstruction != 0)
+                        {
                             return GetSourcePosition(vmProcessData, vmModuleInstance.Process.Path, nullcInstruction, out startOfLine);
+                        }
                     }
 
                     return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
@@ -355,14 +369,18 @@ namespace nullc_debugger_component
                         var instructionSymbol = instruction as DkmNativeInstructionSymbol;
 
                         if (instructionSymbol != null)
+                        {
                             nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(nullcModuleInstance.BaseAddress + instructionSymbol.RVA);
+                        }
                     }
                     else
                     {
                         var instructionSymbol = instruction as DkmCustomInstructionSymbol;
 
                         if (instructionSymbol != null)
+                        {
                             nullcInstruction = processData.bytecode.ConvertNativeAddressToInstruction(instructionSymbol.Offset);
+                        }
                     }
 
                     if (nullcInstruction != 0)

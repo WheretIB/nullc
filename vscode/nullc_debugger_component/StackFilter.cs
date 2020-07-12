@@ -38,7 +38,9 @@ namespace nullc_debugger_component
             internal void InitNullcDebugFunctions(NullcStackFilterDataItem processData, DkmRuntimeInstance runtimeInstance)
             {
                 if (processData.nullcIsMissing)
+                {
                     return;
+                }
 
                 processData.nullcDebugGetVmAddressLocation = DebugHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetVmAddressLocation");
                 processData.nullcDebugGetNativeAddressLocation = DebugHelpers.FindFunctionAddress(runtimeInstance, "nullcDebugGetNativeAddressLocation");
@@ -69,7 +71,9 @@ namespace nullc_debugger_component
                         var result = res.ResultObject as DkmSuccessEvaluationResult;
 
                         if (result != null && result.TagValue == DkmEvaluationResult.Tag.SuccessResult && (allowZero || result.Address.Value != 0))
+                        {
                             resultText = result.Value;
+                        }
 
                         res.ResultObject.Close();
                     }
@@ -184,9 +188,13 @@ namespace nullc_debugger_component
                             DkmModuleInstance nullcModuleInstance;
 
                             if (DebugHelpers.useNativeInterfaces)
+                            {
                                 nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                            }
                             else
+                            {
                                 nullcModuleInstance = nullcCustomRuntime.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                            }
 
                             if (nullcModuleInstance != null)
                             {

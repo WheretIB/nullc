@@ -606,42 +606,58 @@ namespace nullc_debugger_component
                         typeMembers = InitList<NullcMemberInfo>(reader.ReadInt32());
 
                         foreach (var el in typeMembers)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         typeConstants = InitList<NullcConstantInfo>(reader.ReadInt32());
 
                         foreach (var el in typeConstants)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         variables = InitList<NullcVarInfo>(reader.ReadInt32());
 
                         foreach (var el in variables)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         functions = InitList<NullcFuncInfo>(reader.ReadInt32());
 
                         foreach (var el in functions)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         functionExplicitTypeArrayOffsets = new uint[reader.ReadInt32()];
 
                         for (var i = 0; i < functionExplicitTypeArrayOffsets.Length; i++)
+                        {
                             functionExplicitTypeArrayOffsets[i] = reader.ReadUInt32();
+                        }
 
                         functionExplicitTypes = new uint[reader.ReadInt32()];
 
                         for (var i = 0; i < functionExplicitTypes.Length; i++)
+                        {
                             functionExplicitTypes[i] = reader.ReadUInt32();
+                        }
 
                         locals = InitList<NullcLocalInfo>(reader.ReadInt32());
 
                         foreach (var el in locals)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         modules = InitList<NullcModuleInfo>(reader.ReadInt32());
 
                         foreach (var el in modules)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         symbols = reader.ReadChars(reader.ReadInt32());
                         source = reader.ReadChars(reader.ReadInt32());
@@ -649,7 +665,9 @@ namespace nullc_debugger_component
                         dependencies = new uint[reader.ReadInt32()];
 
                         for (var i = 0; i < dependencies.Length; i++)
+                        {
                             dependencies[i] = reader.ReadUInt32();
+                        }
 
                         rawImportPaths = reader.ReadChars(reader.ReadInt32());
 
@@ -658,22 +676,30 @@ namespace nullc_debugger_component
                         instructions = InitList<NullcInstruction>(reader.ReadInt32());
 
                         foreach (var el in instructions)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         sourceInfo = InitList<NullcSourceInfo>(reader.ReadInt32());
 
                         foreach (var el in sourceInfo)
+                        {
                             el.ReadFrom(reader);
+                        }
 
                         constants = new uint[reader.ReadInt32()];
 
                         for (var i = 0; i < constants.Length; i++)
+                        {
                             constants[i] = reader.ReadUInt32();
+                        }
 
                         instructionPositions = new ulong[reader.ReadInt32()];
 
                         for (var i = 0; i < instructionPositions.Length; i++)
+                        {
                             instructionPositions[i] = is64Bit ? reader.ReadUInt64() : (ulong)reader.ReadUInt32();
+                        }
 
                         globalVariableSize = reader.ReadInt32();
                     }
@@ -687,7 +713,9 @@ namespace nullc_debugger_component
                     el.name = new string(symbols, (int)el.offsetToName, ending - (int)el.offsetToName);
 
                     if (el.subCat == NullcTypeSubCategory.Array || el.subCat == NullcTypeSubCategory.Pointer)
+                    {
                         el.nullcSubType = el.subType == 0 ? null : types[el.subType];
+                    }
 
                     if (el.subCat == NullcTypeSubCategory.Function || el.subCat == NullcTypeSubCategory.Class)
                     {
@@ -798,18 +826,28 @@ namespace nullc_debugger_component
                     index = (lowerBound + upperBound) >> 1;
 
                     if (address < instructionPositions[index])
+                    {
                         upperBound = index - 1;
+                    }
                     else if (address > instructionPositions[index])
+                    {
                         lowerBound = index + 1;
+                    }
                     else
+                    {
                         break;
+                    }
                 }
 
                 if (index != 0 && address < instructionPositions[index])
+                {
                     index--;
+                }
 
                 if (index == instructionPositions.Length - 1 && address > instructionPositions[index])
+                {
                     return 0;
+                }
 
                 return index;
             }
@@ -826,7 +864,9 @@ namespace nullc_debugger_component
                     var function = functions[i];
 
                     if (instruction >= function.regVmAddress && instruction < (function.regVmAddress + function.regVmCodeSize))
+                    {
                         return function;
+                    }
                 }
 
                 return null;
@@ -844,10 +884,14 @@ namespace nullc_debugger_component
                 for (int i = 0; i < sourceInfo.Count; i++)
                 {
                     if (instruction == sourceInfo[i].instruction)
+                    {
                         return sourceInfo[i].sourceOffset;
+                    }
 
                     if (i + 1 < sourceInfo.Count && instruction < sourceInfo[i + 1].instruction)
+                    {
                         return sourceInfo[i].sourceOffset;
+                    }
                 }
 
                 return sourceInfo[sourceInfo.Count - 1].sourceOffset;
@@ -865,7 +909,9 @@ namespace nullc_debugger_component
                     int end = start + moduleInfo.sourceSize;
 
                     if (sourceLocation >= start && sourceLocation < end)
+                    {
                         return i;
+                    }
                 }
 
                 return -1;
@@ -937,7 +983,9 @@ namespace nullc_debugger_component
                         start++;
 
                         if (source[start] == '\n')
+                        {
                             start++;
+                        }
 
                         startLine++;
                     }
@@ -963,10 +1011,14 @@ namespace nullc_debugger_component
                 while (source[pos] != 0)
                 {
                     if (source[pos] == '\r')
+                    {
                         return pos;
+                    }
 
                     if (source[pos] == '\n')
+                    {
                         return pos;
+                    }
 
                     pos++;
                 }
@@ -980,7 +1032,9 @@ namespace nullc_debugger_component
                 for (int i = 0; i < sourceInfo.Count; i++)
                 {
                     if (sourceInfo[i].sourceOffset >= lineStartOffset && sourceInfo[i].sourceOffset <= lineEndOffset)
+                    {
                         return (int)sourceInfo[i].instruction;
+                    }
                 }
 
                 return 0;
@@ -991,7 +1045,9 @@ namespace nullc_debugger_component
                 int lineStartOffset = GetLineStartOffset(moduleSourceCodeOffset, line);
 
                 if (lineStartOffset == 0)
+                {
                     return 0;
+                }
 
                 int lineEndOffset = GetLineEndOffset(lineStartOffset);
 
@@ -1003,10 +1059,14 @@ namespace nullc_debugger_component
                 Debug.Assert(moduleIndex >= -1 && moduleIndex < modules.Count);
 
                 if (moduleIndex == -1)
+                {
                     return modules.Last().sourceOffset + modules.Last().sourceSize;
+                }
 
                 if (moduleIndex < modules.Count)
+                {
                     return modules[moduleIndex].sourceOffset;
+                }
 
                 return -1;
             }
