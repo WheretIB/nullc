@@ -233,7 +233,9 @@ namespace NullcLanguageClientVs
             if (disposeManaged)
             {
                 if (process != null)
+                {
                     process.Close();
+                }
             }
         }
 

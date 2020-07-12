@@ -111,7 +111,9 @@ namespace nullc_debugger_component
             DkmCompilerId IDkmSymbolCompilerIdQuery.GetCompilerId(DkmInstructionSymbol instruction, DkmInspectionSession inspectionSession)
             {
                 if (instruction.Module.Name != "nullc.embedded.code")
+                {
                     return new DkmCompilerId(Guid.Empty, Guid.Empty);
+                }
 
                 return new DkmCompilerId(Guid.Empty, Guid.Empty);
             }
@@ -129,13 +131,19 @@ namespace nullc_debugger_component
                 else
                 {
                     if (DebugHelpers.useNativeInterfaces)
+                    {
                         nullcModuleInstance = module.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                    }
                     else
+                    {
                         nullcModuleInstance = module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                    }
                 }
 
                 if (nullcModuleInstance == null)
+                {
                     return module.FindDocuments(sourceFileId);
+                }
 
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(nullcModuleInstance.Process);
 
@@ -156,9 +164,13 @@ namespace nullc_debugger_component
                             var finalPath = importPath.Replace('/', '\\');
 
                             if (finalPath.Length == 0)
+                            {
                                 finalPath = $"{Path.GetDirectoryName(processPath)}\\";
+                            }
                             else if (!Path.IsPathRooted(finalPath))
+                            {
                                 finalPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(processPath), finalPath));
+                            }
 
                             var modulePath = moduleName.Replace('/', '\\');
 
@@ -196,14 +208,18 @@ namespace nullc_debugger_component
                         var result = MatchAgainstModule(nullcModule.name, moduleIndex);
 
                         if (result != null)
+                        {
                             return result;
+                        }
                     }
 
                     {
                         var result = MatchAgainstModule(processData.bytecode.mainModuleName, -1);
 
                         if (result != null)
+                        {
                             return result;
+                        }
                     }
 
                     Debug.WriteLine($"Failed to find nullc document using '{sourceFileId.DocumentName}' name");
@@ -217,7 +233,9 @@ namespace nullc_debugger_component
                 var documentData = DebugHelpers.GetOrCreateDataItem<NullResolvedDocumentDataItem>(resolvedDocument);
 
                 if (documentData == null)
+                {
                     return resolvedDocument.FindSymbols(textSpan, text, out symbolLocation);
+                }
 
                 for (int line = textSpan.StartLine; line < textSpan.EndLine; line++)
                 {
@@ -329,7 +347,9 @@ namespace nullc_debugger_component
                     DkmCustomModuleInstance vmModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
 
                     if (vmModuleInstance == null)
+                    {
                         return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
+                    }
 
                     var vmProcessData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(vmModuleInstance.Process);
 
@@ -351,12 +371,18 @@ namespace nullc_debugger_component
                 DkmModuleInstance nullcModuleInstance;
 
                 if (DebugHelpers.useNativeInterfaces)
+                {
                     nullcModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                }
                 else
+                {
                     nullcModuleInstance = instruction.Module.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
+                }
 
                 if (nullcModuleInstance == null)
+                {
                     return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);
+                }
 
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcLocalProcessDataItem>(nullcModuleInstance.Process);
 
@@ -384,7 +410,9 @@ namespace nullc_debugger_component
                     }
 
                     if (nullcInstruction != 0)
+                    {
                         return GetSourcePosition(processData, nullcModuleInstance.Process.Path, nullcInstruction, out startOfLine);
+                    }
                 }
 
                 return instruction.GetSourcePosition(flags, inspectionSession, out startOfLine);

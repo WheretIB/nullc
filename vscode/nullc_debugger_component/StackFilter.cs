@@ -49,7 +49,6 @@ namespace nullc_debugger_component
                 if (processData.nullcDebugGetVmAddressLocation == null || processData.nullcDebugGetNativeAddressLocation == null || processData.nullcDebugGetReversedStackDataBase == null)
                 {
                     processData.nullcIsMissing = true;
-                    return;
                 }
             }
 
@@ -96,7 +95,9 @@ namespace nullc_debugger_component
                 }
 
                 if (input.InstructionAddress == null)
+                {
                     return new DkmStackWalkFrame[1] { input };
+                }
 
                 if (input.InstructionAddress.ModuleInstance != null)
                 {
@@ -107,7 +108,9 @@ namespace nullc_debugger_component
                         InitNullcDebugFunctions(processData, input.RuntimeInstance);
 
                         if (processData.nullcIsMissing)
+                        {
                             return new DkmStackWalkFrame[1] { input };
+                        }
 
                         string vmInstructionStr = ExecuteExpression("instruction - codeBase", stackContext, input, true);
 
@@ -156,7 +159,9 @@ namespace nullc_debugger_component
 
                 // Currently we want to provide info only for JiT frames
                 if (!input.Flags.HasFlag(DkmStackWalkFrameFlags.UserStatusNotDetermined))
+                {
                     return new DkmStackWalkFrame[1] { input };
+                }
 
                 try
                 {
@@ -176,7 +181,9 @@ namespace nullc_debugger_component
                         flags = flags & ~(DkmStackWalkFrameFlags.NonuserCode | DkmStackWalkFrameFlags.UserStatusNotDetermined);
 
                         if (stackFrameDesc == "[Transition to nullc]")
-                             return new DkmStackWalkFrame[1] { DkmStackWalkFrame.Create(stackContext.Thread, input.InstructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, input.Annotations) };
+                        {
+                            return new DkmStackWalkFrame[1] { DkmStackWalkFrame.Create(stackContext.Thread, input.InstructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, input.Annotations) };
+                        }
 
                         DkmStackWalkFrame frame = null;
 
@@ -200,7 +207,9 @@ namespace nullc_debugger_component
                             {
                                 // If the top of the call stack is a nullc frame, nullc call stack wont have an entry for it and we start from 0, otherwise we start from default value of 1
                                 if (input.Flags.HasFlag(DkmStackWalkFrameFlags.TopFrame))
+                                {
                                     processData.nullcFramePosition = 0;
+                                }
 
                                 string stackFrameBase = ExecuteExpression($"((unsigned(*)(unsigned)){processData.nullcDebugGetReversedStackDataBase})({processData.nullcFramePosition})", stackContext, input, true);
 
@@ -234,7 +243,9 @@ namespace nullc_debugger_component
                         }
 
                         if (frame == null)
+                        {
                             frame = DkmStackWalkFrame.Create(stackContext.Thread, input.InstructionAddress, input.FrameBase, input.FrameSize, flags, stackFrameDesc, input.Registers, input.Annotations);
+                        }
 
                         return new DkmStackWalkFrame[1] { frame };
                     }
@@ -268,15 +279,15 @@ namespace nullc_debugger_component
 
                         if (DebugHelpers.useNativeInterfaces)
                         {
-                            var nullcNativeRuntime = DebugHelpers.useDefaultRuntimeInstance ? process.GetNativeRuntimeInstance() :  process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
-                            var nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid); ;
+                            var nullcNativeRuntime = DebugHelpers.useDefaultRuntimeInstance ? process.GetNativeRuntimeInstance() : process.GetRuntimeInstances().OfType<DkmNativeRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
+                            var nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmNativeModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
 
                             address = DkmNativeInstructionAddress.Create(nullcNativeRuntime, nullcModuleInstance, (uint)(instructionPointer - processData.moduleBase), new DkmInstructionAddress.CPUInstruction(instructionPointer));
                         }
                         else
                         {
                             var nullcNativeRuntime = process.GetRuntimeInstances().OfType<DkmCustomRuntimeInstance>().FirstOrDefault(el => el.Id.RuntimeType == DebugHelpers.NullcRuntimeGuid);
-                            var nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid); ;
+                            var nullcModuleInstance = nullcNativeRuntime.GetModuleInstances().OfType<DkmCustomModuleInstance>().FirstOrDefault(el => el.Module != null && el.Module.CompilerId.VendorId == DebugHelpers.NullcCompilerGuid);
 
                             address = DkmCustomInstructionAddress.Create(nullcNativeRuntime, nullcModuleInstance, null, instructionPointer, null, new DkmInstructionAddress.CPUInstruction(instructionPointer));
                         }

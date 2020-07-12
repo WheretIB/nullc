@@ -580,7 +580,9 @@ namespace nullc_debugger_component
                 List<T> array = new List<T>();
 
                 for (int i = 0; i < size; i++)
+                {
                     array.Add(new T());
+                }
 
                 return array;
             }
@@ -939,7 +941,9 @@ namespace nullc_debugger_component
                         pos++;
 
                         if (source[pos] == '\n')
+                        {
                             pos++;
+                        }
 
                         lastLineStart = pos;
                     }

@@ -264,7 +264,9 @@ namespace nullc_debugger_component
                         var processData = DebugHelpers.GetOrCreateDataItem<NullcRemoteProcessDataItem>(instructionBreakpoint.Process);
 
                         if (!processData.activeBreakpointLocations.Contains(address))
+                        {
                             processData.activeBreakpointLocations.Add(address);
+                        }
                     }
 
                     return;
@@ -294,11 +296,15 @@ namespace nullc_debugger_component
                     if (runtimeBreakpoint.SourceId != DebugHelpers.NullcStepperBreakpointSourceId)
                     {
                         if (processData.activeBreakpointLocations.Contains(address))
+                        {
                             processData.activeBreakpointLocations.Remove(address);
+                        }
 
                         // If we were planning to restore the breakpoint, forget about it
                         if (processData.lastHitBreakpointLocation == address)
+                        {
                             processData.lastHitBreakpointLocation = 0;
+                        }
                     }
                 }
             }
@@ -347,7 +353,9 @@ namespace nullc_debugger_component
                 {
                     byte[] ebpData = new byte[4];
                     if (x86Regs.GetRegisterValue(22, ebpData) == 4)
+                    {
                         address = DebugHelpers.ReadPointerVariable(thread.Process, BitConverter.ToUInt32(ebpData, 0) + 4).GetValueOrDefault(0);
+                    }
                 }
 
                 if (address == 0)
@@ -380,7 +388,9 @@ namespace nullc_debugger_component
                     if (processData.nativeModuleInstance != null)
                     {
                         if (instructionAddress >= processData.nativeModuleInstance.BaseAddress && instructionAddress < processData.nativeModuleInstance.BaseAddress + processData.nativeModuleInstance.Size)
+                        {
                             return processData.bytecode.ConvertNativeAddressToInstruction(instructionAddress) != 0;
+                        }
                     }
                 }
                 else
@@ -388,7 +398,9 @@ namespace nullc_debugger_component
                     if (processData.moduleInstance != null)
                     {
                         if (instructionAddress >= processData.moduleInstance.BaseAddress && instructionAddress < processData.moduleInstance.BaseAddress + processData.moduleInstance.Size)
+                        {
                             return processData.bytecode.ConvertNativeAddressToInstruction(instructionAddress) != 0;
+                        }
                     }
                 }
 

@@ -74,10 +74,14 @@ namespace nullc_debugger_component
 
                 // ReadMemory should check for invalid pages, but it still throws an exception on small adresses in practice
                 if (address < 0x0001000)
+                {
                     return null;
+                }
 
                 if (process.ReadMemory(address, DkmReadMemoryFlags.None, variableAddressData) == 0)
+                {
                     return null;
+                }
 
                 return variableAddressData[0];
             }
