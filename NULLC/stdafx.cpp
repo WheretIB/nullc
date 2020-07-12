@@ -57,6 +57,8 @@ const char* NULLC::defaultFileLoad(const char* name, unsigned* size)
 		{
 			NULLC::dealloc(fileContent);
 			*size = 0;
+
+			fclose(file);
 			return NULL;
 		}
 
