@@ -11807,7 +11807,7 @@ struct ModuleContext
 	unsigned dependencyDepth;
 };
 
-void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, ByteCode *moduleBytecode, InplaceStr parentName)
+void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, ByteCode *moduleBytecode)
 {
 	TRACE_SCOPE("analyze", "ImportModuleDependencies");
 
@@ -11822,20 +11822,6 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 		const char *moduleFileName = symbols + moduleInfo.nameOffset;
 
 		const char *bytecode = BinaryCache::FindBytecode(moduleFileName, false);
-
-		// Search from parent folder
-		if(!bytecode)
-		{
-			if(const char *folderPos = parentName.rfind('/'))
-			{
-				char *nestedModuleFileName = (char*)ctx.allocator->alloc(unsigned(folderPos - parentName.begin) + 1 + unsigned(strlen(moduleFileName)) + 1);
-				sprintf(nestedModuleFileName, "%.*s/%s", unsigned(folderPos - parentName.begin), parentName.begin, moduleFileName);
-
-				moduleFileName = nestedModuleFileName;
-
-				bytecode = BinaryCache::FindBytecode(moduleFileName, false);
-			}
-		}
 
 		if(!bytecode)
 			Stop(ctx, source, "ERROR: module dependency import is not implemented");
@@ -11872,7 +11858,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		moduleCtx.dependencyDepth++;
 
-		ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode, InplaceStr(moduleFileName));
+		ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode);
 
 		moduleCtx.dependencyDepth--;
 	}
@@ -12847,7 +12833,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 	moduleCtx.data = moduleData;
 
-	ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode, name);
+	ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode);
 
 	ImportModuleNamespaces(ctx, source, moduleCtx);
 
