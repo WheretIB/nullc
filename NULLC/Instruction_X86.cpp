@@ -157,11 +157,11 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 		if(ptrIndex == rNONE && ptrBase == rNONE && ctx.vsAsmStyle)
 			curr += sprintf(curr, "%x%s", ptrNum, ptrNum > 9 ? "h" : "");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.tempStackArrayBase) && uintptr_t(ptrNum) < uintptr_t(ctx.tempStackArrayEnd))
-			curr += sprintf(curr, "temp+%d", unsigned(ptrNum - uintptr_t(ctx.tempStackArrayBase)));
+			curr += sprintf(curr, "temp+%u", unsigned(ptrNum - uintptr_t(ctx.tempStackArrayBase)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.dataStackBase) && uintptr_t(ptrNum) < uintptr_t(ctx.dataStackEnd))
-			curr += sprintf(curr, "globals+%d", unsigned(ptrNum - uintptr_t(ctx.dataStackBase)));
+			curr += sprintf(curr, "globals+%u", unsigned(ptrNum - uintptr_t(ctx.dataStackBase)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.ctx->exRegVmConstants) && uintptr_t(ptrNum) < uintptr_t(ctx.ctx->exRegVmConstantsEnd))
-			curr += sprintf(curr, "constants+%d", unsigned(ptrNum - uintptr_t(ctx.ctx->exRegVmConstants)));
+			curr += sprintf(curr, "constants+%u", unsigned(ptrNum - uintptr_t(ctx.ctx->exRegVmConstants)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callInstructionPos))
 			curr += sprintf(curr, "&ctx.callInstructionPos");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.dataStackTop))

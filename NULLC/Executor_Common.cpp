@@ -294,7 +294,7 @@ void nullcPrintPointerMarkerInfo(markerType marker)
 
 	unsigned type = unsigned(marker >> 8);
 
-	printf(" type '%s' #%d", codeSymbols + codeTypes[type].offsetToName, type);
+	printf(" type '%s' #%u", codeSymbols + codeTypes[type].offsetToName, type);
 }
 
 void nullcPrintBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
@@ -409,7 +409,7 @@ void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
 	}
 
 	nullcPrintDepthIndent(indentDepth);
-	printf("int len = %d\n", arr->len);
+	printf("int len = %u\n", arr->len);
 }
 
 void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth);
@@ -446,7 +446,7 @@ void nullcPrintArrayVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned
 		}
 
 		nullcPrintDepthIndent(indentDepth);
-		printf("len %d\n", arr->len);
+		printf("len %u\n", arr->len);
 	}
 
 	if(type.pointerCount)
@@ -456,7 +456,7 @@ void nullcPrintArrayVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned
 		for(unsigned i = 0; i < size && i < 32; i++)
 		{
 			nullcPrintDepthIndent(indentDepth);
-			printf("[%d]", i);
+			printf("[%u]", i);
 
 			if(elementType.subCat == ExternTypeInfo::CAT_NONE || elementType.subCat == ExternTypeInfo::CAT_POINTER)
 			{
@@ -630,7 +630,7 @@ void nullcDumpStackData()
 			unsigned argumentsSize = function.bytesToPop;
 			unsigned stackSize = (function.stackSize + 0xf) & ~0xf;
 
-			printf(") argument size %d, stack size %d\n", argumentsSize, stackSize);
+			printf(") argument size %u, stack size %u\n", argumentsSize, stackSize);
 
 			for(unsigned i = 0; i < function.localCount; i++)
 			{

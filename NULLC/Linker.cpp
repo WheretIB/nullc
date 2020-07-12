@@ -131,7 +131,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 		printf("  ");
 
-	printf("Linking %s (dependencies base %d).\r\n", moduleName ? moduleName : "(unnamed)", dependeciesBase);
+	printf("Linking %s (dependencies base %u).\r\n", moduleName ? moduleName : "(unnamed)", dependeciesBase);
 #endif
 
 	debugOutputIndent++;
@@ -897,29 +897,29 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 	{
 		unsigned int size = 0;
 		printf("Data managed by linker.\r\n");
-		printf("Types: %db, ", exTypes.size() * (unsigned)sizeof(ExternTypeInfo));
+		printf("Types: %ub, ", exTypes.size() * (unsigned)sizeof(ExternTypeInfo));
 		size += exTypes.size() * sizeof(ExternTypeInfo);
-		printf("Variables: %db, ", exVariables.size() * (unsigned)sizeof(ExternVarInfo));
+		printf("Variables: %ub, ", exVariables.size() * (unsigned)sizeof(ExternVarInfo));
 		size += exVariables.size() * sizeof(ExternVarInfo);
-		printf("Functions: %db, ", exFunctions.size() * (unsigned)sizeof(ExternFuncInfo));
+		printf("Functions: %ub, ", exFunctions.size() * (unsigned)sizeof(ExternFuncInfo));
 		size += exFunctions.size() * sizeof(ExternFuncInfo);
-		printf("Function explicit type array offsets: %db, ", exFunctionExplicitTypeArrayOffsets.size() * (unsigned)sizeof(unsigned));
+		printf("Function explicit type array offsets: %ub, ", exFunctionExplicitTypeArrayOffsets.size() * (unsigned)sizeof(unsigned));
 		size += exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned);
-		printf("Function explicit types: %db, ", exFunctionExplicitTypes.size() * (unsigned)sizeof(unsigned));
+		printf("Function explicit types: %ub, ", exFunctionExplicitTypes.size() * (unsigned)sizeof(unsigned));
 		size += exFunctionExplicitTypes.size() * sizeof(unsigned);
-		printf("Reg VM Code: %db\r\n", exRegVmCode.size() * (unsigned)sizeof(RegVmCmd));
+		printf("Reg VM Code: %ub\r\n", exRegVmCode.size() * (unsigned)sizeof(RegVmCmd));
 		size += exRegVmCode.size() * sizeof(RegVmCmd);
-		printf("Symbols: %db, ", exSymbols.size() * (unsigned)sizeof(char));
+		printf("Symbols: %ub, ", exSymbols.size() * (unsigned)sizeof(char));
 		size += exSymbols.size() * sizeof(char);
-		printf("Locals: %db, ", exLocals.size() * (unsigned)sizeof(ExternLocalInfo));
+		printf("Locals: %ub, ", exLocals.size() * (unsigned)sizeof(ExternLocalInfo));
 		size += exLocals.size() * sizeof(ExternLocalInfo);
-		printf("Modules: %db, ", exModules.size() * (unsigned)sizeof(ExternModuleInfo));
+		printf("Modules: %ub, ", exModules.size() * (unsigned)sizeof(ExternModuleInfo));
 		size += exModules.size() * sizeof(ExternModuleInfo);
-		printf("Source info: %db, ", exRegVmSourceInfo.size() * (unsigned)sizeof(ExternSourceInfo));
+		printf("Source info: %ub, ", exRegVmSourceInfo.size() * (unsigned)sizeof(ExternSourceInfo));
 		size += exRegVmSourceInfo.size() * sizeof(ExternSourceInfo);
-		printf("Source: %db\r\n", exSource.size() * (unsigned)sizeof(char));
+		printf("Source: %ub\r\n", exSource.size() * (unsigned)sizeof(char));
 		size += exSource.size() * sizeof(char);
-		printf("Overall: %d bytes\r\n\r\n", size);
+		printf("Overall: %u bytes\r\n\r\n", size);
 	}
 #endif
 
