@@ -102,12 +102,12 @@ public:
 		return data[count - 1];
 	}
 
-	__forceinline unsigned size()
+	__forceinline unsigned size() const
 	{
 		return count;
 	}
 
-	__forceinline bool empty()
+	__forceinline bool empty() const
 	{
 		return count == 0;
 	}
@@ -264,12 +264,12 @@ public:
 		return &data[N];
 	}
 	
-	__forceinline bool empty()
+	__forceinline bool empty() const
 	{
 		return false;
 	}
 
-	__forceinline unsigned size()
+	__forceinline unsigned size() const
 	{
 		return N;
 	}
@@ -374,12 +374,12 @@ public:
 		return data[count - 1];
 	}
 
-	__forceinline bool empty()
+	__forceinline bool empty() const
 	{
 		return count == 0;
 	}
 
-	__forceinline unsigned size()
+	__forceinline unsigned size() const
 	{
 		return count;
 	}
@@ -464,7 +464,7 @@ public:
 		max = newSize;
 	}
 
-	bool contains(const T& val)
+	bool contains(const T& val) const
 	{
 		for(unsigned i = 0; i < count; i++)
 		{
@@ -541,12 +541,12 @@ public:
 		return data[count - 1];
 	}
 
-	bool empty()
+	bool empty() const
 	{
 		return count == 0;
 	}
 
-	unsigned size()
+	unsigned size() const
 	{
 		return count;
 	}
