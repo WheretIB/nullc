@@ -483,6 +483,21 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 				return true;
 			}
 		}
+		else if(constant->type.type == VM_TYPE_STRUCT)
+		{
+			assert(constant->type.size % 4 == 0);
+
+			for(unsigned i = 0; i < constant->type.size / 4; i++)
+			{
+				unsigned elementValue;
+				memcpy(&elementValue, constant->sValue + i * 4, 4);
+
+				lowModule->constants.push_back(rvmiPushImm);
+				lowModule->constants.push_back(elementValue);
+			}
+
+			return true;
+		}
 	}
 
 	return false;
