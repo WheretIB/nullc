@@ -375,29 +375,19 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 	{
 		assert(constant->type.size % 4 == 0);
 
-		bool subPos = false;
+		unsigned constantIndex = TryLowerConstantToMemory(lowBlock, constant);
 
-		for(unsigned i = 0; i < constant->type.size / 4; i++)
+		assert(constantIndex);
+
+		for(unsigned i = 0; i < constant->type.size / 4; i += 2)
 		{
-			if(subPos)
-			{
-				unsigned char targetReg = result.back();
+			unsigned char targetReg = lowFunction->GetRegisterForConstant();
+			result.push_back(targetReg);
 
-				unsigned elementValue;
-				memcpy(&elementValue, constant->sValue + i * 4, 4);
-				lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, elementValue);
-			}
+			if(constant->type.size / 4 - i >= 2)
+				lowBlock->AddInstruction(ctx, constant->source, rviLoadLong, targetReg, 0, rvrrConstants, (constantIndex - 1 + i) * sizeof(unsigned));
 			else
-			{
-				unsigned char targetReg = lowFunction->GetRegisterForConstant();
-				result.push_back(targetReg);
-
-				unsigned elementValue;
-				memcpy(&elementValue, constant->sValue + i * 4, 4);
-				lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, elementValue);
-			}
-
-			subPos = !subPos;
+				lowBlock->AddInstruction(ctx, constant->source, rviLoadDword, targetReg, 0, rvrrConstants, (constantIndex - 1 + i) * sizeof(unsigned));
 		}
 	}
 	else
@@ -1780,8 +1770,12 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				if(TryLowerConstantPushIntoBlock(lowBlock, argument))
 					continue;
 
+				unsigned constantCount = lowModule->constants.size();
+
 				SmallArray<unsigned char, 32> argumentRegs(ctx.allocator);
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, argumentRegs, argument);
+
+				assert(constantCount == lowModule->constants.size() && "can't add constants while call microcode is prepared");
 
 				if(argument->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && argument->type.type == VM_TYPE_POINTER))
 				{
@@ -2180,8 +2174,12 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(!TryLowerConstantPushIntoBlock(lowBlock, result))
 			{
+				unsigned constantCount = lowModule->constants.size();
+
 				SmallArray<unsigned char, 32> resultRegs(ctx.allocator);
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, resultRegs, result);
+
+				assert(constantCount == lowModule->constants.size() && "can't add constants while return microcode is prepared");
 
 				if(result->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && result->type.type == VM_TYPE_POINTER))
 				{
