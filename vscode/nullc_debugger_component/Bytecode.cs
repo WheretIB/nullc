@@ -398,8 +398,6 @@ namespace nullc_debugger_component
             rviLoadDouble,
 
             rviLoadImm,
-            rviLoadImmLong,
-            rviLoadImmDouble,
 
             rviStoreByte,
             rviStoreWord,

@@ -194,8 +194,6 @@ void GenCodeCmdLoadLong(CodeGenRegVmContext &ctx, RegVmCmd cmd);
 void GenCodeCmdLoadFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd);
 void GenCodeCmdLoadDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd);
 void GenCodeCmdLoadImm(CodeGenRegVmContext &ctx, RegVmCmd cmd);
-void GenCodeCmdLoadImmLong(CodeGenRegVmContext &ctx, RegVmCmd cmd);
-void GenCodeCmdLoadImmDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd);
 void GenCodeCmdStoreByte(CodeGenRegVmContext &ctx, RegVmCmd cmd);
 void GenCodeCmdStoreWord(CodeGenRegVmContext &ctx, RegVmCmd cmd);
 void GenCodeCmdStoreDword(CodeGenRegVmContext &ctx, RegVmCmd cmd);

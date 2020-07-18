@@ -398,8 +398,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviLoadFloat,
 		&&case_rviLoadDouble,
 		&&case_rviLoadImm,
-		&&case_rviLoadImmLong,
-		&&case_rviLoadImmDouble,
 		&&case_rviStoreByte,
 		&&case_rviStoreWord,
 		&&case_rviStoreDword,
@@ -569,18 +567,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			BREAK;
 		CASE(rviLoadImm)
 			regFilePtr[cmd.rA].intValue = cmd.argument;
-			instruction++;
-			BREAK;
-		CASE(rviLoadImmLong)
-			regFilePtr[cmd.rA].longValue = ((uint64_t)cmd.argument << 32ull) | (unsigned)regFilePtr[cmd.rA].intValue;
-			instruction++;
-			BREAK;
-		CASE(rviLoadImmDouble)
-			{
-				uint64_t bits = ((uint64_t)cmd.argument << 32ull) | (unsigned)regFilePtr[cmd.rA].intValue;
-
-				memcpy(&regFilePtr[cmd.rA].doubleValue, &bits, sizeof(double));
-			}
 			instruction++;
 			BREAK;
 		CASE(rviStoreByte)

@@ -16,8 +16,6 @@ enum RegVmInstructionCode
 	rviLoadDouble,
 
 	rviLoadImm,
-	rviLoadImmLong,
-	rviLoadImmDouble,
 
 	rviStoreByte,
 	rviStoreWord,

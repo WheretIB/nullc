@@ -22,10 +22,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "loadd";
 	case rviLoadImm:
 		return "loadimm";
-	case rviLoadImmLong:
-		return "loadimmqh";
-	case rviLoadImmDouble:
-		return "loadimmdh";
 	case rviStoreByte:
 		return "storeb";
 	case rviStoreWord:

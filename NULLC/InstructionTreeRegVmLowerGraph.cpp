@@ -327,8 +327,6 @@ void PrintInstruction(OutputContext &ctx, char *constantData, ExternFuncInfo *fu
 		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_DOUBLE);
 		break;
 	case rviLoadImm:
-	case rviLoadImmLong:
-	case rviLoadImmDouble:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintConstant(ctx, argument, constant);

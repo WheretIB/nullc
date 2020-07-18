@@ -486,8 +486,6 @@ bool ExecutorX86::Initialize()
 	cgFuncs[rviLoadFloat] = GenCodeCmdLoadFloat;
 	cgFuncs[rviLoadDouble] = GenCodeCmdLoadDouble;
 	cgFuncs[rviLoadImm] = GenCodeCmdLoadImm;
-	cgFuncs[rviLoadImmLong] = GenCodeCmdLoadImmLong;
-	cgFuncs[rviLoadImmDouble] = GenCodeCmdLoadImmDouble;
 	cgFuncs[rviStoreByte] = GenCodeCmdStoreByte;
 	cgFuncs[rviStoreWord] = GenCodeCmdStoreWord;
 	cgFuncs[rviStoreDword] = GenCodeCmdStoreDword;

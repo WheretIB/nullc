@@ -887,34 +887,6 @@ void GenCodeCmdLoadImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #endif
 }
 
-void GenCodeCmdLoadImmLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
-{
-#if defined(_M_X64)
-	// TODO: should be as simple as on x86
-	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRAX, ((uint64_t)cmd.argument << 32ull));
-	EMIT_OP_REG_REG(ctx.ctx, o_xor64, rRDX, rRDX);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load int value
-	EMIT_OP_REG_REG(ctx.ctx, o_or64, rRAX, rRDX);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long to target
-#else
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8 + 4, cmd.argument); // Store int to top of the target
-#endif
-}
-
-void GenCodeCmdLoadImmDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
-{
-	(void)ctx;
-	(void)cmd;
-
-	//
-
-#if defined(_M_X64)
-	assert(!"not implemented");
-#else
-	assert(!"not implemented");
-#endif
-}
-
 void GenCodeCmdStoreByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 #if defined(_M_X64)
