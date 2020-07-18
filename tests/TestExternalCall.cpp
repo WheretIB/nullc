@@ -495,6 +495,13 @@ ReturnSmall3 TestReturnSmall3()
 
 #include "TestExternalCallInt.h"
 
+#undef LOAD_MODULE_BIND_
+#undef TEST_CODE
+#undef BIND_FUNCTION
+#undef TEST_RESULT_
+#undef MODULE_SUFFIX
+#undef ALL_EXTERNAL_CALLS
+
 #if !defined(ANDROID)
 
 const char	*testFile = 
@@ -593,3 +600,93 @@ TEST("File test 2", testFile2, "1")
 }
 
 #endif
+
+NULLCRef NullcCallReturnTest(NULLCRef function)
+{
+	NULLCFuncPtr functionValue = *(NULLCFuncPtr*)function.ptr;
+
+	nullcCallFunction(functionValue);
+
+	return nullcGetResultObject();
+}
+
+LOAD_MODULE_BIND(test_call_return_values, "test.call_return_values", "auto ref call(auto ref function);")
+{
+	nullcBindModuleFunctionHelper("test.call_return_values", NullcCallReturnTest, "call", 0);
+}
+
+const char	*testCallReturnValues =
+"import test.call_return_values;\r\n\
+\r\n\
+class Test{ int a = 1, b = 2; }\r\n\
+enum Test2{ A, B, C, D }\r\n\
+\r\n\
+auto ref x0 = call(auto(){});\r\n\
+assert(x0.type == void);\r\n\
+auto ref x1 = call(auto(){ return true; });\r\n\
+assert(x1.type == bool);\r\n\
+bool y1 = x1;\r\n\
+assert(y1 == true);\r\n\
+auto ref x2 = call(auto(){ return 'a'; });\r\n\
+assert(x2.type == char);\r\n\
+char y2 = x2;\r\n\
+assert(y2 == 'a');\r\n\
+auto ref x3 = call(auto(){ return short(2); });\r\n\
+assert(x3.type == short);\r\n\
+short y3 = x3;\r\n\
+assert(y3 == 2);\r\n\
+auto ref x4 = call(auto(){ return 3; });\r\n\
+assert(x4.type == int);\r\n\
+int y4 = x4;\r\n\
+assert(y4 == 3);\r\n\
+auto ref x5 = call(auto(){ return 4l; });\r\n\
+assert(x5.type == long);\r\n\
+long y5 = x5;\r\n\
+assert(y5 == 4);\r\n\
+auto ref x6 = call(auto(){ return 5.0f; });\r\n\
+assert(x6.type == float);\r\n\
+float y6 = x6;\r\n\
+assert(y6 == 5.0f);\r\n\
+auto ref x7 = call(auto(){ return 6.0; });\r\n\
+assert(x7.type == double);\r\n\
+double y7 = x7;\r\n\
+assert(y7 == 6.0);\r\n\
+auto ref x8 = call(auto(){ return short; });\r\n\
+assert(x8.type == typeid);\r\n\
+typeid y8 = x8;\r\n\
+assert(y8 == short);\r\n\
+auto ref x9 = call(auto(){ return nullptr; });\r\n\
+assert(x9.type == __nullptr);\r\n\
+__nullptr y9 = x9;\r\n\
+assert(y9 == nullptr);\r\n\
+auto ref x10 = call(auto(){ auto ref r = 7; return r; });\r\n\
+assert(x10.type == int);\r\n\
+int y10 = x10;\r\n\
+assert(y10 == 7);\r\n\
+auto ref x11 = call(auto(){ auto[] r = { 1, 2, 3 }; return r; });\r\n\
+assert(x11.type == auto[]);\r\n\
+auto[] y11 = x11;\r\n\
+assert(int(y11[0]) == 1 && int(y11[1]) == 2);\r\n\
+auto ref x12 = call(auto(){ return \"hello\"; });\r\n\
+assert(x12.type == char[6]);\r\n\
+char[6] y12 = x12;\r\n\
+assert(y12 == \"hello\");\r\n\
+auto ref x13 = call(auto(){ return char[](\"hello\"); });\r\n\
+assert(x13.type == char[]);\r\n\
+char[] y13 = x13;\r\n\
+assert(y13 == \"hello\");\r\n\
+auto ref x14 = call(auto(){ return new int(8); });\r\n\
+assert(x14.type == int ref);\r\n\
+int ref ref y14 = x14;\r\n\
+assert(* *y14 == 8);\r\n\
+auto ref x15 = call(auto(){ return Test(); });\r\n\
+assert(x15.type == Test);\r\n\
+Test y15 = x15;\r\n\
+assert(y15.a == 1 && y15.b == 2);\r\n\
+auto ref x16 = call(auto(){ return Test2.C; });\r\n\
+assert(x16.type == Test2);\r\n\
+Test2 y16 = x16;\r\n\
+assert(y16 == Test2.C);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Return of different types from nullc function calls", testCallReturnValues, "1");

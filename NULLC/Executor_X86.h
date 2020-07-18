@@ -41,6 +41,8 @@ public:
 
 	bool	SetStackSize(unsigned bytes);
 
+	unsigned	GetResultType();
+	NULLCRef	GetResultObject();
 	const char*	GetResult();
 	int			GetResultInt();
 	double		GetResultDouble();
@@ -48,7 +50,7 @@ public:
 
 	const char*	GetExecError();
 
-	char*	GetVariableData(unsigned int *count);
+	char*		GetVariableData(unsigned int *count);
 
 	unsigned	GetCallStackAddress(unsigned frame);
 
@@ -69,9 +71,6 @@ private:
 	CodeGenRegVmContext *codeGenCtx;
 
 	bool	codeRunning;
-
-	RegVmReturnType	lastResultType;
-	RegVmRegister	lastResult;
 
 	static const unsigned execResultSize = 512;
 	char	execResult[execResultSize];

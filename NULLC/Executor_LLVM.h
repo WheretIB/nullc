@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "Executor_Common.h"
+#include "InstructionTreeRegVm.h"
 
 struct LlvmExecutionContext;
 
@@ -19,6 +20,9 @@ public:
 	void	Stop(const char* error);
 
 	bool	SetStackSize(unsigned bytes);
+
+	unsigned	GetResultType();
+	NULLCRef	GetResultObject();
 
 	const char*	GetResult();
 	int			GetResultInt();

@@ -606,7 +606,53 @@ bool ExecutorLLVM::SetStackSize(unsigned bytes)
 	return true;
 }
 
-const char*	ExecutorLLVM::GetResult()
+unsigned ExecutorLLVM::GetResultType()
+{
+	switch(llvmReturnedType)
+	{
+	case LLVM_DOUBLE:
+		return NULLC_TYPE_DOUBLE;
+	case LLVM_LONG:
+		return NULLC_TYPE_LONG;
+	case LLVM_INT:
+		return NULLC_TYPE_INT;
+	default:
+		break;
+	}
+
+	return NULLC_TYPE_VOID;
+}
+
+
+NULLCRef ExecutorLLVM::GetResultObject()
+{
+	NULLCRef result = { 0, 0 };
+
+	switch(llvmReturnedType)
+	{
+	case LLVM_DOUBLE:
+		result.typeID = NULLC_TYPE_DOUBLE;
+		result.ptr = (char*)nullcAllocateTyped(NULLC_TYPE_DOUBLE);
+		memcpy(result.ptr, &llvmReturnedDouble, sizeof(llvmReturnedDouble));
+		break;
+	case LLVM_LONG:
+		result.typeID = NULLC_TYPE_LONG;
+		result.ptr = (char*)nullcAllocateTyped(NULLC_TYPE_LONG);
+		memcpy(result.ptr, &llvmReturnedLong, sizeof(llvmReturnedLong));
+		break;
+	case LLVM_INT:
+		result.typeID = NULLC_TYPE_INT;
+		result.ptr = (char*)nullcAllocateTyped(NULLC_TYPE_INT);
+		memcpy(result.ptr, &llvmReturnedInt, sizeof(llvmReturnedInt));
+		break;
+	default:
+		break;
+	}
+
+	return result;
+}
+
+const char* ExecutorLLVM::GetResult()
 {
 	switch(llvmReturnedType)
 	{
@@ -631,11 +677,13 @@ int ExecutorLLVM::GetResultInt()
 	assert(llvmReturnedType == LLVM_INT);
 	return llvmReturnedInt;
 }
+
 double ExecutorLLVM::GetResultDouble()
 {
 	assert(llvmReturnedType == LLVM_DOUBLE);
 	return llvmReturnedDouble;
 }
+
 long long ExecutorLLVM::GetResultLong()
 {
 	assert(llvmReturnedType == LLVM_LONG);

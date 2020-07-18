@@ -33,5 +33,13 @@ typedef struct DCCallVM_ DCCallVM;
 void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra, unsigned *argumentStorage, unsigned *resultStorage);
 #endif
 
+unsigned GetFunctionVmReturnType(ExternFuncInfo &function, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra);
+
+NULLCRef GetExecutorResultObject(unsigned tempStackType, unsigned *tempStackArrayBase);
+const char* GetExecutorResult(char *execResult, unsigned execResultSize, unsigned tempStackType, unsigned *tempStackArrayBase, char *exSymbols, ExternTypeInfo *exTypes);
+int GetExecutorResultInt(unsigned tempStackType, unsigned *tempStackArrayBase);
+double GetExecutorResultDouble(unsigned tempStackType, unsigned *tempStackArrayBase);
+long long GetExecutorResultLong(unsigned tempStackType, unsigned *tempStackArrayBase);
+
 int VmIntPow(int power, int number);
 long long VmLongPow(long long power, long long number);

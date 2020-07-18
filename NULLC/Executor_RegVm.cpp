@@ -59,14 +59,13 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 
 	codeRunning = false;
 
-	lastResultType = rvrError;
-
 	symbols = NULL;
 
 	codeBase = NULL;
 
 	minStackSize = 1 * 1024 * 1024;
 
+	tempStackType = NULLC_TYPE_VOID;
 	tempStackArrayBase = NULL;
 	tempStackArrayEnd = NULL;
 
@@ -191,14 +190,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		unsigned funcPos = ~0u;
 		funcPos = target.regVmAddress;
 
-		if(target.retType == ExternFuncInfo::RETURN_VOID)
-			retType = rvrVoid;
-		else if(target.retType == ExternFuncInfo::RETURN_INT)
-			retType = rvrInt;
-		else if(target.retType == ExternFuncInfo::RETURN_DOUBLE)
-			retType = rvrDouble;
-		else if(target.retType == ExternFuncInfo::RETURN_LONG)
-			retType = rvrLong;
+		retType = (RegVmReturnType)GetFunctionVmReturnType(target, exTypes.data, exLinker->exTypeExtra.data);
 
 		if(funcPos == ~0u)
 		{
@@ -247,7 +239,6 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 				regFilePtr = regFileLastTop;
 				regFileTop = regFilePtr + target.regVmRegisters;
-
 
 				assert(dataStack.size() % 16 == 0);
 
@@ -341,24 +332,31 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 	lastFinalReturn = prevLastFinalReturn;
 
-	lastResultType = retType;
-
-	switch(lastResultType)
+	if(functionID != ~0u)
 	{
-	case rvrInt:
+		ExternFuncInfo &target = exFunctions[functionID];
+		ExternTypeInfo &targetType = exTypes[target.funcType];
 
-		lastResult.intValue = tempStackPtr[0];
-		break;
-	case rvrDouble:
+		tempStackType = exLinker->exTypeExtra[targetType.memberOffset].type;
+	}
+	else
+	{
+		tempStackType = NULLC_TYPE_VOID;
 
-		memcpy(&lastResult.doubleValue, tempStackPtr, sizeof(double));
-		break;
-	case rvrLong:
-
-		memcpy(&lastResult.longValue, tempStackPtr, sizeof(long long));
-		break;
-	default:
-		break;
+		switch(retType)
+		{
+		case rvrInt:
+			tempStackType = NULLC_TYPE_INT;
+			break;
+		case rvrDouble:
+			tempStackType = NULLC_TYPE_DOUBLE;
+			break;
+		case rvrLong:
+			tempStackType = NULLC_TYPE_LONG;
+			break;
+		default:
+			break;
+		}
 	}
 }
 
@@ -1653,51 +1651,34 @@ RegVmReturnType ExecutorRegVm::ExecError(RegVmCmd * const instruction, const cha
 	return rvrError;
 }
 
+unsigned ExecutorRegVm::GetResultType()
+{
+	return tempStackType;
+}
+
+NULLCRef ExecutorRegVm::GetResultObject()
+{
+	return GetExecutorResultObject(tempStackType, tempStackArrayBase);
+}
+
 const char* ExecutorRegVm::GetResult()
 {
-	switch(lastResultType)
-	{
-	case rvrDouble:
-		NULLC::SafeSprintf(execResult, execResultSize, "%f", lastResult.doubleValue);
-		break;
-	case rvrLong:
-		NULLC::SafeSprintf(execResult, execResultSize, "%lldL", (long long)lastResult.longValue);
-		break;
-	case rvrInt:
-		NULLC::SafeSprintf(execResult, execResultSize, "%d", lastResult.intValue);
-		break;
-	case rvrVoid:
-		NULLC::SafeSprintf(execResult, execResultSize, "no return value");
-		break;
-	case rvrStruct:
-		NULLC::SafeSprintf(execResult, execResultSize, "complex return value");
-		break;
-	default:
-		break;
-	}
-
-	return execResult;
+	return GetExecutorResult(execResult, execResultSize, tempStackType, tempStackArrayBase, exLinker->exSymbols.data, exTypes.data);
 }
 
 int ExecutorRegVm::GetResultInt()
 {
-	assert(lastResultType == rvrInt);
-
-	return lastResult.intValue;
+	return GetExecutorResultInt(tempStackType, tempStackArrayBase);
 }
 
 double ExecutorRegVm::GetResultDouble()
 {
-	assert(lastResultType == rvrDouble);
-
-	return lastResult.doubleValue;
+	return GetExecutorResultDouble(tempStackType, tempStackArrayBase);
 }
 
 long long ExecutorRegVm::GetResultLong()
 {
-	assert(lastResultType == rvrLong);
-
-	return lastResult.longValue;
+	return GetExecutorResultLong(tempStackType, tempStackArrayBase);
 }
 
 const char*	ExecutorRegVm::GetExecError()

@@ -21,6 +21,9 @@ public:
 
 	bool	SetStackSize(unsigned bytes);
 
+	unsigned	GetResultType();
+	NULLCRef	GetResultObject();
+
 	const char*	GetResult();
 	int			GetResultInt();
 	double		GetResultDouble();
@@ -47,9 +50,6 @@ private:
 
 	bool	codeRunning;
 
-	RegVmReturnType	lastResultType;
-	RegVmRegister	lastResult;
-
 	char		*execError;
 
 	static const unsigned execResultSize = 512;
@@ -73,6 +73,7 @@ private:
 	unsigned	lastFinalReturn;
 
 	// Stack for call argument/return result data
+	unsigned	tempStackType;
 	unsigned	*tempStackArrayBase;
 	unsigned	*tempStackArrayEnd;
 

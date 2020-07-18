@@ -44,6 +44,7 @@ struct CodeGenRegVmStateContext
 		regFileLastTop = NULL;
 		regFileArrayEnd = NULL;
 
+		tempStackType = 0;
 		tempStackArrayBase = NULL;
 		tempStackArrayEnd = NULL;
 
@@ -104,6 +105,7 @@ struct CodeGenRegVmStateContext
 	RegVmRegister	*regFileLastTop;
 	RegVmRegister	*regFileArrayEnd;
 
+	unsigned		tempStackType;
 	unsigned		*tempStackArrayBase;
 	unsigned		*tempStackArrayEnd;
 

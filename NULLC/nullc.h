@@ -64,31 +64,10 @@ nullres		nullcBuild(const char* code);
 /*	Compiles and links code with an additional module name info	*/
 nullres		nullcBuildWithModuleName(const char* code, const char* moduleName);
 
-/*	Run global code	*/
-nullres		nullcRun();
-/*	Run function code	*/
-nullres		nullcRunFunction(const char* funcName, ...);
-nullres		nullcRunFunctionInternal(unsigned functionID, const char* argBuf);
-
-/*	Retrieve result	*/
-const char*	nullcGetResult();
-int			nullcGetResultInt();
-double		nullcGetResultDouble();
-long long	nullcGetResultLong();
-
-/*	Returns last error description	*/
-const char*	nullcGetLastError();
-
-#ifndef NULLC_NO_EXECUTOR
-nullres		nullcFinalize();
-#endif
-
 /************************************************************************/
-/*							Interaction functions						*/
+/*							Execution functions						*/
 
-#ifndef NULLC_NO_EXECUTOR
-
-// A list of indexes for NULLC build-in types
+/* A list of indexes for NULLC build-in types */
 #define	NULLC_TYPE_VOID			0
 #define	NULLC_TYPE_BOOL			1
 #define	NULLC_TYPE_CHAR			2
@@ -105,6 +84,36 @@ nullres		nullcFinalize();
 #define	NULLC_TYPE_AUTO_REF		13
 #define	NULLC_TYPE_VOID_REF		14
 #define	NULLC_TYPE_AUTO_ARRAY	15
+
+/*	Run global code	*/
+nullres		nullcRun();
+/*	Run function code	*/
+nullres		nullcRunFunction(const char* funcName, ...);
+nullres		nullcRunFunctionInternal(unsigned functionID, const char* argBuf);
+
+/*	Retrieve result	*/
+unsigned	nullcGetResultType();
+NULLCRef	nullcGetResultObject();
+
+/*	Retrieve result as a string for a limited number of types */
+const char*	nullcGetResult();
+
+/*	Retrieve result for a limited number of types */
+int			nullcGetResultInt();
+double		nullcGetResultDouble();
+long long	nullcGetResultLong();
+
+/*	Returns last error description	*/
+const char*	nullcGetLastError();
+
+#ifndef NULLC_NO_EXECUTOR
+nullres		nullcFinalize();
+#endif
+
+/************************************************************************/
+/*							Interaction functions						*/
+
+#ifndef NULLC_NO_EXECUTOR
 
 /*	Allocates memory block that is managed by GC	*/
 void*		nullcAllocate(unsigned size);

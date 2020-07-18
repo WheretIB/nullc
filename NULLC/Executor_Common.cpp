@@ -1682,6 +1682,184 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 }
 #endif
 
+unsigned GetFunctionVmReturnType(ExternFuncInfo &function, ExternTypeInfo *exTypes, ExternMemberInfo *exTypeExtra)
+{
+	RegVmReturnType retType = rvrVoid;
+
+	ExternTypeInfo &targetType = exTypes[function.funcType];
+
+	unsigned targetReturnTypeId = exTypeExtra[targetType.memberOffset].type;
+	ExternTypeInfo &targetReturnType = exTypes[targetReturnTypeId];
+
+	switch(targetReturnTypeId)
+	{
+	case NULLC_TYPE_VOID:
+		retType = rvrVoid;
+		break;
+	case NULLC_TYPE_BOOL:
+	case NULLC_TYPE_CHAR:
+	case NULLC_TYPE_SHORT:
+	case NULLC_TYPE_INT:
+		retType = rvrInt;
+		break;
+	case NULLC_TYPE_LONG:
+		retType = rvrLong;
+		break;
+	case NULLC_TYPE_FLOAT:
+	case NULLC_TYPE_DOUBLE:
+		retType = rvrDouble;
+		break;
+	case NULLC_TYPE_TYPEID:
+	case NULLC_TYPE_FUNCTION:
+		retType = rvrInt;
+		break;
+	case NULLC_TYPE_NULLPTR:
+	case NULLC_TYPE_VOID_REF:
+		retType = NULLC_PTR_SIZE == 4 ? rvrInt : rvrLong;
+		break;
+	default:
+		if(targetReturnType.subCat == ExternTypeInfo::CAT_POINTER)
+			retType = NULLC_PTR_SIZE == 4 ? rvrInt : rvrLong;
+		else if(targetReturnType.subCat == ExternTypeInfo::CAT_CLASS && targetReturnType.type == ExternTypeInfo::TYPE_INT)
+			retType = rvrInt;
+		else
+			retType = rvrStruct;
+		break;
+	}
+
+	return retType;
+}
+
+NULLCRef GetExecutorResultObject(unsigned tempStackType, unsigned *tempStackArrayBase)
+{
+	if(tempStackType == NULLC_TYPE_VOID)
+	{
+		NULLCRef result = { 0, 0 };
+
+		return result;
+	}
+	else if(tempStackType == NULLC_TYPE_FLOAT)
+	{
+		// 'float' is placed as a 'double' value on the stack
+		NULLCRef result = { NULLC_TYPE_FLOAT, (char*)nullcAllocateTyped(NULLC_TYPE_FLOAT) };
+
+		double tmpDouble;
+		memcpy(&tmpDouble, tempStackArrayBase, sizeof(tmpDouble));
+
+		float tmpFloat = float(tmpDouble);
+		memcpy(result.ptr, &tmpFloat, sizeof(tmpFloat));
+
+		return result;
+	}
+	else if(tempStackType == NULLC_TYPE_AUTO_REF)
+	{
+		// Return 'auto ref' as is
+		NULLCRef result;
+		memcpy(&result, tempStackArrayBase, sizeof(result));
+
+		return result;
+	}
+
+	NULLCRef tmp = { tempStackType, (char*)tempStackArrayBase };
+
+	return NULLC::CopyObject(tmp);
+}
+
+const char* GetExecutorResult(char *execResult, unsigned execResultSize, unsigned tempStackType, unsigned *tempStackArrayBase, char *exSymbols, ExternTypeInfo *exTypes)
+{
+	switch(tempStackType)
+	{
+	case NULLC_TYPE_VOID:
+		NULLC::SafeSprintf(execResult, execResultSize, "no return value");
+		break;
+	case NULLC_TYPE_BOOL:
+	case NULLC_TYPE_CHAR:
+	case NULLC_TYPE_SHORT:
+	case NULLC_TYPE_INT:
+	{
+		int value;
+		memcpy(&value, tempStackArrayBase, sizeof(value));
+		NULLC::SafeSprintf(execResult, execResultSize, "%d", value);
+	}
+		break;
+	case NULLC_TYPE_LONG:
+	{
+		long long value;
+		memcpy(&value, tempStackArrayBase, sizeof(value));
+		NULLC::SafeSprintf(execResult, execResultSize, "%lldL", value);
+	}
+		break;
+	case NULLC_TYPE_FLOAT:
+	case NULLC_TYPE_DOUBLE:
+	{
+		double value;
+		memcpy(&value, tempStackArrayBase, sizeof(value));
+		NULLC::SafeSprintf(execResult, execResultSize, "%f", value);
+	}
+		break;
+	default:
+		NULLC::SafeSprintf(execResult, execResultSize, "complex return value (%s)", exSymbols + exTypes[tempStackType].offsetToName);
+		break;
+	}
+
+	return execResult;
+}
+
+int GetExecutorResultInt(unsigned tempStackType, unsigned *tempStackArrayBase)
+{
+	int value = 0;
+
+	switch(tempStackType)
+	{
+	case NULLC_TYPE_BOOL:
+	case NULLC_TYPE_CHAR:
+	case NULLC_TYPE_SHORT:
+	case NULLC_TYPE_INT:
+		memcpy(&value, tempStackArrayBase, sizeof(value));
+		return value;
+	default:
+		assert(!"return type is not 'int'");
+		break;
+	}
+
+	return value;
+}
+
+double GetExecutorResultDouble(unsigned tempStackType, unsigned *tempStackArrayBase)
+{
+	double value = 0.0;
+
+	switch(tempStackType)
+	{
+	case NULLC_TYPE_FLOAT:
+	case NULLC_TYPE_DOUBLE:
+		memcpy(&value, tempStackArrayBase, sizeof(value));
+		return value;
+	default:
+		assert(!"return type is not 'double'");
+		break;
+	}
+
+	return value;
+}
+
+long long GetExecutorResultLong(unsigned tempStackType, unsigned *tempStackArrayBase)
+{
+	long long value = 0;
+
+	switch(tempStackType)
+	{
+	case NULLC_TYPE_LONG:
+		memcpy(&value, tempStackArrayBase, sizeof(value));
+		return value;
+	default:
+		assert(!"return type is not 'long'");
+		break;
+	}
+
+	return value;
+}
+
 int VmIntPow(int power, int number)
 {
 	if(power < 0)

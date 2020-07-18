@@ -1332,6 +1332,50 @@ nullres nullcIsManagedPointer(void* ptr)
 
 #endif
 
+unsigned nullcGetResultType()
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(NULLC_TYPE_VOID);
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		return executorX86->GetResultType();
+#endif
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
+	if(currExec == NULLC_LLVM)
+		return executorLLVM->GetResultType();
+#endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultType();
+#endif
+
+	return NULLC_TYPE_VOID;
+}
+
+NULLCRef nullcGetResultObject()
+{
+	NULLCRef empty = { 0, 0 };
+
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(empty);
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		return executorX86->GetResultObject();
+#endif
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
+	if(currExec == NULLC_LLVM)
+		return executorLLVM->GetResultObject();
+#endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultObject();
+#endif
+
+	return empty;
+}
+
 const char* nullcGetResult()
 {
 	using namespace NULLC;

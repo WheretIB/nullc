@@ -2,12 +2,15 @@
 
 #ifdef NULLC_BUILD_X86_JIT
 
+#include "Executor_Common.h"
+
+#include "nullc.h"
+#include "nullc_debug.h"
 #include "Executor_X86.h"
 #include "CodeGen_X86.h"
 #include "CodeGenRegVm_X86.h"
 #include "Translator_X86.h"
 #include "Linker.h"
-#include "Executor_Common.h"
 #include "InstructionTreeRegVmLowerGraph.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
@@ -390,8 +393,6 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 	memset(execResult, 0, execResultSize);
 
 	codeRunning = false;
-
-	lastResultType = rvrError;
 
 	minStackSize = 1 * 1024 * 1024;
 
@@ -863,14 +864,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		unsigned funcPos = ~0u;
 		funcPos = target.regVmAddress;
 
-		if(target.retType == ExternFuncInfo::RETURN_VOID)
-			retType = rvrVoid;
-		else if(target.retType == ExternFuncInfo::RETURN_INT)
-			retType = rvrInt;
-		else if(target.retType == ExternFuncInfo::RETURN_DOUBLE)
-			retType = rvrDouble;
-		else if(target.retType == ExternFuncInfo::RETURN_LONG)
-			retType = rvrLong;
+		retType = (RegVmReturnType)GetFunctionVmReturnType(target, exTypes.data, exLinker->exTypeExtra.data);
 
 		if(funcPos == ~0u)
 		{
@@ -1116,21 +1110,31 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	lastFinalReturn = prevLastFinalReturn;
 
-	lastResultType = retType;
-
-	switch(lastResultType)
+	if(functionID != ~0u)
 	{
-	case rvrInt:
-		memcpy(&lastResult.intValue, vmState.tempStackArrayBase, sizeof(lastResult.intValue));
-		break;
-	case rvrDouble:
-		memcpy(&lastResult.doubleValue, vmState.tempStackArrayBase, sizeof(lastResult.doubleValue));
-		break;
-	case rvrLong:
-		memcpy(&lastResult.longValue, vmState.tempStackArrayBase, sizeof(lastResult.longValue));
-		break;
-	default:
-		break;
+		ExternFuncInfo &target = exFunctions[functionID];
+		ExternTypeInfo &targetType = exTypes[target.funcType];
+
+		vmState.tempStackType = exLinker->exTypeExtra[targetType.memberOffset].type;
+	}
+	else
+	{
+		vmState.tempStackType = NULLC_TYPE_VOID;
+
+		switch(retType)
+		{
+		case rvrInt:
+			vmState.tempStackType = NULLC_TYPE_INT;
+			break;
+		case rvrDouble:
+			vmState.tempStackType = NULLC_TYPE_DOUBLE;
+			break;
+		case rvrLong:
+			vmState.tempStackType = NULLC_TYPE_LONG;
+			break;
+		default:
+			break;
+		}
 	}
 }
 
@@ -2036,51 +2040,34 @@ void ExecutorX86::SaveListing(OutputContext &output)
 	output.Flush();
 }
 
+unsigned ExecutorX86::GetResultType()
+{
+	return vmState.tempStackType;
+}
+
+NULLCRef ExecutorX86::GetResultObject()
+{
+	return GetExecutorResultObject(vmState.tempStackType, vmState.tempStackArrayBase);
+}
+
 const char* ExecutorX86::GetResult()
 {
-	switch(lastResultType)
-	{
-	case rvrDouble:
-		NULLC::SafeSprintf(execResult, execResultSize, "%f", lastResult.doubleValue);
-		break;
-	case rvrLong:
-		NULLC::SafeSprintf(execResult, execResultSize, "%lldL", (long long)lastResult.longValue);
-		break;
-	case rvrInt:
-		NULLC::SafeSprintf(execResult, execResultSize, "%d", lastResult.intValue);
-		break;
-	case rvrVoid:
-		NULLC::SafeSprintf(execResult, execResultSize, "no return value");
-		break;
-	case rvrStruct:
-		NULLC::SafeSprintf(execResult, execResultSize, "complex return value");
-		break;
-	default:
-		break;
-	}
-
-	return execResult;
+	return GetExecutorResult(execResult, execResultSize, vmState.tempStackType, vmState.tempStackArrayBase, exLinker->exSymbols.data, exTypes.data);
 }
 
 int ExecutorX86::GetResultInt()
 {
-	assert(lastResultType == rvrInt);
-
-	return lastResult.intValue;
+	return GetExecutorResultInt(vmState.tempStackType, vmState.tempStackArrayBase);
 }
 
 double ExecutorX86::GetResultDouble()
 {
-	assert(lastResultType == rvrDouble);
-
-	return lastResult.doubleValue;
+	return GetExecutorResultDouble(vmState.tempStackType, vmState.tempStackArrayBase);
 }
 
 long long ExecutorX86::GetResultLong()
 {
-	assert(lastResultType == rvrLong);
-
-	return lastResult.longValue;
+	return GetExecutorResultLong(vmState.tempStackType, vmState.tempStackArrayBase);
 }
 
 const char*	ExecutorX86::GetExecError()
