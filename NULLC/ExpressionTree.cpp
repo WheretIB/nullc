@@ -8187,6 +8187,13 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 	if(isType<ExprGenericFunctionPrototype>(initializer) || initializer->type->isGeneric)
 		Stop(ctx, source, "ERROR: cannot instantiate generic function, because target type is not known");
 
+	if(isType<ExprUnboxing>(initializer))
+	{
+		Report(ctx, source, "ERROR: target type of an 'auto ref' cast is unknown");
+
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	}
+
 	return initializer;
 }
 
