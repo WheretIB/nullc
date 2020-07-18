@@ -47,3 +47,21 @@ const char	*testAutoRefAssign =
 int y = x;\r\n\
 return y;";
 TEST_RESULT("Auto reference immediate assignment", testAutoRefAssign, "3");
+
+const char	*testAutoRefNoArrayAssign1 = 
+"char[6] a = { 1, 2, 3, 4, 5, 6 };\r\n\
+auto ref b = a;\r\n\
+char[6] c = b;\r\n\
+return c[2];";
+TEST_RESULT("Auto reference assignment to an array 1", testAutoRefNoArrayAssign1, "3");
+
+const char	*testAutoRefNoArrayAssign2 =
+"class Test\r\n\
+{\r\n\
+	char[6] a = { 1, 2, 3, 4, 5, 6 };\r\n\
+	auto ref b = a;\r\n\
+	char[6] c = b;\r\n\
+}\r\n\
+Test t;\r\n\
+return t.c[2];";
+TEST_RESULT("Auto reference assignment to an array 2", testAutoRefNoArrayAssign2, "3");

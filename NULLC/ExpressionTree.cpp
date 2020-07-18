@@ -8297,7 +8297,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		TypeArray *arrType = getType<TypeArray>(variable->type);
 
 		// Single-level array might be set with a single element at the point of definition
-		if(arrType && !isType<TypeArray>(initializer->type) && initializer->type != ctx.typeAutoArray)
+		if(arrType && !isType<TypeArray>(initializer->type) && initializer->type != ctx.typeAutoArray && initializer->type != ctx.typeAutoRef)
 		{
 			initializer = CreateCast(ctx, syntax->initializer, initializer, arrType->subType, false);
 
@@ -9814,7 +9814,7 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 			TypeArray *arrType = getType<TypeArray>(variable->type);
 
 			// Single-level array might be set with a single element at the point of definition
-			if(arrType && !isType<TypeArray>(initializer->type) && initializer->type != ctx.typeAutoArray)
+			if(arrType && !isType<TypeArray>(initializer->type) && initializer->type != ctx.typeAutoArray && initializer->type != ctx.typeAutoRef)
 			{
 				initializer = CreateCast(ctx, initializer->source, initializer, arrType->subType, false);
 
