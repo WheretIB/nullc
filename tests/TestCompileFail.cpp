@@ -734,6 +734,7 @@ while instantiating generic function foo(generic)\n\
 
 	TEST_FOR_FAIL("unknown type for operation", "auto ref x; return -x;", "ERROR: unary operation '-' is not supported on 'auto ref'");
 	TEST_FOR_FAIL("unknown type for operation", "auto ref x; return ~x;", "ERROR: unary operation '~' is not supported on 'auto ref'");
+	TEST_FOR_FAIL("unknown type for operation", "auto ref x = 4; auto y = * *x;", "ERROR: cannot dereference value of unknown type");
 
 	TEST_FOR_FAIL("fake nullptr", "void ref b; int ref a = b;", "ERROR: cannot convert 'void ref' to 'int ref'");
 	TEST_FOR_FAIL("void value", "void ref b; return *b;", "ERROR: cannot dereference type 'void ref'");

@@ -4376,6 +4376,9 @@ ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 
 	if(isType<TypeAutoRef>(value->type))
 	{
+		if(isType<ExprUnboxing>(value))
+			Stop(ctx, syntax, "ERROR: cannot dereference value of unknown type");
+
 		return new (ctx.get<ExprUnboxing>()) ExprUnboxing(syntax, ctx.typeAutoRef, value);
 	}
 
