@@ -57,6 +57,63 @@ class PugiNamespace
 }
 PugiNamespace pugi;
 
+// const string implementation
+class const_string
+{
+	char[] arr;
+	int size{ get{ return arr.size; } };
+}
+auto operator=(const_string ref l, char[] arr)
+{
+	l.arr = arr;
+	return l;
+}
+const_string const_string(char[] arr)
+{
+	const_string ret = arr;
+	return ret;
+}
+char operator[](const_string ref l, int index)
+{
+	return l.arr[index];
+}
+int operator==(const_string a, b)
+{
+	return a.arr == b.arr;
+}
+int operator==(const_string a, char[] b)
+{
+	return a.arr == b;
+}
+int operator==(char[] a, const_string b)
+{
+	return a == b.arr;
+}
+int operator!=(const_string a, b)
+{
+	return a.arr != b.arr;
+}
+int operator!=(const_string a, char[] b)
+{
+	return a.arr != b;
+}
+int operator!=(char[] a, const_string b)
+{
+	return a != b.arr;
+}
+const_string operator+(const_string a, b)
+{
+	return const_string(a.arr + b.arr);
+}
+const_string operator+(const_string a, char[] b)
+{
+	return const_string(a.arr + b);
+}
+const_string operator+(char[] a, const_string b)
+{
+	return const_string(a + b.arr);
+}
+
 typedef int xml_parse_status;
 typedef int encoding_t;
 typedef int xml_node_type;

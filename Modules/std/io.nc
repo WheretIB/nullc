@@ -140,12 +140,6 @@ StdOut operator <<(StdOut out, char[] str)
 	return out;
 }
 
-StdOut operator <<(StdOut out, const_string str)
-{
-	Print(str.arr);
-	return out;
-}
-
 StdOut operator <<(StdOut out, StdEndline str)
 {
 	Print("\n");

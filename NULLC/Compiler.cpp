@@ -119,35 +119,6 @@ int __typeCount();\r\n\
 auto[] ref operator=(explicit auto[] ref l, explicit auto ref r);\r\n\
 auto ref __aaassignrev(auto ref l, auto[] ref r);\r\n\
 auto ref operator[](explicit auto[] ref l, int index);\r\n\
-// const string implementation\r\n\
-class const_string\r\n\
-{\r\n\
-	char[] arr;\r\n\
-	int size{ get{ return arr.size; } };\r\n\
-}\r\n\
-auto operator=(const_string ref l, char[] arr)\r\n\
-{\r\n\
-	l.arr = arr;\r\n\
-	return l;\r\n\
-}\r\n\
-const_string const_string(char[] arr)\r\n\
-{\r\n\
-	const_string ret = arr;\r\n\
-	return ret;\r\n\
-}\r\n\
-char operator[](const_string ref l, int index)\r\n\
-{\r\n\
-	return l.arr[index];\r\n\
-}\r\n\
-int operator==(const_string a, b){ return a.arr == b.arr; }\r\n\
-int operator==(const_string a, char[] b){ return a.arr == b; }\r\n\
-int operator==(char[] a, const_string b){ return a == b.arr; }\r\n\
-int operator!=(const_string a, b){ return a.arr != b.arr; }\r\n\
-int operator!=(const_string a, char[] b){ return a.arr != b; }\r\n\
-int operator!=(char[] a, const_string b){ return a != b.arr; }\r\n\
-const_string operator+(const_string a, b){ return const_string(a.arr + b.arr); }\r\n\
-const_string operator+(const_string a, char[] b){ return const_string(a.arr + b); }\r\n\
-const_string operator+(char[] a, const_string b){ return const_string(a + b.arr); }\r\n\
 \r\n\
 int isStackPointer(auto ref x);\r\n\
 \r\n\

@@ -794,13 +794,13 @@ bool	nullcInitPugiXMLModule()
 	REGISTER_FUNC(xml_attribute__name, "xml_attribute::name", 0);
 	REGISTER_FUNC(xml_attribute__value, "xml_attribute::value", 0);
 
-	REGISTER_FUNC(xml_attribute__operatorSetS, "=", 0);
-	REGISTER_FUNC(xml_attribute__operatorSetI, "=", 1);
-	REGISTER_FUNC(xml_attribute__operatorSetD, "=", 2);
+	REGISTER_FUNC(xml_attribute__operatorSetS, "=", 1);
+	REGISTER_FUNC(xml_attribute__operatorSetI, "=", 2);
+	REGISTER_FUNC(xml_attribute__operatorSetD, "=", 3);
 	
 	REGISTER_FUNC(xml_attribute__operatorNot, "!", 0);
-	REGISTER_FUNC(xml_attribute__operatorEqual, "==", 0);
-	REGISTER_FUNC(xml_attribute__operatorNEqual, "!=", 0);
+	REGISTER_FUNC(xml_attribute__operatorEqual, "==", 3);
+	REGISTER_FUNC(xml_attribute__operatorNEqual, "!=", 3);
 	REGISTER_FUNC(xml_attribute__operatorLess, "<", 0);
 	REGISTER_FUNC(xml_attribute__operatorGreater, ">", 0);
 	REGISTER_FUNC(xml_attribute__operatorLEqual, "<=", 0);
@@ -869,8 +869,8 @@ bool	nullcInitPugiXMLModule()
 	REGISTER_FUNC(xml_node__find_node, "xml_node::find_node", 0);
 
 	REGISTER_FUNC(xml_node__operatorNot, "!", 1);
-	REGISTER_FUNC(xml_node__operatorEqual, "==", 1);
-	REGISTER_FUNC(xml_node__operatorNEqual, "!=", 1);
+	REGISTER_FUNC(xml_node__operatorEqual, "==", 4);
+	REGISTER_FUNC(xml_node__operatorNEqual, "!=", 4);
 	REGISTER_FUNC(xml_node__operatorLess, "<", 1);
 	REGISTER_FUNC(xml_node__operatorGreater, ">", 1);
 	REGISTER_FUNC(xml_node__operatorLEqual, "<=", 1);

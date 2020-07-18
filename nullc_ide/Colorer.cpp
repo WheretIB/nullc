@@ -902,7 +902,6 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("float"));
 	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("double"));
 	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("typeid"));
-	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("const_string"));
 	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("generic"));
 	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("bool"));
 

@@ -823,11 +823,6 @@ bool operator !(const NULLCRef& a)
 	return !a.ptr;
 }
 
-struct const_string
-{
-	NULLCArray<char> arr;
-};
-
 void  assert(int val, const char* message, void* unused)
 {
 	if(!val)
@@ -1435,82 +1430,6 @@ NULLCRef __operatorIndex_auto_ref_ref_auto___ref_int_(NULLCAutoArray* left, int 
 	}
 	ret.typeID = left->typeID;
 	ret.ptr = (char*)left->ptr + index * nullcGetTypeSize(ret.typeID);
-	return ret;
-}
-
-int const_string__size__int_ref___(const_string* str)
-{
-	return str->arr.size;
-}
-
-const_string* __operatorSet_const_string_ref_ref_const_string_ref_char___(const_string* l, NULLCArray<char> arr, void* __context)
-{
-	l->arr = arr;
-	return l;
-}
-
-const_string const_string_const_string_ref_char___(NULLCArray<char> arr, void* unused)
-{
-	const_string str;
-	str.arr = arr;
-	return str;
-}
-
-
-char __operatorIndex_char_ref_const_string_ref_int_(const_string* l, int index, void* __context)
-{
-	// TODO: index check
-	return l->arr.ptr[index];
-}
-
-int __operatorEqual_int_ref_const_string_const_string_(const_string a, const_string b, void* __context)
-{
-	return __operatorEqual_int_ref_char___char___(a.arr, b.arr, 0);
-}
-
-int __operatorEqual_int_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context)
-{
-	return __operatorEqual_int_ref_char___char___(a.arr, b, 0);
-}
-
-int __operatorEqual_int_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context)
-{
-	return __operatorEqual_int_ref_char___char___(a, b.arr, 0);
-}
-
-int __operatorNEqual_int_ref_const_string_const_string_(const_string a, const_string b, void* __context)
-{
-	return __operatorNEqual_int_ref_char___char___(a.arr, b.arr, 0);
-}
-
-int __operatorNEqual_int_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context)
-{
-	return __operatorNEqual_int_ref_char___char___(a.arr, b, 0);
-}
-
-int __operatorNEqual_int_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context)
-{
-	return __operatorNEqual_int_ref_char___char___(a, b.arr, 0);
-}
-
-const_string __operatorAdd_const_string_ref_const_string_const_string_(const_string a, const_string b, void* __context)
-{
-	const_string ret;
-	ret.arr = __operatorAdd_char___ref_char___char___(a.arr, b.arr, 0);
-	return ret;
-}
-
-const_string __operatorAdd_const_string_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context)
-{
-	const_string ret;
-	ret.arr = __operatorAdd_char___ref_char___char___(a.arr, b, 0);
-	return ret;
-}
-
-const_string __operatorAdd_const_string_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context)
-{
-	const_string ret;
-	ret.arr = __operatorAdd_char___ref_char___char___(a, b.arr, 0);
 	return ret;
 }
 
