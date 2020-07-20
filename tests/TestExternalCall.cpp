@@ -2,6 +2,21 @@
 
 #include <stdint.h>
 
+bool TestBoolExtra(int, bool a)
+{
+	return a;
+}
+
+char TestCharExtra(int, char a)
+{
+	return a;
+}
+
+short TestShortExtra(int, short a)
+{
+	return a;
+}
+
 int TestInt(int a)
 {
 	return a;

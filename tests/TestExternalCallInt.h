@@ -22,6 +22,22 @@ TEST_RESULT_("External function call. float type.", testExternalCallBasic5, "3")
 const char	*TEST_CODE(testExternalCallBasic6) = "import test.ext1" MODULE_SUFFIX ";\r\n	auto Double = double_;\r\n	return int(Double(2.0));";
 TEST_RESULT_("External function call. double type.", testExternalCallBasic6, "2");
 
+LOAD_MODULE_BIND_(test_ext1b, "test.ext1b", "bool bool_(int extra, bool a); char char_(int extra, char a); short short_(int extra, short a);")
+{
+	BIND_FUNCTION("test.ext1b", TestBoolExtra, "bool_", 0);
+	BIND_FUNCTION("test.ext1b", TestCharExtra, "char_", 0);
+	BIND_FUNCTION("test.ext1b", TestShortExtra, "short_", 0);
+}
+
+const char	*TEST_CODE(testExternalCallBasic1b) = "import test.ext1b" MODULE_SUFFIX "; int a = bool_(0x7fedcba9, true); return a == 1;";
+TEST_RESULT_("External function call. bool type, return buffer check.", testExternalCallBasic1b, "1");
+
+const char	*TEST_CODE(testExternalCallBasic2b) = "import test.ext1b" MODULE_SUFFIX "; int a = char_(0x7fedcba9, 0x3e); return a == 0x3e;";
+TEST_RESULT_("External function call. char type, return buffer check.", testExternalCallBasic2b, "1");
+
+const char	*TEST_CODE(testExternalCallBasic3b) = "import test.ext1b" MODULE_SUFFIX "; int a = short_(0x7fedcba9, 0x2abc); return a == 0x2abc;";
+TEST_RESULT_("External function call. short type, return buffer check.", testExternalCallBasic3b, "1");
+
 LOAD_MODULE_BIND_(test_ext2, "test.ext2", "int Call(char a, short b, int c, long d, char e, short f, int g, long h, char i, short j, int k, long l);")
 {
 	BIND_FUNCTION("test.ext2", TestExt2, "Call", 0);

@@ -114,6 +114,13 @@ struct NullcCallBaseType<void, IsReturn>
 };
 
 template<bool IsReturn>
+struct NullcCallBaseType<bool, IsReturn>
+{
+	typedef int type;
+	static const unsigned size = sizeof(int);
+};
+
+template<bool IsReturn>
 struct NullcCallBaseType<char, IsReturn>
 {
 	typedef int type;
