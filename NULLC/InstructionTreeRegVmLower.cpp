@@ -1776,6 +1776,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, argumentRegs, argument);
 
 				assert(constantCount == lowModule->constants.size() && "can't add constants while call microcode is prepared");
+				(void)constantCount;
 
 				if(argument->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && argument->type.type == VM_TYPE_POINTER))
 				{
@@ -2180,6 +2181,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, resultRegs, result);
 
 				assert(constantCount == lowModule->constants.size() && "can't add constants while return microcode is prepared");
+				(void)constantCount;
 
 				if(result->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && result->type.type == VM_TYPE_POINTER))
 				{
