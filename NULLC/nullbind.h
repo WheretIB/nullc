@@ -55,6 +55,11 @@ namespace NULLC
 /************************************************************************/
 /*				Wrapped function calls									*/
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4800)	// forcing value to bool 'true' or 'false' (performance warning)
+#endif
+
 // SFINAE
 template<typename T>
 struct nullc_is_void
@@ -751,6 +756,10 @@ NON_VOID_RET_A nullcWrapCall15(void *context, char* retBuf, char* argBuf)
 	Ru result = (Ru)((R(*)(ATYPE_15))context)(ARGS_15);
 	memcpy(retBuf, &result, sizeof(Ru));
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 // Function wrapper creation
 typedef void (*nullcFunc)(void*, char*, char*);
