@@ -1003,7 +1003,7 @@ size_t safeprintf(char* dst, size_t size, const char* src, ...)
 
 	va_end(args);
 
-	return result == -1 ? 0 : (result > size ? size : result);
+	return result == -1 ? 0 : (unsigned(result) > size ? size : result);
 }
 
 ExternVarInfo	*codeVars = NULL;
