@@ -1373,16 +1373,16 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 
 	dcReset(dcCallVM);
 
-#if defined(_WIN64)
-	bool returnByPointer = func.returnShift > 1;
-#elif !defined(_M_X64)
-	bool returnByPointer = true;
-#elif defined(__aarch64__)
 	ExternTypeInfo &funcType = exTypes[func.funcType];
 
 	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
 	ExternTypeInfo &returnType = exTypes[member.type];
 
+#if defined(_WIN64)
+	bool returnByPointer = func.returnShift > 1;
+#elif !defined(_M_X64)
+	bool returnByPointer = true;
+#elif defined(__aarch64__)
 	bool returnByPointer = false;
 
 	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
@@ -1390,11 +1390,6 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exTypes, exTypeExtra);
 	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exTypes, exTypeExtra);
 #else
-	ExternTypeInfo &funcType = exTypes[func.funcType];
-
-	ExternMemberInfo &member = exTypeExtra[funcType.memberOffset];
-	ExternTypeInfo &returnType = exTypes[member.type];
-
 	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exTypes, exTypeExtra));
 
 	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
@@ -1578,7 +1573,12 @@ void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLoca
 		dcCallVoid(dcCallVM, fPtr);
 		break;
 	case ExternFuncInfo::RETURN_INT:
-		*newStackPtr = dcCallInt(dcCallVM, fPtr);
+		if(returnType.size == 1)
+			*newStackPtr = dcCallChar(dcCallVM, fPtr);
+		else if(returnType.size == 2)
+			*newStackPtr = dcCallShort(dcCallVM, fPtr);
+		else
+			*newStackPtr = dcCallInt(dcCallVM, fPtr);
 		break;
 	case ExternFuncInfo::RETURN_DOUBLE:
 		if(func.returnShift == 1)
