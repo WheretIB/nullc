@@ -1,7 +1,6 @@
 #include "memory.h"
 
 #include "../../NULLC/nullc.h"
-#include "../../NULLC/nullc_internal.h"
 #include "../../NULLC/nullbind.h"
 
 namespace NULLCMemory
