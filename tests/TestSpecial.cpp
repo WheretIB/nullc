@@ -1275,3 +1275,114 @@ if(syntaxModule)\r\n\
 \r\n\
 return -1;";
 TEST_RESULT_SIMPLE("nullc compiler", testNullcInNullc, "6");
+
+const char	*testErrorLib1 =
+"import std.error;\r\n\
+\r\n\
+class Test{ int a = 1, b = 2; }\r\n\
+enum Test2{ A, B, C, D }\r\n\
+\r\n\
+auto x0 = try(auto(){});\r\n\
+assert(!!x0);\r\n\
+auto x1 = try(auto(){ return true; });\r\n\
+bool y1 = x1.value;\r\n\
+assert(y1 == true);\r\n\
+auto x2 = try(auto(){ return 'a'; });\r\n\
+char y2 = x2.value;\r\n\
+assert(y2 == 'a');\r\n\
+auto x3 = try(auto(){ return short(2); });\r\n\
+short y3 = x3.value;\r\n\
+assert(y3 == 2);\r\n\
+auto x4 = try(auto(){ return 3; });\r\n\
+int y4 = x4.value;\r\n\
+assert(y4 == 3);\r\n\
+auto x5 = try(auto(){ return 4l; });\r\n\
+long y5 = x5.value;\r\n\
+assert(y5 == 4);\r\n\
+auto x6 = try(auto(){ return 5.0f; });\r\n\
+float y6 = x6.value;\r\n\
+assert(y6 == 5.0f);\r\n\
+auto x7 = try(auto(){ return 6.0; });\r\n\
+double y7 = x7.value;\r\n\
+assert(y7 == 6.0);\r\n\
+auto x8 = try(auto(){ return short; });\r\n\
+typeid y8 = x8.value;\r\n\
+assert(y8 == short);\r\n\
+auto x9 = try(auto(){ return nullptr; });\r\n\
+__nullptr y9 = x9.value;\r\n\
+assert(y9 == nullptr);\r\n\
+auto x10 = try(auto(){ auto ref r = 7; return r; });\r\n\
+int y10 = x10.value;\r\n\
+assert(y10 == 7);\r\n\
+auto x11 = try(auto(){ auto[] r = { 1, 2, 3 }; return r; });\r\n\
+auto[] y11 = x11.value;\r\n\
+assert(int(y11[0]) == 1 && int(y11[1]) == 2);\r\n\
+auto x12 = try(auto(){ return \"hello\"; });\r\n\
+char[6] y12 = x12.value;\r\n\
+assert(y12 == \"hello\");\r\n\
+auto x13 = try(auto(){ return char[](\"hello\"); });\r\n\
+char[] y13 = x13.value;\r\n\
+assert(y13 == \"hello\");\r\n\
+auto x14 = try(auto(){ return new int(8); });\r\n\
+int ref y14 = x14.value;\r\n\
+assert(*y14 == 8);\r\n\
+auto x15 = try(auto(){ return Test(); });\r\n\
+Test y15 = x15.value;\r\n\
+assert(y15.a == 1 && y15.b == 2);\r\n\
+auto x16 = try(auto(){ return Test2.C; });\r\n\
+Test2 y16 = x16.value;\r\n\
+assert(y16 == Test2.C);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("std.error test - wrapped calls with different return values", testErrorLib1, "1");
+
+const char	*testErrorLib2 =
+"import std.error;\r\n\
+\r\n\
+int x, y = 2;\r\n\
+\r\n\
+bool a = try(auto(){ throw(\"test\"); }).has_error;\r\n\
+\r\n\
+for(int i = 0; i < 1000; i++) try(auto(){ throw(\"test\"); });\r\n\
+\r\n\
+bool b = try(auto(){ x = y / 0; }).has_error;\r\n\
+bool c = try(auto(){ x += 1; }).has_error;\r\n\
+\r\n\
+return a && b && !c && x == 1;";
+TEST_RESULT("std.error test - error handling", testErrorLib2, "1");
+
+const char	*testErrorLib3 =
+"import std.error;\r\n\
+\r\n\
+class MyError\r\n\
+{\r\n\
+	void MyError(int y){ this.y = y; }\r\n\
+	int y;\r\n\
+}\r\n\
+\r\n\
+int foo()\r\n\
+{\r\n\
+	throw(MyError(42));\r\n\
+\r\n\
+	return 4;\r\n\
+}\r\n\
+\r\n\
+int bar()\r\n\
+{\r\n\
+	auto result = try(foo);\r\n\
+	\r\n\
+	if(result)\r\n\
+		return result.value;\r\n\
+\r\n\
+	if(result.exception.type == MyError)\r\n\
+		result.rethrow();\r\n\
+\r\n\
+	return 12;\r\n\
+}\r\n\
+\r\n\
+auto result = try(bar);\r\n\
+\r\n\
+MyError error = result.exception;\r\n\
+\r\n\
+return error.y;";
+TEST_RESULT("std.error test - error objects and rethrow", testErrorLib3, "42");

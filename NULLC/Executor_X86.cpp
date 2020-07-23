@@ -11,6 +11,7 @@
 #include "CodeGenRegVm_X86.h"
 #include "Translator_X86.h"
 #include "Linker.h"
+#include "StdLib.h"
 #include "InstructionTreeRegVmLowerGraph.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
@@ -387,8 +388,8 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 {
 	codeGenCtx = NULL;
 
-	execError = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
-	*execError = 0;
+	execErrorBuffer = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	*execErrorBuffer = 0;
 
 	memset(execResult, 0, execResultSize);
 
@@ -431,7 +432,7 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 
 ExecutorX86::~ExecutorX86()
 {
-	NULLC::dealloc(execError);
+	NULLC::dealloc(execErrorBuffer);
 
 	NULLC::AllowMemoryPageRead(vmState.callStackEnd);
 	NULLC::AllowMemoryPageRead(vmState.dataStackEnd);
@@ -775,12 +776,6 @@ bool ExecutorX86::Initialize()
 
 bool ExecutorX86::InitExecution()
 {
-	if(!exRegVmCode.size())
-	{
-		strcpy(execError, "ERROR: no code to run");
-		return false;
-	}
-
 	vmState.callStackTop = vmState.callStackBase;
 
 	lastFinalReturn = 0;
@@ -791,13 +786,18 @@ bool ExecutorX86::InitExecution()
 
 	if(vmState.dataStackTop >= vmState.dataStackEnd)
 	{
-		strcpy(execError, "ERROR: allocated stack overflow");
+		Stop("ERROR: allocated stack overflow");
 		return false;
 	}
 
 	SetUnmanagableRange(vmState.dataStackBase, unsigned(vmState.dataStackEnd - vmState.dataStackBase));
 
-	execError[0] = 0;
+	execErrorMessage = NULL;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
+
+	execErrorFinalReturnDepth = 0;
 
 	callContinue = true;
 
@@ -826,17 +826,20 @@ bool ExecutorX86::InitExecution()
 	return true;
 }
 
-void ExecutorX86::Run(unsigned int functionID, const char *arguments)
+bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
 	if(exRegVmCode.empty())
-		return Stop("ERROR: module contains no code");
+	{
+		Stop("ERROR: module contains no code");
+		return false;
+	}
 
 	bool firstRun = !codeRunning || functionID == ~0u;
 
 	if(firstRun)
 	{
 		if(!InitExecution())
-			return;
+			return false;
 	}
 
 	codeRunning = true;
@@ -871,8 +874,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			// Can't return complex types here
 			if(target.retType == ExternFuncInfo::RETURN_UNKNOWN)
 			{
-				strcpy(execError, "ERROR: can't call external function with complex return type");
-				return;
+				Stop("ERROR: can't call external function with complex return type");
+				return false;
 			}
 
 			// Copy all arguments
@@ -918,7 +921,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				vmState.callStackTop++;
 
 				instructionPos = ~0u;
-				strcpy(execError, "ERROR: stack overflow");
+				Stop("ERROR: stack overflow");
 				retType = rvrError;
 			}
 			else
@@ -937,7 +940,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 					vmState.callStackTop++;
 
 					instructionPos = ~0u;
-					strcpy(execError, "ERROR: stack overflow");
+					Stop("ERROR: stack overflow");
 					retType = rvrError;
 				}
 				else
@@ -1088,21 +1091,22 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		// Print call stack on error, when we get to the first function
 		if(lastFinalReturn == 0)
 		{
-			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+			char *currPos = execErrorBuffer + strlen(execErrorBuffer);
+			currPos += NULLC::SafeSprintf(currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execErrorBuffer), "\r\nCall stack:\r\n");
 
 			unsigned currentFrame = 0;
 			while(unsigned address = GetCallStackAddress(currentFrame++))
-				currPos += PrintStackFrame(address, currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), false);
+				currPos += PrintStackFrame(address, currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execErrorBuffer), false);
 		}
 
+		execErrorFinalReturnDepth = lastFinalReturn;
 		lastFinalReturn = prevLastFinalReturn;
 
 		// Ascertain that execution stops when there is a chain of nullcRunFunction
 		callContinue = false;
 		codeRunning = false;
 
-		return;
+		return false;
 	}
 
 	if(lastFinalReturn == 0)
@@ -1136,6 +1140,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			break;
 		}
 	}
+
+	return true;
 }
 
 void ExecutorX86::Stop(const char* error)
@@ -1143,7 +1149,43 @@ void ExecutorX86::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "%s", error);
+
+	NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "%s", error);
+
+	execErrorMessage = execErrorBuffer;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
+}
+
+void ExecutorX86::Stop(NULLCRef error)
+{
+	codeRunning = false;
+
+	callContinue = false;
+
+	NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "%s", exLinker->exSymbols.data + exTypes[error.typeID].offsetToName);
+
+	execErrorMessage = execErrorBuffer;
+
+	if(nullcIsStackPointer(error.ptr))
+		execErrorObject = NULLC::CopyObject(error);
+	else
+		execErrorObject = error;
+}
+
+void ExecutorX86::Resume()
+{
+	vmState.callStackTop = vmState.callStackBase + execErrorFinalReturnDepth;
+
+	codeRunning = true;
+
+	callContinue = true;
+
+	execErrorMessage = NULL;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
 }
 
 bool ExecutorX86::SetStackSize(unsigned bytes)
@@ -2070,9 +2112,14 @@ long long ExecutorX86::GetResultLong()
 	return GetExecutorResultLong(vmState.tempStackType, vmState.tempStackArrayBase);
 }
 
-const char*	ExecutorX86::GetExecError()
+const char* ExecutorX86::GetErrorMessage()
 {
-	return execError;
+	return execErrorMessage;
+}
+
+NULLCRef ExecutorX86::GetErrorObject()
+{
+	return execErrorObject;
 }
 
 char* ExecutorX86::GetVariableData(unsigned int *count)
@@ -2118,7 +2165,8 @@ bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
 	if(instruction > instAddress.size())
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 
@@ -2127,7 +2175,8 @@ bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 
 	if(instruction >= instAddress.size())
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 
@@ -2140,7 +2189,8 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 {
 	if(instruction > instAddress.size())
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 
@@ -2153,7 +2203,8 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 
 	if(index == ~0u || *instAddress[breakInstructions[index].instIndex] != 0xcc)
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 

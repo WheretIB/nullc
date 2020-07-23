@@ -734,10 +734,10 @@ nullres nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName
 	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
-		bool res = executorX86->TranslateToNative(enableLogFiles, outputCtx);
-		if(!res)
+		if(!executorX86->TranslateToNative(enableLogFiles, outputCtx))
 		{
-			nullcLastError = executorX86->GetExecError();
+			nullcLastError = executorX86->GetErrorMessage();
+			return false;
 		}
 #else
 		nullcLastError = "X86 JIT isn't available";
@@ -748,10 +748,10 @@ nullres nullcLinkCodeWithModuleName(const char *bytecode, const char *moduleName
 	if(currExec == NULLC_LLVM)
 	{
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
-		bool res = executorLLVM->TranslateToNative();
-		if(!res)
+		if(!executorLLVM->TranslateToNative())
 		{
-			nullcLastError = executorLLVM->GetExecError();
+			nullcLastError = executorLLVM->GetErrorMessage();
+			return false;
 		}
 #else
 		nullcLastError = "LLVM JIT isn't available";
@@ -999,40 +999,40 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
-		executorX86->Run(functionID, argBuf);
-		const char* error = executorX86->GetExecError();
-		if(error[0] != '\0')
+		if(!executorX86->Run(functionID, argBuf))
 		{
 			good = false;
-			nullcLastError = error;
+			nullcLastError = executorX86->GetErrorMessage();
 		}
 #else
 		good = false;
-		nullcLastError = "X86 JIT isn't available";
+		nullcLastError = "X86 JIT execution engine is not available";
 #endif
-#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	}
 	else if(currExec == NULLC_LLVM)
 	{
-		executorLLVM->Run(functionID, argBuf);
-		const char* error = executorLLVM->GetExecError();
-		if(error[0] != '\0')
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
+		if(!executorLLVM->Run(functionID, argBuf))
 		{
 			good = false;
-			nullcLastError = error;
+			nullcLastError = executorLLVM->GetErrorMessage();
 		}
+#else
+		good = false;
+		nullcLastError = "LLVM execution engine is not available";
 #endif
 	}
 	else if(currExec == NULLC_REG_VM)
 	{
 #ifndef NULLC_NO_EXECUTOR
-		executorRegVm->Run(functionID, argBuf);
-		const char* error = executorRegVm->GetExecError();
-		if(error[0] != '\0')
+		if(!executorRegVm->Run(functionID, argBuf))
 		{
 			good = false;
-			nullcLastError = error;
+			nullcLastError = executorRegVm->GetErrorMessage();
 		}
+#else
+		good = false;
+		nullcLastError = "VM execution engine is not available";
 #endif
 	}
 	else
@@ -1112,12 +1112,56 @@ void nullcThrowError(const char* error, ...)
 	}
 }
 
-nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
+void nullcThrowErrorObject(NULLCRef error)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED((void)0);
+
+	if(currExec == NULLC_X86)
+	{
+#ifdef NULLC_BUILD_X86_JIT
+		executorX86->Stop(error);
+#endif
+	}
+	else if(currExec == NULLC_REG_VM)
+	{
+		executorRegVm->Stop(error);
+	}
+	else if(currExec == NULLC_LLVM)
+	{
+#ifdef NULLC_LLVM_SUPPORT
+		executorLLVM->Stop(error);
+#endif
+	}
+}
+
+void nullcClearError()
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED((void)0);
+
+	if(currExec == NULLC_X86)
+	{
+#ifdef NULLC_BUILD_X86_JIT
+		executorX86->Resume();
+#endif
+	}
+	else if(currExec == NULLC_REG_VM)
+	{
+		executorRegVm->Resume();
+	}
+	else if(currExec == NULLC_LLVM)
+	{
+#ifdef NULLC_LLVM_SUPPORT
+		executorLLVM->Resume();
+#endif
+	}
+}
+
+nullres nullcCallFunction(NULLCFuncPtr ptr, ...)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
-
-	const char* error = NULL;
 
 	// Copy arguments in argument buffer
 	va_list args;
@@ -1132,28 +1176,35 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
-		executorX86->Run(ptr.id, argBuf);
-		error = executorX86->GetExecError();
+		if(!executorX86->Run(ptr.id, argBuf))
+		{
+			nullcLastError = executorX86->GetErrorMessage();
+
+			return false;
+		}
 #endif
 	}
 	else if(currExec == NULLC_LLVM)
 	{
 #ifdef NULLC_LLVM_SUPPORT
-		executorLLVM->Run(ptr.id, argBuf);
-		error = executorLLVM->GetExecError();
+		if(!executorLLVM->Run(ptr.id, argBuf))
+		{
+			nullcLastError = executorLLVM->GetErrorMessage();
+
+			return false;
+		}
 #endif
 	}
 	else if(currExec == NULLC_REG_VM)
 	{
-		executorRegVm->Run(ptr.id, argBuf);
-		error = executorRegVm->GetExecError();
+		if(!executorRegVm->Run(ptr.id, argBuf))
+		{
+			nullcLastError = executorRegVm->GetErrorMessage();
+
+			return false;
+		}
 	}
 
-	if(error && error[0] != '\0')
-	{
-		nullcLastError = error;
-		return false;
-	}
 	return true;
 }
 
@@ -1464,6 +1515,28 @@ const char*	nullcGetLastError()
 	return NULLC::nullcLastError;
 }
 
+NULLCRef nullcGetLastErrorObject()
+{
+	using namespace NULLC;
+	NULLCRef empty = { 0, 0 };
+	NULLC_CHECK_INITIALIZED(empty);
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(currExec == NULLC_X86)
+		return executorX86->GetErrorObject();
+#endif
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
+	if(currExec == NULLC_LLVM)
+		return executorLLVM->GetErrorObject();
+#endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetErrorObject();
+#endif
+
+	return empty;
+}
+
 #ifndef NULLC_NO_EXECUTOR
 nullres nullcFinalize()
 {
@@ -1491,6 +1564,18 @@ void* nullcAllocateTyped(unsigned typeID)
 	NULLC_CHECK_INITIALIZED(0);
 
 	return NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
+}
+
+NULLCRef nullcAllocateObjectTyped(unsigned typeID)
+{
+	using namespace NULLC;
+	NULLCRef r = { 0, 0 };
+	NULLC_CHECK_INITIALIZED(r);
+
+	r.ptr = (char*)NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
+	r.typeID = typeID;
+
+	return r;
 }
 
 NULLCArray nullcAllocateArrayTyped(unsigned typeID, unsigned count)
@@ -1862,7 +1947,7 @@ nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 		}
 		if(!executorX86->AddBreakpoint(instruction, oneHit))
 		{
-			nullcLastError = executorX86->GetExecError();
+			nullcLastError = executorX86->GetErrorMessage();
 			return false;
 		}
 	}
@@ -1878,7 +1963,7 @@ nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 
 		if(!executorRegVm->AddBreakpoint(instruction, oneHit))
 		{
-			nullcLastError = executorRegVm->GetExecError();
+			nullcLastError = executorRegVm->GetErrorMessage();
 			return false;
 		}
 	}
@@ -1910,7 +1995,7 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 		}
 		if(!executorX86->RemoveBreakpoint(instruction))
 		{
-			nullcLastError = executorX86->GetExecError();
+			nullcLastError = executorX86->GetErrorMessage();
 			return false;
 		}
 	}
@@ -1925,7 +2010,7 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 		}
 		if(!executorRegVm->RemoveBreakpoint(instruction))
 		{
-			nullcLastError = executorRegVm->GetExecError();
+			nullcLastError = executorRegVm->GetErrorMessage();
 			return false;
 		}
 	}

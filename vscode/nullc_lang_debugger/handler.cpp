@@ -24,6 +24,7 @@
 #include "../../NULLC/includes/time.h"
 #include "../../NULLC/includes/gc.h"
 #include "../../NULLC/includes/memory.h"
+#include "../../NULLC/includes/error.h"
 
 #include "../../NULLC/includes/window.h"
 #include "../../NULLC/includes/canvas.h"
@@ -610,6 +611,8 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		return RespondWithError(ctx, response, "failed to init std.gc module");
 	if(!nullcInitMemoryModule())
 		return RespondWithError(ctx, response, "failed to init std.memory module");
+	if(!nullcInitErrorModule())
+		return RespondWithError(ctx, response, "failed to init std.error module");
 
 	if(!nullcInitCanvasModule())
 		return RespondWithError(ctx, response, "failed to init img.canvas module");

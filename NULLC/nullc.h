@@ -105,6 +105,7 @@ long long	nullcGetResultLong();
 
 /*	Returns last error description	*/
 const char*	nullcGetLastError();
+NULLCRef	nullcGetLastErrorObject();
 
 #ifndef NULLC_NO_EXECUTOR
 nullres		nullcFinalize();
@@ -118,10 +119,15 @@ nullres		nullcFinalize();
 /*	Allocates memory block that is managed by GC	*/
 void*		nullcAllocate(unsigned size);
 void*		nullcAllocateTyped(unsigned typeID);
+NULLCRef	nullcAllocateObjectTyped(unsigned typeID);
 NULLCArray	nullcAllocateArrayTyped(unsigned typeID, unsigned count);
 
 /*	Abort NULLC program execution with specified error code	*/
 void		nullcThrowError(const char* error, ...) NULLC_PRINT_FORMAT_CHECK(1, 2);
+void		nullcThrowErrorObject(NULLCRef error);
+
+/*	Continue execution after execution was stopped with an error without doing a full reset */
+void		nullcClearError();
 
 /*	Call function using NULLCFuncPtr	*/
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);

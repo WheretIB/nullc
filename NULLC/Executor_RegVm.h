@@ -16,8 +16,10 @@ public:
 	ExecutorRegVm(Linker* linker);
 	~ExecutorRegVm();
 
-	void	Run(unsigned functionID, const char *arguments);
+	bool	Run(unsigned functionID, const char *arguments);
 	void	Stop(const char* error);
+	void	Stop(NULLCRef error);
+	void	Resume();
 
 	bool	SetStackSize(unsigned bytes);
 
@@ -29,7 +31,8 @@ public:
 	double		GetResultDouble();
 	long long	GetResultLong();
 
-	const char*	GetExecError();
+	const char*	GetErrorMessage();
+	NULLCRef	GetErrorObject();
 
 	char*		GetVariableData(unsigned *count);
 
@@ -50,7 +53,12 @@ private:
 
 	bool	codeRunning;
 
-	char		*execError;
+	char	*execErrorBuffer;
+
+	const char	*execErrorMessage;
+	NULLCRef	execErrorObject;
+
+	unsigned	execErrorFinalReturnDepth;
 
 	static const unsigned execResultSize = 512;
 	char		execResult[execResultSize];

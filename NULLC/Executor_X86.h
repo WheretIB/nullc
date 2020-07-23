@@ -36,8 +36,10 @@ public:
 	void	UpdateFunctionPointer(unsigned source, unsigned target);
 	void	SaveListing(OutputContext &output);
 
-	void	Run(unsigned int functionID, const char *arguments);
+	bool	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
+	void	Stop(NULLCRef error);
+	void	Resume();
 
 	bool	SetStackSize(unsigned bytes);
 
@@ -48,7 +50,8 @@ public:
 	double		GetResultDouble();
 	long long	GetResultLong();
 
-	const char*	GetExecError();
+	const char*	GetErrorMessage();
+	NULLCRef	GetErrorObject();
 
 	char*		GetVariableData(unsigned int *count);
 
@@ -94,7 +97,12 @@ private:
 public:
 	CodeGenRegVmStateContext vmState;
 
-	char *execError;
+	char	*execErrorBuffer;
+
+	const char	*execErrorMessage;
+	NULLCRef	execErrorObject;
+
+	unsigned	execErrorFinalReturnDepth;
 
 	unsigned char	*binCode;
 	unsigned		binCodeSize;

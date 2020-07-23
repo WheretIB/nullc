@@ -209,6 +209,9 @@
     <ClCompile Include="includes\memory.cpp">
       <Filter>Modules\std</Filter>
     </ClCompile>
+    <ClCompile Include="includes\error.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -409,6 +412,9 @@
     <ClInclude Include="includes\memory.h">
       <Filter>Modules\std</Filter>
     </ClInclude>
+    <ClInclude Include="includes\error.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Modules\std\algorithm.nc">
@@ -482,6 +488,9 @@
     </None>
     <None Include="..\nullc.natvis" />
     <None Include="..\Modules\std\memory.nc">
+      <Filter>Modules\std</Filter>
+    </None>
+    <None Include="..\Modules\std\error.nc">
       <Filter>Modules\std</Filter>
     </None>
   </ItemGroup>

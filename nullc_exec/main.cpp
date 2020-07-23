@@ -22,6 +22,7 @@
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/gc.h"
 #include "../NULLC/includes/memory.h"
+#include "../NULLC/includes/error.h"
 
 #include "../NULLC/includes/canvas.h"
 
@@ -139,6 +140,8 @@ int main(int argc, char** argv)
 		printf("ERROR: Failed to init std.gc module\r\n");
 	if(!nullcInitMemoryModule() && verbose)
 		printf("ERROR: Failed to init std.memory module\r\n");
+	if(!nullcInitErrorModule() && verbose)
+		printf("ERROR: Failed to init std.error module\r\n");
 
 	if(!nullcInitPugiXMLModule() && verbose)
 		printf("ERROR: Failed to init ext.pugixml module\r\n");

@@ -216,6 +216,7 @@
     <ClCompile Include="ExpressionTranslate.cpp" />
     <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="ExpressionEval.cpp" />
+    <ClCompile Include="includes\error.cpp" />
     <ClCompile Include="includes\memory.cpp" />
     <ClCompile Include="InstructionTreeLlvm.cpp" />
     <ClCompile Include="InstructionTreeRegVm.cpp" />
@@ -272,6 +273,7 @@
     <ClInclude Include="ExpressionTree.h" />
     <ClInclude Include="ExpressionEval.h" />
     <ClInclude Include="HashMap.h" />
+    <ClInclude Include="includes\error.h" />
     <ClInclude Include="includes\memory.h" />
     <ClInclude Include="InstructionTreeLlvm.h" />
     <ClInclude Include="InstructionTreeRegVm.h" />
@@ -326,6 +328,7 @@
   <ItemGroup>
     <None Include="..\Modules\std\algorithm.nc" />
     <None Include="..\Modules\std\dynamic.nc" />
+    <None Include="..\Modules\std\error.nc" />
     <None Include="..\Modules\std\event.nc" />
     <None Include="..\Modules\std\file.nc" />
     <None Include="..\Modules\std\gc.nc" />

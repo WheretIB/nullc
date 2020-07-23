@@ -52,8 +52,8 @@ namespace
 
 ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions)
 {
-	execError = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
-	*execError = 0;
+	execErrorBuffer = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	*execErrorBuffer = 0;
 
 	memset(execResult, 0, execResultSize);
 
@@ -85,7 +85,7 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 
 ExecutorRegVm::~ExecutorRegVm()
 {
-	NULLC::dealloc(execError);
+	NULLC::dealloc(execErrorBuffer);
 
 	NULLC::dealloc(tempStackArrayBase);
 
@@ -99,12 +99,6 @@ ExecutorRegVm::~ExecutorRegVm()
 
 void ExecutorRegVm::InitExecution()
 {
-	if(!exLinker->exRegVmCode.size())
-	{
-		strcpy(execError, "ERROR: no code to run");
-		return;
-	}
-
 	callStack.clear();
 
 	lastFinalReturn = 0;
@@ -117,7 +111,12 @@ void ExecutorRegVm::InitExecution()
 
 	SetUnmanagableRange(dataStack.data, dataStack.max);
 
-	execError[0] = 0;
+	execErrorMessage = NULL;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
+
+	execErrorFinalReturnDepth = 0;
 
 	callContinue = true;
 
@@ -155,10 +154,13 @@ void ExecutorRegVm::InitExecution()
 	}
 }
 
-void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
+bool ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 {
 	if(exLinker->exRegVmCode.empty())
-		return Stop("ERROR: module contains no code");
+	{
+		Stop("ERROR: module contains no code");
+		return false;
+	}
 
 	if(!codeRunning || functionID == ~0u)
 		InitExecution();
@@ -227,7 +229,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			{
 				callStack.push_back(instruction + 1);
 				instruction = NULL;
-				strcpy(execError, "ERROR: stack overflow");
+				Stop("ERROR: stack overflow");
 				retType = rvrError;
 			}
 			else
@@ -246,7 +248,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 				{
 					callStack.push_back(instruction + 1);
 					instruction = NULL;
-					strcpy(execError, "ERROR: stack overflow");
+					Stop("ERROR: stack overflow");
 					retType = rvrError;
 				}
 				else
@@ -313,21 +315,22 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		// Print call stack on error, when we get to the first function
 		if(lastFinalReturn == 0)
 		{
-			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+			char *currPos = execErrorBuffer + strlen(execErrorBuffer);
+			currPos += NULLC::SafeSprintf(currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execErrorBuffer), "\r\nCall stack:\r\n");
 
 			unsigned currentFrame = 0;
 			while(unsigned address = GetCallStackAddress(currentFrame++))
-				currPos += PrintStackFrame(address, currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execError), false);
+				currPos += PrintStackFrame(address, currPos, NULLC_ERROR_BUFFER_SIZE - int(currPos - execErrorBuffer), false);
 		}
 
+		execErrorFinalReturnDepth = lastFinalReturn;
 		lastFinalReturn = prevLastFinalReturn;
 
 		// Ascertain that execution stops when there is a chain of nullcRunFunction
 		callContinue = false;
 		codeRunning = false;
 
-		return;
+		return false;
 	}
 
 	lastFinalReturn = prevLastFinalReturn;
@@ -358,6 +361,8 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			break;
 		}
 	}
+
+	return true;
 }
 
 void ExecutorRegVm::Stop(const char* error)
@@ -365,7 +370,43 @@ void ExecutorRegVm::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "%s", error);
+
+	NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "%s", error);
+
+	execErrorMessage = execErrorBuffer;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
+}
+
+void ExecutorRegVm::Stop(NULLCRef error)
+{
+	codeRunning = false;
+
+	callContinue = false;
+
+	NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "%s", exLinker->exSymbols.data + exTypes[error.typeID].offsetToName);
+
+	execErrorMessage = execErrorBuffer;
+
+	if(nullcIsStackPointer(error.ptr))
+		execErrorObject = NULLC::CopyObject(error);
+	else
+		execErrorObject = error;
+}
+
+void ExecutorRegVm::Resume()
+{
+	callStack.shrink(execErrorFinalReturnDepth);
+
+	codeRunning = true;
+
+	callContinue = true;
+
+	execErrorMessage = NULL;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
 }
 
 bool ExecutorRegVm::SetStackSize(unsigned bytes)
@@ -1414,8 +1455,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 
 	if(dataStack.size() + stackSize >= dataStack.max)
 	{
-		codeRunning = false;
-		strcpy(execError, "ERROR: stack overflow");
+		Stop("ERROR: stack overflow");
 
 		return false;
 	}
@@ -1434,8 +1474,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 
 	if(regFileLastTop >= regFileArrayEnd)
 	{
-		codeRunning = false;
-		strcpy(execError, "ERROR: register overflow");
+		Stop("ERROR: register overflow");
 
 		return false;
 	}
@@ -1518,7 +1557,7 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 		callStack.push_back(instruction + 1);
 
 		if(errorState)
-			strcpy(execError, "ERROR: function didn't return a value");
+			Stop("ERROR: function didn't return a value");
 
 		codeRunning = false;
 
@@ -1593,7 +1632,8 @@ bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruct
 
 		codeRunning = false;
 
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[typeId].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[typeId].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+		execErrorMessage = execErrorBuffer;
 
 		return false;
 	}
@@ -1644,9 +1684,7 @@ RegVmReturnType ExecutorRegVm::ExecError(RegVmCmd * const instruction, const cha
 {
 	callStack.push_back(instruction + 1);
 
-	codeRunning = false;
-
-	strcpy(execError, errorMessage);
+	Stop(errorMessage);
 
 	return rvrError;
 }
@@ -1681,9 +1719,14 @@ long long ExecutorRegVm::GetResultLong()
 	return GetExecutorResultLong(tempStackType, tempStackArrayBase);
 }
 
-const char*	ExecutorRegVm::GetExecError()
+const char* ExecutorRegVm::GetErrorMessage()
 {
-	return execError;
+	return execErrorMessage;
+}
+
+NULLCRef ExecutorRegVm::GetErrorObject()
+{
+	return execErrorObject;
 }
 
 char* ExecutorRegVm::GetVariableData(unsigned *count)
@@ -1744,7 +1787,8 @@ bool ExecutorRegVm::AddBreakpoint(unsigned instruction, bool oneHit)
 {
 	if(instruction >= exLinker->exRegVmCode.size())
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 
@@ -1752,7 +1796,8 @@ bool ExecutorRegVm::AddBreakpoint(unsigned instruction, bool oneHit)
 
 	if(exLinker->exRegVmCode[instruction].code == rviNop)
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 
@@ -1779,13 +1824,15 @@ bool ExecutorRegVm::RemoveBreakpoint(unsigned instruction)
 {
 	if(instruction > exLinker->exRegVmCode.size())
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 
 	if(exLinker->exRegVmCode[instruction].code != rviNop)
 	{
-		NULLC::SafeSprintf(execError, NULLC_ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
+		NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
+		execErrorMessage = execErrorBuffer;
 		return false;
 	}
 

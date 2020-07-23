@@ -132,7 +132,8 @@ STDLIB_TARGETS = \
   temp/lib/time.o \
   temp/lib/typeinfo.o \
   temp/lib/vector.o \
-  temp/lib/memory.o
+  temp/lib/memory.o \
+  temp/lib/error.o
 
 PUGIXML_TARGETS = \
   temp/pugixml.o

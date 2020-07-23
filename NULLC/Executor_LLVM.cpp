@@ -2,6 +2,7 @@
 
 #include "nullc.h"
 #include "Linker.h"
+#include "StdLib.h"
 
 #ifdef NULLC_LLVM_SUPPORT
 
@@ -242,8 +243,8 @@ namespace
 
 ExecutorLLVM::ExecutorLLVM(Linker* linker)
 {
-	execError = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
-	*execError = 0;
+	execErrorBuffer = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	*execErrorBuffer = 0;
 
 	exLinker = linker;
 
@@ -254,7 +255,7 @@ ExecutorLLVM::ExecutorLLVM(Linker* linker)
 
 ExecutorLLVM::~ExecutorLLVM()
 {
-	NULLC::dealloc(execError);
+	NULLC::dealloc(execErrorBuffer);
 
 	LLVMDisposeExecutionEngine(ctx->executionEngine);
 
@@ -292,7 +293,10 @@ bool ExecutorLLVM::TranslateToNative()
 
 	llvmReturnedType = LLVM_NONE;
 
-	execError[0] = 0;
+	execErrorMessage = NULL;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
 
 	if(!exLinker->llvmModuleSizes.size())
 	{
@@ -459,7 +463,7 @@ bool ExecutorLLVM::TranslateToNative()
 	return true;
 }
 
-void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
+bool ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 {
 	if(functionID != ~0u)
 	{
@@ -505,15 +509,15 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		// Can't find target function
 		if(!fPtr)
 		{
-			strcpy(execError, "ERROR: can't find target function address");
-			return;
+			Stop("ERROR: can't find target function address");
+			return false;
 		}
 
 		// Can't return complex types here
 		if(targetFunction.retType == ExternFuncInfo::RETURN_UNKNOWN)
 		{
-			strcpy(execError, "ERROR: can't call external function with complex return type");
-			return;
+			Stop("ERROR: can't call external function with complex return type");
+			return false;
 		}
 
 		dcReset(dcCallVM);
@@ -550,7 +554,7 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 
 		currentCtx = NULL;
 
-		return;
+		return true;
 	}
 
 	int stackHelper = 0;
@@ -591,12 +595,44 @@ void ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		if(address)
 			memcpy(ctx->globalVars.data + varInfo.offset, (void*)address, varType.size);
 	}
+
+	return true;
 }
 
 void ExecutorLLVM::Stop(const char* error)
 {
-	(void)error;
-	assert(!"ExecutorLLVM::Stop");
+	assert(!"ExecutorLLVM::Stop is not implemented");
+
+	NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "%s", error);
+
+	execErrorMessage = execErrorBuffer;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
+}
+
+void ExecutorLLVM::Stop(NULLCRef error)
+{
+	assert(!"ExecutorLLVM::Stop is not implemented");
+
+	NULLC::SafeSprintf(execErrorBuffer, NULLC_ERROR_BUFFER_SIZE, "%s", exLinker->exSymbols.data + exLinker->exTypes[error.typeID].offsetToName);
+
+	execErrorMessage = execErrorBuffer;
+
+	if(nullcIsStackPointer(error.ptr))
+		execErrorObject = NULLC::CopyObject(error);
+	else
+		execErrorObject = error;
+}
+
+void ExecutorLLVM::Resume()
+{
+	assert(!"ExecutorLLVM::Resume is not implemented");
+
+	execErrorMessage = NULL;
+
+	execErrorObject.typeID = 0;
+	execErrorObject.ptr = NULL;
 }
 
 bool ExecutorLLVM::SetStackSize(unsigned bytes)
@@ -622,7 +658,6 @@ unsigned ExecutorLLVM::GetResultType()
 
 	return NULLC_TYPE_VOID;
 }
-
 
 NULLCRef ExecutorLLVM::GetResultObject()
 {
@@ -690,9 +725,14 @@ long long ExecutorLLVM::GetResultLong()
 	return llvmReturnedLong;
 }
 
-const char*	ExecutorLLVM::GetExecError()
+const char* ExecutorLLVM::GetErrorMessage()
 {
-	return execError;
+	return execErrorMessage;
+}
+
+NULLCRef ExecutorLLVM::GetErrorObject()
+{
+	return execErrorObject;
 }
 
 char* ExecutorLLVM::GetVariableData(unsigned int *count)
