@@ -582,6 +582,9 @@ namespace nullc_debugger_component
                 editableValue = null;
                 dataAddress = null;
 
+                if (type == null)
+                    return null;
+
                 if (type.subCat == NullcTypeSubCategory.Pointer)
                 {
                     var value = DebugHelpers.ReadPointerVariable(process, address);
@@ -1185,7 +1188,7 @@ namespace nullc_debugger_component
                         initialResults[0] = targetResult;
 
                     // If pointer points to a class, inline class member display
-                    if (evalData.type.nullcSubType.subCat == NullcTypeSubCategory.Class && targetAddress.HasValue && targetAddress.Value != 0 && (targetResult as DkmSuccessEvaluationResult) != null)
+                    if (evalData.type.nullcSubType != null && evalData.type.nullcSubType.subCat == NullcTypeSubCategory.Class && targetAddress.HasValue && targetAddress.Value != 0 && (targetResult as DkmSuccessEvaluationResult) != null)
                     {
                         result = targetResult;
 
