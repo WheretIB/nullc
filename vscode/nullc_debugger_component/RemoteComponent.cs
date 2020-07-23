@@ -565,6 +565,9 @@ namespace nullc_debugger_component
             {
                 var processData = DebugHelpers.GetOrCreateDataItem<NullcRemoteProcessDataItem>(exception.Process);
 
+                if (exception.InstructionAddress == null)
+                    return;
+
                 ulong address = exception.InstructionAddress.CPUInstructionPart.InstructionPointer;
 
                 // Breakpoint
