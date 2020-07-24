@@ -1437,3 +1437,17 @@ sum += foo512(<x>{ int sum; for(i in x) sum += i; sum; });\r\n\
 \r\n\
 return sum;";
 TEST_RESULT("Lowering of struct value constants", testConstantStructValueLowering, "166628");
+
+const char *testCaptureFutureLocals =
+"auto foo(bool x)\r\n\
+{\r\n\
+	if(x)\r\n\
+		return auto(){ return 1; };\r\n\
+\r\n\
+	int t = 2;\r\n\
+\r\n\
+	return auto(){ return t; };\r\n\
+}\r\n\
+\r\n\
+return foo(false)() * 10 + foo(true)();";
+TEST_RESULT("Capture of local that's lexically not visible yet", testCaptureFutureLocals, "21");

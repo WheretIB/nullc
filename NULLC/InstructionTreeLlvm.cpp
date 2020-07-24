@@ -1554,15 +1554,6 @@ LLVMValueRef CompileLlvmYield(LlvmCompilationContext &ctx, ExprYield *node)
 
 LLVMValueRef CompileLlvmVariableDefinition(LlvmCompilationContext &ctx, ExprVariableDefinition *node)
 {
-	VariableData *variable = node->variable->variable;
-
-	LLVMValueRef storage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
-
-	if(!ctx.variables.find(variable->uniqueId))
-		ctx.variables.insert(variable->uniqueId, storage);
-	else if(!ctx.currentFunctionGlobal)
-		assert(!"duplicate variable definition");
-
 	if(node->initializer)
 		CompileLlvm(ctx, node->initializer);
 
@@ -1759,6 +1750,32 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 		argument = LLVMBuildPointerCast(ctx.builder, argument, CompileLlvmType(ctx, node->function->contextType), "context_reinterpret");
 
 		LLVMBuildStore(ctx.builder, argument, storage);
+
+		assert(!ctx.variables.find(variable->uniqueId));
+
+		ctx.variables.insert(variable->uniqueId, storage);
+	}
+
+	// Generate variables for all locals
+	for(unsigned i = 0; i < node->function->functionScope->allVariables.size(); i++)
+	{
+		VariableData *variable = node->function->functionScope->allVariables[i];
+
+		bool isArgument = false;
+
+		for(VariableHandle *curr = node->function->argumentVariables.head; curr; curr = curr->next)
+		{
+			if(variable == curr->variable)
+			{
+				isArgument = true;
+				break;
+			}
+		}
+
+		if(isArgument || variable == node->function->contextArgument)
+			continue;
+
+		LLVMValueRef storage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
 
 		assert(!ctx.variables.find(variable->uniqueId));
 
@@ -2565,7 +2582,7 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 			ctx.functions[function->functionIndex] = ctx.functions[function->implementation->functionIndex];
 	}
 
-	// Generate global valriables
+	// Generate global variables
 	for(unsigned i = 0; i < ctx.ctx.variables.size(); i++)
 	{
 		VariableData *variable = ctx.ctx.variables[i];
