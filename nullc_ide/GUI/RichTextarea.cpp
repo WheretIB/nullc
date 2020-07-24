@@ -1757,26 +1757,32 @@ void TextareaData::OnCopyOrCut(bool cut)
 
 void TextareaData::OnPaste()
 {
+	if(!IsClipboardFormatAvailable(CF_TEXT))
+		return;
+
 	// Remove selection
 	if(selectionOn)
 		DeleteSelection();
-	
+
 	// Get pasted text
 	OpenClipboard(areaWnd);
-	HANDLE clipData = GetClipboardData(CF_TEXT);
-	if(clipData)
+
+	if(HANDLE clipData = GetClipboardData(CF_TEXT))
 	{
+		const char *clipText = (const char*)GlobalLock(clipData);
+
 		// Find line count
-		unsigned char *str = (unsigned char*)clipData;
+		unsigned char *str = (unsigned char*)clipText;
 		unsigned int linesAdded = 0;
 		do
 		{
 			if(*str == '\r')
 				linesAdded++;
 		}while(*str++);
+
 		history->TakeSnapshot(currLine, HistoryManager::LINES_ADDED, linesAdded);
 
-		str = (unsigned char*)clipData;
+		str = (unsigned char*)clipText;
 		// Simulate as if the text was written
 		while(*str)
 		{
@@ -1798,8 +1804,12 @@ void TextareaData::OnPaste()
 
 			str++;
 		}
+
+		GlobalUnlock(clipData);
 	}
+
 	CloseClipboard();
+
 	// Force update on whole window
 	InvalidateRect(areaWnd, NULL, false);
 }
