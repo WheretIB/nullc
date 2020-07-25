@@ -11963,7 +11963,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 	// Import types
 	ExternTypeInfo *typeList = FindFirstType(bCode);
-	ExternMemberInfo *memberList = (ExternMemberInfo*)(typeList + bCode->typeCount);
+	ExternMemberInfo *memberList = FindFirstMember(bCode);
 	ExternConstantInfo *constantList = FindFirstConstant(bCode);
 	ExternTypedefInfo *aliasList = FindFirstTypedef(bCode);
 
