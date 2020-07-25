@@ -539,7 +539,7 @@ namespace ColorerGrammar
 
 			classdef	=
 				((strP("align")[ColorRWord] >> chP('(')[ColorText] >> intP[ColorReal] >> chP(')')[ColorText]) | (strP("noalign")[ColorRWord] | epsP)) >>
-				strP("class")[ColorRWord] >>
+				strWP("class")[ColorRWord] >>
 				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
 				!(
 					chP('<')[ColorText] >>
@@ -830,7 +830,7 @@ namespace ColorerGrammar
 				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
 			nameSpace	=	strWP("namespace")[ColorRWord] >> idP[ColorRWord][StartType] >> *(chP('.')[ColorText] >> idP[ColorRWord][StartType]) >> chP('{')[ColorText] >> code >> chP('}')[ColorText];
 			code	=	*(
-							strP("import")[ColorRWord] >>
+							strWP("import")[ColorRWord] >>
 							((+(alnumP | '_'))[ColorVar][ImportStart] | epsP[LogError("module name or folder expected")]) >>
 							*(
 								chP('.')[ColorText][ImportSeparator] >>
