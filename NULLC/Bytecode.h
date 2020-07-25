@@ -304,8 +304,6 @@ struct ByteCode
 
 //	ExternLocalInfo	locals[localCount];	// Function locals (including parameters)
 
-//	ExternFuncInfo::Upvalue	closureLists[closureListCount];
-
 //	ExternTypedefInfo	typedefs[typedefCount];
 
 //	ExternNamespaceInfo	namespaces[namespaceCount];
