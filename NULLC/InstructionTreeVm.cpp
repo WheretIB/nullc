@@ -1359,16 +1359,16 @@ namespace
 
 		if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 		{
+			if(!loadAddress->container)
+				return;
+
 			assert(loadOffset->iValue == 0);
 
-			if(loadAddress->container)
+			// Do not track load-store into large arrays
+			if(TypeArray *typeArray = getType<TypeArray>(loadAddress->container->type))
 			{
-				// Do not track load-store into large arrays
-				if(TypeArray *typeArray = getType<TypeArray>(loadAddress->container->type))
-				{
-					if(typeArray->length > 32)
-						return;
-				}
+				if(typeArray->length > 32)
+					return;
 			}
 
 			info.loadAddress = loadAddress;
@@ -1392,16 +1392,16 @@ namespace
 
 		if(VmConstant *storeAddress = getType<VmConstant>(storePointer))
 		{
+			if(!storeAddress->container)
+				return;
+
 			assert(storeOffset->iValue == 0);
 
-			if(storeAddress->container)
+			// Do not track load-store into large arrays
+			if(TypeArray *typeArray = getType<TypeArray>(storeAddress->container->type))
 			{
-				// Do not track load-store into large arrays
-				if(TypeArray *typeArray = getType<TypeArray>(storeAddress->container->type))
-				{
-					if(typeArray->length > 32)
-						return;
-				}
+				if(typeArray->length > 32)
+					return;
 			}
 
 			VmModule::LoadStoreInfo info;
@@ -1462,6 +1462,9 @@ namespace
 
 		if(VmConstant *storeAddress = getType<VmConstant>(storePointer))
 		{
+			if(!storeAddress->container)
+				return;
+
 			assert(storeOffset->iValue == 0);
 			(void)storeOffset;
 
@@ -1587,6 +1590,9 @@ namespace
 
 		if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 		{
+			if(!loadAddress->container)
+				return NULL;
+
 			assert(loadOffset->iValue == 0);
 
 			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
@@ -1657,6 +1663,9 @@ namespace
 
 		if(VmConstant *address = getType<VmConstant>(pointer))
 		{
+			if(!address->container)
+				return NULL;
+
 			assert(offsetValue == 0);
 
 			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
@@ -5362,8 +5371,18 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 			if(curr->cmd >= VM_INST_LOAD_INT && curr->cmd <= VM_INST_LOAD_STRUCT)
 			{
-				VmValue *loadAddress = curr->arguments[0];
+				VmValue *loadPointer = curr->arguments[0];
 				VmConstant *loadOffset = getType<VmConstant>(curr->arguments[1]);
+
+				// Skip reads of direct addresses (usually from null pointer access)
+				if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
+				{
+					if(!loadAddress->container)
+					{
+						curr = next;
+						continue;
+					}
+				}
 
 				// Walk up until a memory write is reached
 				VmInstruction *prev = curr->prevSibling;
@@ -5373,11 +5392,11 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 				if(prev && (prev->cmd >= VM_INST_STORE_INT && prev->cmd <= VM_INST_STORE_STRUCT))
 				{
-					VmValue *storeAddress = prev->arguments[0];
+					VmValue *storePointer = prev->arguments[0];
 					VmConstant *storeOffset = getType<VmConstant>(prev->arguments[1]);
 					VmValue *storeValue = prev->arguments[2];
 
-					if(GetAccessSize(prev) == GetAccessSize(curr) && storeAddress == loadAddress && storeOffset->iValue == loadOffset->iValue && curr->type.size == storeValue->type.size)
+					if(GetAccessSize(prev) == GetAccessSize(curr) && storePointer == loadPointer && storeOffset->iValue == loadOffset->iValue && curr->type.size == storeValue->type.size)
 					{
 						if(curr->type != storeValue->type)
 						{

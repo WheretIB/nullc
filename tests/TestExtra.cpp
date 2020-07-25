@@ -1451,3 +1451,7 @@ const char *testCaptureFutureLocals =
 \r\n\
 return foo(false)() * 10 + foo(true)();";
 TEST_RESULT("Capture of local that's lexically not visible yet", testCaptureFutureLocals, "21");
+
+const char	*testNullPointerPropagationInOptimization =
+"class Test{ int a, b; } int foo(){ Test ref a = nullptr; a.b = 3; return a.b; } return 1;";
+TEST_RESULT("null pointer propagation in optimization passes", testNullPointerPropagationInOptimization, "1");
