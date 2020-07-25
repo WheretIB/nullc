@@ -1383,7 +1383,7 @@ TypeBase ref MatchGenericType(ExpressionContext ref ctx, TypeBase ref matchType,
 	return nullptr; \r\n\
 }\r\n\
 return 1;";
-TEST_RESULT("Dominator tree sub-trees might have separate phi webs with the same color and diffrent registers", testPhiWebColorToRegisterMapping, "1");
+TEST_RESULT("Dominator tree sub-trees might have separate phi webs with the same color and different registers", testPhiWebColorToRegisterMapping, "1");
 
 const char *testConstantStructValueLowering =
 "int foo1(int ref(int[1]) f) { int[1] x; x = {1}; return f(x); }\r\n\
@@ -1455,3 +1455,122 @@ TEST_RESULT("Capture of local that's lexically not visible yet", testCaptureFutu
 const char	*testNullPointerPropagationInOptimization =
 "class Test{ int a, b; } int foo(){ Test ref a = nullptr; a.b = 3; return a.b; } return 1;";
 TEST_RESULT("null pointer propagation in optimization passes", testNullPointerPropagationInOptimization, "1");
+
+const char *testPhiWebColorInFutureSubTree1 =
+"class base extendable\r\n\
+{\r\n\
+	void base(int x){ a = x; }\r\n\
+	int a;\r\n\
+}\r\n\
+class derived:base\r\n\
+{\r\n\
+	void derived(int x){ a = x; }\r\n\
+}\r\n\
+\r\n\
+int s;\r\n\
+void sink(base ref a){ s += a.a; }\r\n\
+\r\n\
+auto test(bool a, bool b, bool c, bool d)\r\n\
+{\r\n\
+	base ref x = new base(5);\r\n\
+\r\n\
+	if(a)\r\n\
+	{\r\n\
+		if(d)\r\n\
+		{\r\n\
+			x = nullptr;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			derived ref y = new derived(10);\r\n\
+\r\n\
+			if(b)\r\n\
+				sink(x);\r\n\
+\r\n\
+			x = y;\r\n\
+\r\n\
+			if(c)\r\n\
+				sink(y);\r\n\
+		}\r\n\
+	}\r\n\
+	else\r\n\
+	{\r\n\
+		x = nullptr;\r\n\
+	}\r\n\
+\r\n\
+	return x;\r\n\
+}\r\n\
+\r\n\
+return test(true, true, true, false).a + s;";
+TEST_RESULT("Dominator tree sub-tree can encounter a colored phi web in the future when the same register was free in earlier nodes 1", testPhiWebColorInFutureSubTree1, "25");
+
+const char *testPhiWebColorInFutureSubTree2 =
+"class Integer{ int i; }\r\n\
+class Holder{ Integer ref integer; void Holder(Integer ref b){ integer = b; } }\r\n\
+\r\n\
+Integer ref Get(int i){ auto x = new Integer(); x.i = i; return x; }\r\n\
+\r\n\
+int b;\r\n\
+\r\n\
+Holder ref test(bool e, bool f)\r\n\
+{\r\n\
+	Integer ref result = nullptr;\r\n\
+\r\n\
+	if(e)\r\n\
+	{\r\n\
+		result = Get(1);\r\n\
+	}\r\n\
+	else\r\n\
+	{\r\n\
+		int a = 3;\r\n\
+		\r\n\
+		if(f)\r\n\
+		{\r\n\
+			result = Get(2);\r\n\
+			b = a;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			result = Get(3);\r\n\
+		}\r\n\
+	}\r\n\
+\r\n\
+	return new Holder(result);\r\n\
+}\r\n\
+\r\n\
+return test(false, true).integer.i + b;";
+TEST_RESULT("Dominator tree sub-tree can encounter a colored phi web in the future when the same register was free in earlier nodes 2", testPhiWebColorInFutureSubTree2, "5");
+
+const char *testPhiWebColorInFutureSubTree3 =
+"int get(int i){ return i; }\r\n\
+\r\n\
+int b;\r\n\
+\r\n\
+int test(bool e, bool f)\r\n\
+{\r\n\
+	int result = 0;\r\n\
+\r\n\
+	if(e)\r\n\
+	{\r\n\
+		result = get(1);\r\n\
+	}\r\n\
+	else\r\n\
+	{\r\n\
+		int a = 100;\r\n\
+\r\n\
+		if(f)\r\n\
+		{\r\n\
+			result = get(2);\r\n\
+			b = a;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			result = get(3);\r\n\
+		}\r\n\
+	}\r\n\
+\r\n\
+	return result;\r\n\
+}\r\n\
+\r\n\
+return test(false, true) + b;";
+TEST_RESULT("Dominator tree sub-tree can encounter a colored phi web in the future when the same register was free in earlier nodes 3", testPhiWebColorInFutureSubTree3, "102");

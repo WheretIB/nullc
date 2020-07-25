@@ -3179,6 +3179,25 @@ void UpdateSharedStorage(VmInstruction *inst, unsigned marker)
 	}
 }
 
+void CollectReservedRegisters(VmBlock *vmBlock, SmallArray<unsigned char, 16> &reservedRegisters, SmallArray<unsigned char, 16> &usedRegisters)
+{
+	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = vmBlock->liveOut[i];
+
+		if(!liveOut->regVmRegisters.empty())
+		{
+			for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
+			{
+				unsigned char reg = liveOut->regVmRegisters[k];
+
+				if(!usedRegisters.contains(reg) && !reservedRegisters.contains(reg))
+					reservedRegisters.push_back(reg);
+			}
+		}
+	}
+}
+
 void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
 {
 	// Check if live in has a color that is already allocated
@@ -3250,6 +3269,23 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 		}
 	}
 
+	// Find which registers are already reserved in children nodes
+	SmallArray<unsigned char, 16> reservedRegisters(ctx.allocator);
+
+	for(unsigned i = 0; i < vmBlock->dominanceChildren.size(); i++)
+	{
+		VmBlock *curr = vmBlock->dominanceChildren[i];
+
+		CollectReservedRegisters(curr, reservedRegisters, usedRegisters);
+	}
+
+	for(unsigned i = 0; i < reservedRegisters.size(); i++)
+	{
+		unsigned char reg = reservedRegisters[i];
+
+		lowFunction->registerUsers[reg]++;
+	}
+
 	// Reset free registers state
 	lowFunction->freedRegisters.clear();
 
@@ -3300,6 +3336,15 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 
 			UpdateSharedStorage(liveOut, lowFunction->vmFunction->nextSearchMarker++);
 		}
+	}
+
+	for(unsigned i = 0; i < reservedRegisters.size(); i++)
+	{
+		unsigned char reg = reservedRegisters[i];
+
+		assert(lowFunction->registerUsers[reg]);
+
+		lowFunction->registerUsers[reg]--;
 	}
 
 	// Proceed to children in dominance tree
