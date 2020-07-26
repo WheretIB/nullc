@@ -3196,6 +3196,13 @@ void CollectReservedRegisters(VmBlock *vmBlock, SmallArray<unsigned char, 16> &r
 			}
 		}
 	}
+
+	for(unsigned i = 0; i < vmBlock->dominanceChildren.size(); i++)
+	{
+		VmBlock *curr = vmBlock->dominanceChildren[i];
+
+		CollectReservedRegisters(curr, reservedRegisters, usedRegisters);
+	}
 }
 
 void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)

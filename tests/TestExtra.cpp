@@ -1574,3 +1574,54 @@ int test(bool e, bool f)\r\n\
 \r\n\
 return test(false, true) + b;";
 TEST_RESULT("Dominator tree sub-tree can encounter a colored phi web in the future when the same register was free in earlier nodes 3", testPhiWebColorInFutureSubTree3, "102");
+
+const char *testPhiWebColorInFutureSubTree4 =
+"class base extendable\r\n\
+{\r\n\
+	void base(int x){ a = x; }\r\n\
+	int a;\r\n\
+}\r\n\
+class derived:base\r\n\
+{\r\n\
+	void derived(int x){ a = x; }\r\n\
+}\r\n\
+\r\n\
+int s;\r\n\
+void sink(base ref a){ s += a.a; }\r\n\
+\r\n\
+auto test(bool a, bool b, bool c, bool d, bool e)\r\n\
+{\r\n\
+	base ref x = new base(5);\r\n\
+\r\n\
+	if(a)\r\n\
+	{\r\n\
+		if(b)\r\n\
+		{\r\n\
+			x = nullptr;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			derived ref y = new derived(10);\r\n\
+\r\n\
+			if(c)\r\n\
+				sink(x);\r\n\
+\r\n\
+			if(d)\r\n\
+				sink(x);\r\n\
+\r\n\
+			x = y;\r\n\
+\r\n\
+			if(e)\r\n\
+				sink(y);\r\n\
+		}\r\n\
+	}\r\n\
+	else\r\n\
+	{\r\n\
+		x = nullptr;\r\n\
+	}\r\n\
+\r\n\
+	return x;\r\n\
+}\r\n\
+\r\n\
+return test(true, false, true, true, true).a + s;";
+TEST_RESULT("Dominator tree sub-tree can encounter a colored phi web in the future when the same register was free in earlier nodes 4", testPhiWebColorInFutureSubTree4, "30");
