@@ -8,6 +8,7 @@ import common;
 import std.vector;
 import std.io;
 import std.hashmap;
+import std.string;
 
 class ParseContext
 {
@@ -35,7 +36,7 @@ class ParseContext
 
 	char[] code;
 
-	ByteCode ref(InplaceStr, bool, StringRef, char[], int, ArrayView<InplaceStr>) bytecodeBuilder;
+	ByteCode ref ref(string, string, bool, StringRef ref, string ref, int, ArrayView<InplaceStr>) bytecodeBuilder;
 
 	Lexer lexer;
 
@@ -56,11 +57,9 @@ class ParseContext
 	vector<InplaceStr> activeImports;
 
 	bool errorHandlerActive;
-	//jmp_buf errorHandler;
 	StringRef errorPos;
 	int errorCount;
-	char[] errorBuf;
-	StringRef errorBufLocation;
+	string ref errorBuf;
 
 	vector<ErrorInfo ref> errorInfo;
 

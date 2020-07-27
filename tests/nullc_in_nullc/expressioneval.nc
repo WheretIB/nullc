@@ -137,7 +137,7 @@ class ExpressionEvalContext
 	ExpressionContext ref ctx;
 
 	// Error info
-	char[] errorBuf;
+	string ref errorBuf;
 	bool errorCritical; // If error wasn't a limitation of the evaluation engine, but was an error in the program itself
 
 	StackFrame ref globalFrame;
@@ -586,7 +586,7 @@ ExprBase ref CreateLoad(ExpressionEvalContext ref ctx, ExprBase ref target)
 		{
 			int blockOffset;
 			auto block = GetMemoryBuffer(ctx, value, &blockOffset);
-			context = new ExprPointerLiteral(target.source, ptrType, block, blockOffset, ptrType.subType.size);
+			context = new ExprPointerLiteral(target.source, ptrType, block, blockOffset, blockOffset + ptrType.subType.size);
 		}
 
 		return new ExprFunctionLiteral(target.source, type, data, context);
@@ -604,7 +604,7 @@ ExprBase ref CreateLoad(ExpressionEvalContext ref ctx, ExprBase ref target)
 		int blockOffset;
 		auto block = GetMemoryBuffer(ctx, value, &blockOffset);
 
-		return new ExprPointerLiteral(target.source, type, block, blockOffset, ptrType.subType.size);
+		return new ExprPointerLiteral(target.source, type, block, blockOffset, blockOffset + ptrType.subType.size);
 	}
 
 	ExprPointerLiteral ref storage = AllocateTypeStorage(ctx, target.source, type);
@@ -3549,7 +3549,7 @@ char[] EvaluateToBuffer(ExpressionEvalContext ref ctx, ExprBase ref expression)
 	return nullptr;
 }
 
-char[] TestEvaluation(ExpressionContext ref ctx, ExprBase ref expression, char[] errorBuf)
+char[] TestEvaluation(ExpressionContext ref ctx, ExprBase ref expression, string ref errorBuf)
 {
 	if(!expression)
 		return nullptr;

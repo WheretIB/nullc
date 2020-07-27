@@ -236,6 +236,28 @@ void sprintf(char[] buffer, char[] format, auto ref[] args)
 		{
 			i++;
 			
+			bool zeroWidth = false;
+
+			if(format[i] == '0')
+			{
+				zeroWidth = true;
+				i++;
+			}
+
+			int width = -1;
+
+			if(format[i] >= '0' && format[i] <= '9')
+			{
+				width = format[i] - '0';
+				i++;
+			}
+
+			if(format[i] >= '0' && format[i] <= '9')
+			{
+				width = width * 10 + (format[i] - '0');
+				i++;
+			}
+
 			if(format[i] == '.')
 				i++;
 				
@@ -261,6 +283,14 @@ void sprintf(char[] buffer, char[] format, auto ref[] args)
 					for(int k = str.begin; k < str.end; k++)
 						buffer[pos++] = str.data[k];
 				}
+				else if(args[arg].type == StringRef)
+				{
+					StringRef str = args[arg];
+
+					int strPos = 0;
+					while(str.string[str.pos + strPos])
+						buffer[pos++] = str.string[str.pos + strPos++];
+				}
 				else
 				{
 					assert(false, "unknown type");
@@ -275,16 +305,38 @@ void sprintf(char[] buffer, char[] format, auto ref[] args)
 			if(format[i] == 'l')
 				i++;
 
-			if(format[i] == 'd')
+			if(format[i] == 'd' || format[i] == 'u')
 			{
 				if(args[arg].type == int)
 				{
 					int value = args[arg];
 					
-					char[] str = value.str();
+					char[] str;
+
+					if(format[i] == 'u')
+						str = as_unsigned(value).str();
+					else
+						str = value.str();
 
 					if(str.size > 0)
 					{
+						if(width != -1 && width > str.size - 1)
+						{
+							char[] tmp = new char[width + 1];
+
+							if(zeroWidth)
+							{
+								for(el in tmp)
+									el = '0';
+
+								tmp[tmp.size - 1] = 0;
+							}
+
+							memory.copy(tmp, tmp.size - str.size, str, 0, str.size - 1);
+
+							str = tmp;
+						}
+
 						memory.copy(buffer, pos, str, 0, str.size - 1);
 						pos += str.size - 1;
 					}
@@ -305,6 +357,8 @@ void sprintf(char[] buffer, char[] format, auto ref[] args)
 				{
 					assert(false, "unknown type");
 				}
+
+				arg++;
 			}
 		}
 		else

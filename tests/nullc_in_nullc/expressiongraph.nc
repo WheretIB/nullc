@@ -48,6 +48,28 @@ void Print(ExpressionGraphContext ref ctx, char[] format, auto ref[] args)
 			if(format[i] == '%')
 			{
 				i++;
+
+				bool zeroWidth = false;
+
+				if(format[i] == '0')
+				{
+					zeroWidth = true;
+					i++;
+				}
+
+				int width = -1;
+
+				if(format[i] >= '0' && format[i] <= '9')
+				{
+					width = format[i] - '0';
+					i++;
+				}
+
+				if(format[i] >= '0' && format[i] <= '9')
+				{
+					width = width * 10 + (format[i] - '0');
+					i++;
+				}
 				
 				if(format[i] == '.')
 					i++;
@@ -70,19 +92,75 @@ void Print(ExpressionGraphContext ref ctx, char[] format, auto ref[] args)
 						for(int k = str.begin; k < str.end; k++)
 							ctx.output.Write(str.data[k]);
 					}
+					else
+					{
+						assert(false, "unknown type");
+					}
 
 					arg++;
 				}
 
-				bool zeroWidth = false;
-
-				if(format[i] == '0')
-				{
-					zeroWidth = true;
+				if(format[i] == 'l')
 					i++;
-				}
 
-				// TODO: width and numbers
+				if(format[i] == 'l')
+					i++;
+
+				if(format[i] == 'd' || format[i] == 'u' || format[i] == 'x') // TODO: hexadecimal
+				{
+					if(args[arg].type == int)
+					{
+						int value = args[arg];
+
+						char[] intStr;
+
+						if(format[i] == 'u')
+							intStr = as_unsigned(value).str();
+						else
+							intStr = value.str();
+
+						if(intStr.size > 0)
+						{
+							if(width != -1 && width > intStr.size - 1)
+							{
+								char[] tmp = new char[width + 1];
+
+								if(zeroWidth)
+								{
+									for(el in tmp)
+										el = '0';
+
+									tmp[tmp.size - 1] = 0;
+								}
+
+								memory.copy(tmp, tmp.size - intStr.size, intStr, 0, intStr.size - 1);
+
+								intStr = tmp;
+							}
+
+							for(int k = 0; k < intStr.size - 1; k++)
+								ctx.output.Write(intStr[k]);
+						}
+					}
+					else if(args[arg].type == long)
+					{
+						long value = args[arg];
+
+						char[] longStr = value.str();
+
+						if(longStr.size > 0)
+						{
+							for(int k = 0; k < longStr.size - 1; k++)
+								ctx.output.Write(longStr[k]);
+						}
+					}
+					else
+					{
+						assert(false, "unknown type");
+					}
+
+					arg++;
+				}
 			}
 			else
 			{

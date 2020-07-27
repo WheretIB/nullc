@@ -3,8 +3,7 @@ import parsetree;
 import stringutil;
 import nullcdef;
 import common;
-
-class ByteCode;
+import bytecode;
 
 class ExprBase;
 class ExprSequence;
@@ -125,8 +124,7 @@ class ModuleData
 	ByteCode ref bytecode;
 
 	Lexer ref lexer;
-	Lexeme ref lexStream;
-	int lexStreamSize;
+	Lexeme[] lexStream;
 
 	int startingFunctionIndex;
 	int importedFunctionCount;

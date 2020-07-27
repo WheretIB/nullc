@@ -1232,6 +1232,9 @@ const char	*testNullcInNullc =
 "import nullc_in_nullc.parser;\r\n\
 \r\n\
 import nullc_in_nullc.analyzer;\r\n\
+\r\n\
+import nullc_in_nullc.compiler;\r\n\
+\r\n\
 import nullc_in_nullc.expressioneval;\r\n\
 \r\n\
 char[] code = @\"class Test{\r\n\
@@ -1249,31 +1252,40 @@ double b;\r\n\
 b = a.doubleX = 5.0;\r\n\
 return a.sum;\";\r\n\
 \r\n\
-ParseContext syntaxCtx;\r\n\
+int optimizationLevel = 2;\r\n\
+string errorBuf;\r\n\
+bool enableLogFiles = false;\r\n\
+int moduleAnalyzeMemoryLimit = 128 * 1024 * 1024;\r\n\
+string moduleRoot;\r\n\
 \r\n\
-auto syntaxModule = Parse(syntaxCtx, code);\r\n\
+BuildBaseModule(2);\r\n\
 \r\n\
-if(syntaxModule)\r\n\
+CompilerContext ref compilerCtx = new CompilerContext(optimizationLevel, ArrayView<InplaceStr>());\r\n\
+\r\n\
+compilerCtx.errorBuf = &errorBuf;\r\n\
+\r\n\
+compilerCtx.enableLogFiles = enableLogFiles;\r\n\
+\r\n\
+compilerCtx.exprMemoryLimit = moduleAnalyzeMemoryLimit;\r\n\
+\r\n\
+compilerCtx.code = code;\r\n\
+compilerCtx.moduleRoot = moduleRoot;\r\n\
+\r\n\
+if(!CompileModuleFromSource(*compilerCtx))\r\n\
+	return -1;\r\n\
+\r\n\
+if(compilerCtx.exprModule)\r\n\
 {\r\n\
-	ExpressionContext expressionCtx;\r\n\
+	string errorBuf;\r\n\
+	char[] result = TestEvaluation(compilerCtx.exprCtx, compilerCtx.exprModule, &errorBuf);\r\n\
 \r\n\
-	auto expressionModule = Analyze(expressionCtx, syntaxModule, code);\r\n\
-\r\n\
-	if(expressionModule)\r\n\
-	{\r\n\
-		char[256] errorBuf;\r\n\
-		char[] result = TestEvaluation(expressionCtx, expressionModule, errorBuf);\r\n\
-\r\n\
-		if(result != nullptr)\r\n\
-			return int(result);\r\n\
-\r\n\
-		return -3;\r\n\
-	}\r\n\
+	if(result != nullptr)\r\n\
+		return int(result); \r\n\
 \r\n\
 	return -2;\r\n\
 }\r\n\
 \r\n\
-return -1;";
+return -3;";
 TEST_RESULT_SIMPLE("nullc compiler", testNullcInNullc, "6");
 
 const char	*testErrorLib1 =

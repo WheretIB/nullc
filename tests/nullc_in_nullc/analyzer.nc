@@ -4,21 +4,85 @@ import parser;
 import typetreehelpers;
 import expressioncontext;
 import expressioneval;
+import bytecode;
+import binarycache;
+import std.error;
+import std.string;
+
+void string:string(char[] right, int start, int end)
+{
+	assert(start <= end);
+	assert(start >= 0 && start < right.size);
+	assert(end >= 0 && end < right.size);
+
+	data = new char[end - start + 1];
+
+	for(int i = 0; i < data.size; i++)
+		data[i] = right[start + i];
+}
+
+void string:string(StringRef right)
+{
+	int length;
+
+	while(right.string[right.pos + length])
+		length++;
+
+	data = new char[length + 1];
+
+	for(int i = 0; i < data.size; i++)
+		data[i] = right.string[right.pos + i];
+}
+
+void string:string(char[] right, int pos)
+{
+	int length;
+
+	while(right[pos + length])
+		length++;
+
+	data = new char[length + 1];
+
+	for(int i = 0; i < data.size; i++)
+		data[i] = right[pos + i];
+}
+
+void string:string(InplaceStr right)
+{
+	data = new char[right.end - right.begin + 1];
+
+	for(int i = 0; i < data.size; i++)
+		data[i] = right[i];
+}
+
+void InplaceStr:InplaceStr(StringRef str)
+{
+	data = str.string;
+	begin = str.pos;
+	end = str.pos;
+
+	while(data[end])
+		end++;
+}
 
 /*InplaceStr FindModuleNameWithSourceLocation(ExpressionContext ref ctx, char[] code, int position);
 char[] FindModuleCodeWithSourceLocation(ExpressionContext ref ctx, char[] code, int position);*/
 
+class AnalyzerError
+{
+}
+
 void ReportAt(ExpressionContext ref ctx, SynBase ref source, StringRef pos, char[] msg, auto ref[] args)
 {
-	/*if(ctx.errorBuf && ctx.errorBufSize)
+	if(ctx.errorBuf)
 	{
 		if(ctx.errorCount == 0)
 		{
 			ctx.errorPos = pos;
-			ctx.errorBufLocation = ctx.errorBuf;
 		}
 
-		const char ref messageStart = ctx.errorBufLocation;
+		*ctx.errorBuf += msg;
+		/*const char ref messageStart = ctx.errorBufLocation;
 
 		vsnprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), msg, args);
 		ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
@@ -49,28 +113,28 @@ void ReportAt(ExpressionContext ref ctx, SynBase ref source, StringRef pos, char
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 				}
 			}
-		}
+		}*/
 	}
 
 	if(ctx.errorHandlerNested)
 	{
 		assert(ctx.errorHandlerActive);
 
-		longjmp(ctx.errorHandler, 1);
+		throw(new AnalyzerError());
 	}
 
 	ctx.errorCount++;
 
 	if(ctx.errorCount == 100)
 	{
-		NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
+		/*NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
 
-		ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+		ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
 
 		assert(ctx.errorHandlerActive);
 
-		longjmp(ctx.errorHandler, 1);
-	}*/
+		throw(new AnalyzerError());
+	}
 }
 
 void Report(ExpressionContext ref ctx, SynBase ref source, char[] msg, auto ref[] args)
@@ -147,14 +211,48 @@ void StopAt(ExpressionContext ref ctx, SynBase ref source, StringRef pos, char[]
 
 	io.out << msg << io.endl;
 
+	for(arg in args)
+	{
+		if(arg.type == int)
+		{
+			int value = arg;
+
+			io.out << "argument: " << value << io.endl;
+		}
+		else if(arg.type == char[])
+		{
+			char[] str = arg;
+
+			io.out << "argument: " << str << io.endl;
+		}
+		else if(arg.type == InplaceStr)
+		{
+			InplaceStr str = arg;
+
+			io.out << "argument: ";
+
+			for(int k = str.begin; k < str.end; k++)
+				io.out << str.data[k];
+
+			io.out << io.endl;
+		}
+		else if(arg.type == StringRef)
+		{
+			StringRef str = arg;
+
+			int strPos = 0;
+			while(str.string[str.pos + strPos])
+				io.out << str.string[str.pos + strPos++];
+
+			io.out << io.endl;
+		}
+	}
+
 	for(int i = 0; i < 16 && i + pos.pos < pos.string.size; i++)
 		io.out << pos[i];
 	io.out << io.endl;
 
-	// TODO: continue?
-	assert(0, "Analyze Error");
-	
-	//longjmp(ctx.errorHandler, 1);
+	throw(new AnalyzerError());
 }
 
 void Stop(ExpressionContext ref ctx, SynBase ref source, char[] msg, auto ref[] args)
@@ -828,14 +926,13 @@ ExprBase ref EvaluateExpression(ExpressionContext ref ctx, SynBase ref source, E
 {
 	ExpressionEvalContext evalCtx = ExpressionEvalContext(ctx);
 
-	/*if(ctx.errorBuf && ctx.errorBufSize)
+	if(ctx.errorBuf)
 	{
-		evalCtx.errorBuf = ctx.errorBufLocation ? ctx.errorBufLocation : ctx.errorBuf;
-		evalCtx.errorBufSize = ctx.errorBufSize - (ctx.errorBufLocation ? int(ctx.errorBufLocation - ctx.errorBuf) : 0);
+		evalCtx.errorBuf = ctx.errorBuf;
 	}
 
 	evalCtx.globalFrame = new StackFrame(nullptr);
-	evalCtx.stackFrames.push_back(evalCtx.globalFrame);*/
+	evalCtx.stackFrames.push_back(evalCtx.globalFrame);
 
 	ExprBase ref result = Evaluate(evalCtx, expression);
 
@@ -865,15 +962,13 @@ ExprBase ref EvaluateExpression(ExpressionContext ref ctx, SynBase ref source, E
 			}
 		}*/
 
-		assert(false, "evaluation failed");
-
-		//longjmp(ctx.errorHandler, 1);
+		throw(new AnalyzerError());
 	}
 	else if(!result)
 	{
 		// Remove non-critical error from buffer
 		if(ctx.errorBuf)
-			evalCtx.errorBuf[0] = 0;
+			evalCtx.errorBuf.clear();
 	}
 
 	return result;
@@ -2002,9 +2097,6 @@ TypeBase ref CreateGenericTypeInstance(ExpressionContext ref ctx, SynBase ref so
 
 	ExprBase ref result = nullptr;
 
-	/*jmp_buf prevErrorHandler;
-	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));*/
-
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
@@ -2015,9 +2107,11 @@ TypeBase ref CreateGenericTypeInstance(ExpressionContext ref ctx, SynBase ref so
 
 	//int traceDepth = NULLC::TraceGetDepth();
 
-	if(1)//!setjmp(ctx.errorHandler))
+	auto tryResult = try(auto(){ return AnalyzeClassDefinition(ctx, proto.definition, proto, *types); });
+
+	if(tryResult)
 	{
-		result = AnalyzeClassDefinition(ctx, proto.definition, proto, *types);
+		result = tryResult.value;
 	}
 	else
 	{
@@ -2053,12 +2147,11 @@ TypeBase ref CreateGenericTypeInstance(ExpressionContext ref ctx, SynBase ref so
 			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source.pos.begin), source.pos.begin, ctx.errorBuf, ctx.errorBufSize);
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
-		}
+		}*/
 
-		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		ctx.errorHandlerNested = prevErrorHandlerNested;
 
-		longjmp(ctx.errorHandler, 1);*/
+		tryResult.rethrow();
 	}
 
 	ctx.classInstanceDepth--;
@@ -2066,8 +2159,7 @@ TypeBase ref CreateGenericTypeInstance(ExpressionContext ref ctx, SynBase ref so
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(scope, nullptr);
 
-	/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
-	ctx.errorHandlerNested = prevErrorHandlerNested;*/
+	ctx.errorHandlerNested = prevErrorHandlerNested;
 
 	if(ExprClassDefinition ref definition = getType with<ExprClassDefinition>(result))
 	{
@@ -2261,13 +2353,10 @@ TypeBase ref AnalyzeType(ExpressionContext ref ctx, SynBase ref syntax, bool onl
 
 	if(SynTypeof ref node = getType with<SynTypeof>(syntax))
 	{
-		/*jmp_buf prevErrorHandler;
-		memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));*/
-
 		bool prevErrorHandlerNested = ctx.errorHandlerNested;
 		ctx.errorHandlerNested = true;
 
-		char[] errorBuf = ctx.errorBuf;
+		string ref errorBuf = ctx.errorBuf;
 
 		if(failed)
 		{
@@ -2279,8 +2368,7 @@ TypeBase ref AnalyzeType(ExpressionContext ref ctx, SynBase ref syntax, bool onl
 
 		//int traceDepth = NULLC::TraceGetDepth();
 
-		if(1)//!setjmp(ctx.errorHandler))
-		{
+		auto tryResult = try(auto(){
 			TypeBase ref type = AnalyzeType(ctx, node.value, false);
 
 			if(!type)
@@ -2295,8 +2383,14 @@ TypeBase ref AnalyzeType(ExpressionContext ref ctx, SynBase ref syntax, bool onl
 				type = value.type;
 			}
 
-			/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
-			ctx.errorHandlerNested = prevErrorHandlerNested;*/
+			return type;
+		});
+
+		if(tryResult)
+		{
+			TypeBase ref type = tryResult.value;
+
+			ctx.errorHandlerNested = prevErrorHandlerNested;
 
 			ctx.errorBuf = errorBuf;
 
@@ -2316,8 +2410,7 @@ TypeBase ref AnalyzeType(ExpressionContext ref ctx, SynBase ref syntax, bool onl
 			if(ctx.scope != scope)
 				ctx.SwitchToScopeAtPoint(scope, nullptr);
 
-			/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
-			ctx.errorHandlerNested = prevErrorHandlerNested;*/
+			ctx.errorHandlerNested = prevErrorHandlerNested;
 
 			ctx.errorBuf = errorBuf;
 
@@ -2327,7 +2420,7 @@ TypeBase ref AnalyzeType(ExpressionContext ref ctx, SynBase ref syntax, bool onl
 				return ctx.typeGeneric;
 			}
 
-			/*longjmp(ctx.errorHandler, 1);*/
+			tryResult.rethrow();
 		}
 	}
 
@@ -4194,7 +4287,7 @@ ExprBase ref AnalyzeArrayIndex(ExpressionContext ref ctx, SynTypeArray ref synta
 InplaceStr GetTemporaryFunctionName(ExpressionContext ref ctx)
 {
 	char[] name = new char[16];
-	//sprintf(name, "$func%d", ctx.unnamedFuncCount++);
+	sprintf(name, "$func%d", ctx.unnamedFuncCount++);
 
 	return InplaceStr(name);
 }
@@ -4202,7 +4295,7 @@ InplaceStr GetTemporaryFunctionName(ExpressionContext ref ctx)
 InplaceStr GetDefaultArgumentWrapperFunctionName(ExpressionContext ref ctx, FunctionData ref function, InplaceStr argumentName)
 {
 	char[] name = new char[function.name.name.length() + argumentName.length() + 16];
-	//sprintf(name, "%.*s_%u_%.*s$", FMT_ISTR(function.name.name), function.type.nameHash, FMT_ISTR(argumentName));
+	sprintf(name, "%.*s_%u_%.*s$", FMT_ISTR(function.name.name), function.type.nameHash, FMT_ISTR(argumentName));
 
 	return InplaceStr(name);
 }
@@ -4949,16 +5042,12 @@ TypeFunction ref GetGenericFunctionInstanceType(ExpressionContext ref ctx, SynBa
 
 	RefList<TypeHandle> types;
 
-	/*jmp_buf prevErrorHandler;
-	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));*/
-
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
 	//int traceDepth = NULLC::TraceGetDepth();
 
-	if(1)//!setjmp(ctx.errorHandler))
-	{
+	auto tryResult = try(auto(){
 		if(SynFunctionDefinition ref syntax = GetGenericFunctionDefinition(ctx, source, function))
 		{
 			bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
@@ -5017,6 +5106,14 @@ TypeFunction ref GetGenericFunctionInstanceType(ExpressionContext ref ctx, SynBa
 				types.push_back(new TypeHandle(type));
 			}
 		}
+	});
+
+	if(tryResult)
+	{
+		// Restore old scope
+		ctx.SwitchToScopeAtPoint(scope, nullptr);
+
+		ctx.errorHandlerNested = prevErrorHandlerNested;
 	}
 	else
 	{
@@ -5025,17 +5122,10 @@ TypeFunction ref GetGenericFunctionInstanceType(ExpressionContext ref ctx, SynBa
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, nullptr);
 
-		/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		ctx.errorHandlerNested = prevErrorHandlerNested;
 
-		longjmp(ctx.errorHandler, 1);*/
+		tryResult.rethrow();
 	}
-
-	// Restore old scope
-	ctx.SwitchToScopeAtPoint(scope, nullptr);
-
-	/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
-	ctx.errorHandlerNested = prevErrorHandlerNested;*/
 
 	if(types.size() != arguments.size())
 	{
@@ -5565,9 +5655,6 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext ref ctx, SynBase r
 	if(ctx.functionInstanceDepth > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
 		Stop(ctx, source, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
 
-	/*jmp_buf prevErrorHandler;
-	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));*/
-
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
@@ -5575,14 +5662,23 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext ref ctx, SynBase r
 	
 	//int traceDepth = NULLC::TraceGetDepth();
 
-	if(1)//!setjmp(ctx.errorHandler))
-	{
+	auto tryResult = try(auto(){
 		if(SynFunctionDefinition ref syntax = GetGenericFunctionDefinition(ctx, source, function))
 			expr = AnalyzeFunctionDefinition(ctx, syntax, function, instance, parentType, aliases, false, false, false);
 		else if(SynShortFunctionDefinition ref node = getType with<SynShortFunctionDefinition>(function.declaration.source))
 			expr = AnalyzeShortFunctionDefinition(ctx, node, function, instance);
 		else
 			Stop(ctx, source, "ERROR: imported generic function call is not supported");
+	});
+
+	if(tryResult)
+	{
+		ctx.functionInstanceDepth--;
+
+		// Restore old scope
+		ctx.SwitchToScopeAtPoint(scope, nullptr);
+
+		ctx.errorHandlerNested = prevErrorHandlerNested;
 	}
 	else
 	{
@@ -5636,19 +5732,10 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext ref ctx, SynBase r
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
 		}
 
-		/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		ctx.errorHandlerNested = prevErrorHandlerNested;
 
-		longjmp(ctx.errorHandler, 1);*/
+		tryResult.rethrow();
 	}
-
-	ctx.functionInstanceDepth--;
-
-	// Restore old scope
-	ctx.SwitchToScopeAtPoint(scope, nullptr);
-
-	/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
-	ctx.errorHandlerNested = prevErrorHandlerNested;*/
 
 	ExprFunctionDefinition ref definition = getType with<ExprFunctionDefinition>(expr);
 
@@ -5845,8 +5932,7 @@ ExprBase ref CreateFunctionCallByName(ExpressionContext ref ctx, SynBase ref sou
 		{
 			if(ctx.errorCount == 0)
 			{
-				ctx.errorPos = source.pos.begin;
-				ctx.errorBufLocation = StringRef(ctx.errorBuf, 0);
+				ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 			}
 
 			/*StringRef messageStart = ctx.errorBufLocation;
@@ -5860,9 +5946,12 @@ ExprBase ref CreateFunctionCallByName(ExpressionContext ref ctx, SynBase ref sou
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
 		}
 
+		// Temp:
+		io.out << "ERROR: can't find function '" << FMT_ISTR(name) << "' with following arguments:\n" << io.endl;
+
 		assert(ctx.errorHandlerActive);
 
-		/*longjmp(ctx.errorHandler, 1);*/
+		throw(new AnalyzerError());
 	}
 
 	return nullptr;
@@ -6106,8 +6195,7 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 			{
 				if(ctx.errorCount == 0)
 				{
-					ctx.errorPos = source.pos.begin;
-					ctx.errorBufLocation = StringRef(ctx.errorBuf, 0);
+					ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 				}
 
 				/*StringRef messageStart = ctx.errorBufLocation;
@@ -6125,7 +6213,7 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 			{
 				assert(ctx.errorHandlerActive);
 
-				/*longjmp(ctx.errorHandler, 1);*/
+				throw(new AnalyzerError());
 			}
 
 			ctx.errorCount++;
@@ -6177,8 +6265,7 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 				{
 					if(ctx.errorCount == 0)
 					{
-						ctx.errorPos = source.pos.begin;
-						ctx.errorBufLocation = StringRef(ctx.errorBuf, 0);
+						ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 					}
 
 					/*StringRef messageStart = ctx.errorBufLocation;
@@ -6196,7 +6283,7 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 				{
 					assert(ctx.errorHandlerActive);
 
-					/*longjmp(ctx.errorHandler, 1);*/
+					throw(new AnalyzerError());
 				}
 
 				ctx.errorCount++;
@@ -6345,8 +6432,7 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 			{
 				if(ctx.errorCount == 0)
 				{
-					ctx.errorPos = source.pos.begin;
-					ctx.errorBufLocation = StringRef(ctx.errorBuf, 0);
+					ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 				}
 
 				/*StringRef messageStart = ctx.errorBufLocation;
@@ -6390,7 +6476,7 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 			{
 				assert(ctx.errorHandlerActive);
 
-				/*longjmp(ctx.errorHandler, 1);*/
+				throw(new AnalyzerError());
 			}
 
 			ctx.errorCount++;
@@ -7031,8 +7117,7 @@ ExprBase ref ResolveInitializerValue(ExpressionContext ref ctx, SynBase ref sour
 			{
 				if(ctx.errorCount == 0)
 				{
-					ctx.errorPos = source.pos.begin;
-					ctx.errorBufLocation = StringRef(ctx.errorBuf, 0);
+					ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 				}
 
 				/*StringRef messageStart = ctx.errorBufLocation;
@@ -7048,7 +7133,7 @@ ExprBase ref ResolveInitializerValue(ExpressionContext ref ctx, SynBase ref sour
 
 			assert(ctx.errorHandlerActive);
 
-			/*longjmp(ctx.errorHandler, 1);*/
+			throw(new AnalyzerError());
 		}
 	}
 
@@ -8323,8 +8408,7 @@ bool AssertValueExpression(ExpressionContext ref ctx, SynBase ref source, ExprBa
 		{
 			if(ctx.errorCount == 0)
 			{
-				ctx.errorPos = source.pos.begin;
-				ctx.errorBufLocation = StringRef(ctx.errorBuf, 0);
+				ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 			}
 
 			/*StringRef messageStart = ctx.errorBufLocation;
@@ -8342,7 +8426,7 @@ bool AssertValueExpression(ExpressionContext ref ctx, SynBase ref source, ExprBa
 		{
 			assert(ctx.errorHandlerActive);
 
-			/*longjmp(ctx.errorHandler, 1);*/
+			throw(new AnalyzerError());
 		}
 
 		ctx.errorCount++;
@@ -9431,16 +9515,12 @@ ExprBase ref AnalyzeEnumDefinition(ExpressionContext ref ctx, SynEnumDefinition 
 	ExprBase ref castToInt = nullptr;
 	ExprBase ref castToEnum = nullptr;
 
-	/*jmp_buf prevErrorHandler;
-	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));*/
-
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
 	//int traceDepth = NULLC::TraceGetDepth();
 
-	if(1)//!setjmp(ctx.errorHandler))
-	{
+	auto tryResult = try(auto(){
 		SynBase ref syntaxInternal = ctx.MakeInternal(syntax);
 
 		// Create conversion operator int int(enum_type)
@@ -9540,6 +9620,14 @@ ExprBase ref AnalyzeEnumDefinition(ExpressionContext ref ctx, SynEnumDefinition 
 
 			castToEnum = function.declaration;
 		}
+	});
+
+	if(tryResult)
+	{
+		// Restore old scope
+		ctx.SwitchToScopeAtPoint(scope, nullptr);
+
+		ctx.errorHandlerNested = prevErrorHandlerNested;
 	}
 	else
 	{
@@ -9548,17 +9636,10 @@ ExprBase ref AnalyzeEnumDefinition(ExpressionContext ref ctx, SynEnumDefinition 
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, nullptr);
 
-		/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
-		ctx.errorHandlerNested = prevErrorHandlerNested;*/
+		ctx.errorHandlerNested = prevErrorHandlerNested;
 
-		/*longjmp(ctx.errorHandler, 1);*/
+		tryResult.rethrow();
 	}
-
-	// Restore old scope
-	ctx.SwitchToScopeAtPoint(scope, nullptr);
-
-	/*memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
-	ctx.errorHandlerNested = prevErrorHandlerNested;*/
 
 	return new ExprEnumDefinition(syntax, ctx.typeVoid, enumType, castToInt, castToEnum);
 }
@@ -10632,34 +10713,32 @@ class ModuleContext
 	int dependencyDepth;
 }
 
-/*
 void ImportModuleDependencies(ExpressionContext ref ctx, SynBase ref source, ModuleContext ref moduleCtx, ByteCode ref moduleBytecode)
 {
 	//TRACE_SCOPE("analyze", "ImportModuleDependencies");
 
-	char ref symbols = FindSymbols(moduleBytecode);
+	char[] symbols = FindSymbols(moduleBytecode);
 
-	ExternModuleInfo ref moduleList = FindFirstModule(moduleBytecode);
+	ExternModuleInfo[] moduleList = FindFirstModule(moduleBytecode);
 
 	for(int i = 0; i < moduleBytecode.dependsCount; i++)
 	{
-		ExternModuleInfo ref moduleInfo = moduleList[i];
+		ExternModuleInfo ref moduleInfo = &moduleList[i];
 
-		StringRef moduleFileName = symbols + moduleInfo.nameOffset;
+		StringRef moduleFileName = StringRef(symbols, moduleInfo.nameOffset);
 
-		Bytecode ref bytecode = BinaryCache.FindBytecode(moduleFileName, false);
+		ByteCode ref bytecode = BinaryCache.FindBytecode(string(moduleFileName), false);
 
-		int lexStreamSize = 0;
-		Lexeme ref lexStream = BinaryCache.FindLexems(moduleFileName, false, lexStreamSize);
+		Lexeme[] lexStream = BinaryCache.FindLexems(string(moduleFileName), false);
 
 		if(!bytecode)
 			Stop(ctx, source, "ERROR: module dependency import is not implemented");
 
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+/*#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 		for(int k = 0; k < moduleCtx.dependencyDepth; k++)
 			printf("  ");
 		printf("  importing module %s as dependency #%d\n", moduleFileName, ctx.dependencies.size() + 1);
-#endif
+#endif*/
 
 		ModuleData ref moduleData = new ModuleData(source, InplaceStr(moduleFileName));
 
@@ -10668,19 +10747,17 @@ void ImportModuleDependencies(ExpressionContext ref ctx, SynBase ref source, Mod
 
 		moduleData.bytecode = bytecode;
 
-		if(!lexStream)
+		if(lexStream == nullptr)
 		{
 			moduleData.lexer = new Lexer;
 
 			moduleData.lexer.Lexify(FindSource(moduleData.bytecode));
-			lexStream = moduleData.lexer.GetStreamStart();
-			lexStreamSize = moduleData.lexer.GetStreamSize();
+			lexStream = moduleData.lexer.lexems.data;
 
-			BinaryCache.PutLexemes(moduleFileName, lexStream, lexStreamSize);
+			BinaryCache.PutLexemes(string(moduleFileName), lexStream);
 		}
 
 		moduleData.lexStream = lexStream;
-		moduleData.lexStreamSize = lexStreamSize;
 
 		moduleCtx.dependencyDepth++;
 
@@ -10692,17 +10769,17 @@ void ImportModuleDependencies(ExpressionContext ref ctx, SynBase ref source, Mod
 
 void ImportModuleNamespaces(ExpressionContext ref ctx, SynBase ref source, ModuleContext ref moduleCtx)
 {
-	TRACE_SCOPE("analyze", "ImportModuleNamespaces");
+	//TRACE_SCOPE("analyze", "ImportModuleNamespaces");
 
 	ByteCode ref bCode = moduleCtx.data.bytecode;
-	char ref symbols = FindSymbols(bCode);
+	char[] symbols = FindSymbols(bCode);
 
 	// Import namespaces
-	ExternNamespaceInfo ref namespaceList = FindFirstNamespace(bCode);
+	ExternNamespaceInfo[] namespaceList = FindFirstNamespace(bCode);
 
 	for(int i = 0; i < bCode.namespaceCount; i++)
 	{
-		ExternNamespaceInfo ref namespaceData = namespaceList[i];
+		ExternNamespaceInfo ref namespaceData = &namespaceList[i];
 
 		NamespaceData ref parent = nullptr;
 
@@ -10718,10 +10795,10 @@ void ImportModuleNamespaces(ExpressionContext ref ctx, SynBase ref source, Modul
 			}
 
 			if(!parent)
-				Stop(ctx, source, "ERROR: namespace %s parent not found", symbols + namespaceData.offsetToName);
+				Stop(ctx, source, "ERROR: namespace %s parent not found", StringRef(symbols, namespaceData.offsetToName));
 		}
 
-		NamespaceData ref ns = new NamespaceData(source, ctx.scope, parent, SynIdentifier(InplaceStr(symbols + namespaceData.offsetToName)), ctx.uniqueNamespaceId++);
+		NamespaceData ref ns = new NamespaceData(source, ctx.scope, parent, SynIdentifier(InplaceStr(StringRef(symbols, namespaceData.offsetToName))), ctx.uniqueNamespaceId++);
 
 		if(parent)
 			parent.children.push_back(ns);
@@ -10738,28 +10815,28 @@ class DelayedType
 	{
 	}
 
-	void DelayedType(int index, ExternConstantInfo ref constants)
+	void DelayedType(int index, int constantPos)
 	{
 		this.index = index;
-		this.constants = constants;
+		this.constantPos = constantPos;
 	}
 
 	int index;
-	ExternConstantInfo ref constants;
+	int constantPos;
 }
 
 void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleContext ref moduleCtx)
 {
-	TRACE_SCOPE("analyze", "ImportModuleTypes");
+	//TRACE_SCOPE("analyze", "ImportModuleTypes");
 
 	ByteCode ref bCode = moduleCtx.data.bytecode;
-	char ref symbols = FindSymbols(bCode);
+	char[] symbols = FindSymbols(bCode);
 
 	// Import types
-	ExternTypeInfo ref typeList = FindFirstType(bCode);
-	ExternMemberInfo ref memberList = (ExternMemberInfo ref)(typeList + bCode.typeCount);
-	ExternConstantInfo ref constantList = FindFirstConstant(bCode);
-	ExternTypedefInfo ref aliasList = FindFirstTypedef(bCode);
+	ExternTypeInfo[] typeList = FindFirstType(bCode);
+	ExternMemberInfo[] memberList = FindFirstMember(bCode);
+	ExternConstantInfo[] constantList = FindFirstConstant(bCode);
+	ExternTypedefInfo[] aliasList = FindFirstTypedef(bCode);
 
 	int prevSize = moduleCtx.types.size();
 
@@ -10770,23 +10847,23 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 	vector<DelayedType> delayedTypes;
 
-	ExternConstantInfo ref currentConstant = constantList;
+	int currentConstant = 0;
 
 	for(int i = 0; i < bCode.typeCount; i++)
 	{
-		ExternTypeInfo ref type = typeList[i];
+		ExternTypeInfo ref type = &typeList[i];
 
 		ModuleData ref importModule = moduleCtx.data;
 
 		if(type.definitionModule != 0)
 			importModule = ctx.dependencies[moduleCtx.data.startingDependencyIndex + type.definitionModule - 1];
 
-		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
+		InplaceStr typeName = InplaceStr(StringRef(symbols, type.offsetToName));
 
 		TypeClass ref forwardDeclaration = nullptr;
 
 		// Skip existing types
-		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
+		if(TypeBase ref ref prev = ctx.typeMap.find(type.nameHash))
 		{
 			TypeBase ref prevType = *prev;
 
@@ -10805,7 +10882,7 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 			moduleCtx.types[i] = prevType;
 
-			if(prevTypeClass && !prevTypeClass.completed && (type.typeFlags & ExternTypeInfo.TYPE_IS_COMPLETED) != 0)
+			if(prevTypeClass && !prevTypeClass.completed && (type.typeFlags & int(TypeFlags.TYPE_IS_COMPLETED)) != 0)
 			{
 				forwardDeclaration = prevTypeClass;
 			}
@@ -10818,8 +10895,8 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 		switch(type.subCat)
 		{
-		case ExternTypeInfo.CAT_NONE:
-			if(strcmp(symbols + type.offsetToName, "generic") == 0)
+		case SubCategory.CAT_NONE:
+			if(string(symbols, type.offsetToName) == "generic")
 			{
 				// TODO: explicit category
 				moduleCtx.types[i] = ctx.typeGeneric;
@@ -10828,10 +10905,10 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 				assert(moduleCtx.types[i].name == typeName);
 			}
-			else if(*(symbols + type.offsetToName) == '@')
+			else if(symbols[type.offsetToName] == '@')
 			{
 				// TODO: explicit category
-				moduleCtx.types[i] = ctx.GetGenericAliasType(new SynIdentifier(InplaceStr(symbols + type.offsetToName + 1)));
+				moduleCtx.types[i] = ctx.GetGenericAliasType(new SynIdentifier(InplaceStr(StringRef(symbols, type.offsetToName + 1))));
 
 				moduleCtx.types[i].importModule = importModule;
 
@@ -10839,16 +10916,16 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 			}
 			else
 			{
-				Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data.name), symbols + type.offsetToName);
+				Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data.name), StringRef(symbols, type.offsetToName));
 			}
 			break;
-		case ExternTypeInfo.CAT_ARRAY:
-			if(TypeBase ref subType = moduleCtx.types[type.subType])
+		case SubCategory.CAT_ARRAY:
+			if(TypeBase ref subType = moduleCtx.types[type.subTypeOrMemberOffset])
 			{
-				if(type.arrSize == -1)
+				if(type.arrSizeOrMemberCount == -1)
 					moduleCtx.types[i] = ctx.GetUnsizedArrayType(subType);
 				else
-					moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSize);
+					moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSizeOrMemberCount);
 
 				moduleCtx.types[i].importModule = importModule;
 
@@ -10856,11 +10933,11 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 			}
 			else
 			{
-				Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 			}
 			break;
-		case ExternTypeInfo.CAT_POINTER:
-			if(TypeBase ref subType = moduleCtx.types[type.subType])
+		case SubCategory.CAT_POINTER:
+			if(TypeBase ref subType = moduleCtx.types[type.subTypeOrMemberOffset])
 			{
 				moduleCtx.types[i] = ctx.GetReferenceType(subType);
 
@@ -10870,20 +10947,20 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 			}
 			else
 			{
-				Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 			}
 			break;
-		case ExternTypeInfo.CAT_FUNCTION:
-			if(TypeBase ref returnType = moduleCtx.types[memberList[type.memberOffset].type])
+		case SubCategory.CAT_FUNCTION:
+			if(TypeBase ref returnType = moduleCtx.types[memberList[type.subTypeOrMemberOffset].type])
 			{
 				RefList<TypeHandle> arguments;
 
-				for(int n = 0; n < type.memberCount; n++)
+				for(int n = 0; n < type.arrSizeOrMemberCount; n++)
 				{
-					TypeBase ref argType = moduleCtx.types[memberList[type.memberOffset + n + 1].type];
+					TypeBase ref argType = moduleCtx.types[memberList[type.subTypeOrMemberOffset + n + 1].type];
 
 					if(!argType)
-						Stop(ctx, source, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+						Stop(ctx, source, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 					arguments.push_back(new TypeHandle(argType));
 				}
@@ -10896,10 +10973,10 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 			}
 			else
 			{
-				Stop(ctx, source, "ERROR: can't find return type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find return type for '%s' in module %.*s", StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 			}
 			break;
-		case ExternTypeInfo.CAT_CLASS:
+		case SubCategory.CAT_CLASS:
 			{
 				TypeBase ref importedType = nullptr;
 
@@ -10925,18 +11002,18 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 				for(int k = 0; k < bCode.typedefCount; k++)
 				{
-					ExternTypedefInfo ref alias = aliasList[k];
+					ExternTypedefInfo ref alias = &aliasList[k];
 
 					if(alias.parentType == i && generics.size() < type.genericTypeCount)
 					{
-						InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+						InplaceStr aliasName = InplaceStr(StringRef(symbols, alias.offsetToName));
 
 						SynIdentifier ref aliasNameIdentifier = new SynIdentifier(aliasName);
 
 						TypeBase ref targetType = moduleCtx.types[alias.targetType];
 
 						if(!targetType)
-							Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data.name));
+							Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), StringRef(symbols, alias.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 						isGeneric |= targetType.isGeneric;
 
@@ -10955,14 +11032,17 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 						Stop(ctx, source, "ERROR: can't find type '%.*s' base type in module %.*s", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data.name));
 				}
 
-				assert(type.definitionLocationStart < importModule.lexStreamSize);
-				assert(type.definitionLocationEnd < importModule.lexStreamSize);
+				assert(type.definitionLocationStart < importModule.lexStream.size);
+				assert(type.definitionLocationEnd < importModule.lexStream.size);
 				
-				SynBase ref locationSource = type.definitionLocationStart != 0 || type.definitionLocationEnd != 0 ? new SynImportLocation(type.definitionLocationStart + importModule.lexStream, type.definitionLocationEnd + importModule.lexStream) : source;
+				LexemeRef locationSourceStart = LexemeRef(importModule.lexer, type.definitionLocationStart);
+				LexemeRef locationSourceEnd = LexemeRef(importModule.lexer, type.definitionLocationEnd);
 
-				assert(type.definitionLocationName < importModule.lexStreamSize);
+				SynBase ref locationSource = type.definitionLocationStart != 0 || type.definitionLocationEnd != 0 ? new SynImportLocation(locationSourceStart, locationSourceEnd) : source;
 
-				Lexeme ref locationName = type.definitionLocationName + importModule.lexStream;
+				assert(type.definitionLocationName < importModule.lexStream.size);
+
+				LexemeRef locationName = LexemeRef(importModule.lexer, type.definitionLocationName);
 
 				SynIdentifier identifier = type.definitionLocationName != 0 ? SynIdentifier(locationName, locationName, typeName) : SynIdentifier(typeName);
 
@@ -10973,12 +11053,12 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 					TypeBase ref proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
 
 					if(!proto)
-						Stop(ctx, source, "ERROR: can't find proto type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+						Stop(ctx, source, "ERROR: can't find proto type for '%s' in module %.*s", StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 					TypeGenericClassProto ref protoClass = getType with<TypeGenericClassProto>(proto);
 
 					if(!protoClass)
-						Stop(ctx, source, "ERROR: can't find correct proto type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+						Stop(ctx, source, "ERROR: can't find correct proto type for '%s' in module %.*s", StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 					if(isGeneric)
 					{
@@ -10988,12 +11068,12 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 					}
 					else
 					{
-						TypeClass ref classType = new TypeClass(identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo.TYPE_IS_EXTENDABLE) != 0, baseType);
+						TypeClass ref classType = new TypeClass(identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & int(TypeFlags.TYPE_IS_EXTENDABLE)) != 0, baseType);
 
-						if(type.typeFlags & ExternTypeInfo.TYPE_IS_COMPLETED)
+						if(type.typeFlags & int(TypeFlags.TYPE_IS_COMPLETED))
 							classType.completed = true;
 
-						if(type.typeFlags & ExternTypeInfo.TYPE_IS_INTERNAL)
+						if(type.typeFlags & int(TypeFlags.TYPE_IS_INTERNAL))
 							classType.isInternal = true;
 
 						importedType = classType;
@@ -11010,8 +11090,9 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 				{
 					assert(!forwardDeclaration);
 
-					assert(type.definitionOffsetStart < importModule.lexStreamSize);
-					Lexeme ref start = type.definitionOffsetStart + importModule.lexStream;
+					assert(type.definitionOffsetStart < importModule.lexStream.size);
+
+					LexemeRef start = LexemeRef(importModule.lexer, type.definitionOffsetStart);
 
 					ParseContext ref parser = new ParseContext(ctx.optimizationLevel, ArrayView<InplaceStr>());
 
@@ -11030,7 +11111,7 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 					// TODO: check that type doesn't have generics or aliases
 				}
-				else if(type.type != ExternTypeInfo.TYPE_COMPLEX)
+				else if(type.type != TypeCategory.TYPE_COMPLEX)
 				{
 					assert(!forwardDeclaration);
 
@@ -11054,18 +11135,18 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 						classType.source = locationSource;
 						classType.scope = ctx.scope;
-						classType.isExtendable = (type.typeFlags & ExternTypeInfo.TYPE_IS_EXTENDABLE) != 0;
+						classType.isExtendable = (type.typeFlags & int(TypeFlags.TYPE_IS_EXTENDABLE)) != 0;
 						classType.baseClass = baseType;
 					}
 					else
 					{
-						classType = new TypeClass(identifier, locationSource, ctx.scope, nullptr, actualGenerics, (type.typeFlags & ExternTypeInfo.TYPE_IS_EXTENDABLE) != 0, baseType);
+						classType = new TypeClass(identifier, locationSource, ctx.scope, nullptr, actualGenerics, (type.typeFlags & int(TypeFlags.TYPE_IS_EXTENDABLE)) != 0, baseType);
 					}
 
-					if(type.typeFlags & ExternTypeInfo.TYPE_IS_COMPLETED)
+					if(type.typeFlags & int(TypeFlags.TYPE_IS_COMPLETED))
 						classType.completed = true;
 
-					if(type.typeFlags & ExternTypeInfo.TYPE_IS_INTERNAL)
+					if(type.typeFlags & int(TypeFlags.TYPE_IS_INTERNAL))
 						classType.isInternal = true;
 
 					importedType = classType;
@@ -11093,31 +11174,31 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 				}
 
 				if(TypeClass ref classType = getType with<TypeClass>(importedType))
-					classType.hasFinalizer = type.typeFlags & ExternTypeInfo.TYPE_HAS_FINALIZER;
+					classType.hasFinalizer = type.typeFlags & int(TypeFlags.TYPE_HAS_FINALIZER);
 
 				if(parentNamespace)
 					ctx.PopScope(ScopeType.SCOPE_NAMESPACE);
 			}
 			break;
 		default:
-			Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data.name), symbols + type.offsetToName);
+			Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data.name), StringRef(symbols, type.offsetToName));
 		}
 	}
 
 	for(int i = 0; i < delayedTypes.size(); i++)
 	{
-		DelayedType ref delayedType = delayedTypes[i];
-		ExternTypeInfo ref type = typeList[delayedType.index];
+		DelayedType ref delayedType = &delayedTypes[i];
+		ExternTypeInfo ref type = &typeList[delayedType.index];
 
 		switch(type.subCat)
 		{
-		case ExternTypeInfo.CAT_CLASS:
+		case SubCategory.CAT_CLASS:
 			{
-				InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
+				InplaceStr typeName = InplaceStr(StringRef(symbols, type.offsetToName));
 
 				TypeBase ref importedType = moduleCtx.types[delayedType.index];
 
-				StringRef memberNames = typeName.end + 1;
+				StringRef memberNames = StringRef(symbols, typeName.end + 1);
 
 				if(TypeStruct ref structType = getType with<TypeStruct>(importedType))
 				{
@@ -11126,38 +11207,38 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 					if(TypeStruct ref classType = getType with<TypeStruct>(structType))
 						classType.typeScope = ctx.scope;
 
-					for(int n = 0; n < type.memberCount; n++)
+					for(int n = 0; n < type.arrSizeOrMemberCount; n++)
 					{
 						InplaceStr memberName = InplaceStr(memberNames);
 
 						SynIdentifier ref memberNameIdentifier = new SynIdentifier(memberName);
 
-						memberNames = memberName.end + 1;
+						memberNames = StringRef(symbols, memberName.end + 1);
 
-						TypeBase ref memberType = moduleCtx.types[memberList[type.memberOffset + n].type];
+						TypeBase ref memberType = moduleCtx.types[memberList[type.subTypeOrMemberOffset + n].type];
 
 						if(!memberType)
-							Stop(ctx, source, "ERROR: can't find member %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+							Stop(ctx, source, "ERROR: can't find member %d type for '%s' in module %.*s", n + 1, StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
-						VariableData ref member = new VariableData(source, ctx.scope, 0, memberType, memberNameIdentifier, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+						VariableData ref member = new VariableData(source, ctx.scope, 0, memberType, memberNameIdentifier, memberList[type.subTypeOrMemberOffset + n].offset, ctx.uniqueVariableId++);
 
 						structType.members.push_back(new MemberHandle(source, member, nullptr));
 					}
 
-					ExternConstantInfo ref constantInfo = delayedType.constants;
-
 					for(int n = 0; n < type.constantCount; n++)
 					{
+						ExternConstantInfo ref constantInfo = &constantList[delayedType.constantPos + n];
+
 						InplaceStr memberName = InplaceStr(memberNames);
 
 						SynIdentifier ref memberNameIdentifier = new SynIdentifier(memberName);
 
-						memberNames = memberName.end + 1;
+						memberNames = StringRef(symbols, memberName.end + 1);
 
 						TypeBase ref constantType = moduleCtx.types[constantInfo.type];
 
 						if(!constantType)
-							Stop(ctx, source, "ERROR: can't find constant %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data.name));
+							Stop(ctx, source, "ERROR: can't find constant %d type for '%s' in module %.*s", n + 1, StringRef(symbols, type.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 						ExprBase ref value = nullptr;
 
@@ -11171,8 +11252,7 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 						}
 						else if(ctx.IsFloatingPointType(constantType))
 						{
-							double data = 0.0;
-							memcpy(&data, &constantInfo.value, sizeof(double));
+							double data = memory.as_double(constantInfo.value);
 							value = new ExprRationalLiteral(source, constantType, data);
 						}
 							
@@ -11180,8 +11260,6 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 							Stop(ctx, source, "ERROR: can't import constant %d of type '%.*s'", n + 1, FMT_ISTR(constantType.name));
 
 						structType.constants.push_back(new ConstantData(memberNameIdentifier, value));
-
-						constantInfo++;
 					}
 
 					ctx.PopScope(ScopeType.SCOPE_TYPE);
@@ -11195,18 +11273,18 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 					for(int k = 0; k < bCode.typedefCount; k++)
 					{
-						ExternTypedefInfo ref alias = aliasList[k];
+						ExternTypedefInfo ref alias = &aliasList[k];
 
 						if(alias.parentType == delayedType.index)
 						{
-							InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+							InplaceStr aliasName = InplaceStr(StringRef(symbols, alias.offsetToName));
 
 							SynIdentifier ref aliasNameIdentifier = new SynIdentifier(aliasName);
 
 							TypeBase ref targetType = moduleCtx.types[alias.targetType];
 
 							if(!targetType)
-								Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data.name));
+								Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), StringRef(symbols, alias.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 							if(genericsFound < type.genericTypeCount)
 								genericsFound++;
@@ -11227,28 +11305,28 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 
 void ImportModuleVariables(ExpressionContext ref ctx, SynBase ref source, ModuleContext ref moduleCtx)
 {
-	TRACE_SCOPE("analyze", "ImportModuleVariables");
+	//TRACE_SCOPE("analyze", "ImportModuleVariables");
 
 	ByteCode ref bCode = moduleCtx.data.bytecode;
-	char ref symbols = FindSymbols(bCode);
+	char[] symbols = FindSymbols(bCode);
 
 	// Import variables
-	ExternVarInfo ref variableList = FindFirstVar(bCode);
+	ExternVarInfo[] variableList = FindFirstVar(bCode);
 
 	for(int i = 0; i < bCode.variableExportCount; i++)
 	{
-		ExternVarInfo ref variable = variableList[i];
+		ExternVarInfo ref variable = &variableList[i];
 
-		InplaceStr name = InplaceStr(symbols + variable.offsetToName);
+		InplaceStr name = InplaceStr(StringRef(symbols, variable.offsetToName));
 
 		// Exclude temporary variables from import
-		if(name.length() >= 5 && InplaceStr(name.begin, name.begin + 5) == InplaceStr("$temp"))
+		if(name.length() >= 5 && InplaceStr(name.data, name.begin, name.begin + 5) == InplaceStr("$temp"))
 			continue;
 
 		TypeBase ref type = moduleCtx.types[variable.type];
 
 		if(!type)
-			Stop(ctx, source, "ERROR: can't find variable '%s' type in module %.*s", symbols + variable.offsetToName, FMT_ISTR(moduleCtx.data.name));
+			Stop(ctx, source, "ERROR: can't find variable '%s' type in module %.*s", StringRef(symbols, variable.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 		SynIdentifier ref nameIdentifier = new SynIdentifier(name);
 
@@ -11258,7 +11336,7 @@ void ImportModuleVariables(ExpressionContext ref ctx, SynBase ref source, Module
 
 		ctx.AddVariable(data, true);
 
-		if(name.length() > 5 && memcmp(name.begin, "$vtbl", 5) == 0)
+		if(name.length() > 5 && string(name).find("$vtbl") == 0)
 		{
 			ctx.vtables.push_back(data);
 			ctx.vtableMap.insert(name, data);
@@ -11268,36 +11346,36 @@ void ImportModuleVariables(ExpressionContext ref ctx, SynBase ref source, Module
 
 void ImportModuleTypedefs(ExpressionContext ref ctx, SynBase ref source, ModuleContext ref moduleCtx)
 {
-	TRACE_SCOPE("analyze", "ImportModuleTypedefs");
+	//TRACE_SCOPE("analyze", "ImportModuleTypedefs");
 
 	ByteCode ref bCode = moduleCtx.data.bytecode;
-	char ref symbols = FindSymbols(bCode);
+	char[] symbols = FindSymbols(bCode);
 
 	// Import type aliases
-	ExternTypedefInfo ref aliasList = FindFirstTypedef(bCode);
+	ExternTypedefInfo[] aliasList = FindFirstTypedef(bCode);
 
 	for(int i = 0; i < bCode.typedefCount; i++)
 	{
-		ExternTypedefInfo ref alias = aliasList[i];
+		ExternTypedefInfo ref alias = &aliasList[i];
 
-		InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+		InplaceStr aliasName = InplaceStr(StringRef(symbols, alias.offsetToName));
 
 		SynIdentifier ref aliasNameIdentifier = new SynIdentifier(aliasName);
 
 		TypeBase ref targetType = moduleCtx.types[alias.targetType];
 
 		if(!targetType)
-			Stop(ctx, source, "ERROR: can't find alias '%s' target type in module %.*s", symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data.name));
+			Stop(ctx, source, "ERROR: can't find alias '%s' target type in module %.*s", StringRef(symbols, alias.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
-		if(TypeBase **prev = ctx.typeMap.find(aliasName.hash()))
+		if(TypeBase ref ref prev = ctx.typeMap.find(aliasName.hash()))
 		{
 			TypeBase ref type = *prev;
 
 			if(type.name == aliasName)
-				Stop(ctx, source, "ERROR: type '%.*s' alias '%s' is equal to previously imported class", FMT_ISTR(targetType.name), symbols + alias.offsetToName);
+				Stop(ctx, source, "ERROR: type '%.*s' alias '%s' is equal to previously imported class", FMT_ISTR(targetType.name), StringRef(symbols, alias.offsetToName));
 
 			if(type != targetType)
-				Stop(ctx, source, "ERROR: type '%.*s' alias '%s' is equal to previously imported alias", FMT_ISTR(targetType.name), symbols + alias.offsetToName);
+				Stop(ctx, source, "ERROR: type '%.*s' alias '%s' is equal to previously imported alias", FMT_ISTR(targetType.name), StringRef(symbols, alias.offsetToName));
 		}
 		else if(alias.parentType != -1)
 		{
@@ -11316,31 +11394,33 @@ void ImportModuleTypedefs(ExpressionContext ref ctx, SynBase ref source, ModuleC
 
 void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, ModuleContext ref moduleCtx)
 {
-	TRACE_SCOPE("analyze", "ImportModuleFunctions");
+	//TRACE_SCOPE("analyze", "ImportModuleFunctions");
 
 	ByteCode ref bCode = moduleCtx.data.bytecode;
-	char ref symbols = FindSymbols(bCode);
+	char[] symbols = FindSymbols(bCode);
 
-	ExternVarInfo ref explicitTypeInfo = FindFirstVar(bCode) + bCode.variableCount;
+	//ExternVarInfo ref explicitTypeInfo = FindFirstVar(bCode) + bCode.variableCount;
+	ExternVarInfo[] baseVariables = FindFirstVar(bCode);
+	int explicitTypeInfoOffset = 0;
 
 	moduleCtx.data.importedFunctionCount = bCode.moduleFunctionCount;
 
 	// Import functions
-	ExternFuncInfo ref functionList = FindFirstFunc(bCode);
-	ExternLocalInfo ref localList = FindFirstLocal(bCode);
+	ExternFuncInfo[] functionList = FindFirstFunc(bCode);
+	ExternLocalInfo[] localList = FindFirstLocal(bCode);
 
 	int currCount = ctx.functions.size();
 
 	for(int i = 0; i < bCode.functionCount - bCode.moduleFunctionCount; i++)
 	{
-		ExternFuncInfo ref function = functionList[i];
+		ExternFuncInfo ref function = &functionList[i];
 
-		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
+		InplaceStr functionName = InplaceStr(StringRef(symbols, function.offsetToName));
 
 		TypeBase ref functionType = moduleCtx.types[function.funcType];
 
 		if(!functionType)
-			Stop(ctx, source, "ERROR: can't find function '%s' type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data.name));
+			Stop(ctx, source, "ERROR: can't find function '%s' type in module %.*s", StringRef(symbols, function.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 		// Import function explicit type list
 		RefList<MatchData> generics;
@@ -11349,14 +11429,14 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 
 		for(int k = 0; k < function.explicitTypeCount; k++)
 		{
-			InplaceStr name = InplaceStr(symbols + explicitTypeInfo[k].offsetToName);
+			InplaceStr name = InplaceStr(StringRef(symbols, baseVariables[explicitTypeInfoOffset + k].offsetToName));
 
 			SynIdentifier ref nameIdentifier = new SynIdentifier(name);
 
-			TypeBase ref type = explicitTypeInfo[k].type == -1 ? ctx.typeGeneric : moduleCtx.types[explicitTypeInfo[k].type];
+			TypeBase ref type = baseVariables[explicitTypeInfoOffset + k].type == -1 ? ctx.typeGeneric : moduleCtx.types[baseVariables[explicitTypeInfoOffset + k].type];
 
 			if(!type)
-				Stop(ctx, source, "ERROR: can't find function '%s' explicit type '%d' in module %.*s", symbols + function.offsetToName, k, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find function '%s' explicit type '%d' in module %.*s", StringRef(symbols, function.offsetToName), k, FMT_ISTR(moduleCtx.data.name));
 
 			if(type.isGeneric)
 				hasGenericExplicitType = true;
@@ -11364,7 +11444,7 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 			generics.push_back(new MatchData(nameIdentifier, type));
 		}
 
-		explicitTypeInfo += function.explicitTypeCount;
+		explicitTypeInfoOffset += function.explicitTypeCount;
 
 		FunctionData ref prev = nullptr;
 		FunctionData ref prototype = nullptr;
@@ -11400,7 +11480,7 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 
 		if(prev)
 		{
-			if(*prev.name.name.begin == '$' || prev.isGenericInstance)
+			if(prev.name.name[0] == '$' || prev.isGenericInstance)
 				ctx.functions.push_back(prev);
 			else
 				Stop(ctx, source, "ERROR: function %.*s (type %.*s) is already defined. While importing %.*s", FMT_ISTR(prev.name.name), FMT_ISTR(prev.type.name), FMT_ISTR(moduleCtx.data.name));
@@ -11429,7 +11509,7 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 			parentType = moduleCtx.types[function.parentType];
 
 			if(!parentType)
-				Stop(ctx, source, "ERROR: can't find function '%s' parent type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find function '%s' parent type in module %.*s", StringRef(symbols, function.offsetToName), FMT_ISTR(moduleCtx.data.name));
 		}
 
 		TypeBase ref contextType = nullptr;
@@ -11439,14 +11519,14 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 			contextType = moduleCtx.types[function.contextType];
 
 			if(!contextType)
-				Stop(ctx, source, "ERROR: can't find function '%s' context type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find function '%s' context type in module %.*s", StringRef(symbols, function.offsetToName), FMT_ISTR(moduleCtx.data.name));
 		}
 
 		if(!contextType)
 			contextType = ctx.GetReferenceType(parentType ? parentType : ctx.typeVoid);
 
-		bool isCoroutine = function.funcCat == ExternFuncInfo.COROUTINE;
-		bool accessor = *(functionName.end - 1) == '$';
+		bool isCoroutine = function.funcCat == int(FunctionCategory.COROUTINE);
+		bool accessor = functionName[functionName.length() - 1] == '$';
 		bool isOperator = function.isOperator != 0;
 
 		if(parentType)
@@ -11457,14 +11537,17 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 		if(function.definitionModule != 0)
 			importModule = ctx.dependencies[moduleCtx.data.startingDependencyIndex + function.definitionModule - 1];
 
-		assert(function.definitionLocationStart < importModule.lexStreamSize);
-		assert(function.definitionLocationEnd < importModule.lexStreamSize);
+		assert(function.definitionLocationStart < importModule.lexStream.size);
+		assert(function.definitionLocationEnd < importModule.lexStream.size);
 
-		SynBase ref locationSource = function.definitionLocationStart != 0 || function.definitionLocationEnd != 0 ? new SynImportLocation(function.definitionLocationStart + importModule.lexStream, function.definitionLocationEnd + importModule.lexStream) : source;
+		LexemeRef locationSourceStart = LexemeRef(importModule.lexer, function.definitionLocationStart);
+		LexemeRef locationSourceEnd = LexemeRef(importModule.lexer, function.definitionLocationEnd);
 
-		assert(function.definitionLocationName < importModule.lexStreamSize);
+		SynBase ref locationSource = function.definitionLocationStart != 0 || function.definitionLocationEnd != 0 ? new SynImportLocation(locationSourceStart, locationSourceEnd) : source;
 
-		Lexeme ref locationName = function.definitionLocationName + importModule.lexStream;
+		assert(function.definitionLocationName < importModule.lexStream.size);
+
+		LexemeRef locationName = LexemeRef(importModule.lexer, function.definitionLocationName);
 
 		SynIdentifier ref identifier = function.definitionLocationName != 0 ? new SynIdentifier(locationName, locationName, functionName) : new SynIdentifier(functionName);
 
@@ -11485,7 +11568,7 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 		if(data.name.name == InplaceStr("__newS") || data.name.name == InplaceStr("__newA") || data.name.name == InplaceStr("__closeUpvalue"))
 			data.isInternal = true;
 
-		if(function.funcCat == ExternFuncInfo.LOCAL)
+		if(function.funcCat == int(FunctionCategory.LOCAL))
 			data.isHidden = true;
 
 		ctx.AddFunction(data);
@@ -11496,16 +11579,16 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 
 		for(int n = 0; n < function.paramCount; n++)
 		{
-			ExternLocalInfo ref argument = localList[function.offsetToFirstLocal + n];
+			ExternLocalInfo ref argument = &localList[function.offsetToFirstLocal + n];
 
-			bool isExplicit = (argument.paramFlags & ExternLocalInfo.IS_EXPLICIT) != 0;
+			bool isExplicit = (argument.paramFlags & int(LocalFlags.IS_EXPLICIT)) != 0;
 
 			TypeBase ref argType = argument.type == -1 ? ctx.typeGeneric : moduleCtx.types[argument.type];
 
 			if(!argType)
-				Stop(ctx, source, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, symbols + function.offsetToName, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, StringRef(symbols, function.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
-			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
+			InplaceStr argName = InplaceStr(StringRef(symbols, argument.offsetToName));
 
 			SynIdentifier ref argNameIdentifier = new SynIdentifier(argName);
 
@@ -11517,7 +11600,7 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 			ctx.AddVariable(variable, true);
 		}
 
-		assert(contextType);
+		assert(contextType != nullptr);
 
 		if(parentType)
 		{
@@ -11547,9 +11630,9 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 		// TODO: explicit flag
 		if(function.funcType == 0 || functionType.isGeneric || hasGenericExplicitType || (parentType && parentType.isGeneric))
 		{
-			assert(function.genericOffsetStart < data.importModule.lexStreamSize);
+			assert(function.genericOffsetStart < data.importModule.lexStream.size);
 
-			data.delayedDefinition = function.genericOffsetStart + data.importModule.lexStream;
+			data.delayedDefinition = LexemeRef(data.importModule.lexer, function.genericOffsetStart);
 
 			TypeBase ref returnType = ctx.typeAuto;
 
@@ -11557,13 +11640,13 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 				returnType = moduleCtx.types[function.genericReturnType];
 
 			if(!returnType)
-				Stop(ctx, source, "ERROR: can't find generic function '%s' return type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data.name));
+				Stop(ctx, source, "ERROR: can't find generic function '%s' return type in module %.*s", StringRef(symbols, function.offsetToName), FMT_ISTR(moduleCtx.data.name));
 
 			RefList<TypeHandle> argTypes;
 
 			for(int n = 0; n < function.paramCount; n++)
 			{
-				ExternLocalInfo ref argument = localList[function.offsetToFirstLocal + n];
+				ExternLocalInfo ref argument = &localList[function.offsetToFirstLocal + n];
 
 				argTypes.push_back(new TypeHandle(argument.type == -1 ? ctx.typeGeneric : moduleCtx.types[argument.type]));
 			}
@@ -11571,7 +11654,7 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 			data.type = ctx.GetFunctionType(source, returnType, argTypes);
 		}
 
-		assert(data.type);
+		assert(data.type != nullptr);
 
 		ctx.PopScope(ScopeType.SCOPE_FUNCTION);
 
@@ -11589,15 +11672,15 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 
 	for(int i = 0; i < bCode.functionCount - bCode.moduleFunctionCount; i++)
 	{
-		ExternFuncInfo ref function = functionList[i];
+		ExternFuncInfo ref function = &functionList[i];
 
 		FunctionData ref data = ctx.functions[currCount + i];
 
 		for(int n = 0; n < function.paramCount; n++)
 		{
-			ExternLocalInfo ref argument = localList[function.offsetToFirstLocal + n];
+			ExternLocalInfo ref argument = &localList[function.offsetToFirstLocal + n];
 
-			if(argument.defaultFuncId != 0xffff)
+			if(argument.defaultFuncId != -1)
 			{
 				FunctionData ref target = ctx.functions[currCount + argument.defaultFuncId - bCode.moduleFunctionCount];
 
@@ -11609,18 +11692,18 @@ void ImportModuleFunctions(ExpressionContext ref ctx, SynBase ref source, Module
 	}
 }
 
-void ImportModule(ExpressionContext ref ctx, SynBase ref source, ByteCode ref bytecode, Lexeme ref lexStream, int lexStreamSize, InplaceStr name)
+void ImportModule(ExpressionContext ref ctx, SynBase ref source, ByteCode ref bytecode, Lexeme[] lexStream, InplaceStr name)
 {
-	TRACE_SCOPE("analyze", "ImportModule");
+	//TRACE_SCOPE("analyze", "ImportModule");
 
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+/*#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 	printf("  importing module %.*s (import #%d) as dependency #%d\n", FMT_ISTR(name), ctx.imports.size() + 1, ctx.dependencies.size() + 1);
-#endif
+#endif*/
 
-	assert(bytecode);
+	assert(bytecode != nullptr);
 
-	assert(*name.end == 0);
-	assert(strstr(name.begin, ".nc") != 0);
+	/*assert(*name.end == 0);*/
+	assert(string(name).find(".nc") != -1);
 
 	ModuleData ref moduleData = new ModuleData(source, name);
 
@@ -11632,21 +11715,27 @@ void ImportModule(ExpressionContext ref ctx, SynBase ref source, ByteCode ref by
 
 	moduleData.bytecode = bytecode;
 
-	if(!lexStream)
+	if(lexStream == nullptr)
 	{
 		moduleData.lexer = new Lexer;
 
 		moduleData.lexer.Lexify(FindSource(bytecode));
-		lexStream = moduleData.lexer.GetStreamStart();
-		lexStreamSize = moduleData.lexer.GetStreamSize();
+		lexStream = moduleData.lexer.lexems.data;
 
-		assert(!*name.end);
+		/*assert(!*name.end);*/
 
-		BinaryCache.PutLexemes(name.begin, lexStream, lexStreamSize);
+		BinaryCache.PutLexemes(string(name), lexStream);
+	}
+	else
+	{
+		moduleData.lexer = new Lexer;
+
+		moduleData.lexer.code = FindSource(bytecode);
+		moduleData.lexer.lexems.data = lexStream;
+		moduleData.lexer.lexems.count = lexStream.size;
 	}
 
 	moduleData.lexStream = lexStream;
-	moduleData.lexStreamSize = lexStreamSize;
 
 	moduleData.startingFunctionIndex = ctx.functions.size();
 
@@ -11670,30 +11759,28 @@ void ImportModule(ExpressionContext ref ctx, SynBase ref source, ByteCode ref by
 
 	moduleData.moduleFunctionCount = ctx.functions.size() - moduleData.startingFunctionIndex;
 }
-*/
 
 void AnalyzeModuleImport(ExpressionContext ref ctx, SynModuleImport ref syntax)
 {
-	/*InplaceStr moduleName = GetModuleName(syntax.path);
+	InplaceStr moduleName = GetModuleName(syntax.path);
 
-	TRACE_SCOPE("analyze", "AnalyzeModuleImport");
-	TRACE_LABEL2(moduleName.begin, moduleName.end);
+	//TRACE_SCOPE("analyze", "AnalyzeModuleImport");
+	//TRACE_LABEL2(moduleName.begin, moduleName.end);
 
-	bytecode ref bytecode = BinaryCache.FindBytecode(moduleName.begin, false);
+	ByteCode ref bytecode = BinaryCache.FindBytecode(string(moduleName), false);
 
-	int lexStreamSize = 0;
-	Lexeme ref lexStream = BinaryCache.FindLexems(moduleName.begin, false, lexStreamSize);
+	Lexeme[] lexStream = BinaryCache.FindLexems(string(moduleName), false);
 
 	if(!bytecode)
 		Stop(ctx, syntax, "ERROR: module import is not implemented");
 
-	ImportModule(ctx, syntax, bytecode, lexStream, lexStreamSize, moduleName);*/
+	ImportModule(ctx, syntax, bytecode, lexStream, moduleName);
 }
 
 void AnalyzeImplicitModuleImports(ExpressionContext ref ctx)
 {
 	// Find which transitive dependencies haven't been imported explicitly
-	/*for(int i = 0; i < ctx.dependencies.size(); i++)
+	for(int i = 0; i < ctx.dependencies.size(); i++)
 	{
 		bool hasImport = false;
 
@@ -11731,8 +11818,8 @@ void AnalyzeImplicitModuleImports(ExpressionContext ref ctx)
 	{
 		ModuleData ref moduleData = ctx.implicitImports[i];
 
-		ImportModule(ctx, moduleData.source, moduleData.bytecode, moduleData.lexStream, moduleData.lexStreamSize, moduleData.name);
-	}*/
+		ImportModule(ctx, moduleData.source, moduleData.bytecode, moduleData.lexStream, moduleData.name);
+	}
 }
 
 void CreateDefaultArgumentFunctionWrappers(ExpressionContext ref ctx)
@@ -11794,7 +11881,12 @@ ExprBase ref CreateVirtualTableUpdate(ExpressionContext ref ctx, SynBase ref sou
 	InplaceStr name = InplaceStr(vtable.name.name.data, vtable.name.name.begin + 15, vtable.name.name.end); // 15 to skip $vtbl0123456789 from name
 
 	// Find function type from name
-	int typeNameHash = 0;//strtoul(vtable.name.name.begin + 5, nullptr, 10);
+	long tmpNum = 0;
+	int strPos = 5;
+	while(vtable.name.name[strPos] >= '0' && vtable.name.name[strPos] <= '9')
+		tmpNum = tmpNum * 10 + (vtable.name.name[strPos++] - '0');
+
+	int typeNameHash = tmpNum;
 
 	TypeBase ref functionType = nullptr;
 
@@ -11889,21 +11981,20 @@ ExprBase ref CreateVirtualTableUpdate(ExpressionContext ref ctx, SynBase ref sou
 
 ExprModule ref AnalyzeModule(ExpressionContext ref ctx, SynModule ref syntax)
 {
-	/*TRACE_SCOPE("analyze", "AnalyzeModule");
+	//TRACE_SCOPE("analyze", "AnalyzeModule");
 
 	// Import base module
-	if(Bytecode ref bytecode = BinaryCache.GetBytecode("$base$.nc"))
+	if(ByteCode ref bytecode = BinaryCache.GetBytecode(string("$base$.nc")))
 	{
-		int lexStreamSize = 0;
-		Lexeme ref lexStream = BinaryCache.GetLexems("$base$.nc", lexStreamSize);
+		Lexeme[] lexStream = BinaryCache.GetLexems(string("$base$.nc"));
 
 		if(bytecode)
-			ImportModule(ctx, syntax, bytecode, lexStream, lexStreamSize, InplaceStr("$base$.nc"));
+			ImportModule(ctx, syntax, bytecode, lexStream, InplaceStr("$base$.nc"));
 		else
 			Stop(ctx, syntax, "ERROR: base module couldn't be imported");
 
 		ctx.baseModuleFunctionCount = ctx.functions.size();
-	}*/
+	}
 
 	for(SynModuleImport ref moduleImport = syntax.imports.head; moduleImport; moduleImport = getType with<SynModuleImport>(moduleImport.next))
 		AnalyzeModuleImport(ctx, moduleImport);
@@ -11989,8 +12080,7 @@ ExprModule ref Analyze(ExpressionContext ref ctx, SynModule ref syntax, char[] c
 	//int traceDepth = NULLC::TraceGetDepth();
 
 	// Analyze module
-	if(1)//!setjmp(ctx.errorHandler))
-	{
+	auto tryResult = try(auto(){
 		ctx.errorHandlerActive = true;
 
 		/*if(ctx.memoryLimit != 0)
@@ -12012,11 +12102,21 @@ ExprModule ref Analyze(ExpressionContext ref ctx, SynModule ref syntax, char[] c
 		assert(ctx.scope == nullptr);
 
 		return module;
+	});
+
+	if(tryResult)
+	{
+		return tryResult.value;
+	}
+	else
+	{
+		if(tryResult.exception.type != AnalyzerError)
+			tryResult.rethrow();
 	}
 
 	//NULLC::TraceLeaveTo(traceDepth);
 
-	assert(ctx.errorPos != 0);
+	/*assert(ctx.errorPos != 0);*/
 
 	return nullptr;
 }

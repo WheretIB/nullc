@@ -1,4 +1,5 @@
 import std.vector;
+import std.string;
 import typetree;
 import typetreehelpers;
 import expressiontree;
@@ -70,6 +71,7 @@ class ExpressionContext
 
 	vector<ModuleData ref> dependencies;
 	vector<ModuleData ref> imports;
+	vector<ModuleData ref> implicitImports;
 	vector<NamespaceData ref> namespaces;
 	vector<TypeBase ref> types;
 	vector<FunctionData ref> functions;
@@ -119,11 +121,9 @@ class ExpressionContext
 	// Error info
 	bool errorHandlerActive;
 	bool errorHandlerNested;
-	//jmp_buf errorHandler;
-	int errorPos;
+	StringRef errorPos;
 	int errorCount;
-	char[] errorBuf;
-	StringRef errorBufLocation;
+	string ref errorBuf;
 
 	vector<ErrorInfo ref> errorInfo;
 
@@ -171,10 +171,7 @@ void ExpressionContext:ExpressionContext(int optimizationLevel)
 
 	errorHandlerActive = false;
 	errorHandlerNested = false;
-	errorPos = 0;
 	errorCount = 0;
-	errorBuf = nullptr;
-	errorBufLocation = StringRef();
 
 	typeVoid = nullptr;
 

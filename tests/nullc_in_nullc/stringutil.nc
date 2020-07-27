@@ -1,3 +1,5 @@
+import std.memory;
+
 int memcmp(char[] a, int offset, char[] b, int len)
 {
 	for(int i = 0; i < len; i++)
@@ -245,7 +247,9 @@ StringRef InplaceStr.end_ref()
 	return StringRef(data, end);
 }
 
-InplaceStr FMT_ISTR(InplaceStr str)
+char[] FMT_ISTR(InplaceStr str)
 {
-	return str;
+	auto result = new char[str.length() + 1];
+	memory.copy(result, 0, str.data, str.begin, str.length());
+	return result;
 }

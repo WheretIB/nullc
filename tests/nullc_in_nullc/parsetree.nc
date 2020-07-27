@@ -3,10 +3,9 @@ import std.hashmap;
 import reflist;
 import stringutil;
 import lexer;
+import bytecode;
 
 class CompilerContext;
-
-class ByteCode;
 
 class SynBase;
 class SynIdentifier;
@@ -223,6 +222,9 @@ class SynBase extendable
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 	}
 
 	// Positions into the lexeme stream
@@ -257,6 +259,9 @@ class SynError: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 	}
 }
 
@@ -266,6 +271,9 @@ class SynImportLocation: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 	}
 }
 
@@ -275,6 +283,9 @@ class SynInternal: SynBase
 	{
 		this.begin = source.begin;
 		this.end = source.end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 
 		isInternal = true;
 	}
@@ -286,6 +297,9 @@ class SynNothing: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 	}
 }
 
@@ -301,6 +315,9 @@ class SynIdentifier: SynBase
 		this.begin = source.begin;
 		this.end = source.end;
 
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
+
 		this.name = name;
 	}
 
@@ -308,6 +325,9 @@ class SynIdentifier: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 
 		this.name = name;
 	}
@@ -321,6 +341,9 @@ class SynTypeAuto: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 	}
 }
 
@@ -330,6 +353,9 @@ class SynTypeGeneric: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 	}
 }
 
@@ -339,6 +365,9 @@ class SynTypeSimple: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.path = path;
 		this.name = name;
@@ -354,6 +383,9 @@ class SynTypeAlias: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.name = name;
 	}
@@ -367,6 +399,9 @@ class SynTypeArray: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.sizes = sizes;
@@ -382,6 +417,9 @@ class SynTypeReference: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 	}
@@ -395,6 +433,9 @@ class SynTypeFunction: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.returnType = returnType;
 		this.arguments = arguments;
@@ -410,6 +451,9 @@ class SynTypeGenericInstance: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.baseType = baseType;
 		this.types = types;
@@ -425,6 +469,9 @@ class SynTypeof: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -438,6 +485,9 @@ class SynBool: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -451,6 +501,9 @@ class SynNumber: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 		this.suffix = suffix;
@@ -466,6 +519,9 @@ class SynNullptr: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 	}
 }
 
@@ -475,6 +531,9 @@ class SynCharacter: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -488,6 +547,9 @@ class SynString: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.rawLiteral = rawLiteral;
 		this.value = value;
@@ -503,6 +565,9 @@ class SynArray: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.values = values;
 	}
@@ -516,6 +581,9 @@ class SynGenerator: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.expressions = expressions;
 	}
@@ -529,6 +597,9 @@ class SynAlign: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -542,6 +613,9 @@ class SynTypedef: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.alias = alias;
@@ -557,6 +631,9 @@ class SynMemberAccess: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 		this.member = member;
@@ -572,6 +649,9 @@ class SynCallArgument: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.name = name;
 		this.value = value;
@@ -587,6 +667,9 @@ class SynArrayIndex: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 		this.arguments = arguments;
@@ -602,6 +685,9 @@ class SynFunctionCall: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 		this.aliases = aliases;
@@ -619,6 +705,9 @@ class SynPreModify: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 		this.isIncrement = isIncrement;
@@ -634,6 +723,9 @@ class SynPostModify: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 		this.isIncrement = isIncrement;
@@ -649,6 +741,9 @@ class SynGetAddress: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -662,6 +757,9 @@ class SynDereference: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -675,6 +773,9 @@ class SynSizeof: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -688,6 +789,9 @@ class SynNew: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.arguments = arguments;
@@ -707,6 +811,9 @@ class SynConditional: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.condition = condition;
 		this.trueBlock = trueBlock;
@@ -724,6 +831,9 @@ class SynReturn: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -737,6 +847,9 @@ class SynYield: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 	}
@@ -750,6 +863,9 @@ class SynBreak: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.number = number;
 	}
@@ -763,6 +879,9 @@ class SynContinue: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.number = number;
 	}
@@ -776,6 +895,9 @@ class SynBlock: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.expressions = expressions;
 	}
@@ -789,6 +911,9 @@ class SynIfElse: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.staticIf = staticIf;
 		this.condition = condition;
@@ -808,6 +933,9 @@ class SynFor: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.initializer = initializer;
 		this.condition = condition;
@@ -827,6 +955,9 @@ class SynForEachIterator: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.name = name;
@@ -844,6 +975,9 @@ class SynForEach: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.iterators = iterators;
 		this.body = body;
@@ -859,6 +993,9 @@ class SynWhile: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.condition = condition;
 		this.body = body;
@@ -874,6 +1011,9 @@ class SynDoWhile: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.expressions = expressions;
 		this.condition = condition;
@@ -889,6 +1029,9 @@ class SynSwitchCase: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.value = value;
 		this.expressions = expressions;
@@ -904,6 +1047,9 @@ class SynSwitch: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.condition = condition;
 		this.cases = cases;
@@ -919,6 +1065,9 @@ class SynUnaryOp: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.value = value;
@@ -934,6 +1083,9 @@ class SynBinaryOp: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.lhs = lhs;
@@ -951,6 +1103,9 @@ class SynAssignment: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.lhs = lhs;
 		this.rhs = rhs;
@@ -966,6 +1121,9 @@ class SynModifyAssignment: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.lhs = lhs;
@@ -983,6 +1141,9 @@ class SynVariableDefinition: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.name = name;
 		this.initializer = initializer;
@@ -998,6 +1159,9 @@ class SynVariableDefinitions: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.alignment = alignment;
 		this.type = type;
@@ -1015,6 +1179,9 @@ class SynAccessor: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.name = name;
@@ -1036,6 +1203,9 @@ class SynFunctionArgument: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.isExplicit = isExplicit;
 		this.type = type;
@@ -1057,6 +1227,9 @@ class SynFunctionDefinition: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.isPrototype = isPrototype;
 		this.isCoroutine = isCoroutine;
@@ -1088,6 +1261,9 @@ class SynShortFunctionArgument: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.name = name;
@@ -1103,6 +1279,9 @@ class SynShortFunctionDefinition: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.arguments = arguments;
 		this.expressions = expressions;
@@ -1118,6 +1297,9 @@ class SynConstant: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.name = name;
 		this.value = value;
@@ -1133,6 +1315,9 @@ class SynConstantSet: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.type = type;
 		this.constants = constants;
@@ -1148,6 +1333,9 @@ class SynClassPrototype: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.name = name;
 	}
@@ -1163,6 +1351,9 @@ class SynClassStaticIf: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.condition = condition;
 		this.trueBlock = trueBlock;
@@ -1180,6 +1371,9 @@ class SynClassElements: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.typedefs = typedefs;
 		this.functions = functions;
@@ -1203,6 +1397,9 @@ class SynClassDefinition: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.alignment = alignment;
 		this.name = name;
@@ -1229,6 +1426,9 @@ class SynEnumDefinition: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.name = name;
 		this.values = values;
@@ -1262,6 +1462,9 @@ class SynNamespaceDefinition: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.path = path;
 		this.expressions = expressions;
@@ -1277,6 +1480,9 @@ class SynModuleImport: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.path = path;
 	}
@@ -1291,6 +1497,9 @@ class SynModule: SynBase
 	{
 		this.begin = begin;
 		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
 		
 		this.imports = imports;
 		this.expressions = expressions;
