@@ -10059,7 +10059,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 		IntrusiveList<ExprBase> expressions;
 
-		for(VariableHandle *curr = customAssignMembers.head; curr; curr = curr->next)
+		for(MemberHandle *curr = classType->members.head; curr; curr = curr->next)
 		{
 			VariableData *leftArgument = variables.head->variable->variable;
 

@@ -794,6 +794,40 @@ assert(*n1.y.a == 14);\r\n\
 return 1;";
 TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators 2", testClassAssignmentOperator2, "1");
 
+const char	*testClassAssignmentOperator3 =
+"class Custom\r\n\
+{\r\n\
+	int a = 4;\r\n\
+}\r\n\
+\r\n\
+Custom ref operator=(Custom ref lhs, rhs)\r\n\
+{\r\n\
+	lhs.a = rhs.a * 2;\r\n\
+\r\n\
+	return lhs;\r\n\
+}\r\n\
+\r\n\
+class A\r\n\
+{\r\n\
+	int x, y, z;\r\n\
+}\r\n\
+\r\n\
+class B\r\n\
+{\r\n\
+	Custom x;\r\n\
+\r\n\
+	A a, b;\r\n\
+}\r\n\
+\r\n\
+B b;\r\n\
+\r\n\
+b.a.y = 10;\r\n\
+\r\n\
+B b2 = b;\r\n\
+\r\n\
+return b2.a.y + b2.x.a;";
+TEST_RESULT("Default custom assignment operator should not skip members without a custom/default assignment operator", testClassAssignmentOperator3, "18");
+
 const char	*testEnumeration1 =
 "enum Foo\r\n\
 {\r\n\
