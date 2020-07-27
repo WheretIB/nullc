@@ -303,3 +303,13 @@ antitest(string(15, 'a') != \"aaaaaaaaaaaaaaa\");\r\n\
 \r\n\
 return passed / count;";
 TEST_RESULT("std.string test (everything)", testSglStringFull, "1");
+
+const char *testSglString1 =
+"import std.string;\r\n\
+\r\n\
+string x = \"Hello\";\r\n\
+\r\n\
+x.clear();\r\n\
+\r\n\
+return x.length();";
+TEST_RESULT("std.string test (clear)", testSglString1, "0");

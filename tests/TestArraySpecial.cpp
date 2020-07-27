@@ -72,3 +72,9 @@ const char	*testArrayConditionalCommonType =
 "auto arr = sizeof(int) == 4 ? \"four\" : \"eight\";\r\n\
 return arr.size == (\"four\").size;";
 TEST_RESULT("Unsized array is selected betweeen arrays of different length", testArrayConditionalCommonType, "1");
+
+const char	*testArrayReset =
+"char[] test = \"hello\";\r\n\
+test = nullptr;\r\n\
+return test == nullptr;";
+TEST_RESULT("Assignment of nullptr to unsized array", testArrayReset, "1");

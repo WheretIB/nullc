@@ -2596,6 +2596,39 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	if((isType<TypeArray>(lhs->type) || isType<TypeUnsizedArray>(lhs->type)) && rhs->type == ctx.typeAutoArray)
 		return CreateFunctionCall2(ctx, source, InplaceStr("__aaassignrev"), wrapped, rhs, false, true, true);
 
+	if(TypeArray *target = getType<TypeArray>(lhs->type))
+	{
+		if(TypeArray *valueType = getType<TypeArray>(rhs->type))
+		{
+			if(target->length == valueType->length)
+			{
+				if(target->subType == ctx.typeChar && valueType->subType == ctx.typeInt)
+					return CreateFunctionCall2(ctx, source, InplaceStr("__aassign_itoc"), wrapped, rhs, false, true, true);
+
+				if(target->subType == ctx.typeShort && valueType->subType == ctx.typeInt)
+					return CreateFunctionCall2(ctx, source, InplaceStr("__aassign_itos"), wrapped, rhs, false, true, true);
+
+				if(target->subType == ctx.typeFloat && valueType->subType == ctx.typeDouble)
+					return CreateFunctionCall2(ctx, source, InplaceStr("__aassign_dtof"), wrapped, rhs, false, true, true);
+			}
+		}
+	}
+
+	if(TypeUnsizedArray *target = getType<TypeUnsizedArray>(lhs->type))
+	{
+		if(TypeArray *valueType = getType<TypeArray>(rhs->type))
+		{
+			if(target->subType == ctx.typeChar && valueType->subType == ctx.typeInt)
+				return CreateFunctionCall2(ctx, source, InplaceStr("__aassign_itoc"), wrapped, rhs, false, true, true);
+
+			if(target->subType == ctx.typeShort && valueType->subType == ctx.typeInt)
+				return CreateFunctionCall2(ctx, source, InplaceStr("__aassign_itos"), wrapped, rhs, false, true, true);
+
+			if(target->subType == ctx.typeFloat && valueType->subType == ctx.typeDouble)
+				return CreateFunctionCall2(ctx, source, InplaceStr("__aassign_dtof"), wrapped, rhs, false, true, true);
+		}
+	}
+
 	rhs = CreateCast(ctx, source, rhs, lhs->type, false);
 
 	return new (ctx.get<ExprAssignment>()) ExprAssignment(source, lhs->type, wrapped, rhs);
