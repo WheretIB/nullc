@@ -702,3 +702,8 @@ int sum = 0;\r\n\
 for(i in arr) sum += i;\r\n\
 return sum;";
 TEST_RESULT("short inline function with a single expression 3", testShortInlineFunctionExpression3, "16");
+
+const char	*testGenericReturnTypeInference =
+"generic ref(int, int) a = auto(int a, generic b){ return a * b; };\r\n\
+return a(4, 5);";
+TEST_RESULT("when generic function is matched against generic variable type it might have to be isntantiated", testGenericReturnTypeInference, "20");

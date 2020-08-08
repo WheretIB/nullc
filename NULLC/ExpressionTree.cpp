@@ -8294,6 +8294,20 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		if(!match || match->isGeneric)
 			Stop(ctx, syntax, "ERROR: can't resolve generic type '%.*s' instance for '%.*s'", FMT_ISTR(initializer->type->name), FMT_ISTR(type->name));
 
+		// If initiallizer is a generic function and the matched function type return type is unknown, we have to instantiate the function here to find the actual return type
+		if(TypeFunction *target = getType<TypeFunction>(match))
+		{
+			if(isType<TypeAuto>(target->returnType))
+			{
+				if(FunctionValue bestOverload = GetFunctionForType(ctx, initializer->source, initializer, target))
+				{
+					initializer = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(bestOverload.source, bestOverload.function->type, bestOverload.function, bestOverload.context);
+
+					match = bestOverload.function->type;
+				}
+			}
+		}
+
 		type = match;
 	}
 	else if(type->isGeneric)
