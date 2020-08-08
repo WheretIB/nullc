@@ -13,7 +13,7 @@
 #endif
 
 const unsigned int TAB_HEIGHT = 19;
-const unsigned int TAB_MAX_COUNT = 32;
+const unsigned int TAB_MAX_COUNT = 64;
 
 struct TabbedFilesData
 {
