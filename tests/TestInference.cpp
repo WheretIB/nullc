@@ -671,3 +671,34 @@ int foo(int ref(int) f)\r\n\
 int bar(int x){ return x + 2; }\r\n\
 return foo(bar);";
 TEST_RESULT("short inline function produces a selection between overloads with each having an expternal context", testShortInlineFunctionOverloads, "45");
+
+const char	*testShortInlineFunctionExpression1 =
+"int bar1(int ref(int) f, int y){ return f(y); }\r\n\
+int a1 = bar1(<x> -x, 5);\r\n\
+int bar2(int ref(int, int) f){ return f(3, 4); }\r\n\
+int a2 = bar2(<x, y> x * y);\r\n\
+auto bar3(generic ref() f){ return f(); }\r\n\
+int a3 = bar3(<> 3);\r\n\
+return a1 == -5 && a2 == 12 && a3 == 3;";
+TEST_RESULT("short inline function with a single expression 1", testShortInlineFunctionExpression1, "1");
+
+const char	*testShortInlineFunctionExpression2 =
+"import std.algorithm;\r\n\
+int[] arr = { 7, 5, 3, 9, 3, 2, 1, 0, 15 };\r\n\
+int[] arr2 = { 0, 1, 2, 3, 3, 5, 7, 9, 15 };\r\n\
+sort(arr, <l, r> *l < *r);\r\n\
+int diff = 0;\r\n\
+for(i in arr, j in arr2) diff += i - j;\r\n\
+return diff;";
+TEST_RESULT("short inline function with a single expression 2", testShortInlineFunctionExpression2, "0");
+
+const char	*testShortInlineFunctionExpression3 =
+"import std.algorithm;\r\n\
+int[] arr = { 2, 6, 2, 3, 5, 8, 1, 0, 5, 4 };\r\n\
+sort(arr, <a, b> *a > *b);\r\n\
+map(arr, <x> *x *= 2);\r\n\
+arr = filter(arr, <int x> x < 8);\r\n\
+int sum = 0;\r\n\
+for(i in arr) sum += i;\r\n\
+return sum;";
+TEST_RESULT("short inline function with a single expression 3", testShortInlineFunctionExpression3, "16");

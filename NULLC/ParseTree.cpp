@@ -510,6 +510,7 @@ SynBase* ParseTerminal(ParseContext &ctx);
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
 SynTypedef* ParseTypedef(ParseContext &ctx);
+SynBase* ParseStatement(ParseContext &ctx);
 SynBase* ParseExpression(ParseContext &ctx);
 IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
@@ -2876,11 +2877,26 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_greater, "ERROR: '>' expected after short inline function argument list");
 
-		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
+		IntrusiveList<SynBase> expressions;
 
-		IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+		if(ctx.Consume(lex_ofigure))
+		{
+			expressions = ParseExpressions(ctx);
 
-		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
+			CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
+		}
+		else if(SynBase *body = ParseStatement(ctx))
+		{
+			expressions.push_back(body);
+		}
+		else if(SynBase *body = ParseAssignment(ctx))
+		{
+			expressions.push_back(body);
+		}
+		else
+		{
+			Report(ctx, ctx.Current(), "ERROR: expression not found after function header");
+		}
 
 		return new (ctx.get<SynShortFunctionDefinition>()) SynShortFunctionDefinition(start, ctx.Previous(), arguments, expressions);
 	}
@@ -2888,7 +2904,7 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 	return NULL;
 }
 
-SynBase* ParseExpression(ParseContext &ctx)
+SynBase* ParseStatement(ParseContext &ctx)
 {
 	if(SynBase *node = ParseClassDefinition(ctx))
 		return node;
@@ -2939,6 +2955,14 @@ SynBase* ParseExpression(ParseContext &ctx)
 		return node;
 
 	if(SynBase *node = ParseVariableDefinitions(ctx, false))
+		return node;
+
+	return NULL;
+}
+
+SynBase* ParseExpression(ParseContext &ctx)
+{
+	if(SynBase *node = ParseStatement(ctx))
 		return node;
 
 	if(SynBase *node = ParseAssignment(ctx))

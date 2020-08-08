@@ -166,7 +166,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "bar(<!i>{ i; });", "ERROR: function argument name not found after '<'");
 	TEST_FOR_FAIL("parsing", "bar(<i, >{ i; });", "ERROR: function argument name not found after ','");
 	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j{ i; });", "ERROR: '>' expected after short inline function argument list");
-	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j> i; });", "ERROR: '{' not found after function header");
 	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j>{ i; );", "ERROR: '}' not found after function body");
 
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo(1,2,3)).argument;", "ERROR: 'argument' can only be applied to a function type, but we have 'double'");
