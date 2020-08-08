@@ -778,11 +778,13 @@ namespace ColorerGrammar
 			term1		=
 				funcdef |
 				(
-					chP('<')[ColorBold] >> (!typeExpr >> idP[ColorVar]) >> *(chP(',')[ColorText] >> !typeExpr >> idP[ColorVar]) >> chP('>')[ColorBold] >>
+					chP('<')[ColorBold] >> !((!typeExpr >> idP[ColorVar]) >> *(chP(',')[ColorText] >> !typeExpr >> idP[ColorVar])) >> chP('>')[ColorBold] >>
 					(
-						chP('{')[ColorBold] >>
-						code >>
-						(chP('}')[ColorBold] | epsP[LogError("ERROR: '}' not found after function body")])
+						(
+							chP('{')[ColorBold] >>
+							code >>
+							(chP('}')[ColorBold] | epsP[LogError("ERROR: '}' not found after function body")])
+						) | expr
 					)
 				) |
 				strWP("nullptr")[ColorRWord] |
