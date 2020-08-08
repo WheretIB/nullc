@@ -254,12 +254,6 @@ int[foo(3)] arr;";
 
 	TEST_FOR_FAIL("Dereferencing non-pointer", "int a = 5; return *a;", "ERROR: cannot dereference type 'int' that is not a pointer");
 
-	TEST_FOR_FAIL("Short function outside argument list", "return <x>{ return 5; };", "ERROR: cannot infer type for inline function outside of the function call");
-	
-	TEST_FOR_FAIL("Short function outside argument list",
-"void bar(void ref() x){ x(); }\r\n\
-return bar(auto(){ int a = <x>{ return 5; }; });", "ERROR: cannot infer type for inline function outside of the function call");
-	
 	TEST_FOR_FAIL("Parent function not found", "void bar(void ref() x){ x(); } return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function which accepts a function with 1 argument(s) as an argument #1");
 
 	TEST_FOR_FAIL("Argument is not a function",

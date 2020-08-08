@@ -1977,6 +1977,7 @@ void AnalyzeClassBaseElements(ExpressionContext &ctx, ExprClassDefinition *class
 void AnalyzeClassFunctionElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal, bool checkParent);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *argumentType);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, ArrayView<ArgumentData> arguments, IntrusiveList<MatchData> aliases);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *argumentType, IntrusiveList<MatchData> argCasts, ArrayView<ArgumentData> argData);
@@ -9180,6 +9181,18 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	function->hasExplicitReturn = true;
 }
 
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax)
+{
+	IntrusiveList<TypeHandle> arguments;
+
+	for(unsigned i = 0; i < syntax->arguments.size(); i++)
+		arguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(ctx.typeGeneric));
+
+	TypeFunction *typeFunction = ctx.GetFunctionType(syntax, ctx.typeGeneric, arguments);
+
+	return AnalyzeShortFunctionDefinition(ctx, syntax, NULL, typeFunction);
+}
+
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, FunctionData *genericProto, TypeFunction *argumentType)
 {
 	if(syntax->arguments.size() != argumentType->arguments.size())
@@ -11722,7 +11735,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		result = AnalyzeTypeGenericInstance(ctx, (SynTypeGenericInstance*)syntax);
 		break;
 	case SynShortFunctionDefinition::myTypeID:
-		result = ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot infer type for inline function outside of the function call");
+		result = AnalyzeShortFunctionDefinition(ctx, (SynShortFunctionDefinition*)syntax);
 		break;
 	case SynTypeAuto::myTypeID:
 		result = ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot take typeid from auto type");

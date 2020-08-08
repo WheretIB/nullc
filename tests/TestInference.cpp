@@ -707,3 +707,17 @@ const char	*testGenericReturnTypeInference =
 "generic ref(int, int) a = auto(int a, generic b){ return a * b; };\r\n\
 return a(4, 5);";
 TEST_RESULT("when generic function is matched against generic variable type it might have to be isntantiated", testGenericReturnTypeInference, "20");
+
+const char	*testShortInlineFunctionInFreeContext1 =
+"auto y1 = <> 4;\r\n\
+auto y2 = <int x> 4 * x;\r\n\
+auto y3 = <int x> x ? 0 : 1;\r\n\
+return y1() + y2(10) + y3(0);";
+TEST_RESULT("short inline function defined outside a function call 1", testShortInlineFunctionInFreeContext1, "45");
+
+const char	*testShortInlineFunctionInFreeContext2 =
+"generic ref(int) z1 = <x> x * x;\r\n\
+generic ref(int) z2 = auto(generic x){ return x * x; };\r\n\
+int ref(int) z3 = <x> x * x;\r\n\
+return z1(5) + z2(5) + z3(5);";
+TEST_RESULT("short inline function defined outside a function call 2", testShortInlineFunctionInFreeContext2, "75");
