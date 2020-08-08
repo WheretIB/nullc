@@ -229,12 +229,13 @@ namespace ColorerGrammar
 
 	void	ParseSpace(char** str)
 	{
-		char *old = *str;
 		for(;;)
 		{
 			while((unsigned char)((*str)[0] - 1) < ' ')
 				(*str)++;
 			if((*str)[0] == '/'){
+				char *old = *str;
+
 				if((*str)[1] == '/')
 				{
 					while((*str)[0] != '\n' && (*str)[0] != '\0')
