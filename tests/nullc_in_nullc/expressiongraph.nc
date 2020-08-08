@@ -108,9 +108,14 @@ void Print(ExpressionGraphContext ref ctx, char[] format, auto ref[] args)
 
 				if(format[i] == 'd' || format[i] == 'u' || format[i] == 'x') // TODO: hexadecimal
 				{
-					if(args[arg].type == int)
+					if(args[arg].type == char || args[arg].type == int)
 					{
-						int value = args[arg];
+						int value;
+
+						if(args[arg].type == char)
+							value = char(args[arg]);
+						else if(args[arg].type == int)
+							value = args[arg];
 
 						char[] intStr;
 

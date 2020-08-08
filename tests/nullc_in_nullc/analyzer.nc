@@ -1031,8 +1031,8 @@ TypeBase ref ResolveGenericTypeAliases(ExpressionContext ref ctx, SynBase ref so
 FunctionValue SelectBestFunction(ExpressionContext ref ctx, SynBase ref source, ArrayView<FunctionValue> functions, RefList<TypeHandle> generics, ArrayView<ArgumentData> arguments, vector<int> ref ratings);
 FunctionValue CreateGenericFunctionInstance(ExpressionContext ref ctx, SynBase ref source, FunctionValue proto, RefList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool standalone);
 void GetNodeFunctions(ExpressionContext ref ctx, SynBase ref source, ExprBase ref function, vector<FunctionValue> ref functions);
-void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, char[] errorBuf, StringRef messageStart, ArrayView<FunctionValue> functions);
-void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, char[] errorBuf, StringRef messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, RefList<TypeHandle> generics, ArrayView<ArgumentData> arguments, ArrayView<int> ratings, int bestRating, bool showInstanceInfo);
+void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, string ref errorBuf, int messageStart, ArrayView<FunctionValue> functions);
+void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, string ref errorBuf, int messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, RefList<TypeHandle> generics, ArrayView<ArgumentData> arguments, ArrayView<int> ratings, int bestRating, bool showInstanceInfo);
 ExprBase ref CreateFunctionCall0(ExpressionContext ref ctx, SynBase ref source, InplaceStr name, bool allowFailure, bool allowInternal, bool allowFastLookup);
 ExprBase ref CreateFunctionCall1(ExpressionContext ref ctx, SynBase ref source, InplaceStr name, ExprBase ref arg0, bool allowFailure, bool allowInternal, bool allowFastLookup);
 ExprBase ref CreateFunctionCall2(ExpressionContext ref ctx, SynBase ref source, InplaceStr name, ExprBase ref arg0, ExprBase ref arg1, bool allowFailure, bool allowInternal, bool allowFastLookup);
@@ -5100,16 +5100,22 @@ TypeFunction ref GetGenericFunctionInstanceType(ExpressionContext ref ctx, SynBa
 					ctx.genericFunctionInstanceTypeMap.insert(request, GenericFunctionInstanceTypeResponse(nullptr, *aliases));
 
 					// TODO: what about scope restore
-					return nullptr;
+					return 1;
 				}
 
 				types.push_back(new TypeHandle(type));
 			}
 		}
+
+		return 0;
 	});
 
 	if(tryResult)
 	{
+		// TODO: what about scope restore
+		if(tryResult.value == 1)
+			return nullptr;
+
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, nullptr);
 
@@ -5163,7 +5169,7 @@ TypeFunction ref GetGenericFunctionInstanceType(ExpressionContext ref ctx, SynBa
 	return typeFunction;
 }
 
-void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, char[] errorBuf, StringRef messageStart, ArrayView<FunctionValue> functions)
+void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, string ref errorBuf, int messageStart, ArrayView<FunctionValue> functions)
 {
 	RefList<TypeHandle> generics;
 	ArrayView<ArgumentData> arguments;
@@ -5172,40 +5178,42 @@ void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, 
 	ReportOnFunctionSelectError(ctx, source, errorBuf, messageStart, InplaceStr(), functions, generics, arguments, ratings, 0, false);
 }
 
-void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, char[] errorBuf, StringRef messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, RefList<TypeHandle> generics, ArrayView<ArgumentData> arguments, ArrayView<int> ratings, int bestRating, bool showInstanceInfo)
+void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, string ref errorBuf, int messageStart, InplaceStr functionName, ArrayView<FunctionValue> functions, RefList<TypeHandle> generics, ArrayView<ArgumentData> arguments, ArrayView<int> ratings, int bestRating, bool showInstanceInfo)
 {
-	assert(errorBuf != nullptr);
-
-	//char ref errPos = errorBuf;
+	//assert(errorBuf != nullptr);
 
 	if(!functionName.empty())
 	{
-		/*errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s", FMT_ISTR(functionName));
+		errorBuf += " " + FMT_ISTR(functionName);
 
 		if(!generics.empty())
 		{
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "<");
+			errorBuf += "<";
 
 			for(TypeHandle ref el = generics.head; el; el = el.next)
 			{
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", el != generics.head ? ", " : "", FMT_ISTR(el.type.name));
+				errorBuf += el != generics.head ? ", " : "";
+				errorBuf += FMT_ISTR(el.type.name);
 			}
 
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ">(");
+			errorBuf += ">(";
 		}
 		else
 		{
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "(");
+			errorBuf += "(";
 		}
 
 		for(int i = 0; i < arguments.size(); i++)
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type.name));
+		{
+			errorBuf += i != 0 ? ", " : "";
+			errorBuf += FMT_ISTR(arguments[i].type.name);
+		}
 
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), !functions.empty() ? ")\n" : ")");*/
+		errorBuf += !functions.empty() ? ")\n" : ")";
 	}
 
-	/*if(!functions.empty())
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), bestRating == -1 ? " the only available are:\n" : " candidates are:\n");*/
+	if(!functions.empty())
+		errorBuf += bestRating == -1 ? " the only available are:\n" : " candidates are:\n";
 
 	for(int i = 0; i < functions.size(); i++)
 	{
@@ -5214,30 +5222,33 @@ void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, 
 		if(!ratings.empty() && ratings[i] != bestRating)
 			continue;
 
-		/*errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s %.*s", FMT_ISTR(function.type.returnType.name), FMT_ISTR(function.name.name));
+		errorBuf += "  " + FMT_ISTR(function.type.returnType.name) + " " + FMT_ISTR(function.name.name);
 
 		if(!function.generics.empty())
 		{
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "<");
+			errorBuf += "<";
 
 			for(int k = 0; k < function.generics.size(); k++)
 			{
-				MatchData ref match = function.generics[k];
+				MatchData ref match = &function.generics[k];
 
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match.type.name));
+				errorBuf += k != 0 ? ", " : "";
+				errorBuf += FMT_ISTR(match.type.name);
 			}
 
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ">");
+			errorBuf += ">";
 		}
 
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "(");
+		errorBuf += "(";
 
 		for(int k = 0; k < function.arguments.size(); k++)
 		{
-			ArgumentData ref argument = function.arguments[k];
+			ArgumentData ref argument = &function.arguments[k];
 
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type.name));
-		}*/
+			errorBuf += k != 0 ? ", " : "";
+			errorBuf += argument.isExplicit ? "explicit " : "";
+			errorBuf += FMT_ISTR(argument.type.name);
+		}
 
 		if(ctx.IsGenericFunction(function) && showInstanceInfo)
 		{
@@ -5259,50 +5270,55 @@ void ReportOnFunctionSelectError(ExpressionContext ref ctx, SynBase ref source, 
 			// Handle named argument order, default argument values and variadic functions
 			if(!PrepareArgumentsForFunctionCall(ctx, source, ViewOf(function.arguments), arguments, result, nullptr, false) || (functions[i].context.type == (TypeBase ref)(ctx.typeAutoRef) && !generics.empty()))
 			{
-				/*errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");*/
+				errorBuf += ") (wasn't instanced here)";
 			}
 			else if(TypeFunction ref instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, ViewOf(result), aliases))
 			{
 				GetFunctionRating(ctx, function, instance, ViewOf(result));
 
-				/*errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") instanced to\n	%.*s %.*s(", FMT_ISTR(function.type.returnType.name), FMT_ISTR(function.name.name));
+				errorBuf += ") instanced to\n	" + FMT_ISTR(function.type.returnType.name) + " " + FMT_ISTR(function.name.name) + "(";
 
 				TypeHandle ref curr = instance.arguments.head;
 
 				for(int k = 0; k < function.arguments.size(); k++)
 				{
-					ArgumentData ref argument = function.arguments[k];
+					ArgumentData ref argument = &function.arguments[k];
 
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(curr.type.name));
+					errorBuf += k != 0 ? ", " : "";
+					errorBuf += argument.isExplicit ? "explicit " : "";
+					errorBuf += FMT_ISTR(curr.type.name);
 
 					curr = curr.next;
 				}
 
 				if(!aliases.empty())
 				{
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") with [");
+					errorBuf += ") with [";
 
 					for(MatchData ref curr = aliases.head; curr; curr = curr.next)
-						errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr.name.name), FMT_ISTR(curr.type.name));
+					{
+						errorBuf += curr != aliases.head ? ", " : "";
+						errorBuf += FMT_ISTR(curr.name.name) + " = " + FMT_ISTR(curr.type.name);
+					}
 
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "]");
+					errorBuf += "]";
 				}
 				else
 				{
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
-				}*/
+					errorBuf += ")";
+				}
 			}
 			else
 			{
-				/*errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");*/
+				errorBuf += ") (wasn't instanced here)";
 			}
 		}
 		else
 		{
-			/*errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");*/
+			errorBuf += ")";
 		}
 
-		/*errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\n");*/
+		errorBuf += "\n";
 	}
 
 	/*ctx.errorBufLocation += strlen(ctx.errorBufLocation);
@@ -5539,7 +5555,7 @@ FunctionValue SelectBestFunction(ExpressionContext ref ctx, SynBase ref source, 
 	}
 
 	// Use generic function only if it is better that selected
-	if(bestGenericRating != -1 && bestGenericRating < bestRating)
+	if(bestGenericRating != -1 && (bestRating == -1 || bestGenericRating < bestRating))
 	{
 		bestRating = bestGenericRating;
 		bestFunction = bestGenericFunction;
@@ -5935,15 +5951,11 @@ ExprBase ref CreateFunctionCallByName(ExpressionContext ref ctx, SynBase ref sou
 				ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 			}
 
-			/*StringRef messageStart = ctx.errorBufLocation;
+			int messageStart = ctx.errorBuf.length();
 
-			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(name));
+			ctx.errorBuf += "ERROR: can't find function '" + FMT_ISTR(name) + "' with following arguments:\n";
 
-			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
-
-			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), messageStart, name, functions, generics, arguments, ratings, -1, true);
-
-			ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
+			ReportOnFunctionSelectError(ctx, source, ctx.errorBuf, messageStart, name, functions, generics, arguments, ratings, -1, true);
 		}
 
 		// Temp:
@@ -6198,15 +6210,11 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 					ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 				}
 
-				/*StringRef messageStart = ctx.errorBufLocation;
+				int messageStart = ctx.errorBuf.length();
 
-				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function.name.name));
+				ctx.errorBuf += "ERROR: can't find function '" + FMT_ISTR(functions[0].function.name.name) + "' with following arguments:\n";
 
-				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
-
-				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions[0].function.name.name, functions, generics, arguments, ratings, -1, true);
-
-				ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
+				ReportOnFunctionSelectError(ctx, source, ctx.errorBuf, messageStart, functions[0].function.name.name, functions, generics, arguments, ViewOf(ratings), -1, true);
 			}
 
 			if(ctx.errorHandlerNested)
@@ -6268,15 +6276,11 @@ ExprBase ref CreateFunctionCallFinal(ExpressionContext ref ctx, SynBase ref sour
 						ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 					}
 
-					/*StringRef messageStart = ctx.errorBufLocation;
+					int messageStart = ctx.errorBuf.length();
 
-					SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
+					ctx.errorBuf += "ERROR: ambiguity, there is more than one overloaded function available for the call:\n";
 
-					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
-
-					ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions[0].function.name.name, functions, generics, arguments, ratings, bestRating, true);
-
-					ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
+					ReportOnFunctionSelectError(ctx, source, ctx.errorBuf, messageStart, functions[0].function.name.name, functions, generics, arguments, ViewOf(ratings), bestRating, true);
 				}
 
 				if(ctx.errorHandlerNested)
@@ -7120,15 +7124,11 @@ ExprBase ref ResolveInitializerValue(ExpressionContext ref ctx, SynBase ref sour
 					ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 				}
 
-				/*StringRef messageStart = ctx.errorBufLocation;
+				int messageStart = ctx.errorBuf.length();
 
-				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
+				ctx.errorBuf += "ERROR: ambiguity, there is more than one overloaded function available:\n";
 
-				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
-
-				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions);
-
-				ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
+				ReportOnFunctionSelectError(ctx, source, ctx.errorBuf, messageStart, ViewOf(functions));
 			}
 
 			assert(ctx.errorHandlerActive);
@@ -8411,15 +8411,11 @@ bool AssertValueExpression(ExpressionContext ref ctx, SynBase ref source, ExprBa
 				ctx.errorPos = StringRef(ctx.code, source.pos.begin);
 			}
 
-			/*StringRef messageStart = ctx.errorBufLocation;
+			int messageStart = ctx.errorBuf.length();
 
-			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
+			ctx.errorBuf += "ERROR: ambiguity, there is more than one overloaded function available:\n";
 
-			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
-
-			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - int(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions);
-
-			ctx.errorBufLocation += strlen(ctx.errorBufLocation);*/
+			ReportOnFunctionSelectError(ctx, source, ctx.errorBuf, messageStart, ViewOf(functions));
 		}
 
 		if(ctx.errorHandlerNested)

@@ -8,7 +8,9 @@ void memcpy(char[] dst, int offset, @T ref value, int size)
 {
 	assert(sizeof(T) == size);
 
-	if(T == char)
+	if(T == bool)
+		memory.write(dst, offset, *value);
+	else if(T == char)
 		memory.write(dst, offset, *value);
 	else if(T == short)
 		memory.write(dst, offset, *value);
@@ -33,7 +35,9 @@ void memcpy(@T ref value, char[] src, int offset, int size)
 {
 	assert(sizeof(T) == size);
 
-	if(T == char)
+	if(T == bool)
+		*value = memory.read_char(src, offset) != 0;
+	else if(T == char)
 		*value = memory.read_char(src, offset);
 	else if(T == short)
 		*value = memory.read_short(src, offset);
@@ -214,6 +218,8 @@ ExprBase ref Report(ExpressionEvalContext ref ctx, char[] msg, auto ref[] args)
 {
 	if(ctx.errorBuf)
 	{
+		*ctx.errorBuf = msg;
+
 		/*va_list args;
 		va_start(args, msg);
 
@@ -233,6 +239,8 @@ ExprBase ref ReportCritical(ExpressionEvalContext ref ctx, char[] msg, auto ref[
 {
 	if(ctx.errorBuf)
 	{
+		*ctx.errorBuf = msg;
+
 		/*va_list args;
 		va_start(args, msg);
 
@@ -411,9 +419,9 @@ bool CreateStore(ExpressionEvalContext ref ctx, ExprBase ref target, ExprBase re
 		memcpy(ptr.ptr.buffer, ptr.start, &index, sizeof(int));
 
 		if(isType with<ExprNullptrLiteral>(expr.context))
-			memset(ptr.ptr.buffer, ptr.start + 4, 0, sizeof(void ref));
+			memset(ptr.ptr.buffer, ptr.start + 4, 0, NULLC_PTR_SIZE);
 		else if(ExprPointerLiteral ref context = getType with<ExprPointerLiteral>(expr.context))
-			memcpy(ptr.ptr.buffer, ptr.start + 4, GetMemoryAddress(ctx, context.ptr, context.start), sizeof(void ref));
+			memcpy(ptr.ptr.buffer, ptr.start + 4, GetMemoryAddress(ctx, context.ptr, context.start), NULLC_PTR_SIZE);
 		else
 			return false;
 
@@ -874,7 +882,7 @@ ExprBase ref CreateBinaryOp(ExpressionEvalContext ref ctx, SynBase ref source, E
 				case SynBinaryOpType.SYN_BINARY_OP_SUB:
 					return new ExprIntegerLiteral(source, lhs.type, lhsValueInt - rhsValueInt);
 				case SynBinaryOpType.SYN_BINARY_OP_MUL:
-					return new ExprIntegerLiteral(source, lhs.type, int(rhsValueInt));
+					return new ExprIntegerLiteral(source, lhs.type, lhsValueInt * rhsValueInt);
 				case SynBinaryOpType.SYN_BINARY_OP_DIV:
 					if(rhsValueInt == 0)
 						return ReportCritical(ctx, "ERROR: division by zero during constant folding");
@@ -950,7 +958,7 @@ ExprBase ref CreateBinaryOp(ExpressionEvalContext ref ctx, SynBase ref source, E
 				case SynBinaryOpType.SYN_BINARY_OP_SUB:
 					return new ExprIntegerLiteral(source, lhs.type, lhsValue - rhsValue);
 				case SynBinaryOpType.SYN_BINARY_OP_MUL:
-					return new ExprIntegerLiteral(source, lhs.type, rhsValue);
+					return new ExprIntegerLiteral(source, lhs.type, lhsValue * rhsValue);
 				case SynBinaryOpType.SYN_BINARY_OP_DIV:
 					if(rhsValue == 0)
 						return ReportCritical(ctx, "ERROR: division by zero during constant folding");
@@ -1046,10 +1054,10 @@ ExprBase ref CreateBinaryOp(ExpressionEvalContext ref ctx, SynBase ref source, E
 				return new ExprRationalLiteral(source, lhs.type, lhsValue * rhsValue);
 			case SynBinaryOpType.SYN_BINARY_OP_DIV:
 				return new ExprRationalLiteral(source, lhs.type, lhsValue / rhsValue);
-			/*case SynBinaryOpType.SYN_BINARY_OP_MOD:
-				return new ExprRationalLiteral(source, lhs.type, fmod(lhsValue, rhsValue));
+			case SynBinaryOpType.SYN_BINARY_OP_MOD:
+				return new ExprRationalLiteral(source, lhs.type, lhsValue % rhsValue);
 			case SynBinaryOpType.SYN_BINARY_OP_POW:
-				return new ExprRationalLiteral(source, lhs.type, pow(lhsValue, rhsValue));*/
+				return new ExprRationalLiteral(source, lhs.type, lhsValue ** rhsValue);
 			case SynBinaryOpType.SYN_BINARY_OP_LESS:
 				return new ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue < rhsValue);
 			case SynBinaryOpType.SYN_BINARY_OP_LESS_EQUAL:
@@ -1491,7 +1499,7 @@ ExprBase ref EvaluateCast(ExpressionEvalContext ref ctx, ExprTypeCast ref expres
 
 			ExprBase ref typeId = new ExprTypeLiteral(expression.source, ctx.ctx.typeTypeID, arrType.subType);
 			ExprBase ref ptr = CreateExtract(ctx, memLiteral, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
-			ExprBase ref length = CreateExtract(ctx, memLiteral, sizeof(void ref), ctx.ctx.typeInt);
+			ExprBase ref length = CreateExtract(ctx, memLiteral, NULLC_PTR_SIZE, ctx.ctx.typeInt);
 
 			ExprBase ref result = CreateConstruct(ctx, expression.type, typeId, ptr, length);
 
@@ -1810,7 +1818,7 @@ ExprBase ref EvaluateArrayIndex(ExpressionEvalContext ref ctx, ExprArrayIndex re
 		if(isType with<ExprNullptrLiteral>(value))
 			return Report(ctx, "ERROR: array index of a null array");
 
-		ExprIntegerLiteral ref size = getType with<ExprIntegerLiteral>(CreateExtract(ctx, mem, sizeof(void ref), ctx.ctx.typeInt));
+		ExprIntegerLiteral ref size = getType with<ExprIntegerLiteral>(CreateExtract(ctx, mem, NULLC_PTR_SIZE, ctx.ctx.typeInt));
 
 		if(!size)
 			return nullptr;
@@ -2223,7 +2231,7 @@ ExprBase ref EvaluateKnownExternalFunctionCall(ExpressionEvalContext ref ctx, Ex
 		ExprMemoryLiteral ref mem = getType with<ExprMemoryLiteral>(arguments[1]);
 
 		ExprPointerLiteral ref str = getType with<ExprPointerLiteral>(CreateExtract(ctx, mem, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
-		ExprIntegerLiteral ref length = getType with<ExprIntegerLiteral>(CreateExtract(ctx, mem, sizeof(void ref), ctx.ctx.typeInt));
+		ExprIntegerLiteral ref length = getType with<ExprIntegerLiteral>(CreateExtract(ctx, mem, NULLC_PTR_SIZE, ctx.ctx.typeInt));
 
 		if(!str)
 			return Report(ctx, "ERROR: null pointer access");
@@ -2512,7 +2520,7 @@ ExprBase ref EvaluateKnownExternalFunctionCall(ExpressionEvalContext ref ctx, Ex
 		ExprMemoryLiteral ref table = getType with<ExprMemoryLiteral>(tableRefLoad);
 
 		ExprPointerLiteral ref tableArray = getType with<ExprPointerLiteral>(CreateExtract(ctx, table, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID)));
-		ExprIntegerLiteral ref tableSize = getType with<ExprIntegerLiteral>(CreateExtract(ctx, table, sizeof(void ref), ctx.ctx.typeInt));
+		ExprIntegerLiteral ref tableSize = getType with<ExprIntegerLiteral>(CreateExtract(ctx, table, NULLC_PTR_SIZE, ctx.ctx.typeInt));
 
 		assert(tableArray && tableSize);
 
@@ -2583,7 +2591,7 @@ ExprBase ref EvaluateKnownExternalFunctionCall(ExpressionEvalContext ref ctx, Ex
 		assert(arr != nullptr);
 
 		ExprTypeLiteral ref arrTypeID = getType with<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
-		ExprIntegerLiteral ref arrLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void ref), ctx.ctx.typeInt));
+		ExprIntegerLiteral ref arrLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + NULLC_PTR_SIZE, ctx.ctx.typeInt));
 		ExprPointerLiteral ref arrPtr = getType with<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID.value, arrLen.value))));
 
 		ExprPointerLiteral ref storage = AllocateTypeStorage(ctx, expression.source, ctx.ctx.typeAutoArray);
@@ -2594,7 +2602,7 @@ ExprBase ref EvaluateKnownExternalFunctionCall(ExpressionEvalContext ref ctx, Ex
 		ExprMemoryLiteral ref result = new ExprMemoryLiteral(expression.source, ctx.ctx.typeAutoArray, storage);
 
 		CreateInsert(ctx, result, 0, new ExprTypeLiteral(expression.source, ctx.ctx.typeTypeID, arrTypeID.value));
-		CreateInsert(ctx, result, 4 + sizeof(void ref), new ExprIntegerLiteral(expression.source, ctx.ctx.typeInt, arrLen.value));
+		CreateInsert(ctx, result, 4 + NULLC_PTR_SIZE, new ExprIntegerLiteral(expression.source, ctx.ctx.typeInt, arrLen.value));
 
 		if(!arrPtr)
 		{
@@ -2652,7 +2660,7 @@ ExprBase ref EvaluateKnownExternalFunctionCall(ExpressionEvalContext ref ctx, Ex
 			return nullptr;
 
 		CreateInsert(ctx, result, 4, resultPtr);
-		CreateInsert(ctx, result, 4 + sizeof(void ref), new ExprIntegerLiteral(expression.source, ctx.ctx.typeInt, count.value));
+		CreateInsert(ctx, result, 4 + NULLC_PTR_SIZE, new ExprIntegerLiteral(expression.source, ctx.ctx.typeInt, count.value));
 
 		return CheckType(expression, result);
 	}
@@ -2665,11 +2673,11 @@ ExprBase ref EvaluateKnownExternalFunctionCall(ExpressionEvalContext ref ctx, Ex
 
 		ExprTypeLiteral ref dstTypeID = getType with<ExprTypeLiteral>(CreateExtract(ctx, dst, 0, ctx.ctx.typeTypeID));
 		ExprPointerLiteral ref dstPtr = getType with<ExprPointerLiteral>(CreateExtract(ctx, dst, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
-		ExprIntegerLiteral ref dstLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, dst, 4 + sizeof(void ref), ctx.ctx.typeInt));
+		ExprIntegerLiteral ref dstLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, dst, 4 + NULLC_PTR_SIZE, ctx.ctx.typeInt));
 
 		ExprTypeLiteral ref srcTypeID = getType with<ExprTypeLiteral>(CreateExtract(ctx, src, 0, ctx.ctx.typeTypeID));
 		ExprPointerLiteral ref srcPtr = getType with<ExprPointerLiteral>(CreateExtract(ctx, src, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
-		ExprIntegerLiteral ref srcLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, src, 4 + sizeof(void ref), ctx.ctx.typeInt));
+		ExprIntegerLiteral ref srcLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, src, 4 + NULLC_PTR_SIZE, ctx.ctx.typeInt));
 
 		if(!dstPtr && !srcPtr)
 			return CheckType(expression, new ExprVoid(expression.source, ctx.ctx.typeVoid));
@@ -2709,7 +2717,7 @@ ExprBase ref EvaluateKnownExternalFunctionCall(ExpressionEvalContext ref ctx, Ex
 		assert(arr != nullptr);
 
 		// Check index
-		ExprIntegerLiteral ref arrLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void ref), ctx.ctx.typeInt));
+		ExprIntegerLiteral ref arrLen = getType with<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + NULLC_PTR_SIZE, ctx.ctx.typeInt));
 
 		if(int(indexArg.value) >= arrLen.value)
 			return Report(ctx, "ERROR: array index out of bounds");
