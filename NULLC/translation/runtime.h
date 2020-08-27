@@ -275,9 +275,9 @@ void assign_void_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* __context)
 void array_copy_void_ref_auto___auto___(NULLCAutoArray l, NULLCAutoArray r, void* __context);
 NULLCFuncPtr<__typeProxy_void_ref__> __redirect_void_ref___ref_auto_ref___function___ref_(NULLCRef r, NULLCArray<__function>* f, void* __context);
 NULLCFuncPtr<__typeProxy_void_ref__> __redirect_ptr_void_ref___ref_auto_ref___function___ref_(NULLCRef r, NULLCArray<__function>* f, void* __context);
-NULLCArray<char>* __operatorSet_char___ref_ref_char___ref_int___(NULLCArray<char>* dst, NULLCArray<int> src, void* __context);
-NULLCArray<short>* __operatorSet_short___ref_ref_short___ref_int___(NULLCArray<short>* dst, NULLCArray<int> src, void* __context);
-NULLCArray<float>* __operatorSet_float___ref_ref_float___ref_double___(NULLCArray<float>* dst, NULLCArray<double> src, void* __context);
+NULLCArray<char>* __aassign_itoc_char___ref_ref_char___ref_int___(NULLCArray<char>* dst, NULLCArray<int> src, void* __context);
+NULLCArray<short>* __aassign_itos_short___ref_ref_short___ref_int___(NULLCArray<short>* dst, NULLCArray<int> src, void* __context);
+NULLCArray<float>* __aassign_dtof_float___ref_ref_float___ref_double___(NULLCArray<float>* dst, NULLCArray<double> src, void* __context);
 unsigned typeid_typeid_ref_auto_ref_(NULLCRef type, void* __context);
 int typeid__size__int_ref___(unsigned* __context);
 int __operatorEqual_int_ref_typeid_typeid_(unsigned a, unsigned b, void* __context);

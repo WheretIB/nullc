@@ -1257,7 +1257,7 @@ NULLCFuncPtr<__typeProxy_void_ref__> __redirect_ptr_void_ref___ref_auto_ref___fu
 	return ret;
 }
 
-NULLCArray<char>* __operatorSet_char___ref_ref_char___ref_int___(NULLCArray<char>* dst, NULLCArray<int> src, void* __context)
+NULLCArray<char>* __aassign_itoc_char___ref_ref_char___ref_int___(NULLCArray<char>* dst, NULLCArray<int> src, void* __context)
 {
 	if(dst->size < src.size)
 		*dst = __newA_int___ref_int_int_int_(1, src.size, 0, 0);
@@ -1266,7 +1266,7 @@ NULLCArray<char>* __operatorSet_char___ref_ref_char___ref_int___(NULLCArray<char
 	return dst;
 }
 
-NULLCArray<short>* __operatorSet_short___ref_ref_short___ref_int___(NULLCArray<short>* dst, NULLCArray<int> src, void* __context)
+NULLCArray<short>* __aassign_itos_short___ref_ref_short___ref_int___(NULLCArray<short>* dst, NULLCArray<int> src, void* __context)
 {
 	if(dst->size < src.size)
 		*dst = __newA_int___ref_int_int_int_(2, src.size, 0, 0);
@@ -1275,7 +1275,7 @@ NULLCArray<short>* __operatorSet_short___ref_ref_short___ref_int___(NULLCArray<s
 	return dst;
 }
 
-NULLCArray<float>* __operatorSet_float___ref_ref_float___ref_double___(NULLCArray<float>* dst, NULLCArray<double> src, void* __context)
+NULLCArray<float>* __aassign_dtof_float___ref_ref_float___ref_double___(NULLCArray<float>* dst, NULLCArray<double> src, void* __context)
 {
 	if(dst->size < src.size)
 		*dst = __newA_int___ref_int_int_int_(4, src.size, 0, 0);
