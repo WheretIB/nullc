@@ -224,6 +224,52 @@ namespace
 		return VM_INST_ABORT_NO_RETURN;
 	}
 
+	VmInstructionType GetOperationWithoutLoad(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_ADD_LOAD:
+			return VM_INST_ADD;
+		case VM_INST_SUB_LOAD:
+			return VM_INST_SUB;
+		case VM_INST_MUL_LOAD:
+			return VM_INST_MUL;
+		case VM_INST_DIV_LOAD:
+			return VM_INST_DIV;
+		case VM_INST_POW_LOAD:
+			return VM_INST_POW;
+		case VM_INST_MOD_LOAD:
+			return VM_INST_MOD;
+		case VM_INST_LESS_LOAD:
+			return VM_INST_LESS;
+		case VM_INST_GREATER_LOAD:
+			return VM_INST_GREATER;
+		case VM_INST_LESS_EQUAL_LOAD:
+			return VM_INST_LESS_EQUAL;
+		case VM_INST_GREATER_EQUAL_LOAD:
+			return VM_INST_GREATER_EQUAL;
+		case VM_INST_EQUAL_LOAD:
+			return VM_INST_EQUAL;
+		case VM_INST_NOT_EQUAL_LOAD:
+			return VM_INST_NOT_EQUAL;
+		case VM_INST_SHL_LOAD:
+			return VM_INST_SHL;
+		case VM_INST_SHR_LOAD:
+			return VM_INST_SHR;
+		case VM_INST_BIT_AND_LOAD:
+			return VM_INST_BIT_AND;
+		case VM_INST_BIT_OR_LOAD:
+			return VM_INST_BIT_OR;
+		case VM_INST_BIT_XOR_LOAD:
+			return VM_INST_BIT_XOR;
+		default:
+			break;
+		}
+
+		assert(!"unknown operation");
+		return VM_INST_ABORT_NO_RETURN;
+	}
+
 	VmInstructionType GetMirroredComparisonOperationWithLoad(VmInstructionType cmd)
 	{
 		switch(cmd)
@@ -1076,6 +1122,35 @@ namespace
 					}
 				}
 				break;
+			case VM_INST_ADD_LOAD:
+			case VM_INST_SUB_LOAD:
+			case VM_INST_MUL_LOAD:
+			case VM_INST_DIV_LOAD:
+			case VM_INST_POW_LOAD:
+			case VM_INST_MOD_LOAD:
+			case VM_INST_LESS_LOAD:
+			case VM_INST_GREATER_LOAD:
+			case VM_INST_LESS_EQUAL_LOAD:
+			case VM_INST_GREATER_EQUAL_LOAD:
+			case VM_INST_EQUAL_LOAD:
+			case VM_INST_NOT_EQUAL_LOAD:
+			case VM_INST_SHL_LOAD:
+			case VM_INST_SHR_LOAD:
+			case VM_INST_BIT_AND_LOAD:
+			case VM_INST_BIT_OR_LOAD:
+			case VM_INST_BIT_XOR_LOAD:
+				if(VmConstant *address = getType<VmConstant>(inst->arguments[1]))
+				{
+					VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+					if(address->container && offset->iValue != 0)
+					{
+						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
+
+						ChangeInstructionTo(module, inst, inst->cmd, inst->arguments[0], target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments[3], NULL, NULL);
+					}
+				}
+				break;
 			default:
 				break;
 			}
@@ -1590,13 +1665,8 @@ namespace
 		return NULL;
 	}
 
-	VmValue* GetLoadStoreInfo(VmModule *module, VmInstruction* inst)
+	VmValue* GetLoadStoreInfo(VmModule *module, VmValue *loadPointer, VmConstant *loadOffset, unsigned loadSize, unsigned accessSize, VmInstructionType loadCmd)
 	{
-		VmValue *loadPointer = inst->arguments[0];
-		VmConstant *loadOffset = getType<VmConstant>(inst->arguments[1]);
-
-		unsigned accessSize = GetAccessSize(inst);
-
 		if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 		{
 			if(!loadAddress->container)
@@ -1627,7 +1697,7 @@ namespace
 						VmValue *value = el.storeInst->arguments[2];
 
 						// Can't reuse arguments of a different size
-						if(value->type.size != inst->type.size)
+						if(value->type.size != loadSize)
 							return NULL;
 
 						return value;
@@ -1638,7 +1708,7 @@ namespace
 						if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], el.storeAddress->iValue, loadAddress->iValue, accessSize))
 							return component;
 
-						if(VmValue *constant = TryExtractConstant(module, el.storeInst->arguments[2], el.storeAddress->iValue, el.accessSize, loadAddress->iValue, accessSize, inst->cmd))
+						if(VmValue *constant = TryExtractConstant(module, el.storeInst->arguments[2], el.storeAddress->iValue, el.accessSize, loadAddress->iValue, accessSize, loadCmd))
 							return constant;
 					}
 				}
@@ -1664,6 +1734,17 @@ namespace
 		}
 
 		return NULL;
+	}
+
+	VmValue* GetLoadStoreInfo(VmModule *module, VmInstruction* inst)
+	{
+		VmValue *loadPointer = inst->arguments[0];
+		VmConstant *loadOffset = getType<VmConstant>(inst->arguments[1]);
+
+		unsigned loadSize = inst->type.size;
+		unsigned accessSize = GetAccessSize(inst);
+
+		return GetLoadStoreInfo(module, loadPointer, loadOffset, loadSize, accessSize, inst->cmd);
 	}
 
 	VmInstruction* GetCopyInfo(VmModule *module, VmValue *pointer, VmConstant *offset, unsigned accessSize)
@@ -5344,6 +5425,50 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 						}
 					}
 				}
+				break;
+			case VM_INST_ADD_LOAD:
+			case VM_INST_SUB_LOAD:
+			case VM_INST_MUL_LOAD:
+			case VM_INST_DIV_LOAD:
+			case VM_INST_POW_LOAD:
+			case VM_INST_MOD_LOAD:
+			case VM_INST_LESS_LOAD:
+			case VM_INST_GREATER_LOAD:
+			case VM_INST_LESS_EQUAL_LOAD:
+			case VM_INST_GREATER_EQUAL_LOAD:
+			case VM_INST_EQUAL_LOAD:
+			case VM_INST_NOT_EQUAL_LOAD:
+			case VM_INST_SHL_LOAD:
+			case VM_INST_SHR_LOAD:
+			case VM_INST_BIT_AND_LOAD:
+			case VM_INST_BIT_OR_LOAD:
+			case VM_INST_BIT_XOR_LOAD:
+			{
+				VmValue *loadPointer = curr->arguments[1];
+				VmConstant *loadOffset = getType<VmConstant>(curr->arguments[2]);
+				VmConstant *loadInst = getType<VmConstant>(curr->arguments[3]);
+
+				unsigned loadSize = 0;
+
+				switch(loadInst->iValue)
+				{
+				case VM_INST_LOAD_INT:
+				case VM_INST_LOAD_FLOAT:
+					loadSize = 4;
+					break;
+				case VM_INST_LOAD_DOUBLE:
+				case VM_INST_LOAD_LONG:
+					loadSize = 8;
+					break;
+				}
+
+				assert(loadSize);
+
+				unsigned accessSize = GetAccessSize(curr);
+
+				if(VmValue* prevValue = GetLoadStoreInfo(module, loadPointer, loadOffset, loadSize, accessSize, VmInstructionType(loadInst->iValue)))
+					ChangeInstructionTo(module, curr, GetOperationWithoutLoad(curr->cmd), curr->arguments[0], prevValue, NULL, NULL, NULL, &module->loadStorePropagations);
+			}
 				break;
 			default:
 				break;
