@@ -6392,6 +6392,299 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 	}
 }
 
+bool CheckFunctionForInlining(VmFunction *function)
+{
+	// Can't inline external function
+	if(!function->firstBlock)
+		return false;
+
+	// Can't inline coroutines
+	if(!function->restoreBlocks.empty())
+		return false;
+
+	unsigned instructions = 0;
+
+	for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+	{
+		// TODO: remove single block limit
+		if(curr->nextSibling)
+			return false;
+
+		for(VmInstruction *inst = curr->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			if(inst->cmd == VM_INST_ABORT_NO_RETURN || inst->cmd == VM_INST_YIELD)
+				return false;
+
+			if(inst->cmd == VM_INST_CALL && inst->arguments[0]->type.type != VM_TYPE_FUNCTION_REF)
+			{
+				VmFunction *targetFunction = getType<VmFunction>(inst->arguments[1]);
+
+				// Can't inline recursive call
+				if(function == targetFunction)
+					return false;
+			}
+
+			// Simplest heuristic, inline small functions
+			if(++instructions > 16)
+				return false;
+		}
+	}
+
+	return true;
+}
+
+VmValue* RemapInstructionArgument(ExpressionContext &ctx, VmModule *module, VmValue *argOrig, const SmallDenseMap<VariableData*, VmConstant*, VariableDataHasher, 16> &variableRemap, const SmallDenseMap<VmInstruction*, VmInstruction*, VmInstructionHasher, 16> &instructionRemap)
+{
+	if(VmConstant *argOrigConstant = getType<VmConstant>(argOrig))
+	{
+		if(VariableData *containerOrig = argOrigConstant->container)
+		{
+			if(VmConstant **remap = variableRemap.find(containerOrig))
+			{
+				if(argOrigConstant->isReference)
+				{
+					VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, containerOrig->type), argOrigConstant->source);
+
+					reference->iValue = argOrigConstant->iValue;
+					reference->container = (*remap)->container;
+					reference->isReference = true;
+
+					reference->container->users.push_back(reference);
+
+					if(!argOrigConstant->comment.empty())
+						reference->comment = argOrigConstant->comment;
+
+					return reference;
+				}
+
+				VmConstant *ptr = CreateConstantPointer(ctx.allocator, argOrigConstant->source, argOrigConstant->iValue, (*remap)->container, containerOrig->type, true);
+
+				if(!argOrigConstant->comment.empty())
+					ptr->comment = argOrigConstant->comment;
+
+				return ptr;
+			}
+		}
+
+		return argOrigConstant;
+	}
+	else if(VmInstruction *argOrigInst = getType<VmInstruction>(argOrig))
+	{
+		VmInstruction **remap = instructionRemap.find(argOrigInst);
+
+		assert(remap); // Has to be remapped
+
+		return *remap;
+	}
+	else if(VmFunction *argOrigFunction = getType<VmFunction>(argOrig))
+	{
+		return argOrigFunction;
+	}
+
+	assert(!"unexpected type");
+
+	return NULL;
+}
+
+void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		VmBlock *curr = function->firstBlock;
+
+		while(curr)
+		{
+			VmBlock *next = curr->nextSibling;
+			RunFunctionInlining(ctx, module, curr);
+			curr = next;
+		}
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		VmInstruction *curr = block->firstInstruction;
+
+		while(curr)
+		{
+			VmInstruction *next = curr->nextSibling;
+			RunFunctionInlining(ctx, module, curr);
+			curr = next;
+		}
+
+		module->currentBlock = NULL;
+	}
+	else if(VmInstruction *inst = getType<VmInstruction>(value))
+	{
+		if(inst->cmd != VM_INST_CALL)
+			return;
+
+		// Can't inline indirect call
+		if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
+			return;
+
+		VmValue *targetContext = inst->arguments[0];
+		VmFunction *targetFunction = getType<VmFunction>(inst->arguments[1]);
+		VmConstant *resultTarget = getType<VmConstant>(inst->arguments[2]);
+
+		// Large return values are not handled yet
+		if(!resultTarget || resultTarget->container)
+			return;
+
+		if(!targetFunction->checkedInline)
+		{
+			targetFunction->checkedInline = true;
+
+			targetFunction->canInline = CheckFunctionForInlining(targetFunction);
+		}
+
+		if(!targetFunction->canInline)
+			return;
+
+		module->currentBlock->insertPoint = inst;
+
+		ScopeData *scope = targetFunction->scope;
+
+		SmallDenseMap<VariableData*, VmConstant*, VariableDataHasher, 16> variableRemap;
+
+		TypeBase *returnType = targetFunction->function->type->returnType;
+		VmConstant *result = isType<TypeVoid>(returnType) ? NULL : CreateAlloca(ctx, module, inst->source, returnType, "inline_res");
+
+		// Allocate target function locals
+		for(unsigned i = 0; i < scope->allVariables.size(); i++)
+		{
+			VariableData *variable = scope->allVariables[i];
+
+			if(variable->users.empty())
+				continue;
+
+			VmConstant *redirect = CreateAlloca(ctx, module, variable->source, variable->type, "inline_var");
+
+			variableRemap.insert(variable, redirect);
+		}
+
+		for(unsigned i = 0; i < targetFunction->allocas.size(); i++)
+		{
+			VariableData *variable = targetFunction->allocas[i];
+
+			if(variable->users.empty())
+				continue;
+
+			VmConstant *redirect = CreateAlloca(ctx, module, variable->source, variable->type, "inline_alloca");
+
+			variableRemap.insert(variable, redirect);
+		}
+
+		// Store arguments into remapped locals
+		unsigned argIndex = 3;
+
+		for(VariableHandle *argument = targetFunction->function->argumentVariables.head; argument; argument = argument->next)
+		{
+			VariableData *variable = argument->variable;
+
+			VmValue *source = inst->arguments[argIndex++];
+
+			if(variable->users.empty())
+				continue;
+
+			VmConstant **addressPtr = variableRemap.find(variable);
+
+			assert(addressPtr); // Has to be remapped
+
+			if(VmInstruction *sourceInst = getType<VmInstruction>(source))
+			{
+				if(sourceInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, sourceInst->arguments[0], 0);
+				else
+					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, sourceInst, 0);
+			}
+			else if(VmConstant *sourceConst = getType<VmConstant>(source))
+			{
+				if(sourceConst->isFloat)
+				{
+					float fValue;
+					assert(sizeof(int) == sizeof(float));
+					memcpy(&fValue, &sourceConst->iValue, sizeof(float));
+
+					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, CreateConstantDouble(ctx.allocator, sourceConst->source, double(fValue)), 0);
+				}
+				else if(sourceConst->type.size != 0)
+				{
+					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, sourceConst, 0);
+				}
+			}
+			else
+			{
+				CreateStore(ctx, module, inst->source, variable->type, *addressPtr, source, 0);
+			}
+		}
+
+		if(VariableData *variable = targetFunction->function->contextArgument)
+		{
+			if(!variable->users.empty())
+			{
+				VmConstant **addressPtr = variableRemap.find(variable);
+
+				assert(addressPtr); // Has to be remapped
+
+				CreateStore(ctx, module, inst->source, variable->type, *addressPtr, targetContext, 0);
+			}
+		}
+
+		VmBlock *block = targetFunction->firstBlock;
+
+		assert(!block->nextSibling); // Only single block functions for the moment
+
+		SmallDenseMap<VmInstruction*, VmInstruction*, VmInstructionHasher, 16> instructionRemap;
+
+		for(VmInstruction *instOrig = block->firstInstruction; instOrig; instOrig = instOrig->nextSibling)
+		{
+			if(instOrig->cmd == VM_INST_RETURN)
+			{
+				if(result)
+				{
+					VmValue *argCopy = RemapInstructionArgument(ctx, module, instOrig->arguments[0], variableRemap, instructionRemap);
+
+					CreateStore(ctx, module, inst->source, targetFunction->function->type->returnType, result, argCopy, 0);
+				}
+				continue;
+			}
+
+			VmInstruction *instCopy = CreateInstruction(module, inst->source, instOrig->type, instOrig->cmd);
+
+			instructionRemap.insert(instOrig, instCopy);
+
+			for(unsigned i = 0; i < instOrig->arguments.size(); i++)
+			{
+				VmValue *argCopy = RemapInstructionArgument(ctx, module, instOrig->arguments[i], variableRemap, instructionRemap);
+
+				instCopy->AddArgument(argCopy);
+			}
+		}
+
+		if(result)
+		{
+			VmValue *resultLoad = CreateLoad(ctx, module, inst->source, returnType, result, 0);
+
+			ReplaceValueUsersWith(module, inst, resultLoad, NULL);
+
+			inst->parent->RemoveInstruction(inst);
+		}
+		else
+		{
+			inst->parent->RemoveInstruction(inst);
+		}
+
+		module->functionInlines++;
+
+		module->currentBlock->insertPoint = module->currentBlock->lastInstruction;
+	}
+}
+
 void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	(void)ctx;
@@ -7608,6 +7901,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 	case VM_PASS_OPT_LATE_PEEPHOLE:
 		TRACE_LABEL("VM_PASS_OPT_LATE_PEEPHOLE");
 		break;
+	case VM_PASS_OPT_FUNCION_INLINING:
+		TRACE_LABEL("VM_PASS_OPT_FUNCION_INLINING");
+		break;
 	case VM_PASS_UPDATE_LIVE_SETS:
 		TRACE_LABEL("VM_PASS_UPDATE_LIVE_SETS");
 		break;
@@ -7664,6 +7960,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_OPT_LATE_PEEPHOLE:
 			RunLatePeepholeOptimizations(ctx, module, value);
+			break;
+		case VM_PASS_OPT_FUNCION_INLINING:
+			RunFunctionInlining(ctx, module, value);
 			break;
 		case VM_PASS_UPDATE_LIVE_SETS:
 			RunUpdateLiveSets(ctx, module, value);
@@ -7726,6 +8025,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmFunction *function, V
 		break;
 	case VM_PASS_OPT_LATE_PEEPHOLE:
 		RunLatePeepholeOptimizations(ctx, module, function);
+		break;
+	case VM_PASS_OPT_FUNCION_INLINING:
+		RunFunctionInlining(ctx, module, function);
 		break;
 	case VM_PASS_UPDATE_LIVE_SETS:
 		RunUpdateLiveSets(ctx, module, function);

@@ -100,6 +100,7 @@ namespace Tests
 	extern unsigned totalLoadStorePropagations;
 	extern unsigned totalCommonSubexprEliminations;
 	extern unsigned totalDeadAllocaStoreEliminations;
+	extern unsigned totalFunctionInlines;
 
 	extern const char		*varData;
 	extern unsigned int		variableCount;

@@ -710,6 +710,7 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 	PrintLine(ctx, "// Load store propagation: %d", module->loadStorePropagations);
 	PrintLine(ctx, "// Common subexpression eliminations: %d", module->commonSubexprEliminations);
 	PrintLine(ctx, "// Dead alloca store eliminations: %d", module->deadAllocaStoreEliminations);
+	PrintLine(ctx, "// Function inlines: %d", module->functionInlines);
 
 	ctx.output.Flush();
 }

@@ -154,6 +154,8 @@ enum VmPassType
 	VM_PASS_OPT_ARRAY_TO_ELEMENTS,
 	VM_PASS_OPT_LATE_PEEPHOLE,
 
+	VM_PASS_OPT_FUNCION_INLINING,
+
 	VM_PASS_UPDATE_LIVE_SETS,
 	VM_PASS_PREPARE_SSA_EXIT,
 
@@ -371,6 +373,14 @@ struct VmInstruction: VmValue
 	static const unsigned myTypeID = VmValueNode::VmInstruction;
 };
 
+struct VmInstructionHasher
+{
+	unsigned operator()(VmInstruction* key)
+	{
+		return key->uniqueId;
+	}
+};
+
 struct VmBlock: VmValue
 {
 	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId), predecessors(allocator), successors(allocator), dominanceFrontier(allocator), dominanceChildren(allocator), liveIn(allocator), liveOut(allocator)
@@ -468,6 +478,9 @@ struct VmFunction: VmValue
 		next = NULL;
 		listed = false;
 
+		checkedInline = false;
+		canInline = false;
+
 		vmAddress = ~0u;
 		vmCodeSize = 0;
 
@@ -503,6 +516,9 @@ struct VmFunction: VmValue
 
 	VmFunction *next;
 	bool listed;
+
+	bool checkedInline;
+	bool canInline;
 
 	unsigned vmAddress;
 	unsigned vmCodeSize;
@@ -541,6 +557,7 @@ struct VmModule
 		loadStorePropagations = 0;
 		commonSubexprEliminations = 0;
 		deadAllocaStoreEliminations = 0;
+		functionInlines = 0;
 	}
 
 	const char *code;
@@ -578,6 +595,7 @@ struct VmModule
 	unsigned loadStorePropagations;
 	unsigned commonSubexprEliminations;
 	unsigned deadAllocaStoreEliminations;
+	unsigned functionInlines;
 
 	struct LoadStoreInfo
 	{

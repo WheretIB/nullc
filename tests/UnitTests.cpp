@@ -366,7 +366,7 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	printf("Total nodes: %d syntax, %d expression\n", Tests::totalSyntaxNodes, Tests::totalExpressionNodes);
 	printf("Total RegVM instructions: %d\n", Tests::totalRegVmInstructions);
 	printf("Total optimizations: peephole        %6d const-prop   %6d dead-code-elim  %6d cflow-simp  %6d\n", Tests::totalPeepholeOptimizations, Tests::totalConstantPropagations, Tests::totalDeadCodeEliminations, Tests::totalControlFlowSimplifications);
-	printf("                   : load-store-prop %6d subexpr-elim %6d dead-store-elim %6d\n", Tests::totalLoadStorePropagations, Tests::totalCommonSubexprEliminations, Tests::totalDeadAllocaStoreEliminations);
+	printf("                   : load-store-prop %6d subexpr-elim %6d dead-store-elim %6d func-inline %6d\n", Tests::totalLoadStorePropagations, Tests::totalCommonSubexprEliminations, Tests::totalDeadAllocaStoreEliminations, Tests::totalFunctionInlines);
 
 	printf("Total global allocs: %d (%.3fMB requested)\n", testTotalMemoryAlloc, testTotalMemoryRequested / 1024 / 1024.0);
 

@@ -65,6 +65,7 @@ namespace Tests
 	unsigned totalLoadStorePropagations = 0;
 	unsigned totalCommonSubexprEliminations = 0;
 	unsigned totalDeadAllocaStoreEliminations = 0;
+	unsigned totalFunctionInlines = 0;
 
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
@@ -453,6 +454,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 				totalLoadStorePropagations += vmModule->loadStorePropagations;
 				totalCommonSubexprEliminations += vmModule->commonSubexprEliminations;
 				totalDeadAllocaStoreEliminations += vmModule->deadAllocaStoreEliminations;
+				totalFunctionInlines += vmModule->functionInlines;
 			}
 		}
 
