@@ -1625,3 +1625,37 @@ auto test(bool a, bool b, bool c, bool d, bool e)\r\n\
 \r\n\
 return test(true, false, true, true, true).a + s;";
 TEST_RESULT("Dominator tree sub-tree can encounter a colored phi web in the future when the same register was free in earlier nodes 4", testPhiWebColorInFutureSubTree4, "30");
+
+const char *testLoadStoreAliasing1 =
+"class A{ int a, b, c; }\r\n\
+A ref a;\r\n\
+void opaque(int x){ a = new A(); if(x) a.b = x; }\r\n\
+opaque(5);\r\n\
+int x = a.b;\r\n\
+*a = A();\r\n\
+int y = a.b;\r\n\
+return x - y;";
+TEST_RESULT("Load store optimization aliasing issue 1", testLoadStoreAliasing1, "5");
+
+const char *testLoadStoreAliasing2 =
+"class A{ int a, b, c; }\r\n\
+A ref a; \r\n\
+void opaque(int x){ a = new A(); if(x) a.b = x; }\r\n\
+opaque(5);\r\n\
+A x = *a;\r\n\
+a.b = 0;\r\n\
+A y = *a;\r\n\
+return x.b - y.b;";
+TEST_RESULT("Load store optimization aliasing issue 2", testLoadStoreAliasing2, "5");
+
+const char *testLoadStoreAliasing3 =
+"class A{ int a, b, c; }\r\n\
+class B{ A a, b; }\r\n\
+B ref a;\r\n\
+void opaque(int x){ a = new B(); if(x) a.a.b = x; }\r\n\
+opaque(5);\r\n\
+B x = *a;\r\n\
+a.a = A();\r\n\
+B y = *a;\r\n\
+return x.a.b - y.a.b;";
+TEST_RESULT("Load store optimization aliasing issue 3", testLoadStoreAliasing3, "5");

@@ -1217,6 +1217,14 @@ namespace
 			return true;
 		}
 
+		// Small store can overwrite struct memory
+		if(loadInst->cmd == VM_INST_LOAD_STRUCT)
+			return true;
+
+		// Struct store can overwrite other types
+		if(storeInst->cmd == VM_INST_STORE_STRUCT)
+			return true;
+
 		return false;
 	}
 
