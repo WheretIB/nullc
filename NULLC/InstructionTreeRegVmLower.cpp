@@ -1498,7 +1498,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		if(VmConstant *constantIndex = getType<VmConstant>(index))
 		{
-			if(constantIndex->iValue < arrSize->iValue)
+			if(unsigned(constantIndex->iValue) < unsigned(arrSize->iValue))
 			{
 				if(constantIndex->iValue == 0)
 				{

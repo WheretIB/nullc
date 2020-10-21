@@ -63,8 +63,12 @@ return xr[1][3];";
 TEST_RUNTIME_FAIL("Array out of bounds error check 3 [failure handling]", testBounds3, "ERROR: array index out of bounds");
 
 const char	*testBounds4 =
-"int[10] arr; int foo(){ return -1024; } int index = foo(); return arr[index];";
+"int[10] arr; int index = -1024; return arr[index];";
 TEST_RUNTIME_FAIL("Array out of bounds error check 4 [failure handling]", testBounds4, "ERROR: array index out of bounds");
+
+const char	*testBounds5 =
+"int[10] arr; int foo(){ return -1024; } int index = foo(); return arr[index];";
+TEST_RUNTIME_FAIL("Array out of bounds error check 5 [failure handling]", testBounds5, "ERROR: array index out of bounds");
 
 const char	*testInvalidFuncPtr1 = 
 "int ref(int) a;\r\n\
