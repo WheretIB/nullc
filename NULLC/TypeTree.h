@@ -360,6 +360,8 @@ struct FunctionData
 
 		isHidden = false;
 
+		attributes = 0;
+
 		nameHash = name->name.hash();
 
 		functionIndex = ~0u;
@@ -399,6 +401,8 @@ struct FunctionData
 	bool isInternal;
 
 	bool isHidden;
+
+	unsigned attributes;
 
 	ScopeData *scope;
 

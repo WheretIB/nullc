@@ -185,51 +185,52 @@ namespace NULLCMath
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.math", NULLCMath::funcPtr, name, index)) return false;
+#define REGISTER_PURE_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.math", NULLCMath::funcPtr, name, index)) return false; nullcSetModuleFunctionAttribute("std.math", name, index, NULLC_ATTRIBUTE_NO_MEMORY_WRITE, 1);
 bool nullcInitMathModule()
 {
-	REGISTER_FUNC(Cos, "cos", 0);
-	REGISTER_FUNC(Sin, "sin", 0);
-	REGISTER_FUNC(Tan, "tan", 0);
-	REGISTER_FUNC(Ctg, "ctg", 0);
+	REGISTER_PURE_FUNC(Cos, "cos", 0);
+	REGISTER_PURE_FUNC(Sin, "sin", 0);
+	REGISTER_PURE_FUNC(Tan, "tan", 0);
+	REGISTER_PURE_FUNC(Ctg, "ctg", 0);
 
-	REGISTER_FUNC(Cosh, "cosh", 0);
-	REGISTER_FUNC(Sinh, "sinh", 0);
-	REGISTER_FUNC(Tanh, "tanh", 0);
-	REGISTER_FUNC(Coth, "coth", 0);
+	REGISTER_PURE_FUNC(Cosh, "cosh", 0);
+	REGISTER_PURE_FUNC(Sinh, "sinh", 0);
+	REGISTER_PURE_FUNC(Tanh, "tanh", 0);
+	REGISTER_PURE_FUNC(Coth, "coth", 0);
 
-	REGISTER_FUNC(Acos, "acos", 0);
-	REGISTER_FUNC(Asin, "asin", 0);
-	REGISTER_FUNC(Atan, "atan", 0);
-	REGISTER_FUNC(Atan2, "atan2", 0);
+	REGISTER_PURE_FUNC(Acos, "acos", 0);
+	REGISTER_PURE_FUNC(Asin, "asin", 0);
+	REGISTER_PURE_FUNC(Atan, "atan", 0);
+	REGISTER_PURE_FUNC(Atan2, "atan2", 0);
 
-	REGISTER_FUNC(Ceil, "ceil", 0);
-	REGISTER_FUNC(Floor, "floor", 0);
-	REGISTER_FUNC(Exp, "exp", 0);
-	REGISTER_FUNC(Log, "log", 0);
+	REGISTER_PURE_FUNC(Ceil, "ceil", 0);
+	REGISTER_PURE_FUNC(Floor, "floor", 0);
+	REGISTER_PURE_FUNC(Exp, "exp", 0);
+	REGISTER_PURE_FUNC(Log, "log", 0);
 
-	REGISTER_FUNC(Sqrt, "sqrt", 0);
-	if(!nullcBindModuleFunctionBuiltin("std.math", NULLC_BUILTIN_SQRT, "sqrt", 0)) return false;
+	REGISTER_PURE_FUNC(Sqrt, "sqrt", 0);
+	if(!nullcBindModuleFunctionBuiltin("std.math", "sqrt", 0, NULLC_BUILTIN_SQRT)) return false;
 
-	REGISTER_FUNC(clamp, "clamp", 0);
-	REGISTER_FUNC(saturate, "saturate", 0);
-	REGISTER_FUNC(abs, "abs", 0);
+	REGISTER_PURE_FUNC(clamp, "clamp", 0);
+	REGISTER_PURE_FUNC(saturate, "saturate", 0);
+	REGISTER_PURE_FUNC(abs, "abs", 0);
 
-	REGISTER_FUNC(operatorIndex2, "[]", 0);
-	REGISTER_FUNC(operatorIndex3, "[]", 1);
-	REGISTER_FUNC(operatorIndex4, "[]", 2);
+	REGISTER_PURE_FUNC(operatorIndex2, "[]", 0);
+	REGISTER_PURE_FUNC(operatorIndex3, "[]", 1);
+	REGISTER_PURE_FUNC(operatorIndex4, "[]", 2);
 
-	REGISTER_FUNC(length2, "float2::length", 0);
-	REGISTER_FUNC(normalize2, "float2::normalize", 0);
+	REGISTER_PURE_FUNC(length2, "float2::length", 0);
+	REGISTER_PURE_FUNC(normalize2, "float2::normalize", 0);
 
-	REGISTER_FUNC(length3, "float3::length", 0);
-	REGISTER_FUNC(normalize3, "float3::normalize", 0);
+	REGISTER_PURE_FUNC(length3, "float3::length", 0);
+	REGISTER_PURE_FUNC(normalize3, "float3::normalize", 0);
 
-	REGISTER_FUNC(length3, "float4::length", 0);
-	REGISTER_FUNC(normalize3, "float4::normalize", 0);
+	REGISTER_PURE_FUNC(length3, "float4::length", 0);
+	REGISTER_PURE_FUNC(normalize3, "float4::normalize", 0);
 
-	REGISTER_FUNC(dot2, "dot", 0);
-	REGISTER_FUNC(dot3, "dot", 1);
-	REGISTER_FUNC(dot4, "dot", 2);
+	REGISTER_PURE_FUNC(dot2, "dot", 0);
+	REGISTER_PURE_FUNC(dot3, "dot", 1);
+	REGISTER_PURE_FUNC(dot4, "dot", 2);
 
 	return true;
 }

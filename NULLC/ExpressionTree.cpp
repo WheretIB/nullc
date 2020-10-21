@@ -12764,6 +12764,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(function.funcCat == ExternFuncInfo::LOCAL)
 			data->isHidden = true;
 
+		data->attributes = function.attributes;
+
 		ctx.AddFunction(data);
 
 		ctx.PushScope(data);

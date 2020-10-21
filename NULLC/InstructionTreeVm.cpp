@@ -2,6 +2,7 @@
 
 #include "ExpressionTree.h"
 #include "InstructionTreeVmCommon.h"
+#include "nullc_internal.h"
 
 // TODO: VM code generation should use a special pointer type to generate special pointer instructions
 #ifdef _M_X64
@@ -5247,11 +5248,20 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				break;
 			case VM_INST_CALL:
 				unsigned firstArgument;
+				VmFunction *targetFunction;
 
 				if(curr->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
+				{
 					firstArgument = 2;
+
+					targetFunction = NULL;
+				}
 				else
+				{
 					firstArgument = 3;
+
+					targetFunction = getType<VmFunction>(curr->arguments[1]);
+				}
 
 				for(unsigned i = firstArgument; i < curr->arguments.size(); i++)
 				{
@@ -5290,6 +5300,12 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 						// Remove previous loads and stores to the address range of the return value
 						ClearLoadStoreInfo(module, constant->container, unsigned(constant->iValue), constant->type.size);
 					}
+				}
+
+				if(targetFunction)
+				{
+					if((targetFunction->function->attributes & (1 << NULLC_ATTRIBUTE_NO_MEMORY_WRITE)) != 0)
+						break;
 				}
 
 				ClearLoadStoreInfoAliasing(module, NULL);

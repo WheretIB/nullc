@@ -206,6 +206,7 @@ namespace nullc_debugger_component
             public uint regVmRegisters;
 
             public uint builtinIndex;
+            public uint attributes;
 
             public uint isVisible;
 
@@ -262,6 +263,7 @@ namespace nullc_debugger_component
                 regVmRegisters = reader.ReadUInt32();
 
                 builtinIndex = reader.ReadUInt32();
+                attributes = reader.ReadUInt32();
 
                 isVisible = reader.ReadUInt32();
 

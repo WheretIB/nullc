@@ -11,7 +11,11 @@ CompilerContext* nullcGetCompilerContext();
 
 #define NULLC_BUILTIN_SQRT 1
 
-nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex, const char* name, int index);
+nullres nullcBindModuleFunctionBuiltin(const char* module, const char* name, int index, unsigned builtinIndex);
+
+#define NULLC_ATTRIBUTE_NO_MEMORY_WRITE 0
+
+nullres nullcSetModuleFunctionAttribute(const char* module, const char* name, int index, unsigned attribute, unsigned value);
 
 void nullcVisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child));
 void nullcVisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child));

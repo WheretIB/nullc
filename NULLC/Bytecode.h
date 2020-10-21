@@ -107,6 +107,7 @@ struct ExternFuncInfo
 	int				regVmRegisters;
 
 	int				builtinIndex;
+	int				attributes;
 
 	int				isVisible;
 

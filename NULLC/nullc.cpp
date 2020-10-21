@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "nullc.h"
 #include "nullc_debug.h"
+#include "nullc_internal.h"
 
 #include "Compiler.h"
 #include "Linker.h"
@@ -317,12 +318,12 @@ nullres nullcBindModuleFunctionWrapper(const char* module, void *func, void (*pt
 	return true;
 }
 
-nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex, const char* name, int index)
+ExternFuncInfo* nullcFindModuleFunction(const char* module, const char* name, int index)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED(false);
+	NULLC_CHECK_INITIALIZED(NULL);
 
-	TRACE_SCOPE("nullc", "nullcBindModuleFunctionBuiltin");
+	TRACE_SCOPE("nullc", "nullcFindModuleFunction");
 	TRACE_LABEL(module);
 
 	const char *bytecode = BinaryCache::FindBytecode(module, true);
@@ -331,7 +332,7 @@ nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex
 	if(!bytecode)
 	{
 		nullcLastError = "ERROR: failed to find module";
-		return false;
+		return NULL;
 	}
 
 	unsigned hash = NULLC::GetStringHash(name);
@@ -348,10 +349,7 @@ nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex
 			continue;
 
 		if(index == 0)
-		{
-			fInfo->builtinIndex = builtinIndex;
-			return true;
-		}
+			return fInfo;
 
 		index--;
 	}
@@ -359,6 +357,41 @@ nullres nullcBindModuleFunctionBuiltin(const char* module, unsigned builtinIndex
 	NULLC::SafeSprintf(errorBuf, NULLC_ERROR_BUFFER_SIZE, "ERROR: function '%s' or one of it's overload is not found in module '%s'", name, module);
 
 	nullcLastError = errorBuf;
+	return NULL;
+}
+
+nullres nullcBindModuleFunctionBuiltin(const char* module, const char* name, int index, unsigned builtinIndex)
+{
+	if(ExternFuncInfo *fInfo = nullcFindModuleFunction(module, name, index))
+	{
+		fInfo->builtinIndex = builtinIndex;
+		return true;
+	}
+
+	return false;
+}
+
+nullres nullcSetModuleFunctionAttribute(const char* module, const char* name, int index, unsigned attribute, unsigned value)
+{
+	using namespace NULLC;
+
+	if(ExternFuncInfo *fInfo = nullcFindModuleFunction(module, name, index))
+	{
+		unsigned attributeBit = 1 << attribute;
+
+		switch(attribute)
+		{
+		case NULLC_ATTRIBUTE_NO_MEMORY_WRITE:
+			fInfo->attributes = (fInfo->attributes & ~attributeBit) | (value != 0 ? attributeBit : 0);
+			break;
+		default:
+			nullcLastError = "ERROR: unknown function attribute";
+			return false;
+		}
+
+		return true;
+	}
+
 	return false;
 }
 
