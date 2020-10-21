@@ -90,7 +90,7 @@ public:
 		assert(!"couldn't insert node");
 	}
 
-	Value* find(const Key& key)
+	Value* find(const Key& key) const
 	{
 		unsigned bucketMask = bucketCount - 1;
 		unsigned bucket = Hasher()(key) & bucketMask;
