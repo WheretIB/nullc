@@ -93,6 +93,14 @@ namespace Tests
 
 	extern unsigned totalRegVmInstructions;
 
+	extern unsigned totalPeepholeOptimizations;
+	extern unsigned totalConstantPropagations;
+	extern unsigned totalDeadCodeEliminations;
+	extern unsigned totalControlFlowSimplifications;
+	extern unsigned totalLoadStorePropagations;
+	extern unsigned totalCommonSubexprEliminations;
+	extern unsigned totalDeadAllocaStoreEliminations;
+
 	extern const char		*varData;
 	extern unsigned int		variableCount;
 	extern ExternVarInfo	*varInfo;

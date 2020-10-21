@@ -58,6 +58,14 @@ namespace Tests
 
 	unsigned totalRegVmInstructions = 0;
 
+	unsigned totalPeepholeOptimizations = 0;
+	unsigned totalConstantPropagations = 0;
+	unsigned totalDeadCodeEliminations = 0;
+	unsigned totalControlFlowSimplifications = 0;
+	unsigned totalLoadStorePropagations = 0;
+	unsigned totalCommonSubexprEliminations = 0;
+	unsigned totalDeadAllocaStoreEliminations = 0;
+
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
 	ExternVarInfo	*varInfo = NULL;
@@ -433,7 +441,20 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		}
 
 		if(CompilerContext *context = nullcGetCompilerContext())
+		{
 			totalRegVmInstructions += context->instRegVmFinalizeCtx.cmds.size();
+
+			if(VmModule *vmModule = context->vmModule)
+			{
+				totalPeepholeOptimizations += vmModule->peepholeOptimizations;
+				totalConstantPropagations += vmModule->constantPropagations;
+				totalDeadCodeEliminations += vmModule->deadCodeEliminations;
+				totalControlFlowSimplifications += vmModule->controlFlowSimplifications;
+				totalLoadStorePropagations += vmModule->loadStorePropagations;
+				totalCommonSubexprEliminations += vmModule->commonSubexprEliminations;
+				totalDeadAllocaStoreEliminations += vmModule->deadAllocaStoreEliminations;
+			}
+		}
 
 		char *bytecode = NULL;
 		nullcGetBytecode(&bytecode);
