@@ -2395,6 +2395,11 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 		EMIT_REG_READ(ctx.ctx, rArg1);
 		EMIT_OP_RPTR(ctx.ctx, o_call, sQWORD, rArg1, unsigned(uintptr_t(&ctx.vmState->errorNoReturnWrap) - uintptr_t(ctx.vmState)));
 
+		EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 40);
+		EMIT_OP_REG(ctx.ctx, o_pop, rR15);
+		EMIT_OP_REG(ctx.ctx, o_pop, rRBX);
+		EMIT_OP(ctx.ctx, o_ret);
+
 		return;
 	}
 
