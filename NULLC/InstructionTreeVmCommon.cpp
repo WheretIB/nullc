@@ -318,6 +318,10 @@ bool HasAddressTaken(VariableData *container)
 				{
 					simpleUse = true;
 				}
+				else if(inst->cmd == VM_INST_SET_RANGE && inst->arguments[0] == user)
+				{
+					simpleUse = true;
+				}
 				else if(inst->cmd == VM_INST_RETURN || inst->cmd == VM_INST_CALL)
 				{
 					if(user->isReference)

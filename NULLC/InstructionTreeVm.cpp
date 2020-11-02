@@ -5199,6 +5199,9 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 						if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[0] == user)
 							continue;
 
+						if(inst->cmd == VM_INST_SET_RANGE && inst->arguments[0] == user)
+							continue;
+
 						nonStoreUse = true;
 						break;
 					}
