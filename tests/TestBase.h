@@ -76,6 +76,8 @@ namespace Tests
 	extern bool messageVerbose;
 	extern const char *lastMessage;
 
+	extern const char *testMatch;
+
 	extern double timeCompile;
 	extern double timeGetBytecode;
 	extern double timeVisit;
@@ -101,6 +103,17 @@ namespace Tests
 	extern unsigned totalCommonSubexprEliminations;
 	extern unsigned totalDeadAllocaStoreEliminations;
 	extern unsigned totalFunctionInlines;
+
+	extern bool compareOptimizations;
+
+	extern unsigned totalDeltaPeepholeOptimizations;
+	extern unsigned totalDeltaConstantPropagations;
+	extern unsigned totalDeltaDeadCodeEliminations;
+	extern unsigned totalDeltaControlFlowSimplifications;
+	extern unsigned totalDeltaLoadStorePropagations;
+	extern unsigned totalDeltaCommonSubexprEliminations;
+	extern unsigned totalDeltaDeadAllocaStoreEliminations;
+	extern unsigned totalDeltaFunctionInlines;
 
 	extern const char		*varData;
 	extern unsigned int		variableCount;

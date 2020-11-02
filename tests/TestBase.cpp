@@ -67,6 +67,15 @@ namespace Tests
 	unsigned totalDeadAllocaStoreEliminations = 0;
 	unsigned totalFunctionInlines = 0;
 
+	unsigned totalDeltaPeepholeOptimizations = 0;
+	unsigned totalDeltaConstantPropagations = 0;
+	unsigned totalDeltaDeadCodeEliminations = 0;
+	unsigned totalDeltaControlFlowSimplifications = 0;
+	unsigned totalDeltaLoadStorePropagations = 0;
+	unsigned totalDeltaCommonSubexprEliminations = 0;
+	unsigned totalDeltaDeadAllocaStoreEliminations = 0;
+	unsigned totalDeltaFunctionInlines = 0;
+
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
 	ExternVarInfo	*varInfo = NULL;
@@ -77,6 +86,10 @@ namespace Tests
 	bool doExprEvaluation = true;
 	bool doInstEvaluation = true;
 	bool doVisit = true;
+
+	bool compareOptimizations = false;
+	bool enableDiffOptimization = true;
+	bool enableTestOptimization = false;
 
 	bool	testExecutor[TEST_TARGET_COUNT] = {
 		true,
@@ -412,6 +425,9 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 	nullcSetExecutor(executor);
 
+	if(compareOptimizations)
+		enableTestOptimization = false;
+
 	double time = myGetPreciseTime();
 
 	nullres good = nullcCompile(code);
@@ -428,6 +444,107 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	}
 	else
 	{
+		unsigned optimizationsBefore = 0;
+
+		unsigned peepholeOptimizations = 0;
+		unsigned constantPropagations = 0;
+		unsigned deadCodeEliminations = 0;
+		unsigned controlFlowSimplifications = 0;
+		unsigned loadStorePropagations = 0;
+		unsigned commonSubexprEliminations = 0;
+		unsigned deadAllocaStoreEliminations = 0;
+		unsigned functionInlines = 0;
+
+		if(CompilerContext *context = nullcGetCompilerContext())
+		{
+			totalRegVmInstructions += context->instRegVmFinalizeCtx.cmds.size();
+
+			if(VmModule *vmModule = context->vmModule)
+			{
+				optimizationsBefore = vmModule->peepholeOptimizations + vmModule->constantPropagations + vmModule->deadCodeEliminations + vmModule->controlFlowSimplifications + vmModule->loadStorePropagations + vmModule->commonSubexprEliminations + vmModule->deadAllocaStoreEliminations + vmModule->functionInlines;
+
+				peepholeOptimizations = vmModule->peepholeOptimizations;
+				constantPropagations = vmModule->constantPropagations;
+				deadCodeEliminations = vmModule->deadCodeEliminations;
+				controlFlowSimplifications = vmModule->controlFlowSimplifications;
+				loadStorePropagations = vmModule->loadStorePropagations;
+				commonSubexprEliminations = vmModule->commonSubexprEliminations;
+				deadAllocaStoreEliminations = vmModule->deadAllocaStoreEliminations;
+				functionInlines = vmModule->functionInlines;
+
+				totalPeepholeOptimizations += vmModule->peepholeOptimizations;
+				totalConstantPropagations += vmModule->constantPropagations;
+				totalDeadCodeEliminations += vmModule->deadCodeEliminations;
+				totalControlFlowSimplifications += vmModule->controlFlowSimplifications;
+				totalLoadStorePropagations += vmModule->loadStorePropagations;
+				totalCommonSubexprEliminations += vmModule->commonSubexprEliminations;
+				totalDeadAllocaStoreEliminations += vmModule->deadAllocaStoreEliminations;
+				totalFunctionInlines += vmModule->functionInlines;
+			}
+		}
+
+		if(compareOptimizations && executor == NULLC_REG_VM)
+		{
+			enableTestOptimization = true;
+
+			nullcClean();
+
+			nullcCompile(code);
+
+			if(CompilerContext *context = nullcGetCompilerContext())
+			{
+				totalRegVmInstructions += context->instRegVmFinalizeCtx.cmds.size();
+
+				if(VmModule *vmModule = context->vmModule)
+				{
+					unsigned optimizationsAfter = vmModule->peepholeOptimizations + vmModule->constantPropagations + vmModule->deadCodeEliminations + vmModule->controlFlowSimplifications + vmModule->loadStorePropagations + vmModule->commonSubexprEliminations + vmModule->deadAllocaStoreEliminations + vmModule->functionInlines;
+
+					if(optimizationsAfter != optimizationsBefore)
+					{
+						int deltas[8] = {
+							int(vmModule->peepholeOptimizations - peepholeOptimizations),
+							int(vmModule->constantPropagations - constantPropagations),
+							int(vmModule->deadCodeEliminations - deadCodeEliminations),
+							int(vmModule->controlFlowSimplifications - controlFlowSimplifications),
+							int(vmModule->loadStorePropagations - loadStorePropagations),
+							int(vmModule->commonSubexprEliminations - commonSubexprEliminations),
+							int(vmModule->deadAllocaStoreEliminations - deadAllocaStoreEliminations),
+							int(vmModule->functionInlines - functionInlines)
+						};
+
+						totalDeltaPeepholeOptimizations += deltas[0];
+						totalDeltaConstantPropagations += deltas[1];
+						totalDeltaDeadCodeEliminations += deltas[2];
+						totalDeltaControlFlowSimplifications += deltas[3];
+						totalDeltaLoadStorePropagations += deltas[4];
+						totalDeltaCommonSubexprEliminations += deltas[5];
+						totalDeltaDeadAllocaStoreEliminations += deltas[6];
+						totalDeltaFunctionInlines += deltas[7];
+
+						if(message && !messageVerbose)
+							printf("%s %s [%s]\n", message, variant, executorName);
+
+						printf("Opt delta: peep %+d constprop %+d dce %+d cfsimp %+d lsprop %+d comsubexpr %+d deadstore %+d funcinline %+d\n", deltas[0], deltas[1], deltas[2], deltas[3], deltas[4], deltas[5], deltas[6], deltas[7]);
+
+						if(enableDiffOptimization && Tests::enableLogFiles && !Tests::openStreamFunc)
+						{
+							(void)remove("inst_graph_opt_before.txt");
+							(void)remove("inst_graph_opt_after.txt");
+							(void)rename("inst_graph_opt.txt", "inst_graph_opt_after.txt");
+
+							enableTestOptimization = false;
+
+							nullcClean();
+
+							nullcCompile(code);
+
+							(void)rename("inst_graph_opt.txt", "inst_graph_opt_before.txt");
+						}
+					}
+				}
+			}
+		}
+
 		if(doVisit)
 		{
 			if(CompilerContext *context = nullcGetCompilerContext())
@@ -439,23 +556,6 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 			timeVisit += myGetPreciseTime() - time;
 			time = myGetPreciseTime();
-		}
-
-		if(CompilerContext *context = nullcGetCompilerContext())
-		{
-			totalRegVmInstructions += context->instRegVmFinalizeCtx.cmds.size();
-
-			if(VmModule *vmModule = context->vmModule)
-			{
-				totalPeepholeOptimizations += vmModule->peepholeOptimizations;
-				totalConstantPropagations += vmModule->constantPropagations;
-				totalDeadCodeEliminations += vmModule->deadCodeEliminations;
-				totalControlFlowSimplifications += vmModule->controlFlowSimplifications;
-				totalLoadStorePropagations += vmModule->loadStorePropagations;
-				totalCommonSubexprEliminations += vmModule->commonSubexprEliminations;
-				totalDeadAllocaStoreEliminations += vmModule->deadAllocaStoreEliminations;
-				totalFunctionInlines += vmModule->functionInlines;
-			}
 		}
 
 		char *bytecode = NULL;

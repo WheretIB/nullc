@@ -229,14 +229,15 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	Tests::closeStreamFunc = 0;
 	*/
 
-	// To enable real log files during tests
-	/*
-	Tests::enableLogFiles = true;
-	Tests::messageVerbose = true;
-	Tests::openStreamFunc = 0;
-	Tests::writeStreamFunc = 0;
-	Tests::closeStreamFunc = 0;
-	*/
+	// Enable real log files for a specific test
+	if(Tests::testMatch)
+	{
+		Tests::enableLogFiles = true;
+		Tests::messageVerbose = true;
+		Tests::openStreamFunc = 0;
+		Tests::writeStreamFunc = 0;
+		Tests::closeStreamFunc = 0;
+	}
 
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
@@ -367,6 +368,12 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	printf("Total RegVM instructions: %d\n", Tests::totalRegVmInstructions);
 	printf("Total optimizations: peephole        %6d const-prop   %6d dead-code-elim  %6d cflow-simp  %6d\n", Tests::totalPeepholeOptimizations, Tests::totalConstantPropagations, Tests::totalDeadCodeEliminations, Tests::totalControlFlowSimplifications);
 	printf("                   : load-store-prop %6d subexpr-elim %6d dead-store-elim %6d func-inline %6d\n", Tests::totalLoadStorePropagations, Tests::totalCommonSubexprEliminations, Tests::totalDeadAllocaStoreEliminations, Tests::totalFunctionInlines);
+
+	if(Tests::compareOptimizations)
+	{
+		printf("Total optimizations: peephole        %+6d const-prop   %+6d dead-code-elim  %+6d cflow-simp  %+6d\n", Tests::totalDeltaPeepholeOptimizations, Tests::totalDeltaConstantPropagations, Tests::totalDeltaDeadCodeEliminations, Tests::totalDeltaControlFlowSimplifications);
+		printf("                   : load-store-prop %+6d subexpr-elim %+6d dead-store-elim %+6d func-inline %+6d\n", Tests::totalDeltaLoadStorePropagations, Tests::totalDeltaCommonSubexprEliminations, Tests::totalDeltaDeadAllocaStoreEliminations, Tests::totalDeltaFunctionInlines);
+	}
 
 	printf("Total global allocs: %d (%.3fMB requested)\n", testTotalMemoryAlloc, testTotalMemoryRequested / 1024 / 1024.0);
 
