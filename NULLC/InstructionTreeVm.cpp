@@ -845,7 +845,7 @@ namespace
 		return CreateInstruction(module, source, type, VM_INST_MOV, value, NULL, NULL, NULL);
 	}
 
-	VmConstant* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
+	VmConstant* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix, bool trackUsers)
 	{
 		ScopeData *scope = module->currentFunction->function ? module->currentFunction->function->functionScope : ctx.globalScope;
 
@@ -858,7 +858,7 @@ namespace
 		variable->isVmAlloca = true;
 		variable->offset = ~0u;
 
-		VmConstant *value = CreateConstantPointer(module->allocator, source, 0, variable, ctx.GetReferenceType(variable->type), true);
+		VmConstant *value = CreateConstantPointer(module->allocator, source, 0, variable, ctx.GetReferenceType(variable->type), trackUsers);
 
 		module->currentFunction->allocas.push_back(variable);
 
@@ -872,7 +872,7 @@ namespace
 
 		if(type->size > spillTypeSize)
 		{
-			VmConstant *spill = CreateAlloca(ctx, module, source, type, "spill");
+			VmConstant *spill = CreateAlloca(ctx, module, source, type, "spill", true);
 
 			CreateMemCopy(module, source, spill, 0, address, offset, (int)type->size);
 
@@ -2587,7 +2587,7 @@ VmValue* CompileVmArray(ExpressionContext &ctx, VmModule *module, ExprArray *nod
 
 	if(elementType == ctx.typeBool || elementType == ctx.typeChar || elementType == ctx.typeShort)
 	{
-		VmValue *storage = CreateAlloca(ctx, module, node->source, typeArray, "arr_lit");
+		VmValue *storage = CreateAlloca(ctx, module, node->source, typeArray, "arr_lit", true);
 
 		unsigned i = 0;
 
@@ -3057,7 +3057,7 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	{
 		if(constant->type.type == VM_TYPE_STRUCT)
 		{
-			tempAddress = CreateAlloca(ctx, module, node->source, node->trueBlock->type, "cond");
+			tempAddress = CreateAlloca(ctx, module, node->source, node->trueBlock->type, "cond", true);
 
 			CreateStore(ctx, module, node->source, node->trueBlock->type, tempAddress, constant, 0);
 		}
@@ -3250,7 +3250,7 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 				return CheckType(ctx, node, copy);
 			}
 
-			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->rhs->type, "array");
+			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->rhs->type, "array", true);
 
 			for(unsigned i = 0; i < instInit->arguments.size(); i++)
 			{
@@ -3512,7 +3512,7 @@ VmValue* CompileVmArraySetup(ExpressionContext &ctx, VmModule *module, ExprArray
 	if(isType<TypeBool>(elementType) || isType<TypeChar>(elementType) || isType<TypeShort>(elementType) || isType<TypeInt>(elementType) || isType<TypeLong>(elementType) || isType<TypeFloat>(elementType) || isType<TypeDouble>(elementType))
 		return CheckType(ctx, node, CreateSetRange(module, node->source, address, int(arrayType->length), initializer, int(elementType->size)));
 
-	VmValue *offsetPtr = CreateAlloca(ctx, module, node->source, ctx.typeInt, "arr_it");
+	VmValue *offsetPtr = CreateAlloca(ctx, module, node->source, ctx.typeInt, "arr_it", true);
 
 	VmBlock *conditionBlock = CreateBlock(module, node->source, "arr_setup_cond");
 	VmBlock *bodyBlock = CreateBlock(module, node->source, "arr_setup_body");
@@ -3699,7 +3699,7 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 
 	if(node->type->size > spillTypeSize)
 	{
-		VmConstant *spill = CreateAlloca(ctx, module, node->source, node->type, "spill");
+		VmConstant *spill = CreateAlloca(ctx, module, node->source, node->type, "spill", true);
 
 		VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, node->type), node->source);
 
@@ -6189,7 +6189,7 @@ void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value
 
 						TypeBase *elementType = typeArray->subType;
 
-						VmConstant *tempAddress = CreateAlloca(ctx, module, curr->source, typeArray, "array_elem");
+						VmConstant *tempAddress = CreateAlloca(ctx, module, curr->source, typeArray, "array_elem", true);
 
 						for(unsigned i = 0; i < storeValue->arguments.size(); i++)
 						{
@@ -6436,6 +6436,16 @@ bool CheckFunctionForInlining(VmFunction *function)
 	return true;
 }
 
+VmConstant* CloneRemappedPointer(ExpressionContext &ctx, VmConstant *remap)
+{
+	VmConstant *ptr = CreateConstantPointer(ctx.allocator, remap->source, remap->iValue, remap->container, ctx.GetReferenceType(remap->container->type), true);
+
+	if(!remap->comment.empty())
+		ptr->comment = remap->comment;
+
+	return ptr;
+}
+
 VmValue* RemapInstructionArgument(ExpressionContext &ctx, VmModule *module, VmValue *argOrig, const SmallDenseMap<VariableData*, VmConstant*, VariableDataHasher, 16> &variableRemap, const SmallDenseMap<VmInstruction*, VmInstruction*, VmInstructionHasher, 16> &instructionRemap)
 {
 	if(VmConstant *argOrigConstant = getType<VmConstant>(argOrig))
@@ -6460,7 +6470,7 @@ VmValue* RemapInstructionArgument(ExpressionContext &ctx, VmModule *module, VmVa
 					return reference;
 				}
 
-				VmConstant *ptr = CreateConstantPointer(ctx.allocator, argOrigConstant->source, argOrigConstant->iValue, (*remap)->container, containerOrig->type, true);
+				VmConstant *ptr = CreateConstantPointer(ctx.allocator, argOrigConstant->source, argOrigConstant->iValue, (*remap)->container, ctx.GetReferenceType(containerOrig->type), true);
 
 				if(!argOrigConstant->comment.empty())
 					ptr->comment = argOrigConstant->comment;
@@ -6555,7 +6565,7 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 		SmallDenseMap<VariableData*, VmConstant*, VariableDataHasher, 16> variableRemap;
 
 		TypeBase *returnType = targetFunction->function->type->returnType;
-		VmConstant *result = isType<TypeVoid>(returnType) ? NULL : CreateAlloca(ctx, module, inst->source, returnType, "inline_res");
+		VmConstant *result = isType<TypeVoid>(returnType) ? NULL : CreateAlloca(ctx, module, inst->source, returnType, "inline_res", true);
 
 		// Allocate target function locals
 		for(unsigned i = 0; i < scope->allVariables.size(); i++)
@@ -6565,7 +6575,7 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			if(variable->users.empty())
 				continue;
 
-			VmConstant *redirect = CreateAlloca(ctx, module, variable->source, variable->type, "inline_var");
+			VmConstant *redirect = CreateAlloca(ctx, module, variable->source, variable->type, "inline_var", false);
 
 			variableRemap.insert(variable, redirect);
 		}
@@ -6601,9 +6611,9 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			if(VmInstruction *sourceInst = getType<VmInstruction>(source))
 			{
 				if(sourceInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
-					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, sourceInst->arguments[0], 0);
+					CreateStore(ctx, module, inst->source, variable->type, CloneRemappedPointer(ctx, *addressPtr), sourceInst->arguments[0], 0);
 				else
-					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, sourceInst, 0);
+					CreateStore(ctx, module, inst->source, variable->type, CloneRemappedPointer(ctx, *addressPtr), sourceInst, 0);
 			}
 			else if(VmConstant *sourceConst = getType<VmConstant>(source))
 			{
@@ -6613,16 +6623,16 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 					assert(sizeof(int) == sizeof(float));
 					memcpy(&fValue, &sourceConst->iValue, sizeof(float));
 
-					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, CreateConstantDouble(ctx.allocator, sourceConst->source, double(fValue)), 0);
+					CreateStore(ctx, module, inst->source, variable->type, CloneRemappedPointer(ctx, *addressPtr), CreateConstantDouble(ctx.allocator, sourceConst->source, double(fValue)), 0);
 				}
 				else if(sourceConst->type.size != 0)
 				{
-					CreateStore(ctx, module, inst->source, variable->type, *addressPtr, sourceConst, 0);
+					CreateStore(ctx, module, inst->source, variable->type, CloneRemappedPointer(ctx, *addressPtr), sourceConst, 0);
 				}
 			}
 			else
 			{
-				CreateStore(ctx, module, inst->source, variable->type, *addressPtr, source, 0);
+				CreateStore(ctx, module, inst->source, variable->type, CloneRemappedPointer(ctx, *addressPtr), source, 0);
 			}
 		}
 
@@ -6634,7 +6644,7 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 
 				assert(addressPtr); // Has to be remapped
 
-				CreateStore(ctx, module, inst->source, variable->type, *addressPtr, targetContext, 0);
+				CreateStore(ctx, module, inst->source, variable->type, CloneRemappedPointer(ctx, *addressPtr), targetContext, 0);
 			}
 		}
 
@@ -7713,7 +7723,7 @@ void RunLegalizeArrayValues(ExpressionContext &ctx, VmModule *module, VmValue* v
 
 				block->insertPoint = curr;
 
-				VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, curr->type), "array");
+				VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, curr->type), "array", true);
 
 				FinalizeAlloca(ctx, module, address->container);
 
@@ -7772,7 +7782,7 @@ void RunLegalizeBitcasts(ExpressionContext &ctx, VmModule *module, VmValue* valu
 				{
 					TypeBase *type = GetBaseType(ctx, curr->type);
 
-					VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
+					VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg", true);
 
 					block->insertPoint = curr;
 
@@ -7848,7 +7858,7 @@ void RunLegalizeExtracts(ExpressionContext &ctx, VmModule *module, VmValue* valu
 						continue;
 				}
 
-				VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, target->type), "construct");
+				VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, target->type), "construct", true);
 
 				FinalizeAlloca(ctx, module, address->container);
 
