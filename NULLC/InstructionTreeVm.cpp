@@ -5199,6 +5199,16 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 						if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[0] == user)
 							continue;
 
+						if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[2] == user)
+						{
+							if(VmConstant *dst = getType<VmConstant>(inst->arguments[0]))
+							{
+								// Copy to the same container the load is from is a circular use and doesn't count as non-store use
+								if(dst->container == user->container)
+									continue;
+							}
+						}
+
 						if(inst->cmd == VM_INST_SET_RANGE && inst->arguments[0] == user)
 							continue;
 
