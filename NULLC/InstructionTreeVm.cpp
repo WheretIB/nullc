@@ -6544,10 +6544,6 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 		VmFunction *targetFunction = getType<VmFunction>(inst->arguments[1]);
 		VmConstant *resultTarget = getType<VmConstant>(inst->arguments[2]);
 
-		// Large return values are not handled yet
-		if(!resultTarget || resultTarget->container)
-			return;
-
 		if(!targetFunction->checkedInline)
 		{
 			targetFunction->checkedInline = true;
@@ -6679,7 +6675,13 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			}
 		}
 
-		if(result)
+		if(resultTarget->container)
+		{
+			CreateMemCopy(module, inst->source, CloneRemappedPointer(ctx, resultTarget), 0, result, 0, int(returnType->size));
+
+			inst->parent->RemoveInstruction(inst);
+		}
+		else if(result)
 		{
 			VmValue *resultLoad = CreateLoad(ctx, module, inst->source, returnType, result, 0);
 
