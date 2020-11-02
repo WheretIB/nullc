@@ -73,6 +73,7 @@ HWND hButtonCalc;	// Run/Abort button
 HWND hContinue;		// Button that continues an interrupted execution
 HWND hShowTemporaries;	// Show temporary variables
 HWND hExecutionType; // Target selection
+HWND hOptimizationLevel;
 HWND hTabs;	
 HWND hNewTab, hNewFilename, hNewFile;
 HWND hResult;		// label with execution result
@@ -747,7 +748,7 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	SendMessage(hContinue, WM_SETFONT, (WPARAM)fontDefault, 0);
 
-	hExecutionType = CreateWindow("COMBOBOX", "TEST", WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_CHILD, 800-140, 185, 130, 300, hWnd, NULL, hInstance, NULL);
+	hExecutionType = CreateWindow("COMBOBOX", "Execution Type", WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_CHILD, 800-140, 185, 130, 300, hWnd, NULL, hInstance, NULL);
 	if(!hExecutionType)
 		return 0;
 	SendMessage(hExecutionType, WM_SETFONT, (WPARAM)fontDefault, 0);
@@ -765,6 +766,17 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ComboBox_AddString(hExecutionType, "Instruction Eval");
 
 	ComboBox_SetCurSel(hExecutionType, 0);
+
+	hOptimizationLevel = CreateWindow("COMBOBOX", "Optimization Level", WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_CHILD, 800 - (130 + 10) * 2, 185, 130, 300, hWnd, NULL, hInstance, NULL);
+	if(!hOptimizationLevel)
+		return 0;
+	SendMessage(hOptimizationLevel, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	ComboBox_AddString(hOptimizationLevel, "-O0");
+	ComboBox_AddString(hOptimizationLevel, "-O1");
+	ComboBox_AddString(hOptimizationLevel, "-O2");
+
+	ComboBox_SetCurSel(hOptimizationLevel, 2);
 
 	hShowTemporaries = CreateWindow("BUTTON", "Show temps", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-280, 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hShowTemporaries)
@@ -2036,6 +2048,8 @@ void IdeRun(bool debug)
 
 		IdeUpdateModuleImportPaths(activeTab);
 
+		nullcSetOptimizationLevel(ComboBox_GetCurSel(hOptimizationLevel));
+
 		nullres good = false;
 
 		if(ComboBox_GetCurSel(hExecutionType) == 0)
@@ -2668,6 +2682,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hButtonCalc, SW_SHOW);
 				ShowWindow(hResult, SW_SHOW);
 				ShowWindow(hExecutionType, SW_SHOW);
+				ShowWindow(hOptimizationLevel, SW_SHOW);
 				ShowWindow(hShowTemporaries, SW_SHOW);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
 
@@ -2976,6 +2991,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hButtonCalc, SW_HIDE);
 				ShowWindow(hResult, SW_HIDE);
 				ShowWindow(hExecutionType, SW_HIDE);
+				ShowWindow(hOptimizationLevel, SW_HIDE);
 				ShowWindow(hShowTemporaries, SW_HIDE);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
 
@@ -3311,11 +3327,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
 
 			unsigned int buttonWidth = 120;
-			unsigned int resultWidth = width - 4 * buttonWidth - 3 * mainPadding - subPadding * 3;
+			unsigned int resultWidth = width - 5 * buttonWidth - 3 * mainPadding - subPadding * 4;
 
 			unsigned int calcOffsetX = mainPadding;
 			unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
-			unsigned int x86OffsetX = resultOffsetX + buttonWidth + resultWidth + subPadding;
+			unsigned int x86OffsetX = resultOffsetX + (buttonWidth + subPadding) * 2 + resultWidth;
 
 			if(hButtonCalc)
 				SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
@@ -3329,8 +3345,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(hExecutionType)
 				SetWindowPos(hExecutionType,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, 300, NULL);
 
+			if(hOptimizationLevel)
+				SetWindowPos(hOptimizationLevel, HWND_TOP, x86OffsetX - (buttonWidth + subPadding) * 1, middleOffsetY, buttonWidth, 300, NULL);
+
 			if(hShowTemporaries)
-				SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - buttonWidth - subPadding, middleOffsetY, buttonWidth, middleHeight, NULL);
+				SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - (buttonWidth + subPadding) * 2, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 			if(hAttachDo)
 				SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
@@ -3373,6 +3392,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			if(hExecutionType)
 				InvalidateRect(hExecutionType, NULL, true);
+
+			if(hOptimizationLevel)
+				InvalidateRect(hOptimizationLevel, NULL, true);
 
 			if(hShowTemporaries)
 				InvalidateRect(hShowTemporaries, NULL, true);
