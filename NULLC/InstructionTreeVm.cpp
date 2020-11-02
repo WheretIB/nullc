@@ -6583,7 +6583,10 @@ void RunFunctionInlining(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			if(variable->users.empty())
 				continue;
 
-			VmConstant *redirect = CreateAlloca(ctx, module, variable->source, variable->type, "inline_alloca");
+			if(variableRemap.find(variable))
+				continue;
+
+			VmConstant *redirect = CreateAlloca(ctx, module, variable->source, variable->type, "inline_alloca", false);
 
 			variableRemap.insert(variable, redirect);
 		}
