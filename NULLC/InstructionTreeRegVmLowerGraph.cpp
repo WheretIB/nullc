@@ -912,6 +912,12 @@ void PrintFunction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *l
 							simpleUse = true;
 						else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
 							simpleUse = true;
+						else if(inst->cmd == VM_INST_MEM_COPY && (inst->arguments[0] == user || inst->arguments[2] == user))
+							simpleUse = true;
+						else if(inst->cmd == VM_INST_SET_RANGE && inst->arguments[0] == user)
+							simpleUse = true;
+						else if((inst->cmd == VM_INST_RETURN || inst->cmd == VM_INST_CALL) && user->isReference)
+							simpleUse = true;
 						else
 							simpleUse = false;
 
