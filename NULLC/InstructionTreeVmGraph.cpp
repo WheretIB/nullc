@@ -660,6 +660,10 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 							else
 								simpleUse = false;
 						}
+						else if(inst->cmd >= VM_INST_ADD_LOAD && inst->cmd <= VM_INST_BIT_XOR_LOAD && inst->arguments[1] == user)
+						{
+							simpleUse = true;
+						}
 						else
 						{
 							simpleUse = false;
