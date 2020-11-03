@@ -5756,6 +5756,9 @@ void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmVa
 										hasLoadUsers = true;
 								}
 							}
+
+							if(inst->cmd >= VM_INST_ADD_LOAD && inst->cmd <= VM_INST_BIT_XOR_LOAD)
+								hasLoadUsers = true;
 						}
 					}
 				}
