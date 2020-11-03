@@ -4498,6 +4498,45 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 					ReplaceValueUsersWith(module, inst, inst->arguments[3], &module->peepholeOptimizations);
 				}
 			}
+			break;
+		case VM_INST_JUMP_NZ:
+			if(VmInstruction *cond = getType<VmInstruction>(inst->arguments[0]))
+			{
+				if(cond->cmd == VM_INST_NOT_EQUAL && cond->arguments[0]->type == VmType::Int && cond->arguments[1]->type == VmType::Int)
+				{
+					if(IsConstantZero(cond->arguments[0]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_NZ, cond->arguments[1], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+					else if(IsConstantZero(cond->arguments[1]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_NZ, cond->arguments[0], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+				}
+				else if(cond->cmd == VM_INST_EQUAL && cond->arguments[0]->type == VmType::Int && cond->arguments[1]->type == VmType::Int)
+				{
+					if(IsConstantZero(cond->arguments[0]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_Z, cond->arguments[1], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+					else if(IsConstantZero(cond->arguments[1]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_Z, cond->arguments[0], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		case VM_INST_JUMP_Z:
+			if(VmInstruction *cond = getType<VmInstruction>(inst->arguments[0]))
+			{
+				if(cond->cmd == VM_INST_NOT_EQUAL && cond->arguments[0]->type == VmType::Int && cond->arguments[1]->type == VmType::Int)
+				{
+					if(IsConstantZero(cond->arguments[0]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_Z, cond->arguments[1], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+					else if(IsConstantZero(cond->arguments[1]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_Z, cond->arguments[0], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+				}
+				else if(cond->cmd == VM_INST_EQUAL && cond->arguments[0]->type == VmType::Int && cond->arguments[1]->type == VmType::Int)
+				{
+					if(IsConstantZero(cond->arguments[0]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_NZ, cond->arguments[1], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+					else if(IsConstantZero(cond->arguments[1]))
+						ChangeInstructionTo(module, inst, VM_INST_JUMP_NZ, cond->arguments[0], inst->arguments[1], inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
 		default:
 			break;
 		}

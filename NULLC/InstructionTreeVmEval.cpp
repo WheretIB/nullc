@@ -820,7 +820,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		return NULL;
 	case VM_INST_JUMP_Z:
-		assert(arguments[0]->type == VmType::Int);
+		assert(arguments[0]->type == VmType::Int || arguments[0]->type == VmType::Function);
 		assert(arguments[1]->type == VmType::Block && arguments[1]->bValue);
 		assert(arguments[2]->type == VmType::Block && arguments[2]->bValue);
 
@@ -828,7 +828,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		return NULL;
 	case VM_INST_JUMP_NZ:
-		assert(arguments[0]->type == VmType::Int);
+		assert(arguments[0]->type == VmType::Int || arguments[0]->type == VmType::Function);
 		assert(arguments[1]->type == VmType::Block && arguments[1]->bValue);
 		assert(arguments[2]->type == VmType::Block && arguments[2]->bValue);
 
