@@ -106,3 +106,124 @@ TEST_SIMPLE("Finalize for an array of objects", testFinalizeArray, "2818")
 {
 	CHECK_INT("z", 0, 2818, lastFailed);
 }
+
+const char	*testFinalizerRessurection1 =
+"import std.gc;\r\n\
+\r\n\
+int ref global;\r\n\
+\r\n\
+class Scary\r\n\
+{\r\n\
+	int ref value = new int(4);\r\n\
+}\r\n\
+\r\n\
+void Scary:finalize()\r\n\
+{\r\n\
+	global = value;\r\n\
+}\r\n\
+\r\n\
+void test()\r\n\
+{\r\n\
+	new Scary();\r\n\
+}\r\n\
+\r\n\
+test();\r\n\
+\r\n\
+GC.CollectMemory();\r\n\
+\r\n\
+int ref x = new int(7);\r\n\
+\r\n\
+return *global;";
+TEST_RESULT_SIMPLE("Finalizer object ressurection test 1 (small object)", testFinalizerRessurection1, "4");
+
+const char	*testFinalizerRessurection2 =
+"import std.gc;\r\n\
+\r\n\
+int ref global;\r\n\
+\r\n\
+class Scary\r\n\
+{\r\n\
+	int ref value = new int(4);\r\n\
+	int[2048] data;\r\n\
+}\r\n\
+\r\n\
+void Scary:finalize()\r\n\
+{\r\n\
+	global = value;\r\n\
+}\r\n\
+\r\n\
+void test()\r\n\
+{\r\n\
+	new Scary();\r\n\
+}\r\n\
+\r\n\
+test();\r\n\
+\r\n\
+GC.CollectMemory();\r\n\
+\r\n\
+int ref x = new int(7);\r\n\
+\r\n\
+return *global;";
+TEST_RESULT_SIMPLE("Finalizer object ressurection test 2 (large object)", testFinalizerRessurection2, "4");
+
+const char	*testFinalizerRessurection3 =
+"import std.gc;\r\n\
+\r\n\
+int ref global;\r\n\
+int next = 4;\r\n\
+\r\n\
+class Scary\r\n\
+{\r\n\
+	int ref value = new int(next++);\r\n\
+}\r\n\
+\r\n\
+void Scary:finalize()\r\n\
+{\r\n\
+	if(!global || *global < *value)\r\n\
+		global = value;\r\n\
+}\r\n\
+\r\n\
+void test()\r\n\
+{\r\n\
+	new Scary[10];\r\n\
+}\r\n\
+\r\n\
+test();\r\n\
+\r\n\
+GC.CollectMemory();\r\n\
+\r\n\
+for(int i = 0; i < 10; i++) new int(7);\r\n\
+\r\n\
+return *global;";
+TEST_RESULT_SIMPLE("Finalizer object ressurection test 3 (small array)", testFinalizerRessurection3, "13");
+
+const char	*testFinalizerRessurection4 =
+"import std.gc;\r\n\
+\r\n\
+int ref global;\r\n\
+int next = 4;\r\n\
+\r\n\
+class Scary\r\n\
+{\r\n\
+	int ref value = new int(next++);\r\n\
+}\r\n\
+\r\n\
+void Scary:finalize()\r\n\
+{\r\n\
+	if(!global || *global < *value)\r\n\
+		global = value;\r\n\
+}\r\n\
+\r\n\
+void test()\r\n\
+{\r\n\
+	new Scary[10];\r\n\
+}\r\n\
+\r\n\
+test();\r\n\
+\r\n\
+GC.CollectMemory();\r\n\
+\r\n\
+for(int i = 0; i < 10; i++) new int(7);\r\n\
+\r\n\
+return *global;";
+TEST_RESULT_SIMPLE("Finalizer object ressurection test 4 (large array)", testFinalizerRessurection4, "13");

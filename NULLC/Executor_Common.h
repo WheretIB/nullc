@@ -22,10 +22,22 @@ void DumpStackFrames();
 
 // Garbage collector
 
-void	SetUnmanagableRange(char* base, unsigned int size);
-int		IsPointerUnmanaged(NULLCRef ptr);
-void	MarkUsedBlocks();
-void	ResetGC();
+namespace GC
+{
+	void MarkPointer(char* ptr, const ExternTypeInfo& type, bool takeSubtype);
+	void CheckArrayElements(char* ptr, unsigned size, const ExternTypeInfo& elementType);
+
+	void CheckArray(char* ptr, const ExternTypeInfo& type);
+	void CheckClass(char* ptr, const ExternTypeInfo& type);
+	void CheckFunction(char* ptr);
+	void CheckVariable(char* ptr, const ExternTypeInfo& type);
+
+	void SetUnmanagableRange(char* base, unsigned int size);
+	int IsPointerUnmanaged(NULLCRef ptr);
+	void MarkUsedBlocks();
+	void MarkPendingRoots();
+	void ResetGC();
+}
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;

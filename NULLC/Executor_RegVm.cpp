@@ -109,7 +109,7 @@ void ExecutorRegVm::InitExecution()
 	dataStack.clear();
 	dataStack.resize((exLinker->globalVarSize + 0xf) & ~0xf);
 
-	SetUnmanagableRange(dataStack.data, dataStack.max);
+	GC::SetUnmanagableRange(dataStack.data, dataStack.max);
 
 	execErrorMessage = NULL;
 

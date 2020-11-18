@@ -54,6 +54,9 @@ namespace NULLC
 	void		AssignObject(NULLCRef l, NULLCRef r);
 
 	void		MarkMemory(unsigned int number);
+	void		CollectUnmarked();
+	void		FinalizePending();
+	void		FreePending();
 
 	bool		IsBasePointer(void* ptr);
 	void*		GetBasePointer(void* ptr);

@@ -715,11 +715,6 @@ namespace GC
 	unsigned int	objectName = NULLC::GetStringHash("auto ref");
 	unsigned int	autoArrayName = NULLC::GetStringHash("auto[]");
 
-	void CheckArray(char* ptr, const ExternTypeInfo& type);
-	void CheckClass(char* ptr, const ExternTypeInfo& type);
-	void CheckFunction(char* ptr);
-	void CheckVariable(char* ptr, const ExternTypeInfo& type);
-
 	struct RootInfo
 	{
 		RootInfo(): ptr(0), type(0){}
@@ -1051,18 +1046,19 @@ namespace GC
 }
 
 // Set range of memory that is not checked. Used to exclude pointers to stack from marking and GC
-void SetUnmanagableRange(char* base, unsigned int size)
+void GC::SetUnmanagableRange(char* base, unsigned int size)
 {
 	GC::unmanageableBase = base;
 	GC::unmanageableTop = base + size;
 }
-int IsPointerUnmanaged(NULLCRef ptr)
+
+int GC::IsPointerUnmanaged(NULLCRef ptr)
 {
 	return ptr.ptr >= GC::unmanageableBase && ptr.ptr <= GC::unmanageableTop;
 }
 
 // Main function for marking all pointers in a program
-void MarkUsedBlocks()
+void GC::MarkUsedBlocks()
 {
 	GC_DEBUG_PRINT("Unmanageable range: %p-%p\r\n", GC::unmanageableBase, GC::unmanageableTop);
 
@@ -1093,7 +1089,9 @@ void MarkUsedBlocks()
 			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
 			GC::CheckVariable(GC::unmanageableBase + vars[i].offset, types[vars[i].type]);
 		}
-	}else{
+	}
+	else
+	{
 #ifdef NULLC_LLVM_SUPPORT
 		ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
 
@@ -1110,7 +1108,7 @@ void MarkUsedBlocks()
 
 	// Starting stack offset is equal to global variable size
 	int offset = NULLC::commonLinker->globalVarSize;
-	
+
 	// Init stack trace
 	unsigned currentFrame = 0;
 
@@ -1296,6 +1294,17 @@ void MarkUsedBlocks()
 		tempStackBase += 4;
 	}
 
+	GC::MarkPendingRoots();
+}
+
+void GC::MarkPendingRoots()
+{
+	if(!GC::next)
+		return;
+
+	if(GC::next->empty())
+		return;
+
 	while(GC::next->size())
 	{
 		GC_DEBUG_PRINT("Checking new roots\r\n");
@@ -1317,7 +1326,7 @@ void MarkUsedBlocks()
 	GC_DEBUG_PRINT("\r\n");
 }
 
-void ResetGC()
+void GC::ResetGC()
 {
 	GC::rootsA.reset();
 	GC::rootsB.reset();

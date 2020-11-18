@@ -790,7 +790,7 @@ bool ExecutorX86::InitExecution()
 		return false;
 	}
 
-	SetUnmanagableRange(vmState.dataStackBase, unsigned(vmState.dataStackEnd - vmState.dataStackBase));
+	GC::SetUnmanagableRange(vmState.dataStackBase, unsigned(vmState.dataStackEnd - vmState.dataStackBase));
 
 	execErrorMessage = NULL;
 

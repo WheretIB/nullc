@@ -65,7 +65,9 @@ namespace NULLC
 				NULLC::finalizeList.push_back(r);
 				r.ptr += typeInfo.size;
 			}
-		}else{
+		}
+		else
+		{
 			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) }; // skip over marker
 			NULLC::finalizeList.push_back(r);
 		}
@@ -107,6 +109,7 @@ public:
 		activePages = NULL;
 		lastNum = countInBlock;
 	}
+
 	~ObjectBlockPool()
 	{
 		Reset();
@@ -122,10 +125,14 @@ public:
 			NULLC::alignedDealloc(activePages);
 			activePages = following;
 		}while(activePages != NULL);
+
 		freeBlocks = &lastBlock;
 		activePages = NULL;
 		lastNum = countInBlock;
+
 		sortedPages.reset();
+		objectsToFinalize.reset();
+		objectsToFree.reset();
 	}
 
 	void* Alloc()
@@ -166,6 +173,7 @@ public:
 		freedBlock->next = (MySmallBlock*)((intptr_t)freeBlocks | NULLC::OBJECT_FREED);
 		freeBlocks = freedBlock;
 	}
+
 	bool IsBasePointer(void* ptr)
 	{
 		MyLargeBlock *curr = activePages;
@@ -180,6 +188,7 @@ public:
 		}
 		return false;
 	}
+
 	void* GetBasePointer(void* ptr)
 	{
 		if(sortedPages.count == 0 || ptr < sortedPages.data[0] || ptr > (char*)sortedPages.data[sortedPages.count - 1] + sizeof(MyLargeBlock))
@@ -207,6 +216,7 @@ public:
 		unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)best->page);
 		return (char*)best->page + (fromBase & ~(elemSize - 1)) + sizeof(markerType);
 	}
+
 	void Mark(unsigned int number)
 	{
 		assert(number <= 1);
@@ -220,27 +230,87 @@ public:
 			curr = curr->next;
 		}
 	}
-	unsigned int FreeMarked()
+
+	void CollectUnmarked()
 	{
-		unsigned int freed = 0;
-		MyLargeBlock *curr = activePages;
-		while(curr)
+		for(MyLargeBlock *curr = activePages; curr; curr = curr->next)
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				if(!(curr->page[i].marker & (NULLC::OBJECT_VISIBLE | NULLC::OBJECT_FREED)))
+				markerType &marker = curr->page[i].marker;
+
+				if(!(marker & (NULLC::OBJECT_VISIBLE | NULLC::OBJECT_FREED)))
 				{
-					if((curr->page[i].marker & NULLC::OBJECT_FINALIZABLE) && !(curr->page[i].marker & NULLC::OBJECT_FINALIZED))
+					if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
 					{
-						NULLC::FinalizeObject(curr->page[i].marker, curr->page[i].data);
-					}else{
-						Free(&curr->page[i]);
-						freed++;
+						objectsToFinalize.push_back(&curr->page[i]);
+					}
+					else
+					{
+						objectsToFree.push_back(&curr->page[i]);
 					}
 				}
 			}
-			curr = curr->next;
 		}
+	}
+
+	void FinalizePending()
+	{
+		for(unsigned i = 0, e = objectsToFinalize.size(); i < e; i++)
+		{
+			MySmallBlock *block = objectsToFinalize[i];
+
+			markerType &marker = block->marker;
+
+			// Mark block as used
+			marker |= NULLC::OBJECT_VISIBLE;
+
+			ExternTypeInfo &typeInfo = NULLC::linker->exTypes[(unsigned)marker >> 8];
+
+			char *base = block->data;
+
+			if(marker & NULLC::OBJECT_ARRAY)
+			{
+				unsigned arrayPadding = typeInfo.defaultAlign > 4 ? typeInfo.defaultAlign : 4;
+
+				unsigned count = *(unsigned*)(base + sizeof(markerType) + arrayPadding - 4);
+
+				GC::CheckArrayElements(base + sizeof(markerType) + arrayPadding, count, typeInfo);
+			}
+			else
+			{
+				GC::CheckVariable(base + sizeof(markerType), typeInfo);
+			}
+
+			NULLC::FinalizeObject(marker, block->data);
+		}
+
+		objectsToFinalize.clear();
+	}
+
+	unsigned FreePending(unsigned &usedMemory)
+	{
+		unsigned freed = 0;
+
+		for(unsigned i = 0, e = objectsToFree.size(); i < e; i++)
+		{
+			MySmallBlock *block = objectsToFree[i];
+
+			markerType &marker = block->marker;
+
+			// Check flags again, finalizers might have some objects reachable
+			if(!(marker & (NULLC::OBJECT_VISIBLE | NULLC::OBJECT_FREED)))
+			{
+				Free(block);
+
+				freed++;
+			}
+		}
+
+		objectsToFree.clear();
+
+		usedMemory -= freed * elemSize;
+
 		return freed;
 	}
 
@@ -251,6 +321,9 @@ public:
 	unsigned int	lastNum;
 
 	FastVector<MyLargeBlock*> sortedPages;
+
+	FastVector<MySmallBlock*> objectsToFinalize;
+	FastVector<MySmallBlock*> objectsToFree;
 };
 
 namespace NULLC
@@ -304,13 +377,12 @@ namespace NULLC
 	Tree<Range>	bigBlocks;
 
 	unsigned currentMark = 0;
-	unsigned unusedBlocks = 0;
 
-	FastVector<Range> toErase;
+	FastVector<Range> blocksToFinalize;
+	FastVector<Range> blocksToFree;
 
 	void MarkBlock(Range& curr);
-	void CollectBlock(Range& curr);
-	void FinalizeBlock(Range& curr);
+	void CollectUnmarkedBlock(Range& curr);
 	void ClearBlock(Range& curr);
 
 	double	markTime = 0.0;
@@ -484,6 +556,100 @@ void NULLC::MarkMemory(unsigned int number)
 	pool512.Mark(number);
 }
 
+void NULLC::CollectUnmarked()
+{
+	bigBlocks.for_each(CollectUnmarkedBlock);
+
+	pool8.CollectUnmarked();
+	pool16.CollectUnmarked();
+	pool32.CollectUnmarked();
+	pool64.CollectUnmarked();
+	pool128.CollectUnmarked();
+	pool256.CollectUnmarked();
+	pool512.CollectUnmarked();
+}
+
+void NULLC::FinalizePending()
+{
+	for(unsigned i = 0; i < blocksToFinalize.size(); i++)
+	{
+		Range &curr = blocksToFinalize[i];
+
+		void *block = curr.start;
+
+		markerType &marker = *(markerType*)((char*)block + 4);
+
+		// Mark block as used
+		marker |= NULLC::OBJECT_VISIBLE;
+
+		ExternTypeInfo &typeInfo = NULLC::linker->exTypes[(unsigned)marker >> 8];
+
+		char *base = (char*)block + 4;
+
+		if(marker & NULLC::OBJECT_ARRAY)
+		{
+			unsigned arrayPadding = typeInfo.defaultAlign > 4 ? typeInfo.defaultAlign : 4;
+
+			unsigned count = *(unsigned*)(base + sizeof(markerType) + arrayPadding - 4);
+
+			GC::CheckArrayElements(base + sizeof(markerType) + arrayPadding, count, typeInfo);
+		}
+		else
+		{
+			GC::CheckVariable(base + sizeof(markerType), typeInfo);
+		}
+
+		NULLC::FinalizeObject(marker, (char*)block + 4);
+	}
+
+	blocksToFinalize.clear();
+
+	pool8.FinalizePending();
+	pool16.FinalizePending();
+	pool32.FinalizePending();
+	pool64.FinalizePending();
+	pool128.FinalizePending();
+	pool256.FinalizePending();
+	pool512.FinalizePending();
+
+	// Mark new roots
+	GC::MarkPendingRoots();
+}
+
+void NULLC::FreePending()
+{
+	for(unsigned i = 0; i < blocksToFree.size(); i++)
+	{
+		Range &curr = blocksToFree[i];
+
+		void *block = curr.start;
+
+		markerType &marker = *(markerType*)((char*)block + 4);
+
+		// Check flags again, finalizers might have some objects reachable
+		if(!(marker & (NULLC::OBJECT_VISIBLE | NULLC::OBJECT_FREED)))
+		{
+			unsigned size = *(unsigned int*)block;
+
+			usedMemory -= size;
+
+			NULLC::alignedDealloc(block);
+
+			bigBlocks.erase(curr);
+		}
+	}
+
+	blocksToFree.clear();
+
+	pool8.FreePending(usedMemory);
+	pool16.FreePending(usedMemory);
+	pool32.FreePending(usedMemory);
+	pool64.FreePending(usedMemory);
+	pool128.FreePending(usedMemory);
+	pool256.FreePending(usedMemory);
+	pool512.FreePending(usedMemory);
+}
+
 bool NULLC::IsBasePointer(void* ptr)
 {
 	// Search in range of every pool
@@ -544,23 +710,21 @@ void* NULLC::GetBasePointer(void* ptr)
 	return NULL;
 }
 
-void NULLC::CollectBlock(Range& curr)
+void NULLC::CollectUnmarkedBlock(Range& curr)
 {
 	void *block = curr.start;
 
 	markerType &marker = *(markerType*)((char*)block + 4);
+
 	if(!(marker & NULLC::OBJECT_VISIBLE))
 	{
 		if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
 		{
-			NULLC::FinalizeObject(marker, (char*)block + 4);
-		}else{
-			usedMemory -= *(unsigned int*)block;
-			NULLC::alignedDealloc(block);
-
-			toErase.push_back(curr);
-
-			unusedBlocks++;
+			blocksToFinalize.push_back(curr);
+		}
+		else
+		{
+			blocksToFree.push_back(curr);
 		}
 	}
 }
@@ -575,58 +739,25 @@ void NULLC::CollectMemory()
 	if(!collectionEnabled)
 		return;
 
-//	printf("%d used memory (%d collectable cap, %d max cap)\r\n", usedMemory, collectableMinimum, globalMemoryLimit);
-
 	double time = (double(clock()) / CLOCKS_PER_SEC);
 
 	// All memory blocks are marked with 0
 	MarkMemory(0);
+
 	// Used memory blocks are marked with 1
-	MarkUsedBlocks();
+	GC::MarkUsedBlocks();
+
+	// Collect sets of objects to finalize and to potentially free
+	CollectUnmarked();
 
 	markTime += (double(clock()) / CLOCKS_PER_SEC) - time;
 	time = (double(clock()) / CLOCKS_PER_SEC);
 
-	// Globally allocated objects marked with 0 are deleted
-	unusedBlocks = 0;
+	// Ressurect objects and register finalizers
+	FinalizePending();
 
-	toErase.clear();
-
-	bigBlocks.for_each(CollectBlock);
-
-	for(unsigned i = 0; i < toErase.size(); i++)
-		bigBlocks.erase(toErase[i]);
-
-	toErase.clear();
-
-	//printf("%d unused globally allocated blocks destroyed\r\n", unusedBlocks);
-
-	//printf("%d used memory\r\n", usedMemory);
-
-	// Objects allocated from pools are freed
-	unusedBlocks = pool8.FreeMarked();
-	usedMemory -= unusedBlocks * 8;
-//	printf("%d unused pool blocks freed (8 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool16.FreeMarked();
-	usedMemory -= unusedBlocks * 16;
-//	printf("%d unused pool blocks freed (16 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool32.FreeMarked();
-	usedMemory -= unusedBlocks * 32;
-//	printf("%d unused pool blocks freed (32 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool64.FreeMarked();
-	usedMemory -= unusedBlocks * 64;
-//	printf("%d unused pool blocks freed (64 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool128.FreeMarked();
-	usedMemory -= unusedBlocks * 128;
-//	printf("%d unused pool blocks freed (128 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool256.FreeMarked();
-	usedMemory -= unusedBlocks * 256;
-//	printf("%d unused pool blocks freed (256 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool512.FreeMarked();
-	usedMemory -= unusedBlocks * 512;
-//	printf("%d unused pool blocks freed (512 bytes)\r\n", unusedBlocks);
-
-//	printf("%d used memory\r\n", usedMemory);
+	// Free memory that remains unreachable
+	FreePending();
 
 	collectTime += (double(clock()) / CLOCKS_PER_SEC) - time;
 
@@ -647,27 +778,12 @@ double NULLC::CollectTime()
 	return collectTime;
 }
 
-void NULLC::FinalizeBlock(Range& curr)
-{
-	void *block = curr.start;
-
-	markerType &marker = *(markerType*)((char*)block + 4);
-	if(!(marker & NULLC::OBJECT_VISIBLE) && (marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
-		NULLC::FinalizeObject(marker, (char*)block + 4);
-}
-
 void NULLC::FinalizeMemory()
 {
 	MarkMemory(0);
-	pool8.FreeMarked();
-	pool16.FreeMarked();
-	pool32.FreeMarked();
-	pool64.FreeMarked();
-	pool128.FreeMarked();
-	pool256.FreeMarked();
-	pool512.FreeMarked();
 
-	bigBlocks.for_each(FinalizeBlock);
+	CollectUnmarked();
+	FinalizePending();
 
 	(void)nullcRunFunction("__finalizeObjects");
 	finalizeList.clear();
@@ -695,7 +811,8 @@ void NULLC::ClearMemory()
 	bigBlocks.for_each(ClearBlock);
 	bigBlocks.clear();
 
-	toErase.clear();
+	blocksToFinalize.clear();
+	blocksToFree.clear();
 
 	finalizeList.clear();
 }
@@ -705,10 +822,13 @@ void NULLC::ResetMemory()
 	ClearMemory();
 
 	bigBlocks.reset();
-	toErase.reset();
+
+	blocksToFinalize.reset();
+	blocksToFree.reset();
 
 	finalizeList.reset();
-	ResetGC();
+
+	GC::ResetGC();
 }
 
 void NULLC::SetGlobalLimit(unsigned int limit)

@@ -262,7 +262,7 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
 	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayIndex, "[]", 0);
 
-	nullcBindModuleFunctionHelperNoMemWrite("$base$", IsPointerUnmanaged, "isStackPointer", 0);
+	nullcBindModuleFunctionHelperNoMemWrite("$base$", GC::IsPointerUnmanaged, "isStackPointer", 0);
 
 	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArray, "auto_array_impl", 0);
 	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArraySet, "auto[]::set", 0);
