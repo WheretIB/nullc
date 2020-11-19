@@ -1406,7 +1406,7 @@ nullres nullcIsStackPointer(void* ptr)
 {
 	NULLCRef r;
 	r.ptr = (char*)ptr;
-	return (nullres)IsPointerUnmanaged(r);
+	return (nullres)GC::IsPointerUnmanaged(r);
 }
 
 nullres nullcIsManagedPointer(void* ptr)
