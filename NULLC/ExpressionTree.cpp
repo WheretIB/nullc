@@ -85,13 +85,15 @@ namespace
 
 				if(code != ctx.code)
 				{
-					InplaceStr parentModule = FindModuleNameWithSourceLocation(ctx, pos);
+					ModuleData *parentModule = FindModuleWithSourceLocation(ctx, source->pos.begin);
 
-					if(!parentModule.empty())
+					if(parentModule)
 					{
-						NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), " [in module '%.*s']\n", FMT_ISTR(parentModule));
+						NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), " [in module '%.*s']\n", FMT_ISTR(parentModule->name));
 
 						ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+						ctx.errorInfo.back()->parentModule = parentModule;
 					}
 				}
 			}
