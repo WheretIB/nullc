@@ -879,6 +879,12 @@ auto m = bar;",
 	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ int bar(int a){ return 8 + y; } return foo(4); }", "ERROR: unknown identifier 'bar'");
 	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ { int bar(int a){ return 8 + y; } return foo(4); } }", "ERROR: unknown identifier 'bar'");
 
+	if(!nullcLoadModuleBySource("test.import_duplicate_a", "class Foo{ int bar; }"))
+		printf("Failed to create module test.import_duplicate_a\n");
+	if(!nullcLoadModuleBySource("test.import_duplicate_b", "class Foo{ int bar; }"))
+		printf("Failed to create module test.import_duplicate_b\n");
+	TEST_FOR_FAIL("class conflict on import", "import test.import_duplicate_a; import test.import_duplicate_b; return 1;", "ERROR: type 'Foo' in module 'test/import_duplicate_b.nc' is already defined in module 'test/import_duplicate_a.nc'");
+
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");

@@ -699,6 +699,56 @@ Node f;\r\n\
 return f.foo();";
 TEST_RESULT("Class forward declaration 4", testClassForwardDeclaration4, "12");
 
+LOAD_MODULE(test_fwd_decl_1_a, "test.fwd_decl_1_a", "class Foo; int test(Foo ref a){ return a != nullptr; } auto a1 = Foo;");
+LOAD_MODULE(test_fwd_decl_1_b, "test.fwd_decl_1_b", "class Foo{ int x = 4, y; } auto a2 = Foo;");
+const char *testClassForwardDeclarationModule1a =
+"import test.fwd_decl_1_a;\r\n\
+import test.fwd_decl_1_b;\r\n\
+\r\n\
+Foo x;\r\n\
+\r\n\
+auto a3 = Foo;\r\n\
+\r\n\
+bool t1 = a1 == a2;\r\n\
+bool t2 = a1 == a3;\r\n\
+bool t3 = a2 == a3;\r\n\
+\r\n\
+return test(x) && t1 && t2 && t3;";
+TEST_RESULT("Class forward declaration in module 1a", testClassForwardDeclarationModule1a, "1");
+
+const char *testClassForwardDeclarationModule1b =
+"import test.fwd_decl_1_b;\r\n\
+import test.fwd_decl_1_a;\r\n\
+\r\n\
+Foo x;\r\n\
+\r\n\
+auto a3 = Foo;\r\n\
+\r\n\
+bool t1 = a1 == a2;\r\n\
+bool t2 = a1 == a3;\r\n\
+bool t3 = a2 == a3;\r\n\
+\r\n\
+return test(x) && t1 && t2 && t3;";
+TEST_RESULT("Class forward declaration in module 1b", testClassForwardDeclarationModule1b, "1");
+
+LOAD_MODULE(test_fwd_decl_2_a, "test.fwd_decl_2_a", "class Foo; int test(Foo ref a){ return a != nullptr; } auto a1 = Foo;");
+LOAD_MODULE(test_fwd_decl_2_b, "test.fwd_decl_2_b", "class Foo; auto a2 = Foo;");
+const char *testClassForwardDeclarationModule2 =
+"import test.fwd_decl_2_a;\r\n\
+import test.fwd_decl_2_b;\r\n\
+class Foo{ int x; }\r\n\
+\r\n\
+Foo x;\r\n\
+\r\n\
+auto a3 = Foo;\r\n\
+\r\n\
+bool t1 = a1 == a2;\r\n\
+bool t2 = a1 == a3;\r\n\
+bool t3 = a2 == a3;\r\n\
+\r\n\
+return test(x) && t1 && t2 && t3;";
+TEST_RESULT_SIMPLE("Class forward declaration in module 2", testClassForwardDeclarationModule2, "1");
+
 const char	*testClassConstant6 =
 "class DIR{ const auto LEFT = 0, RIGHT, UP, DOWN; }\r\n\
 switch(1){ case DIR.UP: case DIR.DOWN: }\r\n\

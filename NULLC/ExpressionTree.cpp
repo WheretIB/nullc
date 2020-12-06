@@ -12066,7 +12066,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			{
 				bool duplicate = isType<TypeGenericClassProto>(prevType);
 
-				if(prevTypeClass && prevTypeClass->generics.empty())
+				if(prevTypeClass && prevTypeClass->generics.empty() && prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
 					duplicate = true;
 
 				if(duplicate)
@@ -12325,6 +12325,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						classType = forwardDeclaration;
 
 						classType->source = locationSource;
+						classType->identifier = identifier;
 						classType->scope = ctx.scope;
 						classType->extendable = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0;
 						classType->baseClass = baseType;
