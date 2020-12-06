@@ -2734,7 +2734,8 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 					diagnostic.relatedInformation.push_back(info);
 				}
 
-				diagnostics.PushBack(diagnostic.ToJson(response), response.GetAllocator());
+				if(!diagnostic.message.empty())
+					diagnostics.PushBack(diagnostic.ToJson(response), response.GetAllocator());
 			}
 
 			for(auto &&el : context->exprCtx.errorInfo)
@@ -2778,7 +2779,8 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 					diagnostic.relatedInformation.push_back(info);
 				}
 
-				diagnostics.PushBack(diagnostic.ToJson(response), response.GetAllocator());
+				if(!diagnostic.message.empty())
+					diagnostics.PushBack(diagnostic.ToJson(response), response.GetAllocator());
 			}
 		}
 	}
