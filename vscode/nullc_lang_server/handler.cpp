@@ -982,12 +982,14 @@ struct ScopedDocumentImport
 {
 	ScopedDocumentImport(Context& ctx, Document *document): ctx(ctx)
 	{
-		if(document->uri.find("file:///") == 0)
+		std::string uri = UrlDecode(document->uri.c_str());
+
+		if(uri.find("file:///") == 0)
 		{
-			auto pos = document->uri.rfind('/');
+			auto pos = uri.rfind('/');
 
 			if(pos != std::string::npos)
-				documentFolder = document->uri.substr(8, pos - 7);
+				documentFolder = uri.substr(8, pos - 7);
 		}
 
 		if(!documentFolder.empty())
