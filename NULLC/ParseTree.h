@@ -1145,6 +1145,8 @@ struct SynModule: SynBase
 	static const unsigned myTypeID = SynNode::SynModule;
 };
 
+void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode);
+
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynBase* ParseClassDefinition(ParseContext &ctx);
 SynModule* Parse(ParseContext &context, const char *code, const char *moduleRoot);

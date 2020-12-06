@@ -6079,6 +6079,8 @@ SynFunctionDefinition* GetGenericFunctionDefinition(ExpressionContext &ctx, SynB
 
 		parser->currentLexeme = function->delayedDefinition;
 
+		ImportModuleNamespaces(*parser, function->delayedDefinition, function->importModule->bytecode);
+
 		function->definition = ParseFunctionDefinition(*parser);
 
 		if(!function->definition)
@@ -12284,6 +12286,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ctx.optimizationLevel, ArrayView<InplaceStr>());
 
 					parser->currentLexeme = start;
+
+					ImportModuleNamespaces(*parser, start, importModule->bytecode);
 
 					SynClassDefinition *definition = getType<SynClassDefinition>(ParseClassDefinition(*parser));
 

@@ -898,3 +898,17 @@ namespace A\r\n\
 	return foo();\r\n\
 }";
 TEST_RESULT("namespace test 71 (local scope priority 2)", testNamespace71, "2");
+
+LOAD_MODULE(test_namespace72, "test.namespace72", "namespace detail{ int get(){ return 5; } } class Test<T>{ int test(){ return detail.get(); } }");
+const char	*testNamespace72 =
+"import test.namespace72;\r\n\
+class Foo{ int x; }\r\n\
+Test<Foo> f;\r\n\
+return f.test();";
+TEST_RESULT("namespace test 72 (generic type import parse in correct namespace)", testNamespace72, "5");
+
+LOAD_MODULE(test_namespace73, "test.namespace73", "namespace detail{ int get(){ return 5; } } auto gen(generic a){ return a + detail.get(); }");
+const char	*testNamespace73 =
+"import test.namespace73;\r\n\
+return gen(5);";
+TEST_RESULT("namespace test 73 (generic function import parse in correct namespace)", testNamespace73, "10");
