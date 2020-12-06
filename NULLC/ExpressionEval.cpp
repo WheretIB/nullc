@@ -389,6 +389,15 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(target->source, type, value, value + ptrType->subType->size);
 	}
 
+	if(TypeEnum *enumType = getType<TypeEnum>(type))
+	{
+		int value;
+		assert(type->size == sizeof(value));
+		memcpy(&value, ptr->ptr, unsigned(type->size));
+
+		return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(target->source, type, value);
+	}
+
 	ExprPointerLiteral *storage = AllocateTypeStorage(ctx, target->source, type);
 
 	if(!storage)
@@ -1329,6 +1338,18 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 			ExprFunctionLiteral *funcLiteral = getType<ExprFunctionLiteral>(value);
 
 			return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, funcLiteral->data, funcLiteral->context));
+		}
+		else if(isType<TypeInt>(expression->type) && isType<TypeEnum>(value->type))
+		{
+			ExprIntegerLiteral *intLiteral = getType<ExprIntegerLiteral>(value);
+
+			return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, intLiteral->value));
+		}
+		else if(isType<TypeEnum>(expression->type) && isType<TypeInt>(value->type))
+		{
+			ExprIntegerLiteral *intLiteral = getType<ExprIntegerLiteral>(value);
+
+			return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, intLiteral->value));
 		}
 		break;
 	}

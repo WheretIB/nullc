@@ -1153,6 +1153,18 @@ const char	*testEnumeration6 =
 return X.c + X.d;";
 TEST_RESULT("Enumeration test 6", testEnumeration6, "3");
 
+const char	*testEnumeration7 =
+"enum Test{ A, B, C, D, E }\r\n\
+int[int(Test.E)] arr;\r\n\
+return arr.size;";
+TEST_RESULT("Enumeration test 7", testEnumeration7, "4");
+
+const char	*testEnumeration8 =
+"enum Test{ A, B, C, D, E }\r\n\
+int[int(Test(20))] arr; \r\n\
+return arr.size;";
+TEST_RESULT("Enumeration test 8", testEnumeration8, "20");
+
 const char	*testMemberFunctionCallFromLocalFunctionInsideMemberFunction =
 "class Foo{}\r\n\
 auto Foo:foo(){ return 1; }\r\n\
