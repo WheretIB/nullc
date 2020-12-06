@@ -48,7 +48,7 @@ namespace memory
 	void write(char[] buffer, int offset, float[] value);
 	void write(char[] buffer, int offset, double[] value);
 
-	void copy(char[] dst, int srcOffset, char[] src, int dstOffset, int size);
+	void copy(char[] dst, int dstOffset, char[] src, int srcOffset, int size);
 	void set(char[] dst, int dstOffset, char value, int size);
 	int compare(char[] lhs, int lhsOffset, char[] rhs, int rhsOffset, int size);
 
