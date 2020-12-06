@@ -804,7 +804,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 			}
 		}
 
-		return NULL;
+		return Report(ctx, "ERROR: failed to eval binary op");
 	}
 
 	ExprBase *rhs = Evaluate(ctx, unevaluatedRhs);
