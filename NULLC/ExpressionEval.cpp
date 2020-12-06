@@ -462,7 +462,7 @@ ExprMemoryLiteral* CreateConstruct(ExpressionEvalContext &ctx, TypeBase *type, E
 	return memory;
 }
 
-ExprPointerLiteral* FindVariableStorage(ExpressionEvalContext &ctx, VariableData *data)
+ExprPointerLiteral* FindVariableStorage(ExpressionEvalContext &ctx, VariableData *data, bool skipMissing)
 {
 	if(ctx.stackFrames.empty())
 		return (ExprPointerLiteral*)Report(ctx, "ERROR: no stack frame");
@@ -490,6 +490,9 @@ ExprPointerLiteral* FindVariableStorage(ExpressionEvalContext &ctx, VariableData
 
 	if(data->importModule != NULL)
 		return (ExprPointerLiteral*)Report(ctx, "ERROR: can't access external variable '%.*s'", FMT_ISTR(data->name->name));
+
+	if(skipMissing)
+		return NULL;
 
 	return (ExprPointerLiteral*)Report(ctx, "ERROR: variable '%.*s' not found", FMT_ISTR(data->name->name));
 }
@@ -1459,7 +1462,7 @@ ExprBase* EvaluateGetAddress(ExpressionEvalContext &ctx, ExprGetAddress *express
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->variable->variable);
+	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->variable->variable, false);
 
 	if(!ptr)
 		return NULL;
@@ -1727,7 +1730,7 @@ ExprBase* EvaluateVariableDefinition(ExpressionEvalContext &ctx, ExprVariableDef
 
 	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
-	if(FindVariableStorage(ctx, expression->variable->variable) == NULL)
+	if(FindVariableStorage(ctx, expression->variable->variable, true) == NULL)
 	{
 		TypeBase *type = expression->variable->variable->type;
 
@@ -1837,7 +1840,7 @@ ExprBase* EvaluateVariableAccess(ExpressionEvalContext &ctx, ExprVariableAccess 
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->variable);
+	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->variable, false);
 
 	if(!ptr)
 		return NULL;
@@ -1858,7 +1861,7 @@ ExprBase* EvaluateFunctionContextAccess(ExpressionEvalContext &ctx, ExprFunction
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->contextVariable);
+	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->contextVariable, false);
 
 	if(!ptr)
 		return NULL;
