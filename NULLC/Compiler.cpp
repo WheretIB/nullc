@@ -1085,8 +1085,14 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				target.definitionLocationStart = unsigned(typeClass->source->begin - sourceStreamStart);
 				target.definitionLocationEnd = unsigned(typeClass->source->end - sourceStreamStart);
 
+				assert(target.definitionLocationStart < sourceStreamSize);
+				assert(target.definitionLocationEnd < sourceStreamSize);
+
 				if(typeClass->identifier.begin)
+				{
 					target.definitionLocationName = unsigned(typeClass->identifier.begin - sourceStreamStart);
+					assert(target.definitionLocationName < sourceStreamSize);
+				}
 			}
 		}
 		else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
@@ -1096,8 +1102,14 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				target.definitionLocationStart = unsigned(typeEnum->source->begin - sourceStreamStart);
 				target.definitionLocationEnd = unsigned(typeEnum->source->end - sourceStreamStart);
 
+				assert(target.definitionLocationStart < sourceStreamSize);
+				assert(target.definitionLocationEnd < sourceStreamSize);
+
 				if(typeEnum->identifier.begin)
+				{
 					target.definitionLocationName = unsigned(typeEnum->identifier.begin - sourceStreamStart);
+					assert(target.definitionLocationName < sourceStreamSize);
+				}
 			}
 		}
 		else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
@@ -1107,8 +1119,14 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				target.definitionLocationStart = unsigned(typeGenericClassProto->source->begin - sourceStreamStart);
 				target.definitionLocationEnd = unsigned(typeGenericClassProto->source->end - sourceStreamStart);
 
+				assert(target.definitionLocationStart < sourceStreamSize);
+				assert(target.definitionLocationEnd < sourceStreamSize);
+
 				if(typeGenericClassProto->identifier.begin)
+				{
 					target.definitionLocationName = unsigned(typeGenericClassProto->identifier.begin - sourceStreamStart);
+					assert(target.definitionLocationName < sourceStreamSize);
+				}
 			}
 		}
 
@@ -1473,7 +1491,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		funcInfo.builtinIndex = 0;
 		funcInfo.attributes = function->attributes;
 
-		// Only functions in global or namesapce scope remain visible
+		// Only functions in global or namespace scope remain visible
 		funcInfo.isVisible = (function->scope == ctx.exprCtx.globalScope || function->scope->ownerNamespace) && !function->isHidden;
 
 		funcInfo.nameHash = function->nameHash;
@@ -1495,8 +1513,14 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			funcInfo.definitionLocationStart = unsigned(function->source->begin - sourceStreamStart);
 			funcInfo.definitionLocationEnd = unsigned(function->source->end - sourceStreamStart);
 
+			assert(funcInfo.definitionLocationStart < sourceStreamSize);
+			assert(funcInfo.definitionLocationEnd < sourceStreamSize);
+
 			if(function->name->begin)
+			{
 				funcInfo.definitionLocationName = unsigned(function->name->begin - sourceStreamStart);
+				assert(funcInfo.definitionLocationName < sourceStreamSize);
+			}
 		}
 
 		if(ScopeData *scope = ctx.exprCtx.NamespaceScopeFrom(function->scope))
