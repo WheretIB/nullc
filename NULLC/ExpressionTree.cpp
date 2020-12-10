@@ -10861,7 +10861,9 @@ ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 	if(type == ctx.typeAuto)
 		Stop(ctx, syntax, "ERROR: can't alias 'auto' type");
 
-	AliasData *alias = new (ctx.get<AliasData>()) AliasData(syntax, ctx.scope, type, syntax->alias, ctx.uniqueAliasId++);
+	InplaceStr aliasName = GetTypeNameInScope(ctx, ctx.scope, syntax->alias->name);
+
+	AliasData *alias = new (ctx.get<AliasData>()) AliasData(syntax, ctx.scope, type, new (ctx.get<SynIdentifier>()) SynIdentifier(syntax->alias, aliasName), ctx.uniqueAliasId++);
 
 	ctx.AddAlias(alias);
 

@@ -912,3 +912,24 @@ const char	*testNamespace73 =
 "import test.namespace73;\r\n\
 return gen(5);";
 TEST_RESULT("namespace test 73 (generic function import parse in correct namespace)", testNamespace73, "10");
+
+const char	*testNamespace74 =
+"namespace Test{ typedef int X; X a = 100; }\r\n\
+\r\n\
+Test.X b = 20;\r\n\
+\r\n\
+namespace Test{ X c = 3; }\r\n\
+\r\n\
+return Test.a + b + Test.c;";
+TEST_RESULT("namespace test 74 (alias definition in a namespace)", testNamespace74, "123");
+
+LOAD_MODULE(test_namespace75, "test.namespace75", "namespace Test{ typedef int X; X a = 100; }");
+const char	*testNamespace75 =
+"import test.namespace75;\r\n\
+\r\n\
+Test.X b = 20;\r\n\
+\r\n\
+namespace Test{ X c = 3; }\r\n\
+\r\n\
+return Test.a + b + Test.c;";
+TEST_RESULT("namespace test 75 (alias definition in a namespace with import)", testNamespace75, "123");
