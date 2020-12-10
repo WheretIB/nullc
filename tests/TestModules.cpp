@@ -290,4 +290,11 @@ LOAD_MODULE(test_deep_nestring_p, "test.deep_nestring_p", "import test.deep_nest
 const char	*testDeepModuleNesting =
 "import test.deep_nestring_p;\r\n\
 return a0(\"hi\")(5)[1] == 'i';";
-TEST_RESULT("Deep nesint modules", testDeepModuleNesting, "1");
+TEST_RESULT("Deep nesting modules", testDeepModuleNesting, "1");
+
+LOAD_MODULE(test_local_function_visibility, "test.local_function_visibility", "int f1(){ auto n1(int x){ return -x; } return n1(10); }");
+const char	*testLocalFunctionVisibility =
+"import test.local_function_visibility;\r\n\
+int f2(){ auto n1(int x){ return x * 100; } return n1(4); }\r\n\
+return f1() + f2();";
+TEST_RESULT("Visiblity of imported local function", testLocalFunctionVisibility, "390");

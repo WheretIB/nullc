@@ -1534,7 +1534,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			funcInfo.funcCat = ExternFuncInfo::THISCALL;
 		else if(function->coroutine)
 			funcInfo.funcCat = ExternFuncInfo::COROUTINE;
-		else if(function->isHidden)
+		else if(!funcInfo.isVisible)
 			funcInfo.funcCat = ExternFuncInfo::LOCAL;
 
 		funcInfo.isGenericInstance = ctx.exprCtx.IsGenericInstance(function);
