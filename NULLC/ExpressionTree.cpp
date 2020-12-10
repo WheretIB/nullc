@@ -11983,6 +11983,19 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 	{
 		ExternNamespaceInfo &namespaceData = namespaceList[i];
 
+		unsigned nameHash = InplaceStr(symbols + namespaceData.offsetToName).hash();
+
+		NamespaceData *prev = NULL;
+
+		for(unsigned k = 0; k < ctx.namespaces.size(); k++)
+		{
+			if(ctx.namespaces[k]->nameHash == nameHash)
+			{
+				prev = ctx.namespaces[k];
+				break;
+			}
+		}
+
 		NamespaceData *parent = NULL;
 
 		if(namespaceData.parentHash != ~0u)
@@ -11999,6 +12012,9 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 			if(!parent)
 				Stop(ctx, source, "ERROR: namespace %s parent not found", symbols + namespaceData.offsetToName);
 		}
+
+		if(prev && prev->parent == parent)
+			continue;
 
 		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, source, ctx.scope, parent, SynIdentifier(InplaceStr(symbols + namespaceData.offsetToName)), ctx.uniqueNamespaceId++);
 
