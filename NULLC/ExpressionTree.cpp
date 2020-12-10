@@ -12086,6 +12086,18 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			}
 		}
 
+		// Skip internal types if we already imported that module
+		if(type.typeFlags & ExternTypeInfo::TYPE_IS_INTERNAL)
+		{
+			if(TypeBase **prev = ctx.internalTypeMap.find(TypeModulePair(typeName, importModule)))
+			{
+				moduleCtx.types[i] = *prev;
+
+				currentConstant += type.constantCount;
+				continue;
+			}
+		}
+
 		switch(type.subCat)
 		{
 		case ExternTypeInfo::CAT_NONE:
@@ -12264,7 +12276,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 							classType->completed = true;
 
 						if(type.typeFlags & ExternTypeInfo::TYPE_IS_INTERNAL)
+						{
 							classType->isInternal = true;
+
+							ctx.internalTypeMap.insert(TypeModulePair(typeName, importModule), classType);
+						}
 
 						importedType = classType;
 
@@ -12339,7 +12355,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						classType->completed = true;
 
 					if(type.typeFlags & ExternTypeInfo::TYPE_IS_INTERNAL)
+					{
 						classType->isInternal = true;
+
+						ctx.internalTypeMap.insert(TypeModulePair(typeName, importModule), classType);
+					}
 
 					importedType = classType;
 

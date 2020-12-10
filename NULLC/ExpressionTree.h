@@ -178,6 +178,38 @@ struct TypePairHasher
 	}
 };
 
+struct TypeModulePair
+{
+	TypeModulePair(): importModule(NULL)
+	{
+	}
+
+	TypeModulePair(InplaceStr typeName, ModuleData *importModule): typeName(typeName), importModule(importModule)
+	{
+	}
+
+	bool operator==(const TypeModulePair& rhs) const
+	{
+		return typeName == rhs.typeName && importModule == rhs.importModule;
+	}
+
+	bool operator!=(const TypeModulePair& rhs) const
+	{
+		return typeName != rhs.typeName || importModule != rhs.importModule;
+	}
+
+	InplaceStr typeName;
+	ModuleData *importModule;
+};
+
+struct TypeModulePairHasher
+{
+	unsigned operator()(const TypeModulePair& key)
+	{
+		return key.typeName.hash() + key.importModule->name.hash();
+	}
+};
+
 struct FunctionTypeRequest
 {
 	FunctionTypeRequest(): returnType(NULL), hash(0)
@@ -342,6 +374,7 @@ struct ExpressionContext
 	SmallArray<NamespaceData*, 2> globalNamespaces;
 	IntrusiveList<CloseUpvaluesData> globalCloseUpvalues;
 
+	SmallDenseMap<TypeModulePair, TypeBase*, TypeModulePairHasher, 32> internalTypeMap;
 	SmallDenseMap<FunctionTypeRequest, TypeFunction*, FunctionTypeRequestHasher, 32> functionTypeMap;
 
 	unsigned functionInstanceDepth;
