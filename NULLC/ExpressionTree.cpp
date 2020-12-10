@@ -1743,28 +1743,8 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 		assert(curr->type != typeAuto);
 	}
 
-	for(unsigned i = 0, e = functionTypes.count; i < e; i++)
-	{
-		if(TypeFunction *type = functionTypes.data[i])
-		{
-			if(type->returnType != returnType)
-				continue;
-
-			TypeHandle *leftArg = type->arguments.head;
-			TypeHandle *rightArg = arguments.head;
-
-			while(leftArg && rightArg && leftArg->type == rightArg->type)
-			{
-				leftArg = leftArg->next;
-				rightArg = rightArg->next;
-			}
-
-			if(leftArg != rightArg)
-				continue;
-
-			return type;
-		}
-	}
+	if(TypeFunction **prev = functionTypeMap.find(FunctionTypeRequest(returnType, arguments)))
+		return *prev;
 
 	// Create new type
 	TypeFunction* result = new (get<TypeFunction>()) TypeFunction(GetFunctionTypeName(*this, returnType, arguments), returnType, arguments);
@@ -1776,6 +1756,8 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 
 	functionTypes.push_back(result);
 	types.push_back(result);
+
+	functionTypeMap.insert(FunctionTypeRequest(returnType, arguments), result);
 
 	return result;
 }
