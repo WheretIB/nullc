@@ -105,7 +105,6 @@ struct ModuleData
 	ModuleData(SynBase *source, InplaceStr name): source(source), name(name)
 	{
 		importIndex = 0;
-		dependencyIndex = 0;
 
 		bytecode = NULL;
 
@@ -116,8 +115,6 @@ struct ModuleData
 		startingFunctionIndex = 0;
 		importedFunctionCount = 0;
 		moduleFunctionCount = 0;
-
-		startingDependencyIndex = 0;
 	}
 
 	SynBase *source;
@@ -125,7 +122,6 @@ struct ModuleData
 	InplaceStr name;
 
 	unsigned importIndex;
-	unsigned dependencyIndex;
 
 	ByteCode* bytecode;
 
@@ -136,8 +132,6 @@ struct ModuleData
 	unsigned startingFunctionIndex;
 	unsigned importedFunctionCount;
 	unsigned moduleFunctionCount;
-
-	unsigned startingDependencyIndex;
 };
 
 struct NamespaceData

@@ -41,7 +41,6 @@ public:
 	FastVector<ExternModuleInfo>	exModules;
 	FastVector<char>				exSymbols;
 	FastVector<char>				exSource;
-	FastVector<unsigned int>		exDependencies;
 	FastVector<char>				exImportPaths;
 	FastVector<char>				exMainModuleName;
 

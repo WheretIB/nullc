@@ -368,9 +368,6 @@ namespace nullc_debugger_component
             public int sourceOffset;
             public int sourceSize;
 
-            public uint dependencyStart;
-            public uint dependencyCount;
-
             public void ReadFrom(BinaryReader reader)
             {
                 nameHash = reader.ReadUInt32();
@@ -383,9 +380,6 @@ namespace nullc_debugger_component
 
                 sourceOffset = reader.ReadInt32();
                 sourceSize = reader.ReadInt32();
-
-                dependencyStart = reader.ReadUInt32();
-                dependencyCount = reader.ReadUInt32();
             }
         }
         enum NullcInstructionCode

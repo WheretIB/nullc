@@ -330,7 +330,6 @@ struct ExpressionContext
 
 	const char *moduleRoot;
 
-	SmallArray<ModuleData*, 128> dependencies;
 	SmallArray<ModuleData*, 128> uniqueDependencies;
 	SmallArray<ModuleData*, 128> imports;
 	SmallArray<ModuleData*, 128> implicitImports;

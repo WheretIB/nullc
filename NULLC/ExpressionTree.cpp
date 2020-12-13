@@ -896,7 +896,6 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 
 	baseModuleFunctionCount = 0;
 
-	dependencies.set_allocator(allocator);
 	uniqueDependencies.set_allocator(allocator);
 	imports.set_allocator(allocator);
 	implicitImports.set_allocator(allocator);
@@ -11854,18 +11853,15 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 struct ModuleContext
 {
-	ModuleContext(Allocator *allocator): types(allocator)
+	ModuleContext(Allocator *allocator): dependencies(allocator), types(allocator)
 	{
 		data = NULL;
-
-		dependencyDepth = 1;
 	}
 
+	SmallArray<ModuleData*, 32> dependencies;
 	SmallArray<TypeBase*, 32> types;
 
 	ModuleData *data;
-
-	unsigned dependencyDepth;
 };
 
 void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, ByteCode *moduleBytecode)
@@ -11890,13 +11886,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 			if(uniqueModuleData->name == InplaceStr(moduleFileName))
 			{
-				ctx.dependencies.push_back(uniqueModuleData);
-
-				moduleCtx.dependencyDepth++;
-
-				ImportModuleDependencies(ctx, source, moduleCtx, uniqueModuleData->bytecode);
-
-				moduleCtx.dependencyDepth--;
+				moduleCtx.dependencies.push_back(uniqueModuleData);
 
 				duplicate = true;
 				break;
@@ -11914,18 +11904,11 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 		unsigned lexStreamSize = 0;
 		Lexeme *lexStream = BinaryCache::FindLexems(moduleFileName, false, lexStreamSize);
 
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-		for(unsigned k = 0; k < moduleCtx.dependencyDepth; k++)
-			printf("  ");
-		printf("  importing module %s as dependency #%d\n", moduleFileName, ctx.dependencies.size() + 1);
-#endif
-
 		ModuleData *moduleData = new (ctx.get<ModuleData>()) ModuleData(source, InplaceStr(moduleFileName));
 
-		ctx.uniqueDependencies.push_back(moduleData);
+		moduleCtx.dependencies.push_back(moduleData);
 
-		ctx.dependencies.push_back(moduleData);
-		moduleData->dependencyIndex = ctx.dependencies.size();
+		ctx.uniqueDependencies.push_back(moduleData);
 
 		moduleData->bytecode = (ByteCode*)bytecode;
 
@@ -11942,12 +11925,6 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		moduleData->lexStream = lexStream;
 		moduleData->lexStreamSize = lexStreamSize;
-
-		moduleCtx.dependencyDepth++;
-
-		ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode);
-
-		moduleCtx.dependencyDepth--;
 	}
 }
 
@@ -12049,7 +12026,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		ModuleData *importModule = moduleCtx.data;
 
 		if(type.definitionModule != 0)
-			importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + type.definitionModule - 1];
+			importModule = moduleCtx.dependencies[type.definitionModule - 1];
 
 		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
 
@@ -12758,7 +12735,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		ModuleData *importModule = moduleCtx.data;
 
 		if(function.definitionModule != 0)
-			importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + function.definitionModule - 1];
+			importModule = moduleCtx.dependencies[function.definitionModule - 1];
 
 		assert(function.definitionLocationStart < importModule->lexStreamSize);
 		assert(function.definitionLocationEnd < importModule->lexStreamSize);
@@ -12918,10 +12895,6 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 {
 	TRACE_SCOPE("analyze", "ImportModule");
 
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-	printf("  importing module %.*s (import #%d) as dependency #%d\n", FMT_ISTR(name), ctx.imports.size() + 1, ctx.dependencies.size() + 1);
-#endif
-
 	assert(bytecode);
 
 	assert(*name.end == 0);
@@ -12948,9 +12921,6 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	if(!duplicate)
 		ctx.uniqueDependencies.push_back(moduleData);
 
-	ctx.dependencies.push_back(moduleData);
-	moduleData->dependencyIndex = ctx.dependencies.size();
-
 	moduleData->bytecode = bytecode;
 
 	if(!lexStream)
@@ -12970,8 +12940,6 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	moduleData->lexStreamSize = lexStreamSize;
 
 	moduleData->startingFunctionIndex = ctx.functions.size();
-
-	moduleData->startingDependencyIndex = ctx.dependencies.size();
 
 	ModuleContext moduleCtx(ctx.allocator);
 

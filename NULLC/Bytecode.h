@@ -207,9 +207,6 @@ struct ExternModuleInfo
 
 	unsigned int	sourceOffset;
 	unsigned int	sourceSize;
-
-	unsigned int	dependencyStart;
-	unsigned int	dependencyCount;
 };
 
 struct ExternMemberInfo

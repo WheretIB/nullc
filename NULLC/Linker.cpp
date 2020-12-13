@@ -74,7 +74,6 @@ void Linker::CleanCode()
 	exLocals.clear();
 	exModules.clear();
 	exSource.clear();
-	exDependencies.clear();
 	exImportPaths.clear();
 	exMainModuleName.clear();
 
@@ -125,13 +124,11 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 {
 	linkError[0] = 0;
 
-	unsigned dependeciesBase = exDependencies.size();
-
 #ifdef VERBOSE_DEBUG_OUTPUT
 	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 		printf("  ");
 
-	printf("Linking %s (dependencies base %u).\r\n", moduleName ? moduleName : "(unnamed)", dependeciesBase);
+	printf("Linking %s\r\n", moduleName ? moduleName : "(unnamed)");
 #endif
 
 	debugOutputIndent++;
@@ -194,9 +191,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 				bytecode = BinaryCache::FindBytecode(nestedModuleFileName, false);
 			}
 
-			unsigned dependencySlot = exDependencies.size();
-			exDependencies.push_back(~0u);
-
 			// last module is not imported
 			if(strcmp(path, "__last.nc") != 0)
 			{
@@ -219,15 +213,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 				}
 			}
 
-#ifdef VERBOSE_DEBUG_OUTPUT
-			for(unsigned indent = 0; indent < debugOutputIndent; indent++)
-				printf("  ");
-
-			printf("Linking dependency %d to module %d (%s) (%d dependencies).\r\n", dependencySlot, exModules.size(), path, exDependencies.size() - dependencySlot);
-#endif
-
-			exDependencies[dependencySlot] = exModules.size();
-
 			exModules.push_back(*mInfo);
 			exModules.back().nameOffset = 0;
 			exModules.back().nameHash = NULLC::GetStringHash(path);
@@ -236,9 +221,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 			exModules.back().sourceOffset = exSource.size() - ((ByteCode*)bytecode)->sourceSize;
 			exModules.back().sourceSize = ((ByteCode*)bytecode)->sourceSize;
 
-			exModules.back().dependencyStart = dependencySlot;
-			exModules.back().dependencyCount = exDependencies.size() - dependencySlot;
-
 #ifdef VERBOSE_DEBUG_OUTPUT
 			for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 				printf("  ");
@@ -246,24 +228,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 			printf("Module %s variables are found at %d (size is %d).\r\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
 #endif
 			loadedId = exModules.size() - 1;
-		}
-		else
-		{
-			ExternModuleInfo &prevData = exModules[loadedId];
-
-			for(unsigned k = 0; k < prevData.dependencyCount; k++)
-			{
-				unsigned targetModuleIndex = exDependencies[prevData.dependencyStart + k];
-
-#ifdef VERBOSE_DEBUG_OUTPUT
-				for(unsigned indent = 0; indent < debugOutputIndent; indent++)
-					printf("  ");
-
-				printf("Linking dependency %d to module %d (%s) (%d dependencies) [skip].\r\n", exDependencies.size(), targetModuleIndex, exSymbols.data + exModules[targetModuleIndex].nameOffset, exModules[targetModuleIndex].dependencyCount);
-#endif
-
-				exDependencies.push_back(targetModuleIndex);
-			}
 		}
 
 		moduleFuncCount += mInfo->funcCount;
@@ -361,16 +325,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
 	memcpy(&exSymbols[oldSymbolSize], FindSymbols(bCode), bCode->symbolLength);
 	const char *symbolInfo = FindSymbols(bCode);
-
-#ifdef VERBOSE_DEBUG_OUTPUT
-	for(unsigned i = dependeciesBase; i < exDependencies.size(); i++)
-	{
-		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
-			printf("  ");
-
-		printf("Dependency %d target is module %d (%s)\r\n", i - dependeciesBase, exDependencies[i], exSymbols.data + exModules[exDependencies[i]].nameOffset);
-	}
-#endif
 
 	// Create type map for fast searches
 	typeMap.clear();
@@ -539,7 +493,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 		sourceInfo.instruction += oldRegVmCodeSize;
 
 		if(sourceInfo.definitionModule)
-			sourceInfo.sourceOffset += exModules[exDependencies[dependeciesBase + sourceInfo.definitionModule - 1]].sourceOffset;
+			sourceInfo.sourceOffset += exModules[moduleRemap[sourceInfo.definitionModule - 1]].sourceOffset;
 		else
 			sourceInfo.sourceOffset += oldSourceSize;
 	}
@@ -1073,7 +1027,6 @@ void Linker::CollectDebugInfo(FastVector<unsigned char*> *instAddress)
 	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exModules);
 	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exSymbols);
 	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exSource);
-	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exDependencies);
 	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exImportPaths);
 	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exMainModuleName);
 	nullcModuleBytecodeSize += sizeof(unsigned) + NULLC::GetArrayDataSize(exRegVmCode);
@@ -1102,7 +1055,6 @@ void Linker::CollectDebugInfo(FastVector<unsigned char*> *instAddress)
 	pos += NULLC::WriteArraySizeAndData(pos, exModules);
 	pos += NULLC::WriteArraySizeAndData(pos, exSymbols);
 	pos += NULLC::WriteArraySizeAndData(pos, exSource);
-	pos += NULLC::WriteArraySizeAndData(pos, exDependencies);
 	pos += NULLC::WriteArraySizeAndData(pos, exImportPaths);
 	pos += NULLC::WriteArraySizeAndData(pos, exMainModuleName);
 	pos += NULLC::WriteArraySizeAndData(pos, exRegVmCode);

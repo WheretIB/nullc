@@ -1067,9 +1067,20 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		target.pointerCount = type->hasPointers ? 1 : 0;
 
 		if(ModuleData *moduleData = type->importModule)
-			target.definitionModule = moduleData->dependencyIndex;
+		{
+			for(unsigned i = 0; i < ctx.exprCtx.imports.size(); i++)
+			{
+				if(ctx.exprCtx.imports[i]->name == moduleData->name)
+				{
+					target.definitionModule = i + 1;
+					break;
+				}
+			}
+		}
 		else
+		{
 			target.definitionModule = 0;
+		}
 
 		target.definitionLocationStart = 0;
 		target.definitionLocationEnd = 0;
@@ -1497,9 +1508,20 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		funcInfo.nameHash = function->nameHash;
 
 		if(ModuleData *moduleData = function->importModule)
-			funcInfo.definitionModule = moduleData->dependencyIndex;
+		{
+			for(unsigned i = 0; i < ctx.exprCtx.imports.size(); i++)
+			{
+				if(ctx.exprCtx.imports[i]->name == moduleData->name)
+				{
+					funcInfo.definitionModule = i + 1;
+					break;
+				}
+			}
+		}
 		else
+		{
 			funcInfo.definitionModule = 0;
+		}
 
 		funcInfo.definitionLocationStart = 0;
 		funcInfo.definitionLocationEnd = 0;
@@ -1777,7 +1799,15 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 				assert(location->pos.begin >= code && location->pos.begin < code + importModule->bytecode->sourceSize);
 
-				info.definitionModule = importModule->dependencyIndex;
+				for(unsigned i = 0; i < ctx.exprCtx.imports.size(); i++)
+				{
+					if(ctx.exprCtx.imports[i]->name == importModule->name)
+					{
+						info.definitionModule = i + 1;
+						break;
+					}
+				}
+
 				info.sourceOffset = unsigned(location->begin->pos - code);
 
 				regVmInfoArray.push_back(info);
