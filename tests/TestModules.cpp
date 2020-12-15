@@ -298,3 +298,21 @@ const char	*testLocalFunctionVisibility =
 int f2(){ auto n1(int x){ return x * 100; } return n1(4); }\r\n\
 return f1() + f2();";
 TEST_RESULT("Visiblity of imported local function", testLocalFunctionVisibility, "390");
+
+LOAD_MODULE(test_class_member_alignment1, "test.class_member_alignment1", "class Test extendable{ bool a; float b; } float x(Test ref a){ return a.b; }");
+const char	*testClassMemberAlignmentImport1 =
+"import test.class_member_alignment1;\r\n\
+class Test2 : Test{ int c; }\r\n\
+Test2 b;\r\n\
+b.b = 123456789;\r\n\
+return int(x(&b) - b.b);";
+TEST_RESULT("Import of class member alignment value 1", testClassMemberAlignmentImport1, "0");
+
+LOAD_MODULE(test_class_member_alignment2, "test.class_member_alignment2", "class Test extendable{ bool a; align(16) float b; } float x(Test ref a){ return a.b; }");
+const char	*testClassMemberAlignmentImport2 =
+"import test.class_member_alignment2;\r\n\
+class Test2 : Test{ int c; }\r\n\
+Test2 b;\r\n\
+b.b = 123456789;\r\n\
+return int(x(&b) - b.b);";
+TEST_RESULT("Import of class member alignment value 2", testClassMemberAlignmentImport2, "0");

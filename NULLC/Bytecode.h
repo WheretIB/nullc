@@ -212,6 +212,7 @@ struct ExternModuleInfo
 struct ExternMemberInfo
 {
 	unsigned int	type;
+	unsigned int	alignment;
 	unsigned int	offset;
 };
 

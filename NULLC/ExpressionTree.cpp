@@ -12414,12 +12414,14 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						memberNames = memberName.end + 1;
 
-						TypeBase *memberType = moduleCtx.types[memberList[type.memberOffset + n].type];
+						ExternMemberInfo &memberInfo = memberList[type.memberOffset + n];
+
+						TypeBase *memberType = moduleCtx.types[memberInfo.type];
 
 						if(!memberType)
 							Stop(ctx, source, "ERROR: can't find member %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
-						VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, memberType, memberNameIdentifier, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+						VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, memberInfo.alignment, memberType, memberNameIdentifier, memberInfo.offset, ctx.uniqueVariableId++);
 
 						structType->members.push_back(new (ctx.get<MemberHandle>()) MemberHandle(source, member, NULL));
 					}

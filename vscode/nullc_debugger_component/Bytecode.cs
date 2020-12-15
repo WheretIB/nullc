@@ -143,11 +143,13 @@ namespace nullc_debugger_component
             public string name;
 
             public uint type;
+            public uint alignment;
             public uint offset;
 
             public void ReadFrom(BinaryReader reader)
             {
                 type = reader.ReadUInt32();
+                alignment = reader.ReadUInt32();
                 offset = reader.ReadUInt32();
             }
         }

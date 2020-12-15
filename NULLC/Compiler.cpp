@@ -1163,6 +1163,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			ExternMemberInfo &member = memberList.push_back();
 
 			member.type = typeFunction->returnType->typeIndex;
+			member.alignment = 0;
 			member.offset = 0;
 
 			for(TypeHandle *curr = typeFunction->arguments.head; curr; curr = curr->next)
@@ -1170,6 +1171,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				ExternMemberInfo &member = memberList.push_back();
 
 				member.type = curr->type->typeIndex;
+				member.alignment = 0;
 				member.offset = 0;
 			}
 		}
@@ -1250,6 +1252,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				ExternMemberInfo &member = memberList.push_back();
 
 				member.type = curr->variable->type->typeIndex;
+				member.alignment = curr->variable->alignment;
 				member.offset = curr->variable->offset;
 
 				debugSymbols.push_back(curr->variable->name->name.begin, curr->variable->name->name.length());
@@ -1296,6 +1299,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 					ExternMemberInfo &member = memberList.push_back();
 
 					member.type = curr->variable->type->typeIndex;
+					member.alignment = curr->variable->alignment;
 					member.offset = curr->variable->offset;
 				}
 			}
