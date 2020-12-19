@@ -128,7 +128,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 		printf("  ");
 
-	printf("Linking %s\r\n", moduleName ? moduleName : "(unnamed)");
+	printf("Linking %s\n", moduleName ? moduleName : "(unnamed)");
 #endif
 
 	debugOutputIndent++;
@@ -225,7 +225,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 			for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 				printf("  ");
 
-			printf("Module %s variables are found at %d (size is %d).\r\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
+			printf("Module %s variables are found at %d (size is %d).\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
 #endif
 			loadedId = exModules.size() - 1;
 		}
@@ -238,7 +238,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 		printf("  ");
 
-	printf("Function remap table is extended to %d functions (%d modules, %d new)\r\n", bCode->functionCount, moduleFuncCount, bCode->functionCount - moduleFuncCount);
+	printf("Function remap table is extended to %d functions (%d modules, %d new)\n", bCode->functionCount, moduleFuncCount, bCode->functionCount - moduleFuncCount);
 #endif
 
 	funcRemap.resize(bCode->functionCount);
@@ -313,7 +313,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 			printf("  ");
 
-		printf("Module %d (%s) is found at index %d.\r\n", i, path, loadedId);
+		printf("Module %d (%s) is found at index %d.\n", i, path, loadedId);
 #endif
 
 		mInfo++;
@@ -413,7 +413,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 		printf("  ");
 
-	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);
+	printf("Global variable size is %d, starting from %d.\n", bCode->globalVarSize, globalVarSize);
 #endif
 
 	unsigned int oldGlobalSize = globalVarSize;
@@ -433,7 +433,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
 			printf("  ");
 
-		printf("Variable %s %s at %d\r\n", &exSymbols[0] + exTypes[exVariables.back().type].offsetToName, &exSymbols[0] + exVariables.back().offsetToName, exVariables.back().offset);
+		printf("Variable %s %s at %d\n", &exSymbols[0] + exTypes[exVariables.back().type].offsetToName, &exSymbols[0] + exVariables.back().offsetToName, exVariables.back().offset);
 #endif
 		vInfo++;
 	}
@@ -595,7 +595,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 					exFunctionExplicitTypes.push_back(typeRemap[explicitInfoStart[k].type]);
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
-				printf("Rebind function %3d %-20s (to address %4d [external %p] function %3d)\r\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr, index);
+				printf("Rebind function %3d %-20s (to address %4d [external %p] function %3d)\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr, index);
 #endif
 				continue;
 			}else{
@@ -669,7 +669,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 			}
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
-			printf("Adding function %3d %-20s (at address %4d [external %p])\r\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
+			printf("Adding function %3d %-20s (at address %4d [external %p])\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
 #endif
 		}
 	}
@@ -850,7 +850,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 	if(rootModule)
 	{
 		unsigned int size = 0;
-		printf("Data managed by linker.\r\n");
+		printf("Data managed by linker.\n");
 		printf("Types: %ub, ", exTypes.size() * (unsigned)sizeof(ExternTypeInfo));
 		size += exTypes.size() * sizeof(ExternTypeInfo);
 		printf("Variables: %ub, ", exVariables.size() * (unsigned)sizeof(ExternVarInfo));
@@ -861,7 +861,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 		size += exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned);
 		printf("Function explicit types: %ub, ", exFunctionExplicitTypes.size() * (unsigned)sizeof(unsigned));
 		size += exFunctionExplicitTypes.size() * sizeof(unsigned);
-		printf("Reg VM Code: %ub\r\n", exRegVmCode.size() * (unsigned)sizeof(RegVmCmd));
+		printf("Reg VM Code: %ub\n", exRegVmCode.size() * (unsigned)sizeof(RegVmCmd));
 		size += exRegVmCode.size() * sizeof(RegVmCmd);
 		printf("Symbols: %ub, ", exSymbols.size() * (unsigned)sizeof(char));
 		size += exSymbols.size() * sizeof(char);
@@ -871,9 +871,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 		size += exModules.size() * sizeof(ExternModuleInfo);
 		printf("Source info: %ub, ", exRegVmSourceInfo.size() * (unsigned)sizeof(ExternSourceInfo));
 		size += exRegVmSourceInfo.size() * sizeof(ExternSourceInfo);
-		printf("Source: %ub\r\n", exSource.size() * (unsigned)sizeof(char));
+		printf("Source: %ub\n", exSource.size() * (unsigned)sizeof(char));
 		size += exSource.size() * sizeof(char);
-		printf("Overall: %u bytes\r\n\r\n", size);
+		printf("Overall: %u bytes\n\n", size);
 	}
 #endif
 

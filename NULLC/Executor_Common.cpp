@@ -735,7 +735,7 @@ namespace GC
 
 		if(marker & OBJECT_FREED)
 		{
-			GC_DEBUG_PRINT(" freed]\r\n");
+			GC_DEBUG_PRINT(" freed]\n");
 
 			assert(!"reached a freed pointer");
 			return;
@@ -750,7 +750,7 @@ namespace GC
 		if(marker & OBJECT_ARRAY)
 			GC_DEBUG_PRINT(" array");
 
-		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[unsigned(marker >> 8)].offsetToName);
+		GC_DEBUG_PRINT("] type %d '%s'\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[unsigned(marker >> 8)].offsetToName);
 	}
 
 	char* ReadVmMemoryPointer(void* address)
@@ -770,7 +770,7 @@ namespace GC
 		if(target > (char*)0x00010000 && (target < unmanageableBase || target > unmanageableTop))
 		{
 			// Get type that pointer points to
-			GC_DEBUG_PRINT("\tGlobal pointer [ref] %p (at %p)\r\n", target, ptr);
+			GC_DEBUG_PRINT("\tGlobal pointer [ref] %p (at %p)\n", target, ptr);
 
 			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(target);
@@ -779,7 +779,7 @@ namespace GC
 			if(!basePtr)
 				return;
 
-			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+			GC_DEBUG_PRINT("\tPointer base is %p\n", basePtr);
 
 			// Marker is before the block
 			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
@@ -792,7 +792,7 @@ namespace GC
 			// Mark block as used
 			*marker |= OBJECT_VISIBLE;
 
-			GC_DEBUG_PRINT("\tMarked as used\r\n");
+			GC_DEBUG_PRINT("\tMarked as used\n");
 
 			unsigned typeId = unsigned(*marker >> 8);
 			const ExternTypeInfo &type = NULLC::commonLinker->exTypes[typeId];
@@ -800,7 +800,7 @@ namespace GC
 			// And if type is not simple, check memory to which pointer points to
 			if(type.subCat != ExternTypeInfo::CAT_NONE)
 			{
-				GC_DEBUG_PRINT("\tPointer %p scheduled on next loop\r\n", target);
+				GC_DEBUG_PRINT("\tPointer %p scheduled on next loop\n", target);
 
 				next->push_back((char*)basePtr);
 			}
@@ -996,7 +996,7 @@ int GC::IsPointerUnmanaged(NULLCRef ptr)
 // Main function for marking all pointers in a program
 void GC::MarkUsedBlocks()
 {
-	GC_DEBUG_PRINT("Unmanageable range: %p-%p\r\n", GC::unmanageableBase, GC::unmanageableTop);
+	GC_DEBUG_PRINT("Unmanageable range: %p-%p\n", GC::unmanageableBase, GC::unmanageableTop);
 
 	// Get information about programs' functions, variables, types and symbols (for debug output)
 	ExternFuncInfo	*functions = NULLC::commonLinker->exFunctions.data;
@@ -1022,7 +1022,7 @@ void GC::MarkUsedBlocks()
 		// Mark global variables
 		for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
 		{
-			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
+			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
 			GC::CheckVariable(GC::unmanageableBase + vars[i].offset, types[vars[i].type]);
 		}
 	}
@@ -1036,7 +1036,7 @@ void GC::MarkUsedBlocks()
 
 		for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
 		{
-			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
+			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
 			GC::CheckVariable(data + vars[i].offset, types[vars[i].type]);
 		}
 #endif
@@ -1108,7 +1108,7 @@ void GC::MarkUsedBlocks()
 			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
 			offset += alignOffset;
-			GC_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + function.offsetToName, alignOffset);
+			GC_DEBUG_PRINT("In function %s (with offset of %d)\n", symbols + function.offsetToName, alignOffset);
 
 			unsigned stackSize = (function.stackSize + 0xf) & ~0xf;
 
@@ -1118,21 +1118,21 @@ void GC::MarkUsedBlocks()
 				// Get information about local
 				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[function.offsetToFirstLocal + i];
 
-				GC_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
+				GC_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				// Check it
 				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);
 			}
 
 			if(function.contextType != ~0u)
 			{
-				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[function.contextType].offsetToName, offset, function.bytesToPop - NULLC_PTR_SIZE);
+				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\n", symbols + types[function.contextType].offsetToName, offset, function.bytesToPop - NULLC_PTR_SIZE);
 				char *ptr = GC::unmanageableBase + offset + function.bytesToPop - NULLC_PTR_SIZE;
 				GC::CheckPointer(ptr);
 			}
 
 			offset += stackSize;
 
-			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", stackSize);
+			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\n", stackSize);
 		}
 	}
 
@@ -1164,7 +1164,7 @@ void GC::MarkUsedBlocks()
 		tempStackTop = (char*)exec->GetStackEnd();
 	}
 
-	GC_DEBUG_PRINT("Check stack from %p to %p\r\n", tempStackBase, tempStackTop);
+	GC_DEBUG_PRINT("Check stack from %p to %p\n", tempStackBase, tempStackTop);
 
 	// Check that temporary stack range is correct
 	assert(tempStackTop >= tempStackBase);
@@ -1182,9 +1182,9 @@ void GC::MarkUsedBlocks()
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(basePtr)
 			{
-				GC_DEBUG_PRINT("\tGlobal pointer [stack] %p\r\n", ptr);
+				GC_DEBUG_PRINT("\tGlobal pointer [stack] %p\n", ptr);
 
-				GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+				GC_DEBUG_PRINT("\tPointer base is %p\n", basePtr);
 
 				markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
 
@@ -1202,7 +1202,7 @@ void GC::MarkUsedBlocks()
 				{
 					*marker |= OBJECT_VISIBLE;
 
-					GC_DEBUG_PRINT("\tMarked as used, checking content\r\n");
+					GC_DEBUG_PRINT("\tMarked as used, checking content\n");
 
 					GC::CheckBasePointer((char*)basePtr);
 				}
@@ -1224,7 +1224,7 @@ void GC::MarkPendingRoots()
 
 	while(GC::next->size())
 	{
-		GC_DEBUG_PRINT("Checking new roots\r\n");
+		GC_DEBUG_PRINT("Checking new roots\n");
 
 		FastVector<char*> *tmp = GC::curr;
 		GC::curr = GC::next;
@@ -1232,7 +1232,7 @@ void GC::MarkPendingRoots()
 
 		for(char **c = GC::curr->data, **e = GC::curr->data + GC::curr->size(); c != e; c++)
 		{
-			GC_DEBUG_PRINT("\tRoot pointer base is %p\r\n", *c);
+			GC_DEBUG_PRINT("\tRoot pointer base is %p\n", *c);
 
 			GC::CheckBasePointer(*c);
 		}
@@ -1240,7 +1240,7 @@ void GC::MarkPendingRoots()
 		GC::curr->clear();
 	}
 
-	GC_DEBUG_PRINT("\r\n");
+	GC_DEBUG_PRINT("\n");
 }
 
 void GC::ResetGC()
