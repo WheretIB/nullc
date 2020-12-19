@@ -34,8 +34,10 @@ namespace NULLCVector
 		vec->data.typeID = type;
 		if(reserved)
 		{
-			vec->data.ptr = (char*)nullcAllocate(vec->elemSize * reserved);
-			vec->data.len = reserved;
+			NULLCArray data = nullcAllocateArrayTyped(type, reserved);
+
+			vec->data.ptr = data.ptr;
+			vec->data.len = data.len;
 		}else{
 			vec->data.ptr = 0;
 			vec->data.len = 0;
@@ -55,13 +57,17 @@ namespace NULLCVector
 		{
 			// Allocate new
 			unsigned int newSize = 32 > vec->data.len ? 32 : (vec->data.len << 1) + vec->data.len;
-			char *newData = (char*)nullcAllocate(vec->elemSize * newSize);
+
+			NULLCArray newData = nullcAllocateArrayTyped(vec->data.typeID, newSize);
+
+			if(!newData.ptr)
+				return;
 
 			if(vec->data.len)
-				memcpy(newData, vec->data.ptr, unsigned(vec->elemSize * vec->data.len));
+				memcpy(newData.ptr, vec->data.ptr, unsigned(vec->elemSize * vec->data.len));
 
-			vec->data.len = newSize;
-			vec->data.ptr = newData;
+			vec->data.ptr = newData.ptr;
+			vec->data.len = newData.len;
 		}
 		memcpy(vec->data.ptr + vec->elemSize * vec->size, vec->flags ? (char*)&val.ptr : val.ptr, vec->elemSize);
 		vec->size++;
@@ -122,10 +128,15 @@ namespace NULLCVector
 		if(size > vec->data.len)
 		{
 			// Allocate new
-			char *newData = (char*)nullcAllocate(vec->elemSize * size);
-			memcpy(newData, vec->data.ptr, unsigned(vec->elemSize * vec->data.len));
-			vec->data.len = size;
-			vec->data.ptr = newData;
+			NULLCArray newData = nullcAllocateArrayTyped(vec->data.typeID, size);
+
+			if(!newData.ptr)
+				return;
+
+			memcpy(newData.ptr, vec->data.ptr, unsigned(vec->elemSize * vec->data.len));
+
+			vec->data.ptr = newData.ptr;
+			vec->data.len = newData.len;
 		}
 	}
 
