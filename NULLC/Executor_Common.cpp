@@ -715,16 +715,8 @@ namespace GC
 	unsigned int	objectName = NULLC::GetStringHash("auto ref");
 	unsigned int	autoArrayName = NULLC::GetStringHash("auto[]");
 
-	struct RootInfo
-	{
-		RootInfo(): ptr(0), type(0){}
-		RootInfo(char* ptr, const ExternTypeInfo* type): ptr(ptr), type(type){}
-
-		char *ptr;
-		const ExternTypeInfo* type;
-	};
-	FastVector<RootInfo> rootsA, rootsB;
-	FastVector<RootInfo> *curr = NULL, *next = NULL;
+	FastVector<char*> rootsA, rootsB;
+	FastVector<char*> *curr = NULL, *next = NULL;
 
 	HashMap<int> functionIDs;
 
@@ -769,7 +761,7 @@ namespace GC
 	}
 
 	// Function that marks memory blocks belonging to GC
-	void MarkPointer(char* ptr, const ExternTypeInfo& type, bool takeSubtype)
+	void CheckPointer(char* ptr)
 	{
 		// We have pointer to stack that has a pointer inside, so 'ptr' is really a pointer to pointer
 		char *target = ReadVmMemoryPointer(ptr);
@@ -778,7 +770,7 @@ namespace GC
 		if(target > (char*)0x00010000 && (target < unmanageableBase || target > unmanageableTop))
 		{
 			// Get type that pointer points to
-			GC_DEBUG_PRINT("\tGlobal pointer [ref] %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, target, ptr);
+			GC_DEBUG_PRINT("\tGlobal pointer [ref] %p (at %p)\r\n", target, ptr);
 
 			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(target);
@@ -794,26 +786,51 @@ namespace GC
 			PrintMarker(*marker);
 
 			// If block is unmarked
-			if(!(*marker & OBJECT_VISIBLE))
+			if((*marker & OBJECT_VISIBLE))
+				return;
+
+			// Mark block as used
+			*marker |= OBJECT_VISIBLE;
+
+			GC_DEBUG_PRINT("\tMarked as used\r\n");
+
+			unsigned typeId = unsigned(*marker >> 8);
+			const ExternTypeInfo &type = NULLC::commonLinker->exTypes[typeId];
+
+			// And if type is not simple, check memory to which pointer points to
+			if(type.subCat != ExternTypeInfo::CAT_NONE)
 			{
-				// Mark block as used
-				*marker |= OBJECT_VISIBLE;
+				GC_DEBUG_PRINT("\tPointer %p scheduled on next loop\r\n", target);
 
-				GC_DEBUG_PRINT("\tMarked as used\r\n");
-
-				unsigned targetSubType = type.subType;
-
-				if(takeSubtype && targetSubType == 0)
-					targetSubType = unsigned(*marker >> 8);
-
-				// And if type is not simple, check memory to which pointer points to
-				if(type.subCat != ExternTypeInfo::CAT_NONE)
-				{
-					GC_DEBUG_PRINT("\tPointer %p scheduled on next loop\r\n", target);
-
-					next->push_back(RootInfo(target, takeSubtype ? &NULLC::commonLinker->exTypes[targetSubType] : &type));
-				}
+				next->push_back((char*)basePtr);
 			}
+		}
+	}
+
+	void CheckBasePointer(char* basePtr)
+	{
+		markerType	*marker = (markerType*)(basePtr - sizeof(markerType));
+		PrintMarker(*marker);
+
+		unsigned typeId = unsigned(*marker >> 8);
+		const ExternTypeInfo &type = NULLC::commonLinker->exTypes[typeId];
+
+		if(*marker & OBJECT_ARRAY)
+		{
+			unsigned arrayPadding = type.defaultAlign > 4 ? type.defaultAlign : 4;
+
+			char *elements = basePtr + arrayPadding;
+
+			unsigned size;
+			memcpy(&size, elements - sizeof(unsigned), sizeof(unsigned));
+
+			CheckArrayElements(elements, size, type);
+		}
+		else
+		{
+			// And if type is not simple, check memory to which pointer points to
+			if(type.subCat != ExternTypeInfo::CAT_NONE)
+				CheckVariable(basePtr, type);
 		}
 	}
 
@@ -833,7 +850,7 @@ namespace GC
 			break;
 		case ExternTypeInfo::CAT_POINTER:
 			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
-				MarkPointer(ptr, elementType, true);
+				CheckPointer(ptr);
 			break;
 		case ExternTypeInfo::CAT_FUNCTION:
 			for(unsigned i = 0; i < size; i++, ptr += elementType.size)
@@ -849,145 +866,67 @@ namespace GC
 	// Function that checks arrays for pointers
 	void CheckArray(char* ptr, const ExternTypeInfo& type)
 	{
-		// Get array element type
-		ExternTypeInfo *subType = &NULLC::commonLinker->exTypes[type.subType];
-
-		// Real array size (changed for unsized arrays)
-		unsigned int size = type.arrSize;
-
 		// If array type is an unsized array, check pointer that points to actual array contents
 		if(type.arrSize == ~0u)
 		{
-			// Get real array size
-			size = *(int*)(ptr + NULLC_PTR_SIZE);
-
-			// Switch pointer to array data
-			ptr = ReadVmMemoryPointer(ptr);
-
-			// If uninitialized or points to stack memory, return
-			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
-			{
-				if(ptr > (char*)0x00010000)
-					GC_DEBUG_PRINT("\tSkipping stack pointer [array] %p\r\n", ptr);
-
-				return;
-			}
-
-			GC_DEBUG_PRINT("\tGlobal pointer [array] %p\r\n", ptr);
-
-			// Get base pointer
-			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
-
-			// If there is no base, this pointer points to memory that is not GCs memory
-			if(!basePtr)
-				return;
-
-			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
-
-			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
-			PrintMarker(*marker);
-
-			// If there is no base pointer or memory already marked, exit
-			if((*marker & OBJECT_VISIBLE))
-				return;
-
-			// Mark memory as used
-			*marker |= OBJECT_VISIBLE;
-
-			GC_DEBUG_PRINT("\tMarked as used\r\n");
-		}
-		else if(type.nameHash == autoArrayName)
-		{
-			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
-
-			// Get real variable type
-			subType = &NULLC::commonLinker->exTypes[data->typeID];
+			NULLCArray *data = (NULLCArray*)ptr;
 
 			// Skip uninitialized array
 			if(!data->ptr)
 				return;
 
-			// Mark target data
-			MarkPointer((char*)&data->ptr, *subType, false);
-
-			// Switch pointer to target
-			ptr = data->ptr;
-
-			// Get array size
-			size = data->len;
+			CheckPointer((char*)&data->ptr);
 		}
+		else
+		{
+			// Get array element type
+			ExternTypeInfo *subType = &NULLC::commonLinker->exTypes[type.subType];
 
-		CheckArrayElements(ptr, size, *subType);
+			CheckArrayElements(ptr, type.arrSize, *subType);
+		}
 	}
 
 	// Function that checks classes for pointers
 	void CheckClass(char* ptr, const ExternTypeInfo& type)
 	{
-		const ExternTypeInfo *realType = &type;
 		if(type.nameHash == objectName)
 		{
-			// Get real variable type
-			realType = &NULLC::commonLinker->exTypes[*(int*)ptr];
+			NULLCRef *data = (NULLCRef*)ptr;
 
-			// Switch pointer to target
-			char *target = ReadVmMemoryPointer(ptr + 4);
-
-			// If uninitialized or points to stack memory, return
-			if(!target || target <= (char*)0x00010000 || (target >= unmanageableBase && target <= unmanageableTop))
-			{
-				if(target > (char*)0x00010000)
-					GC_DEBUG_PRINT("\tSkipping stack pointer [class] %p\r\n", target);
-
-				return;
-			}
-
-			GC_DEBUG_PRINT("\tGlobal pointer [class] %p\r\n", target);
-
-			// Get base pointer
-			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(target);
-
-			// If there is no base, this pointer points to memory that is not GCs memory
-			if(!basePtr)
+			// Skip uninitialized array
+			if(!data->ptr)
 				return;
 
-			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
-
-			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
-			PrintMarker(*marker);
-
-			// If there is no base pointer or memory already marked, exit
-			if((*marker & OBJECT_VISIBLE))
-				return;
-
-			// Mark memory as used
-			*marker |= OBJECT_VISIBLE;
-
-			GC_DEBUG_PRINT("\tMarked as used, fixing up target\r\n");
-
-			// Fixup target
-			CheckVariable(target, *realType);
-
-			// Exit
-			return;
+			CheckPointer((char*)&data->ptr);
 		}
 		else if(type.nameHash == autoArrayName)
 		{
-			CheckArray(ptr, type);
-			// Exit
-			return;
+			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
+
+			// Skip uninitialized array
+			if(!data->ptr)
+				return;
+
+			// Check target data
+			CheckPointer((char*)&data->ptr);
 		}
-
-		// Get class member type list
-		ExternMemberInfo *memberList = realType->pointerCount ? &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount] : NULL;
-
-		// Check pointer members
-		for(unsigned int n = 0; n < realType->pointerCount; n++)
+		else
 		{
-			// Get member type
-			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[n].type];
-			unsigned int pos = memberList[n].offset;
-			// Check member
-			CheckVariable(ptr + pos, subType);
+			const ExternTypeInfo *realType = &type;
+
+			// Get class member type list
+			ExternMemberInfo *memberList = realType->pointerCount ? &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount] : NULL;
+
+			// Check pointer members
+			for(unsigned n = 0; n < realType->pointerCount; n++)
+			{
+				// Get member type
+				ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[n].type];
+				unsigned pos = memberList[n].offset;
+
+				// Check member
+				CheckVariable(ptr + pos, subType);
+			}
 		}
 	}
 
@@ -1008,10 +947,7 @@ namespace GC
 
 		// If context is "this" pointer
 		if(func.contextType != ~0u)
-		{
-			const ExternTypeInfo &classType = NULLC::commonLinker->exTypes[func.contextType];
-			MarkPointer((char*)&fPtr->context, classType, true);
-		}
+			CheckPointer((char*)&fPtr->context);
 	}
 
 	// Function that decides, how variable of type 'type' should be checked for pointers
@@ -1033,7 +969,7 @@ namespace GC
 			CheckArray(ptr, type);
 			break;
 		case ExternTypeInfo::CAT_POINTER:
-			MarkPointer(ptr, type, true);
+			CheckPointer(ptr);
 			break;
 		case ExternTypeInfo::CAT_FUNCTION:
 			CheckFunction(ptr);
@@ -1191,7 +1127,7 @@ void GC::MarkUsedBlocks()
 			{
 				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[function.contextType].offsetToName, offset, function.bytesToPop - NULLC_PTR_SIZE);
 				char *ptr = GC::unmanageableBase + offset + function.bytesToPop - NULLC_PTR_SIZE;
-				GC::MarkPointer(ptr, types[function.contextType], false);
+				GC::CheckPointer(ptr);
 			}
 
 			offset += stackSize;
@@ -1264,30 +1200,11 @@ void GC::MarkUsedBlocks()
 				// If block is unmarked, mark it as used
 				if(!(*marker & OBJECT_VISIBLE))
 				{
-					unsigned typeID = unsigned(*marker >> 8);
-					ExternTypeInfo &type = types[typeID];
-
 					*marker |= OBJECT_VISIBLE;
 
 					GC_DEBUG_PRINT("\tMarked as used, checking content\r\n");
 
-					if(*marker & OBJECT_ARRAY)
-					{
-						unsigned arrayPadding = type.defaultAlign > 4 ? type.defaultAlign : 4;
-
-						char *elements = (char*)basePtr + arrayPadding;
-
-						unsigned size;
-						memcpy(&size, elements - sizeof(unsigned), sizeof(unsigned));
-
-						GC::CheckArrayElements(elements, size, type);
-					}
-					else
-					{
-						// And if type is not simple, check memory to which pointer points to
-						if(type.subCat != ExternTypeInfo::CAT_NONE)
-							GC::CheckVariable((char*)basePtr, type);
-					}
+					GC::CheckBasePointer((char*)basePtr);
 				}
 			}
 		}
@@ -1309,15 +1226,15 @@ void GC::MarkPendingRoots()
 	{
 		GC_DEBUG_PRINT("Checking new roots\r\n");
 
-		FastVector<GC::RootInfo> *tmp = GC::curr;
+		FastVector<char*> *tmp = GC::curr;
 		GC::curr = GC::next;
 		GC::next = tmp;
 
-		for(GC::RootInfo *c = GC::curr->data, *e = GC::curr->data + GC::curr->size(); c != e; c++)
+		for(char **c = GC::curr->data, **e = GC::curr->data + GC::curr->size(); c != e; c++)
 		{
-			GC_DEBUG_PRINT("Root %s %p\r\n", NULLC::commonLinker->exSymbols.data + c->type->offsetToName, c->ptr);
+			GC_DEBUG_PRINT("\tRoot pointer base is %p\r\n", *c);
 
-			GC::CheckVariable(c->ptr, *c->type);
+			GC::CheckBasePointer(*c);
 		}
 
 		GC::curr->clear();

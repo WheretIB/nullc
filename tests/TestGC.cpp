@@ -351,6 +351,92 @@ y = new int(4);\r\n\
 return int(x().value);";
 TEST_RESULT("Garbage collection correctness 15 (extra function argument type fixup).", testGarbageCollectionCorrectness15, "6");
 
+const char	*testGarbageCollectionCorrectness16 =
+"import std.gc;\r\n\
+auto ref spoiler;\r\n\
+class Data\r\n\
+{\r\n\
+	void Data(int x){ value = new int(x); }\r\n\
+	int ref value;\r\n\
+}\r\n\
+Data[] data = new Data[4];\r\n\
+void init()\r\n\
+{\r\n\
+	for(int i = 0; i < 4; i++) data[i] = Data(i + 5);\r\n\
+}\r\n\
+init();\r\n\
+spoiler = &data[3];\r\n\
+GC.CollectMemory();\r\n\
+for(int i = 0; i < 10; i++) new int(-i);\r\n\
+return *data[0].value * 1000 + *data[1].value * 100 + *data[2].value * 10 + *data[3].value;";
+TEST_RESULT("Garbage collection correctness 16 (auto ref target base is marked and checked as a whole)", testGarbageCollectionCorrectness16, "5678");
+
+const char	*testGarbageCollectionCorrectness17 =
+"import std.gc;\r\n\
+class Data\r\n\
+{\r\n\
+	void Data(int x){ value = new int(x); }\r\n\
+	int ref value;\r\n\
+}\r\n\
+Data[] spoiler;\r\n\
+Data[2][4] ref data = new (Data[2][4]);\r\n\
+spoiler = data[1];\r\n\
+void init()\r\n\
+{\r\n\
+	for(int i = 0; i < 4; i++){ data[0][i] = Data(i + 5); data[1][i] = Data(i + 5); }\r\n\
+}\r\n\
+init();\r\n\
+GC.CollectMemory();\r\n\
+for(int i = 0; i < 10; i++) new int(-i);\r\n\
+return *data[0][0].value * 1000 + *data[0][1].value * 100 + *data[0][2].value * 10 + *data[0][3].value;";
+TEST_RESULT("Garbage collection correctness 17 (unsized array target base is marked and checked as a whole)", testGarbageCollectionCorrectness17, "5678");
+
+const char	*testGarbageCollectionCorrectness18 =
+"import std.gc;\r\n\
+class Data extendable\r\n\
+{\r\n\
+	int get(){ return boring; }\r\n\
+	int boring;\r\n\
+}\r\n\
+class HiddenData : Data\r\n\
+{\r\n\
+	void HiddenData(int x){ value = new int(x); }\r\n\
+	int get(){ return *value; }\r\n\
+	int ref value;\r\n\
+}\r\n\
+Data ref spoiler;\r\n\
+Data ref data;\r\n\
+void init()\r\n\
+{\r\n\
+	data = new HiddenData(5);\r\n\
+}\r\n\
+init();\r\n\
+spoiler = data;\r\n\
+GC.CollectMemory();\r\n\
+for(int i = 0; i < 10; i++) new int(-i);\r\n\
+return data.get();";
+TEST_RESULT("Garbage collection correctness 18 (base pointer to derived type)", testGarbageCollectionCorrectness18, "5");
+
+const char	*testGarbageCollectionCorrectness19 =
+"import std.gc;\r\n\
+class Data\r\n\
+{\r\n\
+	void Data(int x){ value = new int(x); }\r\n\
+	int ref value;\r\n\
+}\r\n\
+Data ref spoiler;\r\n\
+Data[] data = new Data[4];\r\n\
+void init()\r\n\
+{\r\n\
+	for(int i = 0; i < 4; i++) data[i] = Data(i + 5);\r\n\
+}\r\n\
+init();\r\n\
+spoiler = &data[3];\r\n\
+GC.CollectMemory();\r\n\
+for(int i = 0; i < 10; i++) new int(-i);\r\n\
+return *data[0].value * 1000 + *data[1].value * 100 + *data[2].value * 10 + *data[3].value;";
+TEST_RESULT("Garbage collection correctness 19 (pointer target base is marked and checked as a whole)", testGarbageCollectionCorrectness19, "5678");
+
 const char	*testGCFullArrayCapture =
 "import std.range;\r\n\
 int func()\r\n\
@@ -487,6 +573,43 @@ Foo[] y = new Foo[4];\r\n\
 \r\n\
 return x == y;";
 TEST_RESULT("Check for bug in GC on an array of empty objects", testEmptyObjectArrayGC, "0");
+
+const char *testDeepAutoRefWalkGC =
+"import std.gc;\r\n\
+class BadListNode\r\n\
+{\r\n\
+	BadListNode ref getNext(){ return next; }\r\n\
+	int len(){ int l = 1; for(auto x = next; x; x = x.getNext()) l++; return l; }\r\n\
+	auto ref next;\r\n\
+}\r\n\
+BadListNode ref a;\r\n\
+for(int i = 0; i < 10000; i++)\r\n\
+{\r\n\
+	BadListNode ref n = new BadListNode();\r\n\
+	n.next = a;\r\n\
+	a = n;\r\n\
+}\r\n\
+GC.CollectMemory();\r\n\
+return a.len();";
+TEST_RESULT("Stack overflow on deep 'auto ref' chain in GC", testDeepAutoRefWalkGC, "10000");
+
+const char *testDeepArrayWalkGC =
+"import std.gc;\r\n\
+class BadListNode\r\n\
+{\r\n\
+	int len(){ int l = 1; for(auto x = next; x; x = x[0].next) l++; return l; }\r\n\
+	BadListNode[] next;\r\n\
+}\r\n\
+BadListNode[] a;\r\n\
+for(int i = 0; i < 10000; i++)\r\n\
+{\r\n\
+	BadListNode[] n = new BadListNode[1];\r\n\
+	n[0].next = a;\r\n\
+	a = n;\r\n\
+}\r\n\
+GC.CollectMemory();\r\n\
+return a[0].len();";
+TEST_RESULT("Stack overflow on deep unsized array chain in GC", testDeepArrayWalkGC, "10000");
 
 const char *testGCOnAllocatedArrayPointer =
 "import std.gc;\r\n\

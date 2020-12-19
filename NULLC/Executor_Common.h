@@ -24,7 +24,8 @@ void DumpStackFrames();
 
 namespace GC
 {
-	void MarkPointer(char* ptr, const ExternTypeInfo& type, bool takeSubtype);
+	void CheckPointer(char* ptr);
+	void CheckBasePointer(char* basePtr);
 	void CheckArrayElements(char* ptr, unsigned size, const ExternTypeInfo& elementType);
 
 	void CheckArray(char* ptr, const ExternTypeInfo& type);
