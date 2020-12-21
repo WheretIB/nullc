@@ -3617,6 +3617,13 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 		if(value.length() == 2)
 			ReportAt(ctx, syntax, value.begin + 2, "ERROR: '0x' must be followed by number");
 
+		bool forceLong = false;
+
+		if(syntax->suffix == InplaceStr("l"))
+			forceLong = true;
+		else if(!syntax->suffix.empty())
+			ReportAt(ctx, syntax, syntax->suffix.begin, "ERROR: unknown number suffix '%.*s'", syntax->suffix.length(), syntax->suffix.begin);
+
 		// Skip 0x
 		unsigned pos = 2;
 
@@ -3630,7 +3637,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 		long long num = (long long)ParseLong(ctx, syntax, value.begin + pos, value.end, 16);
 
 		// If number overflows integer number, create long number
-		if(int(num) == num)
+		if(!forceLong && int(num) == num)
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeInt, num);
 
 		return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeLong, num);

@@ -295,6 +295,11 @@ TEST_RESULT("negative int type constant (bin)", testNumberParse14, "-1");
 const char *testNumberParse15 = "return 01111111111111111111111111111000000000000000000000000000000000000b;";
 TEST_RESULT("negative long type constant (bin)", testNumberParse15, "-68719476736L");
 
+const char *testNumberParse16 = "return sizeof(22l);";
+TEST_RESULT("Forced long number (dec)", testNumberParse16, "8");
+const char *testNumberParse17 = "return sizeof(0x22l);";
+TEST_RESULT("Forced long number (hex)", testNumberParse17, "8");
+
 const char *testIntegerPow = "int a = 1; return a*100**a;";
 TEST_RESULT("Integer power test", testIntegerPow, "100");
 

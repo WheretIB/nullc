@@ -14,6 +14,7 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "return 0101bb;", "ERROR: unknown number suffix 'bb'");
 	TEST_FOR_FAIL("parsing", "return 2lll;", "ERROR: unknown number suffix 'lll'");
 	TEST_FOR_FAIL("parsing", "return 1.3ffff;", "ERROR: unknown number suffix 'ffff'");
+	TEST_FOR_FAIL("parsing", "return 0x12345678unknown;", "ERROR: unknown number suffix 'unknown'");
 	TEST_FOR_FAIL("parsing", "int[12 a;", "ERROR: ']' not found after expression");
 	TEST_FOR_FAIL("parsing", "typeof 12 a;", "ERROR: typeof must be followed by '('");
 	TEST_FOR_FAIL("parsing", "typeof(12 a;", "ERROR: ')' not found after expression in typeof");
