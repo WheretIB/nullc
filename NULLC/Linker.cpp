@@ -2,6 +2,7 @@
 
 #include "StdLib.h"
 #include "BinaryCache.h"
+#include "DenseMap.h"
 #include "InstructionTreeRegVmLowerGraph.h"
 
 #ifdef NULLC_AUTOBINDING
@@ -895,6 +896,11 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 	ExternSourceInfo *info = (ExternSourceInfo*)exRegVmSourceInfo.data;
 	unsigned infoSize = exRegVmSourceInfo.size();
 
+	SmallDenseSet<unsigned, SmallDenseMapUnsignedHasher, 32> regVmJumpTargetMap;
+
+	for(unsigned i = 0; i < regVmJumpTargets.size(); i++)
+		regVmJumpTargetMap.insert(regVmJumpTargets[i]);
+
 	const char *lastSourcePos = exSource.data;
 	const char *lastCodeStart = NULL;
 
@@ -937,16 +943,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 
 		RegVmCmd cmd = exRegVmCode[i];
 
-		bool found = false;
-
-		for(unsigned k = 0; k < regVmJumpTargets.size(); k++)
-		{
-			if(regVmJumpTargets[k] == i)
-			{
-				found = true;
-				break;
-			}
-		}
+		bool found = regVmJumpTargetMap.contains(i);
 
 		if(withProfileInfo)
 		{
