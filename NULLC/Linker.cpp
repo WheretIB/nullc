@@ -637,7 +637,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 				}
 				else
 				{
-					NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", FindSymbols(bCode) + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
+					NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", FindSymbols(bCode) + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[typeRemap[exFunctions.back().funcType]].offsetToName);
 					return false;
 				}
 			}
