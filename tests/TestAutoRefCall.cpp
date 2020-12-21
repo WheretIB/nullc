@@ -249,3 +249,22 @@ const char	*testAutorefCallIssue4 =
 auto ref x = F();\r\n\
 return x.f(<>{ 2; });";
 TEST_RESULT("Short inline function in 'auto ref' call", testAutorefCallIssue4, "-2");
+
+LOAD_MODULE(test_autorefmerge1, "test.autorefmerge1", "class Test{ int f(int a, b){ return a + b; } }");
+LOAD_MODULE(test_autorefmerge2, "test.autorefmerge2", "class Temp{ int f(int a, b){ return 0; } } int call(auto ref x){ return x.f(1, 2); }");
+const char	*testAutorefIntroduceTypeToFunction =
+"import test.autorefmerge1;\r\n\
+import test.autorefmerge2;\r\n\
+Test t;\r\n\
+return call(t);";
+TEST_RESULT("Imported type gets registered for imported 'auto ref' function call", testAutorefIntroduceTypeToFunction, "3");
+
+
+LOAD_MODULE(test_autoreforder1, "test.autoreforder1", "class Test extendable{ int f(int a, b){ return a + b; } }");
+LOAD_MODULE(test_autoreforder2, "test.autoreforder2", "import test.autoreforder1; class Test2 : Test{ int f(int a, b){ return a - b; } }");
+const char	*testAutorefInitOrder =
+"import test.autoreforder2;\r\n\
+Test2 t;\r\n\
+auto ref x = t;\r\n\
+return t.f(4, 2); ";
+TEST_RESULT("Order of 'auto ref' table setup on implicit import", testAutorefInitOrder, "2");

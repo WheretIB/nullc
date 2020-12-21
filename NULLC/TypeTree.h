@@ -716,6 +716,14 @@ struct TypeBase
 	TypeUnsizedArray *unsizedArrayType; // An unsized array type derived from this type
 };
 
+struct TypeBaseHasher
+{
+	unsigned operator()(TypeBase* key)
+	{
+		return key->nameHash;
+	}
+};
+
 struct TypeError: TypeBase
 {
 	TypeError(): TypeBase(myTypeID, InplaceStr("%error-type%"))

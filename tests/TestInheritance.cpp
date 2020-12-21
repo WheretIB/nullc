@@ -444,7 +444,7 @@ class vec3 : vec2\r\n\
 vec3 ref a = new vec3;\r\n\
 vec2 ref b = a;\r\n\
 return b.foo(i: 6) + a.foo(i: 6, j: 3);";
-TEST_RESULT("Inheritance test 38", testInheritance38, "-4");
+TEST_RESULT("Inheritance test 38", testInheritance38, "8");
 
 const char	*testInheritance39 =
 "class vec2 extendable\r\n\

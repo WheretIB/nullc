@@ -13090,8 +13090,27 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 	}
 }
 
-ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, VariableData *vtable)
+ExprBase* CreateVirtualTableAssignment(ExpressionContext &ctx, SynBase *source, VariableData *vtable, TypeBase *type, FunctionData *function)
 {
+	ExprBase *vtableAccess = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, vtable->type, vtable);
+
+	ExprBase *typeId = new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, type);
+
+	ExprBase *typeIdInt = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.typeInt, typeId, EXPR_CAST_REINTERPRET);
+
+	ExprArrayIndex *arraySlot = new (ctx.get<ExprArrayIndex>()) ExprArrayIndex(source, ctx.GetReferenceType(ctx.typeFunctionID), vtableAccess, typeIdInt);
+
+	ExprBase *rhs = new (ctx.get<ExprFunctionIndexLiteral>()) ExprFunctionIndexLiteral(source, ctx.typeFunctionID, function);
+
+	ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(source, ctx.typeFunctionID, arraySlot, rhs);
+
+	return assignment;
+}
+
+ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, VariableData *vtable, SmallArray<FunctionData*, 32> &functionSet, SmallArray<TypeClass*, 32> &classTypes)
+{
+	TRACE_SCOPE("analyze", "CreateVirtualTableUpdate");
+
 	IntrusiveList<ExprBase> expressions;
 
 	// Find function name
@@ -13128,62 +13147,60 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 	// Find all functions with called name that are member functions and have target type
 	SmallArray<FunctionData*, 32> functions(ctx.allocator);
 
-	for(unsigned i = 0; i < ctx.functions.size(); i++)
+	for(unsigned i = 0; i < functionSet.size(); i++)
 	{
-		FunctionData *function = ctx.functions[i];
+		FunctionData *function = functionSet[i];
 
 		TypeBase *parentType = function->scope->ownerType;
-
-		if(!parentType)
-			continue;
-
-		if(parentType->isGeneric)
-			continue;
 
 		// If both type and table are imported, then it should have been filled up inside the module for that type
 		if(parentType->importModule && vtable->importModule && parentType->importModule == vtable->importModule)
 			continue;
 
-		const char *pos = strstr(function->name->name.begin, "::");
-
-		if(!pos)
+		if(function->type != functionType)
 			continue;
 
-		if(InplaceStr(pos + 2) == name && function->type == functionType)
+		const char *pos = strstr(function->name->name.begin, "::");
+
+		if(InplaceStr(pos + 2) == name)
 			functions.push_back(function);
 	}
 
-	for(unsigned i = 0; i < ctx.types.size(); i++)
+	SmallDenseMap<TypeBase*, FunctionData*, TypeBaseHasher, 32> assignments(ctx.allocator);
+
+	// Handle direct assignments
+	for(unsigned i = 0; i < functions.size(); i++)
 	{
-		for(unsigned k = 0; k < functions.size(); k++)
+		FunctionData *function = functions[i];
+		TypeBase *type = function->scope->ownerType;
+
+		expressions.push_back(CreateVirtualTableAssignment(ctx, source, vtable, type, function));
+
+		// Record that owner type recevied an assignment to this function
+		if(TypeClass *classType = getType<TypeClass>(type))
+			assignments.insert(type, function);
+	}
+
+	// Handle derived classes
+	for(unsigned i = 0; i < classTypes.size(); i++)
+	{
+		TypeClass *type = classTypes[i];
+
+		// Already assigned
+		if(assignments.find(type))
+			continue;
+
+		// Not assigned directly, walk through base classes
+		for(TypeClass *curr = type->baseClass; curr; curr = curr->baseClass)
 		{
-			TypeBase *type = ctx.types[i];
-			FunctionData *function = functions[k];
-
-			while(type)
+			if(FunctionData **assignment = assignments.find(curr))
 			{
-				if(function->scope->ownerType == type)
-				{
-					ExprBase *vtableAccess = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, vtable->type, vtable);
+				FunctionData *function = *assignment;
 
-					ExprBase *typeId = new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, ctx.types[i]);
+				expressions.push_back(CreateVirtualTableAssignment(ctx, source, vtable, type, function));
 
-					SmallArray<ArgumentData, 1> arguments(ctx.allocator);
-					arguments.push_back(ArgumentData(source, false, NULL, ctx.typeInt, new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.typeInt, typeId, EXPR_CAST_REINTERPRET)));
-
-					ExprBase *arraySlot = CreateArrayIndex(ctx, source, vtableAccess, arguments);
-
-					ExprBase *assignment = CreateAssignment(ctx, source, arraySlot, new (ctx.get<ExprFunctionIndexLiteral>()) ExprFunctionIndexLiteral(source, ctx.typeFunctionID, function));
-
-					expressions.push_back(assignment);
-					break;
-				}
-
-				// Stepping through the class inheritance tree will ensure that the base class function will be used if the derived class function is not available
-				if(TypeClass *classType = getType<TypeClass>(type))
-					type = classType->baseClass;
-				else
-					type = NULL;
+				assignments.insert(type, function);
+				break;
 			}
 		}
 	}
@@ -13227,17 +13244,64 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 
 	ExprModule *module = new (ctx.get<ExprModule>()) ExprModule(ctx.allocator, syntax, ctx.typeVoid, ctx.globalScope, expressions);
 
-	for(unsigned i = 0; i < ctx.definitions.size(); i++)
-		module->definitions.push_back(ctx.definitions[i]);
+	{
+		TRACE_SCOPE("analyze", "definitions");
 
-	for(unsigned i = 0; i < ctx.setup.size(); i++)
-		module->setup.push_back(ctx.setup[i]);
+		for(unsigned i = 0; i < ctx.definitions.size(); i++)
+			module->definitions.push_back(ctx.definitions[i]);
+	}
 
-	for(unsigned i = 0; i < ctx.vtables.size(); i++)
-		module->setup.push_back(CreateVirtualTableUpdate(ctx, ctx.MakeInternal(syntax), ctx.vtables[i]));
+	{
+		TRACE_SCOPE("analyze", "setup");
 
-	for(unsigned i = 0; i < ctx.upvalues.size(); i++)
-		module->setup.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(ctx.MakeInternal(syntax), ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, ctx.upvalues[i]), NULL));
+		for(unsigned i = 0; i < ctx.setup.size(); i++)
+			module->setup.push_back(ctx.setup[i]);
+	}
+
+	{
+		TRACE_SCOPE("analyze", "vtables");
+
+		SmallArray<FunctionData*, 32> possibleFunctions(ctx.allocator);
+		SmallArray<TypeClass*, 32> classTypes(ctx.allocator);
+
+		for(unsigned i = 0; i < ctx.functions.size(); i++)
+		{
+			FunctionData *function = ctx.functions[i];
+
+			TypeBase *parentType = function->scope->ownerType;
+
+			if(!parentType)
+				continue;
+
+			if(parentType->isGeneric)
+				continue;
+
+			const char *pos = strstr(function->name->name.begin, "::");
+
+			if(!pos)
+				continue;
+
+			possibleFunctions.push_back(function);
+		}
+
+		for(unsigned i = 0; i < ctx.types.size(); i++)
+		{
+			TypeBase *type = ctx.types[i];
+
+			if(TypeClass *classType = getType<TypeClass>(type))
+				classTypes.push_back(classType);
+		}
+
+		for(unsigned i = 0; i < ctx.vtables.size(); i++)
+			module->setup.push_back(CreateVirtualTableUpdate(ctx, ctx.MakeInternal(syntax), ctx.vtables[i], possibleFunctions, classTypes));
+	}
+
+	{
+		TRACE_SCOPE("analyze", "upvalues");
+
+		for(unsigned i = 0; i < ctx.upvalues.size(); i++)
+			module->setup.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(ctx.MakeInternal(syntax), ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, ctx.upvalues[i]), NULL));
+	}
 
 	return module;
 }
