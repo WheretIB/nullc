@@ -6789,7 +6789,16 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		ctx.errorHandlerNested = prevErrorHandlerNested;
 
-		longjmp(ctx.errorHandler, 1);
+		if(ctx.errorHandlerNested)
+		{
+			assert(ctx.errorHandlerActive);
+
+			longjmp(ctx.errorHandler, 1);
+		}
+
+		ctx.errorCount++;
+
+		return FunctionValue();
 	}
 
 	ctx.functionInstanceDepth--;
