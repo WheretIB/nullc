@@ -1659,3 +1659,37 @@ a.a = A();\r\n\
 B y = *a;\r\n\
 return x.a.b - y.a.b;";
 TEST_RESULT("Load store optimization aliasing issue 3", testLoadStoreAliasing3, "5");
+
+const char *testLargeValueReferencePropagation =
+"class string\r\n\
+{\r\n\
+	char[] data;\r\n\
+}\r\n\
+\r\n\
+void operator=(string ref left, string ref right)\r\n\
+{\r\n\
+	left.data = right.data;\r\n\
+}\r\n\
+\r\n\
+class Data\r\n\
+{\r\n\
+	string a;\r\n\
+	string b;\r\n\
+	string c;\r\n\
+	string d;\r\n\
+	string e;\r\n\
+	string f;\r\n\
+}\r\n\
+\r\n\
+class Test\r\n\
+{\r\n\
+    int ref a;\r\n\
+    Data data;\r\n\
+    int ref b;\r\n\
+}\r\n\
+\r\n\
+Test a, b;\r\n\
+b.b = new int(50);\r\n\
+a = b;\r\n\
+return *a.b;";
+TEST_RESULT("Large value reference propagation into the call", testLargeValueReferencePropagation, "50");

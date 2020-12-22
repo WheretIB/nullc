@@ -407,7 +407,7 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 			lowModule->constants.push_back(rvmiPushMem);
 			lowModule->constants.push_back(IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals);
 			lowModule->constants.push_back(constant->container->offset);
-			lowModule->constants.push_back(int(constant->container->type->size));
+			lowModule->constants.push_back(int(constant->type.size));
 
 			return true;
 		}
