@@ -1660,7 +1660,7 @@ B y = *a;\r\n\
 return x.a.b - y.a.b;";
 TEST_RESULT("Load store optimization aliasing issue 3", testLoadStoreAliasing3, "5");
 
-const char *testLargeValueReferencePropagation =
+const char *testLargeValueReferencePropagation1 =
 "class string\r\n\
 {\r\n\
 	char[] data;\r\n\
@@ -1692,4 +1692,48 @@ Test a, b;\r\n\
 b.b = new int(50);\r\n\
 a = b;\r\n\
 return *a.b;";
-TEST_RESULT("Large value reference propagation into the call", testLargeValueReferencePropagation, "50");
+TEST_RESULT("Large value reference propagation into the call 1", testLargeValueReferencePropagation1, "50");
+
+const char *testLargeValueReferencePropagation2 =
+"class string\r\n\
+{\r\n\
+	char[] data;\r\n\
+}\r\n\
+\r\n\
+void string:string(char[] right)\r\n\
+{\r\n\
+	data = duplicate(right);\r\n\
+}\r\n\
+\r\n\
+string ref operator=(string ref left, string ref right)\r\n\
+{\r\n\
+	if(right.data)\r\n\
+		left.data = duplicate(right.data);\r\n\
+\r\n\
+	return left;\r\n\
+}\r\n\
+\r\n\
+class Data\r\n\
+{\r\n\
+	string a;\r\n\
+	string b;\r\n\
+	string c;\r\n\
+	string d;\r\n\
+	string e;\r\n\
+	string f;\r\n\
+}\r\n\
+\r\n\
+class Test\r\n\
+{\r\n\
+	int ref a;\r\n\
+	Data data;\r\n\
+}\r\n\
+\r\n\
+Test a, b;\r\n\
+\r\n\
+b.data.a = string(\"test\");\r\n\
+b.data.b = string(\"best\");\r\n\
+\r\n\
+a = b; \r\n\
+return a.data.b.data.size;";
+TEST_RESULT("Large value reference propagation into the call 2", testLargeValueReferencePropagation2, "5");

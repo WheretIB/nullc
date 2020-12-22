@@ -406,7 +406,7 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 		{
 			lowModule->constants.push_back(rvmiPushMem);
 			lowModule->constants.push_back(IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals);
-			lowModule->constants.push_back(constant->container->offset);
+			lowModule->constants.push_back(constant->container->offset + constant->iValue);
 			lowModule->constants.push_back(int(constant->type.size));
 
 			return true;
@@ -2086,8 +2086,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			lowModule->constants.push_back(rvmiPopMem);
 			lowModule->constants.push_back(IsLocalScope(resultAddress->container->scope) ? rvrrFrame : rvrrGlobals);
-			lowModule->constants.push_back(resultAddress->container->offset);
-			lowModule->constants.push_back(int(resultAddress->container->type->size));
+			lowModule->constants.push_back(resultAddress->container->offset + resultAddress->iValue);
+			lowModule->constants.push_back(int(resultAddress->type.size));
 
 		}
 		else if(inst->type.type == VM_TYPE_STRUCT)
