@@ -294,6 +294,48 @@ try(<> a04(2, nullptr));\r\n\
 return a01(2, nullptr);";
 TEST_HARD_RUNTIME_FAIL("Invalid pointer check coverage (float) [failure handling]", testInvalidPointerFloatOps, "ERROR: null pointer access");
 
+const char	*testInvalidPointerMemcpy1 =
+"class Large{ int[64] x; }\r\n\
+\r\n\
+Large a;\r\n\
+Large ref b = nullptr;\r\n\
+\r\n\
+*b = a;\r\n\
+return 1;";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check (memcpy destination) [failure handling]", testInvalidPointerMemcpy1, "ERROR: null pointer access");
+
+const char	*testInvalidPointerMemcpy2 =
+"class Large{ int[64] x; }\r\n\
+\r\n\
+Large a;\r\n\
+Large ref b = nullptr;\r\n\
+\r\n\
+a = *b;\r\n\
+return 1;";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check (memcpy source) [failure handling]", testInvalidPointerMemcpy2, "ERROR: null pointer access");
+
+const char	*testInvalidPointerMemcpy3 =
+"class Large{ int[64] x; }\r\n\
+class Big{ Large a, b; }\r\n\
+\r\n\
+Big ref x;\r\n\
+Large b;\r\n\
+\r\n\
+x.b = b;\r\n\
+return 1;";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check (memcpy destination) 2 [failure handling]", testInvalidPointerMemcpy3, "ERROR: null pointer access");
+
+const char	*testInvalidPointerMemcpy4 =
+"class Large{ int[64] x; }\r\n\
+class Big{ Large a, b; }\r\n\
+\r\n\
+Big ref x;\r\n\
+Large b;\r\n\
+\r\n\
+b = x.b;\r\n\
+return 1;";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check (memcpy source) 2 [failure handling]", testInvalidPointerMemcpy4, "ERROR: null pointer access");
+
 const char	*testArrayAllocationFail = 
 "int[] f = new int[1024*1024*1024];\r\n\
 f[5] = 0;\r\n\

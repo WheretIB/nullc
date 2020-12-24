@@ -751,6 +751,12 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			instruction++;
 			BREAK;
 		CASE(rviMemCopy)
+			if(regFilePtr[cmd.rA].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
 			memcpy((void*)regFilePtr[cmd.rA].ptrValue, (void*)regFilePtr[cmd.rC].ptrValue, cmd.argument);
 			instruction++;
 			BREAK;
