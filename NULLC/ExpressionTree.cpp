@@ -13186,7 +13186,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 		expressions.push_back(CreateVirtualTableAssignment(ctx, source, vtable, type, function));
 
 		// Record that owner type recevied an assignment to this function
-		if(TypeClass *classType = getType<TypeClass>(type))
+		if(isType<TypeClass>(type))
 			assignments.insert(type, function);
 	}
 

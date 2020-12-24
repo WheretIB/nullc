@@ -389,7 +389,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(target->source, type, value, value + ptrType->subType->size);
 	}
 
-	if(TypeEnum *enumType = getType<TypeEnum>(type))
+	if(isType<TypeEnum>(type))
 	{
 		int value;
 		assert(type->size == sizeof(value));
