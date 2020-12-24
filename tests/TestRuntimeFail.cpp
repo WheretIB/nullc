@@ -122,6 +122,178 @@ Test ref x;\r\n\
 return x.b;";
 TEST_HARD_RUNTIME_FAIL("Invalid pointer check [failure handling]", testInvalidPointer, "ERROR: null pointer access");
 
+const char	*testInvalidPointerLoadOps =
+"import std.error;\r\n\
+\r\n\
+auto a01(char ref b){ return *b; }\r\n\
+auto a02(short ref b){ return *b; }\r\n\
+auto a03(int ref b){ return *b; }\r\n\
+auto a04(long ref b){ return *b; }\r\n\
+auto a05(float ref b){ return *b; }\r\n\
+auto a06(double ref b){ return *b; }\r\n\
+\r\n\
+try(<> a01(nullptr));\r\n\
+try(<> a02(nullptr));\r\n\
+try(<> a03(nullptr));\r\n\
+try(<> a04(nullptr));\r\n\
+try(<> a05(nullptr));\r\n\
+try(<> a06(nullptr));\r\n\
+\r\n\
+return a01(nullptr);";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check coverage (load) [failure handling]", testInvalidPointerLoadOps, "ERROR: null pointer access");
+
+const char	*testInvalidPointerStoreOps =
+"import std.error;\r\n\
+\r\n\
+auto a01(char a, char ref b){ return *b = a; }\r\n\
+auto a02(char a, short ref b){ return *b = a; }\r\n\
+auto a03(char a, int ref b){ return *b = a; }\r\n\
+auto a04(char a, long ref b){ return *b = a; }\r\n\
+auto a05(char a, float ref b){ return *b = a; }\r\n\
+auto a06(char a, double ref b){ return *b = a; }\r\n\
+\r\n\
+try(<> a01(2, nullptr));\r\n\
+try(<> a02(2, nullptr));\r\n\
+try(<> a03(2, nullptr));\r\n\
+try(<> a04(2, nullptr));\r\n\
+try(<> a05(2, nullptr));\r\n\
+try(<> a06(2, nullptr));\r\n\
+\r\n\
+return a01(2, nullptr);";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check coverage (store) [failure handling]", testInvalidPointerStoreOps, "ERROR: null pointer access");
+
+const char	*testInvalidPointerIntOps =
+"import std.error;\r\n\
+\r\n\
+int a01(int a, int ref b){ return a + *b; }\r\n\
+int a02(int a, int ref b){ return a - *b; }\r\n\
+int a03(int a, int ref b){ return a * *b; }\r\n\
+int a04(int a, int ref b){ return a / *b; }\r\n\
+int a05(int a, int ref b){ return a % *b; }\r\n\
+int a06(int a, int ref b){ return a ** *b; }\r\n\
+int a07(int a, int ref b){ return a < *b; }\r\n\
+int a08(int a, int ref b){ return a > *b; }\r\n\
+int a09(int a, int ref b){ return a <= *b; }\r\n\
+int a10(int a, int ref b){ return a >= *b; }\r\n\
+int a11(int a, int ref b){ return a == *b; }\r\n\
+int a12(int a, int ref b){ return a != *b; }\r\n\
+int a13(int a, int ref b){ return a << *b; }\r\n\
+int a14(int a, int ref b){ return a >> *b; }\r\n\
+int a15(int a, int ref b){ return a & *b; }\r\n\
+int a16(int a, int ref b){ return a | *b; }\r\n\
+int a17(int a, int ref b){ return a ^ *b; }\r\n\
+\r\n\
+try(<> a01(2, nullptr));\r\n\
+try(<> a02(2, nullptr));\r\n\
+try(<> a03(2, nullptr));\r\n\
+try(<> a04(2, nullptr));\r\n\
+try(<> a05(2, nullptr));\r\n\
+try(<> a06(2, nullptr));\r\n\
+try(<> a07(2, nullptr));\r\n\
+try(<> a08(2, nullptr));\r\n\
+try(<> a09(2, nullptr));\r\n\
+try(<> a10(2, nullptr));\r\n\
+try(<> a11(2, nullptr));\r\n\
+try(<> a12(2, nullptr));\r\n\
+try(<> a13(2, nullptr));\r\n\
+try(<> a14(2, nullptr));\r\n\
+try(<> a15(2, nullptr));\r\n\
+try(<> a16(2, nullptr));\r\n\
+try(<> a17(2, nullptr));\r\n\
+\r\n\
+return a01(2, nullptr);";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check coverage (int) [failure handling]", testInvalidPointerIntOps, "ERROR: null pointer access");
+
+const char	*testInvalidPointerLongOps =
+"import std.error;\r\n\
+\r\n\
+int a01(long a, long ref b){ return a + *b; }\r\n\
+int a02(long a, long ref b){ return a - *b; }\r\n\
+int a03(long a, long ref b){ return a * *b; }\r\n\
+int a04(long a, long ref b){ return a / *b; }\r\n\
+int a05(long a, long ref b){ return a % *b; }\r\n\
+int a06(long a, long ref b){ return a ** *b; }\r\n\
+int a07(long a, long ref b){ return a < *b; }\r\n\
+int a08(long a, long ref b){ return a > *b; }\r\n\
+int a09(long a, long ref b){ return a <= *b; }\r\n\
+int a10(long a, long ref b){ return a >= *b; }\r\n\
+int a11(long a, long ref b){ return a == *b; }\r\n\
+int a12(long a, long ref b){ return a != *b; }\r\n\
+int a13(long a, long ref b){ return a << *b; }\r\n\
+int a14(long a, long ref b){ return a >> *b; }\r\n\
+int a15(long a, long ref b){ return a & *b; }\r\n\
+int a16(long a, long ref b){ return a | *b; }\r\n\
+int a17(long a, long ref b){ return a ^ *b; }\r\n\
+\r\n\
+try(<> a01(2, nullptr));\r\n\
+try(<> a02(2, nullptr));\r\n\
+try(<> a03(2, nullptr));\r\n\
+try(<> a04(2, nullptr));\r\n\
+try(<> a05(2, nullptr));\r\n\
+try(<> a06(2, nullptr));\r\n\
+try(<> a07(2, nullptr));\r\n\
+try(<> a08(2, nullptr));\r\n\
+try(<> a09(2, nullptr));\r\n\
+try(<> a10(2, nullptr));\r\n\
+try(<> a11(2, nullptr));\r\n\
+try(<> a12(2, nullptr));\r\n\
+try(<> a13(2, nullptr));\r\n\
+try(<> a14(2, nullptr));\r\n\
+try(<> a15(2, nullptr));\r\n\
+try(<> a16(2, nullptr));\r\n\
+try(<> a17(2, nullptr));\r\n\
+\r\n\
+return a01(2, nullptr);";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check coverage (long) [failure handling]", testInvalidPointerLongOps, "ERROR: null pointer access");
+
+const char	*testInvalidPointerDoubleOps =
+"import std.error;\r\n\
+\r\n\
+int a01(double a, double ref b){ return a + *b; }\r\n\
+int a02(double a, double ref b){ return a - *b; }\r\n\
+int a03(double a, double ref b){ return a * *b; }\r\n\
+int a04(double a, double ref b){ return a / *b; }\r\n\
+int a05(double a, double ref b){ return a % *b; }\r\n\
+int a06(double a, double ref b){ return a ** *b; }\r\n\
+int a07(double a, double ref b){ return a < *b; }\r\n\
+int a08(double a, double ref b){ return a > *b; }\r\n\
+int a09(double a, double ref b){ return a <= *b; }\r\n\
+int a10(double a, double ref b){ return a >= *b; }\r\n\
+int a11(double a, double ref b){ return a == *b; }\r\n\
+int a12(double a, double ref b){ return a != *b; }\r\n\
+\r\n\
+try(<> a01(2, nullptr));\r\n\
+try(<> a02(2, nullptr));\r\n\
+try(<> a03(2, nullptr));\r\n\
+try(<> a04(2, nullptr));\r\n\
+try(<> a05(2, nullptr));\r\n\
+try(<> a06(2, nullptr));\r\n\
+try(<> a07(2, nullptr));\r\n\
+try(<> a08(2, nullptr));\r\n\
+try(<> a09(2, nullptr));\r\n\
+try(<> a10(2, nullptr));\r\n\
+try(<> a11(2, nullptr));\r\n\
+try(<> a12(2, nullptr));\r\n\
+\r\n\
+return a01(2, nullptr);";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check coverage (double) [failure handling]", testInvalidPointerDoubleOps, "ERROR: null pointer access");
+
+const char	*testInvalidPointerFloatOps =
+"import std.error;\r\n\
+\r\n\
+int a01(float a, float ref b){ return a + *b; }\r\n\
+int a02(float a, float ref b){ return a - *b; }\r\n\
+int a03(float a, float ref b){ return a * *b; }\r\n\
+int a04(float a, float ref b){ return a / *b; }\r\n\
+\r\n\
+try(<> a01(2, nullptr));\r\n\
+try(<> a02(2, nullptr));\r\n\
+try(<> a03(2, nullptr));\r\n\
+try(<> a04(2, nullptr));\r\n\
+\r\n\
+return a01(2, nullptr);";
+TEST_HARD_RUNTIME_FAIL("Invalid pointer check coverage (float) [failure handling]", testInvalidPointerFloatOps, "ERROR: null pointer access");
+
 const char	*testArrayAllocationFail = 
 "int[] f = new int[1024*1024*1024];\r\n\
 f[5] = 0;\r\n\
