@@ -3030,10 +3030,14 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 
 		const char *messageStart = ctx.errorBufLocation;
 
+		// Separate allocator for each module
+		ChunkedStackPool<65532> pool;
+		GrowingAllocatorRef<ChunkedStackPool<65532>, 16384> allocator(pool);
+
 		ctx.statistics.Finish("Extra", NULLCTime::clockMicro());
 
 		const char *pos = NULL;
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports, &ctx.statistics);
+		bytecode = ctx.bytecodeBuilder(&allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports, &ctx.statistics);
 
 		ctx.statistics.Start(NULLCTime::clockMicro());
 
