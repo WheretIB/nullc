@@ -60,7 +60,7 @@ void partition(generic arr, int begin, middle, end, generic pred, int ref out_eq
 			if(!pred(arr[eqbeg], arr[gtbeg]))
 			{
 				if(equal(&arr[gtbeg], &arr[eqbeg]))
-					sort_swap(arr[gtbeg], arr[eqend++]);
+					sort_swap(&arr[gtbeg], &arr[eqend++]);
 				else
 					break;
 			}
@@ -72,7 +72,7 @@ void partition(generic arr, int begin, middle, end, generic pred, int ref out_eq
 			if(!pred(arr[ltend - 1], arr[eqbeg]))
 			{
 				if(equal(&arr[eqbeg], &arr[ltend - 1]))
-					sort_swap(arr[ltend - 1], arr[--eqbeg]);
+					sort_swap(&arr[ltend - 1], &arr[--eqbeg]);
 				else
 					break;
 			}
@@ -90,26 +90,26 @@ void partition(generic arr, int begin, middle, end, generic pred, int ref out_eq
 		if(gtbeg == end)
 		{
 			if(--ltend != --eqbeg)
-				sort_swap(arr[ltend], arr[eqbeg]);
-			sort_swap(arr[eqbeg], arr[--eqend]);
+				sort_swap(&arr[ltend], &arr[eqbeg]);
+			sort_swap(&arr[eqbeg], &arr[--eqend]);
 		}else if(ltend == begin){
 			if(eqend != gtbeg)
-				sort_swap(arr[eqbeg], arr[eqend]);
+				sort_swap(&arr[eqbeg], &arr[eqend]);
 			++eqend;
-			sort_swap(arr[gtbeg++], arr[eqbeg++]);
+			sort_swap(&arr[gtbeg++], &arr[eqbeg++]);
 		}else
-			sort_swap(arr[gtbeg++], arr[--ltend]);
+			sort_swap(&arr[gtbeg++], &arr[--ltend]);
 	}
 }
 
 void median3(generic arr, int first, middle, last, generic pred)
 {
 	if(pred(arr[middle], arr[first]))
-		sort_swap(arr[middle], arr[first]);
+		sort_swap(&arr[middle], &arr[first]);
 	if(pred(arr[last], arr[middle]))
-		sort_swap(arr[last], arr[middle]);
+		sort_swap(&arr[last], &arr[middle]);
 	if(pred(arr[middle], arr[first]))
-		sort_swap(arr[middle], arr[first]);
+		sort_swap(&arr[middle], &arr[first]);
 }
 
 void median(generic arr, int first, middle, last, generic pred)
@@ -118,7 +118,7 @@ void median(generic arr, int first, middle, last, generic pred)
 	{
 		// median of three for small chunks
 		median3(arr, first, middle, last, pred);
-	}else	{
+	}else{
 		// median of nine
 		int step = (last - first + 1) / 8;
 		

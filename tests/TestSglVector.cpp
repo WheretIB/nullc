@@ -294,3 +294,34 @@ assert(y[0] == 4); assert(y[1] == 5);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.vector test (new functions)", testSglVector12, "1");
+
+const char *testSglVector13 =
+"import std.vector;\r\n\
+class Test{ void Test(int x){ this.x = x; } int x; }\r\n\
+vector<Test ref> a;\r\n\
+vector<Test ref> b;\r\n\
+void add(int x){ auto t = new Test(x); a.push_back(t); b.push_back(t); }\r\n\
+int loops = 16;\r\n\
+for(int i = 0; i < loops; i++)\r\n\
+{\r\n\
+	add(4); add(1); add(7); add(2); add(5); add(9);\r\n\
+}\r\n\
+b.sort(<l, r> l.x < r.x);\r\n\
+int start = b[0].x;\r\n\
+for(i in b)\r\n\
+{\r\n\
+	assert(i.x >= start);\r\n\
+	start = i.x;\r\n\
+}\r\n\
+int pos = 0;\r\n\
+for(int i = 0; i < loops; i++)\r\n\
+{\r\n\
+	assert(a[pos++].x == 4);\r\n\
+	assert(a[pos++].x == 1);\r\n\
+	assert(a[pos++].x == 7);\r\n\
+	assert(a[pos++].x == 2);\r\n\
+	assert(a[pos++].x == 5);\r\n\
+	assert(a[pos++].x == 9);\r\n\
+}\r\n\
+return a[0].x;";
+TEST_RESULT("sgl.vector test (large pointer array sort)", testSglVector13, "4");
