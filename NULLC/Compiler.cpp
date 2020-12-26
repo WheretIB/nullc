@@ -2208,6 +2208,9 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const cha
 		}
 	}
 
+	if(statistics)
+		statistics->Finish("Extra", NULLCTime::clockMicro());
+
 	if(!fileContent)
 	{
 		*errorPos = NULL;
@@ -2217,9 +2220,6 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const cha
 
 		return NULL;
 	}
-
-	if(statistics)
-		statistics->Finish("Extra", NULLCTime::clockMicro());
 
 	char *bytecode = BuildModuleFromSource(allocator, path, nextModuleRoot, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports, statistics);
 
