@@ -3105,8 +3105,6 @@ void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode)
 
 SynModuleImport* ParseImport(ParseContext &ctx)
 {
-	TRACE_SCOPE("parser", "ParseImport");
-
 	Lexeme *start = ctx.currentLexeme;
 
 	if(ctx.Consume(lex_import))
@@ -3148,8 +3146,6 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 {
-	TRACE_SCOPE("parser", "ParseImports");
-
 	IntrusiveList<SynModuleImport> imports;
 
 	while(ctx.At(lex_import))
