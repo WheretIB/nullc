@@ -473,6 +473,18 @@ namespace NULLC
 
 #else
 
+namespace NULLCTime
+{
+	inline void clockMicroInit()
+	{
+	}
+
+	inline unsigned clockMicro()
+	{
+		return 0;
+	}
+}
+
 namespace NULLC
 {
 	struct TraceContext;
