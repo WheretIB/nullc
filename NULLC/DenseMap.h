@@ -41,6 +41,7 @@ public:
 	void set_allocator(Allocator *newAllocator)
 	{
 		assert(count == 0);
+		assert(data == storage);
 
 		this->allocator = newAllocator;
 	}
@@ -198,6 +199,7 @@ public:
 	void set_allocator(Allocator *newAllocator)
 	{
 		assert(count == 0);
+		assert(data == storage);
 
 		this->allocator = newAllocator;
 	}
