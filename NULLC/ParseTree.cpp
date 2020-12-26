@@ -2990,6 +2990,8 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 
 const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream)
 {
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	InplaceStr moduleName = GetModuleName(ctx.allocator, ctx.moduleRoot, parts);
 
 	TRACE_SCOPE("parser", "GetBytecodeFromPath");
@@ -3028,8 +3030,12 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 
 		const char *messageStart = ctx.errorBufLocation;
 
+		ctx.statistics.Finish("Extra", NULLCTime::clockMicro());
+
 		const char *pos = NULL;
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports);
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports, &ctx.statistics);
+
+		ctx.statistics.Start(NULLCTime::clockMicro());
 
 		if(!bytecode)
 		{
@@ -3049,6 +3055,8 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 			ctx.errorCount++;
 		}
 	}
+
+	ctx.statistics.Finish("Extra", NULLCTime::clockMicro());
 
 	return bytecode;
 }
@@ -3155,7 +3163,12 @@ SynModule* ParseModule(ParseContext &ctx)
 
 	Lexeme *start = ctx.currentLexeme;
 
+	// Ignore nested import timing
+	ctx.statistics.finishTime = 0;
+
 	IntrusiveList<SynModuleImport> imports = ParseImports(ctx);
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
@@ -3168,6 +3181,8 @@ SynModule* ParseModule(ParseContext &ctx)
 		while(SynBase* expression = ParseExpression(ctx))
 			expressions.push_back(expression);
 	}
+
+	ctx.statistics.Finish("Parse", NULLCTime::clockMicro());
 
 	if(expressions.empty())
 	{
@@ -3187,7 +3202,11 @@ SynModule* Parse(ParseContext &ctx, const char *code, const char *moduleRoot)
 
 	ctx.moduleRoot = moduleRoot;
 
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	ctx.lexer.Lexify(code);
+
+	ctx.statistics.Finish("Lexer", NULLCTime::clockMicro());
 
 	unsigned traceDepth = NULLC::TraceGetDepth();
 

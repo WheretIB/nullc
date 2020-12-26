@@ -15,6 +15,7 @@
 #include "InstructionTreeRegVmLowerGraph.h"
 #include "InstructionTreeLlvm.h"
 #include "Output.h"
+#include "Statistics.h"
 
 struct CompilerContext
 {
@@ -72,6 +73,8 @@ struct CompilerContext
 	bool enableLogFiles;
 
 	int optimizationLevel;
+
+	CompilerStatistics statistics;
 };
 
 bool BuildBaseModule(Allocator *allocator, int optimizationLevel);
@@ -86,7 +89,9 @@ bool SaveListing(CompilerContext &ctx, const char *fileName);
 
 bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *moduleRoot, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *moduleRoot, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports, CompilerStatistics *statistics);
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports, CompilerStatistics *statistics);
 
 bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(), void *funcWrap, void (*ptrWrap)(void *func, char* retBuf, char* argBuf), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel);
+
+void OutputCompilerStatistics(CompilerStatistics &statistics, unsigned outerTotalMicros);

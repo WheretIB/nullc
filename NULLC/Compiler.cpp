@@ -182,7 +182,7 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 	const char *errorPos = NULL;
 	char errorBuf[256];
 
-	if(!BuildModuleFromSource(allocator, "$base$.nc", NULL, nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>()))
+	if(!BuildModuleFromSource(allocator, "$base$.nc", NULL, nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>(), NULL))
 	{
 		assert(!"Failed to compile base NULLC module");
 		return false;
@@ -416,6 +416,10 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx)
 
 	ctx.synModule = Parse(parseCtx, ctx.code, ctx.moduleRoot);
 
+	ctx.statistics.Add(ctx.parseCtx.statistics);
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	if(ctx.enableLogFiles && ctx.synModule)
 	{
 		TRACE_SCOPE("compiler", "Debug::syntax_graph");
@@ -433,6 +437,8 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx)
 			ctx.outputCtx.stream = NULL;
 		}
 	}
+
+	ctx.statistics.Finish("Logging", NULLCTime::clockMicro());
 
 	if(!ctx.synModule)
 	{
@@ -461,6 +467,10 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx)
 
 	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code, ctx.moduleRoot);
 
+	ctx.statistics.Add(ctx.exprCtx.statistics);
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	if(ctx.enableLogFiles && ctx.exprModule)
 	{
 		TRACE_SCOPE("compiler", "Debug::expr_graph");
@@ -478,6 +488,8 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx)
 			ctx.outputCtx.stream = NULL;
 		}
 	}
+
+	ctx.statistics.Finish("Logging", NULLCTime::clockMicro());
 
 	if(!ctx.exprModule || exprCtx.errorCount != 0 || parseCtx.errorCount != 0)
 	{
@@ -503,7 +515,11 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 
 	ExpressionContext &exprCtx = ctx.exprCtx;
 
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	ctx.vmModule = CompileVm(exprCtx, ctx.exprModule, ctx.code);
+
+	ctx.statistics.Finish("IrCodeGen", NULLCTime::clockMicro());
 
 	if(!ctx.vmModule)
 	{
@@ -516,6 +532,8 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 	}
 
 	//printf("# Instruction memory %dkb\n", pool.GetSize() / 1024);
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	if(ctx.enableLogFiles)
 	{
@@ -540,12 +558,20 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 		}
 	}
 
+	ctx.statistics.Finish("Logging", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	// Build LLVM module is support is enabled or just to test execution paths in debug build
 #if defined(NULLC_LLVM_SUPPORT)
 	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
 #elif !defined(NDEBUG)
 	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
 #endif
+
+	ctx.statistics.Finish("LlvmCodeGen", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	for(VmFunction *function = ctx.vmModule->functions.head; function; function = function->next)
 	{
@@ -608,6 +634,10 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 		}
 	}
 
+	ctx.statistics.Finish("IrOptimization", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_UPDATE_LIVE_SETS);
 
 	if(ctx.optimizationLevel >= 2)
@@ -617,6 +647,10 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_EXTRACTS);
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
+
+	ctx.statistics.Finish("IrFinalization", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	if(ctx.enableLogFiles)
 	{
@@ -640,6 +674,10 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 			ctx.outputCtx.stream = NULL;
 		}
 	}
+
+	ctx.statistics.Finish("Logging", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	ctx.regVmLoweredModule = RegVmLowerModule(exprCtx, ctx.vmModule);
 
@@ -665,6 +703,10 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 
 	RegVmFinalizeModule(ctx.instRegVmFinalizeCtx, ctx.regVmLoweredModule);
 
+	ctx.statistics.Finish("IrLowering", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	if(ctx.enableLogFiles)
 	{
 		TRACE_SCOPE("compiler", "Debug::inst_graph_reg_low");
@@ -684,6 +726,8 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 			ctx.outputCtx.stream = NULL;
 		}
 	}
+
+	ctx.statistics.Finish("Logging", NULLCTime::clockMicro());
 
 	return true;
 }
@@ -2010,7 +2054,7 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 	return true;
 }
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *moduleRoot, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *moduleRoot, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports, CompilerStatistics *statistics)
 {
 	TRACE_SCOPE("compiler", "BuildModuleFromSource");
 	TRACE_LABEL(modulePath);
@@ -2036,8 +2080,14 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 		return NULL;
 	}
 
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	char *bytecode = NULL;
 	GetBytecode(ctx, &bytecode);
+
+	ctx.statistics.Finish("Bytecode", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	Lexer &lexer = ctx.parseCtx.lexer;
 
@@ -2054,6 +2104,11 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 	}
 
 	BinaryCache::PutBytecode(modulePath, bytecode, lexer.GetStreamStart(), lexer.GetStreamSize());
+
+	ctx.statistics.Finish("BytecodeCache", NULLCTime::clockMicro());
+
+	if(statistics)
+		statistics->Add(ctx.statistics);
 
 	return bytecode;
 }
@@ -2089,9 +2144,18 @@ const char* FindFileContentInImportPaths(InplaceStr moduleName, const char *modu
 	return fileContent;
 }
 
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports, CompilerStatistics *statistics)
 {
+	if(statistics)
+		statistics->Start(NULLCTime::clockMicro());
+
 	NULLC::TraceDump();
+
+	if(statistics)
+	{
+		statistics->Finish("Tracing", NULLCTime::clockMicro());
+		statistics->Start(NULLCTime::clockMicro());
+	}
 
 	TRACE_SCOPE("compiler", "BuildModuleFromPath");
 	TRACE_LABEL2(moduleName.begin, moduleName.end);
@@ -2154,7 +2218,10 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, const cha
 		return NULL;
 	}
 
-	char *bytecode = BuildModuleFromSource(allocator, path, nextModuleRoot, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports);
+	if(statistics)
+		statistics->Finish("Extra", NULLCTime::clockMicro());
+
+	char *bytecode = BuildModuleFromSource(allocator, path, nextModuleRoot, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports, statistics);
 
 	NULLC::fileFree(fileContent);
 
@@ -2167,7 +2234,7 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(
 
 	// Create module if not found
 	if(!bytecode)
-		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), NULL, true, errorPos, errorBuf, errorBufSize, optimizationLevel, ArrayView<InplaceStr>());
+		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), NULL, true, errorPos, errorBuf, errorBufSize, optimizationLevel, ArrayView<InplaceStr>(), NULL);
 
 	if(!bytecode)
 		return false;
@@ -2211,4 +2278,28 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(
 	}
 
 	return true;
+}
+
+void OutputCompilerStatistics(CompilerStatistics &statistics, unsigned outerTotalMicros)
+{
+	OutputContext outputCtx;
+
+	outputCtx.stream = OutputContext::FileOpen("time_stats.txt");
+	outputCtx.writeStream = OutputContext::FileWrite;
+
+	unsigned total = statistics.Total();
+
+	for(unsigned i = 0; i < statistics.timers.size(); i++)
+	{
+		CompilerStatistics::Timer &timer = statistics.timers[i];
+
+		outputCtx.Printf("%15s %6dms (%3d%%)\n", timer.outputName.begin, timer.total / 1000, int(timer.total * 100.0 / total));
+	}
+
+	outputCtx.Printf("%15s %6dms (%6dms)\n", "total", total / 1000, outerTotalMicros / 1000);
+
+	outputCtx.Flush();
+
+	OutputContext::FileClose(outputCtx.stream);
+	outputCtx.stream = NULL;
 }

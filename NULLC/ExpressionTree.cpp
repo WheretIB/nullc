@@ -13221,6 +13221,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 {
 	TRACE_SCOPE("analyze", "AnalyzeModule");
 
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	// Import base module
 	if(const char *bytecode = BinaryCache::GetBytecode("$base$.nc"))
 	{
@@ -13240,10 +13242,18 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 
 	AnalyzeImplicitModuleImports(ctx);
 
+	ctx.statistics.Finish("Import", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	IntrusiveList<ExprBase> expressions;
 
 	for(SynBase *expr = syntax->expressions.head; expr; expr = expr->next)
 		expressions.push_back(AnalyzeStatement(ctx, expr));
+
+	ctx.statistics.Finish("Expressions", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	ClosePendingUpvalues(ctx, NULL);
 
@@ -13311,6 +13321,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 		for(unsigned i = 0; i < ctx.upvalues.size(); i++)
 			module->setup.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(ctx.MakeInternal(syntax), ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, ctx.upvalues[i]), NULL));
 	}
+
+	ctx.statistics.Finish("Finalization", NULLCTime::clockMicro());
 
 	return module;
 }
@@ -13387,7 +13399,11 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code,
 		if(ctx.memoryLimit != 0)
 			ctx.allocator->clear_limit();
 
+		ctx.statistics.Start(NULLCTime::clockMicro());
+
 		ctx.PopScope(SCOPE_EXPLICIT);
+
+		ctx.statistics.Finish("Cleanup", NULLCTime::clockMicro());
 
 		assert(ctx.scope == NULL);
 

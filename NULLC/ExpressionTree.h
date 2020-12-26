@@ -6,6 +6,7 @@
 #include "Array.h"
 #include "HashMap.h"
 #include "StrAlgo.h"
+#include "Statistics.h"
 
 #include "ParseTree.h"
 #include "TypeTree.h"
@@ -393,6 +394,8 @@ struct ExpressionContext
 	char *errorBufLocation;
 
 	SmallArray<ErrorInfo*, 4> errorInfo;
+
+	CompilerStatistics statistics;
 
 	// Base types
 	TypeBase* typeVoid;

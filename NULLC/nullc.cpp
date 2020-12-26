@@ -827,11 +827,23 @@ nullres nullcBuildWithModuleName(const char* code, const char* moduleName)
 
 	using namespace NULLC;
 
+	unsigned start = NULLCTime::clockMicro();
+
 	if(!nullcCompile(code))
 		return false;
 
+	compilerCtx->statistics.Start(NULLCTime::clockMicro());
+
 	char *bytecode = NULL;
 	nullcGetBytecode(&bytecode);
+
+	compilerCtx->statistics.Finish("Bytecode", NULLCTime::clockMicro());
+
+	if(compilerCtx->enableLogFiles)
+	{
+		OutputCompilerStatistics(compilerCtx->statistics, NULLCTime::clockMicro() - start);
+	}
+
 	nullcClean();
 
 	if(!nullcLinkCodeWithModuleName(bytecode, moduleName))
