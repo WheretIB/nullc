@@ -323,3 +323,276 @@ struct SmallDenseMapUnsignedHasher
 		return value * 2654435769u;
 	}
 };
+
+template<typename Value>
+class DirectDenseMap
+{
+public:
+	struct Node
+	{
+		Node()
+		{
+			hash = 0;
+			value = Value();
+			next = NULL;
+		}
+
+		unsigned hash;
+		Value value;
+		Node *next;
+	};
+
+	struct NodeIterator
+	{
+		NodeIterator()
+		{
+			start = NULL;
+			node = NULL;
+		}
+
+		NodeIterator(Node *start, Node *node)
+		{
+			this->start = start;
+			this->node = node;
+		}
+
+		Node *start;
+		Node *node;
+
+		// Safe bool cast
+		typedef void (NodeIterator::*bool_type)() const;
+		void safe_bool() const{}
+
+		operator bool_type() const
+		{
+			return node ? &NodeIterator::safe_bool : 0;
+		}
+	};
+
+	DirectDenseMap(Allocator *allocator) : allocator(allocator)
+	{
+		assert(allocator);
+
+		bucketCount = 4;
+		count = 0;
+
+		data = (Node*)allocator->alloc(sizeof(Node) * bucketCount);
+		memset(data, 0, sizeof(Node) * bucketCount);
+	}
+
+	~DirectDenseMap()
+	{
+		allocator->dealloc(data);
+	}
+
+	void clear()
+	{
+		memset(data, 0, sizeof(Node) * bucketCount);
+
+		count = 0;
+	}
+
+	void insert(unsigned hash, Value value)
+	{
+		// Keep occupancy at <80%
+		if(count + (count >> 2) >= bucketCount)
+			rehash();
+
+		count++;
+
+		unsigned bucketMask = bucketCount - 1;
+		unsigned bucket = hash & bucketMask;
+
+		Node *target = &data[bucket];
+
+		if(target->next == NULL)
+		{
+			target->hash = hash;
+			target->value = value;
+			target->next = target; // Cycle lets us know that this is the last node
+		}
+		else
+		{
+			Node *n = (Node*)allocator->alloc(sizeof(Node));
+
+			n->hash = target->hash;
+			n->value = target->value;
+			n->next = target->next;
+
+			target->hash = hash;
+			target->value = value;
+			target->next = n;
+		}
+	}
+
+	void remove(unsigned hash, Value value)
+	{
+		unsigned bucketMask = bucketCount - 1;
+		unsigned bucket = hash & bucketMask;
+
+		Node *start = &data[bucket];
+		Node *curr = start;
+		Node *prev = NULL;
+
+		if(!curr->next)
+		{
+			assert(!"element is not in the map");
+			return;
+		}
+
+		while(curr)
+		{
+			if(curr->hash == hash && curr->value == value)
+				break;
+
+			prev = curr;
+			curr = curr->next;
+
+			if(curr == start)
+				return;
+		}
+
+		count--;
+
+		assert(curr && "element is not in the map");
+
+		if(prev)
+		{
+			prev->next = curr->next;
+
+			allocator->dealloc(curr);
+		}
+		else if(start->next == start)
+		{
+			start->next = NULL;
+		}
+		else
+		{
+			allocator->dealloc(start->next);
+
+			*start = *start->next;
+		}
+	}
+
+	Value* find(unsigned hash)
+	{
+		unsigned bucketMask = bucketCount - 1;
+		unsigned bucket = hash & bucketMask;
+
+		Node *start = &data[bucket];
+		Node *curr = start;
+
+		if(!curr->next)
+			return false;
+
+		while(curr)
+		{
+			if(curr->hash == hash)
+				return &curr->value;
+
+			curr = curr->next;
+
+			if(curr == start)
+				return NULL;
+		}
+
+		return NULL;
+	}
+
+	NodeIterator first(unsigned hash)
+	{
+		unsigned bucketMask = bucketCount - 1;
+		unsigned bucket = hash & bucketMask;
+
+		Node *start = &data[bucket];
+		Node *curr = start;
+
+		if(!curr->next)
+			return NodeIterator();
+
+		while(curr)
+		{
+			if(curr->hash == hash)
+				return NodeIterator(start, curr);
+
+			curr = curr->next;
+
+			if(curr == start)
+				return NodeIterator();
+		}
+
+		return NodeIterator();
+	}
+
+	NodeIterator next(NodeIterator it)
+	{
+		Node *start = it.start;
+		Node *node = it.node;
+
+		unsigned hash = node->hash;
+
+		node = node->next;
+
+		if(node == start)
+			return NodeIterator();
+
+		while(node)
+		{
+			if(node->hash == hash)
+				return NodeIterator(start, node);
+
+			node = node->next;
+
+			if(node == start)
+				return NodeIterator();
+		}
+
+		return NodeIterator();
+	}
+
+	void rehash_insert_reverse(Node *start, Node *node)
+	{
+		Node *next = node->next;
+
+		if(next != start)
+			rehash_insert_reverse(start, next);
+
+		insert(node->hash, node->value);
+	}
+
+	void rehash()
+	{
+		unsigned oldBucketCount = bucketCount;
+		Node *oldData = data;
+
+		bucketCount *= 2;
+		count = 0;
+
+		data = (Node*)allocator->alloc(sizeof(Node) * bucketCount);
+		memset(data, 0, sizeof(Node) * bucketCount);
+
+		for(unsigned i = 0; i < oldBucketCount; i++)
+		{
+			Node *start = &oldData[i];
+
+			if(start->next == NULL)
+				continue;
+
+			rehash_insert_reverse(start, start);
+		}
+
+		allocator->dealloc(oldData);
+	}
+
+private:
+	unsigned bucketCount;
+	unsigned count;
+
+	Node *data;
+
+	Allocator *allocator;
+
+private:
+	DirectDenseMap(const DirectDenseMap&);
+	DirectDenseMap& operator=(const DirectDenseMap&);
+};

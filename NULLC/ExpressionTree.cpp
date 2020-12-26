@@ -517,26 +517,222 @@ namespace
 		return NULL;
 	}
 
+	IdentifierLookupResult* LookupObjectByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		typedef DirectDenseMap<IdentifierLookupResult>::NodeIterator Node;
+
+		ScopeData *scope = ctx.scope;
+
+		while(scope)
+		{
+			if(Node lookup = scope->idLookupMap.first(nameHash))
+			{
+				if(ctx.lookupLocation && !scope->unrestricted)
+				{
+					VariableData *variable = lookup.node->value.variable;
+
+					// Skip variables that are not visible from current point
+					while(variable && !variable->importModule && variable->source->pos.begin > ctx.lookupLocation->pos.begin)
+					{
+						lookup = scope->idLookupMap.next(lookup);
+
+						if(lookup.node)
+							variable = lookup.node->value.variable;
+						else
+							variable = NULL;
+					}
+				}
+
+				if(lookup.node)
+					return &lookup.node->value;;
+			}
+
+			scope = scope->scope;
+		}
+
+		return NULL;
+	}
+
+	VariableData* LookupVariableByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, nameHash))
+		{
+			if(lookup->variable)
+				return lookup->variable;
+		}
+
+		return NULL;
+	}
+
+	FunctionData* LookupFunctionByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, nameHash))
+		{
+			if(lookup->function)
+				return lookup->function;
+		}
+
+		return NULL;
+	}
+
+	TypeBase* LookupTypeByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		ScopeData *scope = ctx.scope;
+
+		while(scope)
+		{
+			if(TypeLookupResult *lookup = scope->typeLookupMap.find(nameHash))
+			{
+				if(TypeBase *type = lookup->type)
+				{
+					// Check type visibility
+					if(ctx.lookupLocation && !scope->unrestricted && !type->importModule)
+					{
+						SynBase *typeLocation = NULL;
+
+						if(TypeClass *exact = getType<TypeClass>(type))
+							typeLocation = exact->source;
+						else if(TypeGenericClassProto *exact = getType<TypeGenericClassProto>(type))
+							typeLocation = exact->definition;
+
+						if(typeLocation && typeLocation->pos.begin > ctx.lookupLocation->pos.begin)
+						{
+							scope = scope->scope;
+							continue;
+						}
+					}
+
+					return lookup->type;
+				}
+
+				// Check alias visibility
+				if(ctx.lookupLocation && !scope->unrestricted && !lookup->alias->importModule)
+				{
+					if(lookup->alias->source->pos.begin > ctx.lookupLocation->pos.begin)
+					{
+						scope = scope->scope;
+						continue;
+					}
+				}
+
+				return lookup->alias->type;
+			}
+
+			scope = scope->scope;
+		}
+
+		return NULL;
+	}
+
+	struct FunctionLookupChain
+	{
+		typedef DirectDenseMap<IdentifierLookupResult>::NodeIterator Node;
+
+		FunctionLookupChain()
+		{
+			scope = NULL;
+		}
+
+		FunctionLookupChain(Node node, ScopeData *scope)
+		{
+			this->node = node;
+			this->scope = scope;
+		}
+
+		FunctionData* operator*()
+		{
+			return node.node->value.function;
+		}
+
+		FunctionData* operator->()
+		{
+			return node.node->value.function;
+		}
+
+		FunctionLookupChain next()
+		{
+			assert(node);
+
+			// Try the next variable in current scope
+			if(Node curr = scope->idLookupMap.next(node))
+			{
+				// Scopes with mixed variables and functions will block function overload visibility
+				if(curr.node->value.variable)
+					return FunctionLookupChain();
+
+				return FunctionLookupChain(curr, scope);
+			}
+
+			// Search in next scopes
+			while(scope && scope->scope)
+			{
+				scope = scope->scope;
+
+				if(Node curr = scope->idLookupMap.first(node.node->hash))
+				{
+					// Scopes with mixed variables and functions will block function overload visibility
+					if(curr.node->value.variable)
+						return FunctionLookupChain();
+
+					return FunctionLookupChain(curr, scope);
+				}
+			}
+
+			return FunctionLookupChain();
+		}
+
+		Node node;
+		ScopeData *scope;
+
+		// Safe bool cast
+		typedef void (FunctionLookupChain::*bool_type)() const;
+		void safe_bool() const{}
+
+		operator bool_type() const
+		{
+			return node ? &FunctionLookupChain::safe_bool : 0;
+		}
+	};
+
+	FunctionLookupChain LookupFunctionChainByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		typedef DirectDenseMap<IdentifierLookupResult>::NodeIterator Node;
+
+		ScopeData *scope = ctx.scope;
+
+		while(scope)
+		{
+			if(Node curr = scope->idLookupMap.first(nameHash))
+			{
+				if(curr.node->value.function)
+					return FunctionLookupChain(curr, scope);
+
+				return FunctionLookupChain();
+			}
+
+			scope = scope->scope;
+		}
+
+		return FunctionLookupChain();
+	}
+
 	bool CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
-		if(ctx.typeMap.find(name.hash()))
+		if(LookupTypeByName(ctx, name.hash()))
 		{
 			Report(ctx, source, "ERROR: name '%.*s' is already taken for a type", FMT_ISTR(name));
 			return true;
 		}
 
-		if(VariableData **variable = ctx.variableMap.find(name.hash()))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, name.hash()))
 		{
-			if((*variable)->scope == ctx.scope)
+			if(lookup->variable && lookup->variable->scope == ctx.scope)
 			{
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 				return true;
 			}
-		}
 
-		if(FunctionData **functions = ctx.functionMap.find(name.hash()))
-		{
-			if((*functions)->scope == ctx.scope)
+			if(lookup->function && lookup->function->scope == ctx.scope)
 			{
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(name));
 				return true;
@@ -554,18 +750,18 @@ namespace
 
 	void CheckFunctionConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
-		if(FunctionData **function = ctx.functionMap.find(name.hash()))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, name.hash()))
 		{
-			if((*function)->isInternal)
+			if(lookup->function && lookup->function->isInternal)
 				Report(ctx, source, "ERROR: function '%.*s' is reserved", FMT_ISTR(name));
 		}
 	}
 
 	void CheckTypeConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
-		if(VariableData **variable = ctx.variableMap.find(name.hash()))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, name.hash()))
 		{
-			if((*variable)->scope == ctx.scope)
+			if(lookup->variable && lookup->variable->scope == ctx.scope)
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 		}
 
@@ -575,18 +771,15 @@ namespace
 
 	void CheckNamespaceConflict(ExpressionContext &ctx, SynBase *source, NamespaceData *ns)
 	{
-		if(ctx.typeMap.find(ns->fullNameHash))
+		if(LookupTypeByName(ctx, ns->fullNameHash))
 			Report(ctx, source, "ERROR: name '%.*s' is already taken for a type", FMT_ISTR(ns->name.name));
 
-		if(VariableData **variable = ctx.variableMap.find(ns->nameHash))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, ns->name.name.hash()))
 		{
-			if((*variable)->scope == ctx.scope)
+			if(lookup->variable && lookup->variable->scope == ctx.scope)
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(ns->name.name));
-		}
 
-		if(FunctionData **functions = ctx.functionMap.find(ns->nameHash))
-		{
-			if((*functions)->scope == ctx.scope)
+			if(lookup->function && lookup->function->scope == ctx.scope)
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(ns->name.name));
 		}
 	}
@@ -714,27 +907,29 @@ namespace
 
 		if(function->scope->ownerType)
 		{
-			HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function->nameHash);
+			FunctionLookupChain chain = LookupFunctionChainByName(ctx, function->name->name.hash());
 
-			while(curr)
+			while(chain)
 			{
+				FunctionData *value = *chain;
+
 				// Skip current function
-				if(curr->value == function)
+				if(!value || value == function)
 				{
-					curr = ctx.functionMap.next(curr);
+					chain = chain.next();
 					continue;
 				}
 
-				if(curr->value->isPrototype && /*SameGenerics(curr->value->generics, function->generics) &&*/ curr->value->type == function->type)
+				if(value->isPrototype && /*SameGenerics(value->generics, function->generics) &&*/ value->type == function->type)
 				{
-					curr->value->implementation = function;
+					value->implementation = function;
 
-					ctx.HideFunction(curr->value);
+					ctx.HideFunction(value);
 
-					return curr->value;
+					return value;
 				}
 
-				curr = ctx.functionMap.next(curr);
+				chain = chain.next();
 			}
 		}
 
@@ -791,21 +986,23 @@ namespace
 
 	FunctionData* CheckUniqueness(ExpressionContext &ctx, FunctionData* function)
 	{
-		HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function->nameHash);
+		FunctionLookupChain chain = LookupFunctionChainByName(ctx, function->name->name.hash());
 
-		while(curr)
+		while(chain)
 		{
+			FunctionData *value = *chain;
+
 			// Skip current function
-			if(curr->value == function)
+			if(!value || value == function)
 			{
-				curr = ctx.functionMap.next(curr);
+				chain = chain.next();
 				continue;
 			}
 
-			if(SameGenerics(curr->value->generics, function->generics) && curr->value->type == function->type && curr->value->scope->ownerType == function->scope->ownerType)
-				return curr->value;
+			if(SameGenerics(value->generics, function->generics) && value->type == function->type && value->scope->ownerType == function->scope->ownerType)
+				return value;
 
-			curr = ctx.functionMap.next(curr);
+			chain = chain.next();
 		}
 
 		return NULL;
@@ -922,9 +1119,6 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	noAssignmentOperatorForTypePair.set_allocator(allocator);
 
 	genericTypeMap.set_allocator(allocator);
-	typeMap.set_allocator(allocator);
-	functionMap.set_allocator(allocator);
-	variableMap.set_allocator(allocator);
 
 	errorHandlerActive = false;
 	errorHandlerNested = false;
@@ -958,11 +1152,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	typeAutoRef = NULL;
 	typeAutoArray = NULL;
 
-	typeMap.init();
-	functionMap.init();
-	variableMap.init();
-
 	scope = NULL;
+	lookupLocation = NULL;
 
 	globalScope = NULL;
 	globalNamespaces.set_allocator(allocator);
@@ -1015,6 +1206,9 @@ void ExpressionContext::PushScope(ScopeType type)
 	}
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushScope(NamespaceData *nameSpace)
@@ -1029,6 +1223,9 @@ void ExpressionContext::PushScope(NamespaceData *nameSpace)
 	}
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushScope(FunctionData *function)
@@ -1039,6 +1236,9 @@ void ExpressionContext::PushScope(FunctionData *function)
 		scope->scopes.push_back(next);
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushScope(TypeBase *type)
@@ -1049,6 +1249,9 @@ void ExpressionContext::PushScope(TypeBase *type)
 		scope->scopes.push_back(next);
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushLoopScope(bool allowBreak, bool allowContinue)
@@ -1069,14 +1272,20 @@ void ExpressionContext::PushLoopScope(bool allowBreak, bool allowContinue)
 		next->contiueDepth++;
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushTemporaryScope()
 {
 	scope = new (get<ScopeData>()) ScopeData(allocator, scope, 0, SCOPE_TEMPORARY);
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
-void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool keepFunctions)
+void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents)
 {
 	(void)scopeType;
 	assert(scope->type == scopeType);
@@ -1094,16 +1303,12 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 		adopter->types.push_back(scope->types.data, scope->types.size());
 		adopter->aliases.push_back(scope->aliases.data, scope->aliases.size());
 
-		adopter->visibleVariables.push_back(scope->visibleVariables.data, scope->visibleVariables.size());
-
 		adopter->allVariables.push_back(scope->allVariables.data, scope->allVariables.size());
 
 		scope->variables.clear();
 		scope->functions.clear();
 		scope->types.clear();
 		scope->aliases.clear();
-
-		scope->visibleVariables.clear();
 
 		scope->allVariables.clear();
 
@@ -1119,15 +1324,6 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 		scope->allVariables.clear();
 	}
 
-	// Remove scope members from lookup maps
-	for(int i = int(scope->visibleVariables.count) - 1; i >= 0; i--)
-	{
-		VariableData *variable = scope->visibleVariables[i];
-
-		if(variableMap.find(variable->nameHash, variable))
-			variableMap.remove(variable->nameHash, variable);
-	}
-
 	for(int i = int(scope->functions.count) - 1; i >= 0; i--)
 	{
 		FunctionData *function = scope->functions[i];
@@ -1137,64 +1333,37 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 			continue;
 
 		// Always hide local functions
-		if(!keepFunctions || (!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL))
+		if(!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL)
 		{
-			if(scope->scope && function->isPrototype && !function->implementation && !keepFunctions)
+			if(scope->scope && function->isPrototype && !function->implementation)
 				Stop(function->source, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name->name));
 
-			if(functionMap.find(function->nameHash, function))
-			{
-				functionMap.remove(function->nameHash, function);
-
-				if(function->isOperator)
-					noAssignmentOperatorForTypePair.clear();
-			}
+			if(function->isOperator)
+				noAssignmentOperatorForTypePair.clear();
 		}
 	}
 
+	// Hide functions of local types
 	for(int i = int(scope->types.count) - 1; i >= 0; i--)
 	{
 		TypeBase *type = scope->types[i];
 
-		if(typeMap.find(type->nameHash, type))
+		if(isType<TypeClass>(type))
 		{
-			if(!keepFunctions)
+			for(unsigned k = 0; k < functions.size(); k++)
 			{
-				if(isType<TypeClass>(type))
+				FunctionData *function = functions[k];
+
+				if(function->scope->ownerType == type)
 				{
-					for(unsigned k = 0; k < functions.size(); k++)
-					{
-						FunctionData *function = functions[k];
+					if(function->name->name.begin && *function->name->name.begin != '$')
+						globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 
-						if(function->scope->ownerType == type && functionMap.find(function->nameHash, function))
-						{
-							functionMap.remove(function->nameHash, function);
-
-							if(function->isOperator)
-								noAssignmentOperatorForTypePair.clear();
-						}
-					}
+					if(function->isOperator)
+						noAssignmentOperatorForTypePair.clear();
 				}
 			}
-
-			typeMap.remove(type->nameHash, type);
 		}
-	}
-
-	for(int i = int(scope->aliases.count) - 1; i >= 0; i--)
-	{
-		AliasData *alias = scope->aliases[i];
-
-		if(typeMap.find(alias->nameHash, alias->type))
-			typeMap.remove(alias->nameHash, alias->type);
-	}
-
-	for(int i = int(scope->shadowedVariables.count) - 1; i >= 0; i--)
-	{
-		VariableData *variable = scope->shadowedVariables[i];
-
-		if (variable)
-			variableMap.insert(variable->nameHash, variable);
 	}
 
 	scope = scope->scope;
@@ -1202,100 +1371,13 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 
 void ExpressionContext::PopScope(ScopeType type)
 {
-	PopScope(type, true, false);
-}
-
-void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location)
-{
-	// Restore parent first, up to the current scope
-	if(target->scope != scope)
-		RestoreScopesAtPoint(target->scope, location);
-
-	for(unsigned i = 0, e = target->visibleVariables.count; i < e; i++)
-	{
-		VariableData *variable = target->visibleVariables.data[i];
-
-		if(!location || variable->importModule != NULL || variable->source->pos.begin <= location->pos.begin)
-			variableMap.insert(variable->nameHash, variable);
-	}
-
-	// For functions, restore variable shadowing state and local functions
-	for(unsigned i = 0, e = target->functions.count; i < e; i++)
-	{
-		FunctionData *function = target->functions.data[i];
-
-		if(function->scope->ownerType)
-			continue;
-
-		if(!location || function->importModule != NULL || function->source->pos.begin <= location->pos.begin)
-		{
-			while(VariableData **variable = variableMap.find(function->nameHash))
-				variableMap.remove(function->nameHash, *variable);
-
-			if(!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL)
-				functionMap.insert(function->nameHash, function);
-		}
-	}
-
-	for(unsigned i = 0, e = target->types.count; i < e; i++)
-	{
-		TypeBase *type = target->types.data[i];
-
-		if(TypeClass *exact = getType<TypeClass>(type))
-		{
-			if(!location || exact->importModule != NULL || exact->source->pos.begin <= location->pos.begin)
-				typeMap.insert(type->nameHash, type);
-		}
-		else if(TypeGenericClassProto *exact = getType<TypeGenericClassProto>(type))
-		{
-			if(!location || exact->definition->imported || exact->definition->pos.begin <= location->pos.begin)
-				typeMap.insert(type->nameHash, type);
-		}
-		else
-		{
-			typeMap.insert(type->nameHash, type);
-		}
-	}
-
-	for(unsigned i = 0, e = target->aliases.count; i < e; i++)
-	{
-		AliasData *alias = target->aliases.data[i];
-
-		if(!location || alias->importModule != NULL || alias->source->pos.begin <= location->pos.begin)
-			typeMap.insert(alias->nameHash, alias->type);
-	}
-
-	scope = target;
+	PopScope(type, true);
 }
 
 void ExpressionContext::SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation)
 {
-	// Reach the same depth
-	while(scope->scopeDepth > target->scopeDepth)
-		PopScope(scope->type, false, true);
-
-	// Reach the same parent
-	ScopeData *curr = target;
-
-	while(curr->scopeDepth > scope->scopeDepth)
-		curr = curr->scope;
-
-	while(scope->scope != curr->scope)
-	{
-		PopScope(scope->type, false, true);
-
-		curr = curr->scope;
-	}
-
-	// We have common parent, but we are in different scopes, go to common parent
-	if(scope != curr)
-		PopScope(scope->type, false, true);
-
-	// When the common parent is reached, remove it without ejecting namespace variables into the outer scope
-	PopScope(scope->type, false, true);
-
-	// Now restore each namespace data up to the source location
-	RestoreScopesAtPoint(target, targetLocation);
+	scope = target;
+	lookupLocation = targetLocation;
 }
 
 NamespaceData* ExpressionContext::GetCurrentNamespace(ScopeData *scopeData)
@@ -1415,13 +1497,15 @@ void ExpressionContext::AddType(TypeBase *type)
 
 	if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
-		if(!typeClass->isInternal)
-			typeMap.insert(type->nameHash, type);
+		if(typeClass->isInternal)
+			return;
 	}
+
+	// Namespaces are allowed only in global scope and namespaced type names are globally accessible through namespace name
+	if(scope->type == SCOPE_NAMESPACE)
+		globalScope->typeLookupMap.insert(type->nameHash, TypeLookupResult(type));
 	else
-	{
-		typeMap.insert(type->nameHash, type);
-	}
+		scope->typeLookupMap.insert(type->nameHash, TypeLookupResult(type));
 }
 
 void ExpressionContext::AddFunction(FunctionData *function)
@@ -1435,17 +1519,14 @@ void ExpressionContext::AddFunction(FunctionData *function)
 	// Don't add internal functions to named lookup
 	if(function->name->name.begin && *function->name->name.begin != '$')
 	{
-		functionMap.insert(function->nameHash, function);
+		// Type functions are available globally through member accessand namespaced functions are globally accessible through namespace name
+		if(scope->type == SCOPE_TYPE || scope->type == SCOPE_NAMESPACE)
+			globalScope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
+		else
+			scope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
 
 		if(function->isOperator)
 			noAssignmentOperatorForTypePair.clear();
-	}
-
-	while(VariableData **variable = variableMap.find(function->nameHash))
-	{
-		variableMap.remove(function->nameHash, *variable);
-
-		scope->shadowedVariables.push_back(*variable);
 	}
 }
 
@@ -1458,9 +1539,10 @@ void ExpressionContext::AddVariable(VariableData *variable, bool visible)
 
 	if(visible)
 	{
-		scope->visibleVariables.push_back(variable);
-
-		variableMap.insert(variable->nameHash, variable);
+		if(scope->type == SCOPE_NAMESPACE)
+			globalScope->idLookupMap.insert(variable->name->name.hash(), IdentifierLookupResult(variable));
+		else
+			scope->idLookupMap.insert(variable->name->name.hash(), IdentifierLookupResult(variable));
 	}
 }
 
@@ -1468,7 +1550,11 @@ void ExpressionContext::AddAlias(AliasData *alias)
 {
 	scope->aliases.push_back(alias);
 
-	typeMap.insert(alias->nameHash, alias->type);
+	// Namespaces are allowed only in global scope and namespaced alias names are globally accessible through namespace name
+	if(scope->type == SCOPE_NAMESPACE)
+		globalScope->typeLookupMap.insert(alias->nameHash, TypeLookupResult(alias));
+	else
+		scope->typeLookupMap.insert(alias->nameHash, TypeLookupResult(alias));
 }
 
 unsigned ExpressionContext::GetTypeIndex(TypeBase *type)
@@ -1499,19 +1585,10 @@ void ExpressionContext::HideFunction(FunctionData *function)
 	// Don't have to remove internal functions since they are never added to lookup
 	if(function->name->name.begin && *function->name->name.begin != '$')
 	{
-		functionMap.remove(function->nameHash, function);
-
-		for(int i = int(scope->shadowedVariables.count) - 1; i >= 0; i--)
-		{
-			VariableData *variable = scope->shadowedVariables[i];
-
-			if(variable && variable->nameHash == function->nameHash)
-			{
-				variableMap.insert(variable->nameHash, variable);
-
-				scope->shadowedVariables[i] = NULL;
-			}
-		}
+		if(scope->type == SCOPE_TYPE || scope->type == SCOPE_NAMESPACE)
+			globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
+		else
+			scope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 
 		if(function->isOperator)
 			noAssignmentOperatorForTypePair.clear();
@@ -1999,7 +2076,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 VariableData* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype);
 ExprVariableDefinition* CreateFunctionContextVariableDefinition(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype, VariableData *context);
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function);
-ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context);
+ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, FunctionLookupChain chain, ExprBase *context);
 ExprBase* CreateFunctionCoroutineStateUpdate(ExpressionContext &ctx, SynBase *source, FunctionData *function, int state);
 
 TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *matchType, TypeBase *argType, IntrusiveList<MatchData> &aliases, bool strict);
@@ -2526,7 +2603,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 				SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 				arguments.push_back(ArgumentData(rhs->source, false, NULL, rhs->type, rhs));
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->nameHash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, access->function->nameHash))
 				{
 					ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
 
@@ -2536,9 +2613,9 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 
 				if(FunctionData *proto = access->function->proto)
 				{
-					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->nameHash))
+					if(FunctionLookupChain chain = LookupFunctionChainByName(ctx, proto->nameHash))
 					{
-						ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
+						ExprBase *overloads = CreateFunctionAccess(ctx, source, chain, access->context);
 
 						if(ExprBase *call = CreateFunctionCall(ctx, source, overloads, arguments, true))
 							return call;
@@ -3455,8 +3532,6 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
-		TypeBase **type = NULL;
-
 		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 		{
 			unsigned hash = nsScope->ownerNamespace ? NULLC::StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : NULLC::GetStringHash("");
@@ -3469,10 +3544,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			hash = NULLC::StringHashContinue(hash, node->name.begin, node->name.end);
 
-			type = ctx.typeMap.find(hash);
+			TypeBase *type = LookupTypeByName(ctx, hash);
 
 			if(type)
-				return *type;
+				return type;
 		}
 
 		// Might be a variable
@@ -3869,15 +3944,15 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 
 		InplaceStr contextVariableName = GetFunctionContextVariableName(ctx, function, functionIndex);
 
-		if(VariableData **variable = ctx.variableMap.find(contextVariableName.hash()))
+		if(VariableData *variable = LookupVariableByName(ctx, contextVariableName.hash()))
 		{
-			context = CreateVariableAccess(ctx, source, *variable, true);
+			context = CreateVariableAccess(ctx, source, variable, true);
 
 			if(ExprVariableAccess *access = getType<ExprVariableAccess>(context))
 			{
-				assert(access->variable == *variable);
+				assert(access->variable == variable);
 
-				context = new (ctx.get<ExprFunctionContextAccess>()) ExprFunctionContextAccess(source, access->type, function, *variable);
+				context = new (ctx.get<ExprFunctionContextAccess>()) ExprFunctionContextAccess(source, access->type, function, variable);
 			}
 		}
 		else
@@ -3893,22 +3968,22 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 	return context;
 }
 
-ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context)
+ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, FunctionLookupChain chain, ExprBase *context)
 {
-	if(HashMap<FunctionData*>::Node *curr = ctx.functionMap.next(function))
+	if(FunctionLookupChain curr = chain.next())
 	{
 		SmallArray<TypeBase*, 16> types(ctx.allocator);
 		IntrusiveList<FunctionHandle> functions;
 
-		types.push_back(function->value->type);
-		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function->value));
+		types.push_back(chain->type);
+		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(*chain));
 
 		while(curr)
 		{
-			types.push_back(curr->value->type);
-			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(curr->value));
+			types.push_back(curr->type);
+			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(*curr));
 
-			curr = ctx.functionMap.next(curr);
+			curr = curr.next();
 		}
 
 		TypeFunctionSet *type = ctx.GetFunctionSetType(types);
@@ -3917,9 +3992,9 @@ ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<
 	}
 
 	if(!context)
-		context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function->value);
+		context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), *chain);
 
-	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->value->type, function->value, context);
+	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, chain->type, *chain, context);
 }
 
 ExprBase* CreateFunctionCoroutineStateUpdate(ExpressionContext &ctx, SynBase *source, FunctionData *function, int state)
@@ -4122,11 +4197,11 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-		if(VariableData **variable = ctx.variableMap.find(hash))
+		if(VariableData *variable = LookupVariableByName(ctx, hash))
 		{
 			// Must be non-global scope
-			if(NamedOrGlobalScopeFrom((*variable)->scope) != ctx.globalScope)
-				return CreateVariableAccess(ctx, source, *variable, true);
+			if(NamedOrGlobalScopeFrom(variable->scope) != ctx.globalScope)
+				return CreateVariableAccess(ctx, source, variable, true);
 		}
 	}
 
@@ -4143,8 +4218,8 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-		if(VariableData **variable = ctx.variableMap.find(hash))
-			return CreateVariableAccess(ctx, source, *variable, true);
+		if(VariableData *variable = LookupVariableByName(ctx, hash))
+			return CreateVariableAccess(ctx, source, variable, true);
 	}
 
 	{
@@ -4163,15 +4238,15 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 	{
 		if(FindNextTypeFromScope(ctx.scope))
 		{
-			if(VariableData **variable = ctx.variableMap.find(InplaceStr("this").hash()))
+			if(VariableData *variable = LookupVariableByName(ctx, InplaceStr("this").hash()))
 			{
-				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, *variable, true), new (ctx.get<SynIdentifier>()) SynIdentifier(name), true))
+				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, variable, true), new (ctx.get<SynIdentifier>()) SynIdentifier(name), true))
 					return member;
 			}
 		}
 	}
 
-	HashMap<FunctionData*>::Node *function = NULL;
+	FunctionLookupChain function;
 
 	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 	{
@@ -4185,12 +4260,12 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-		function = ctx.functionMap.first(hash);
+		function = LookupFunctionChainByName(ctx, hash);
 
 		if(function)
 		{
-			if(function->value->isInternal && !allowInternal)
-				function = NULL;
+			if(function->isInternal && !allowInternal)
+				function = FunctionLookupChain();
 
 			break;
 		}
@@ -4550,7 +4625,7 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 				SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 				arguments.push_back(ArgumentData(syntax, false, NULL, result->type, result));
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->nameHash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, access->function->nameHash))
 				{
 					ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, access->context);
 
@@ -4560,7 +4635,7 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 
 				if(FunctionData *proto = access->function->proto)
 				{
-					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->nameHash))
+					if(FunctionLookupChain function = LookupFunctionChainByName(ctx, proto->nameHash))
 					{
 						ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, access->context);
 
@@ -4950,10 +5025,8 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		// Check if a name resembles a type alias of the value class
 		TypeBase *aliasType = NULL;
 
-		if(TypeBase **typeName = ctx.typeMap.find(member->name.hash()))
+		if(TypeBase *type = LookupTypeByName(ctx, member->name.hash()))
 		{
-			TypeBase *type = *typeName;
-
 			if(type == value->type && type->name != member->name)
 			{
 				if(TypeClass *typeClass = getType<TypeClass>(type))
@@ -4973,7 +5046,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+		if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 			mainFuncton = CreateFunctionAccess(ctx, source, function, wrapped);
 
 		if(!mainFuncton && aliasType)
@@ -4989,7 +5062,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 				{
 					wrapped = CreateCast(ctx, source, wrapped, ctx.GetReferenceType(arrayType), false);
 
@@ -5009,7 +5082,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 					baseFunction = CreateFunctionAccess(ctx, source, function, wrapped);
 
 				if(!baseFunction && aliasType)
@@ -5075,7 +5148,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		ExprBase *access = NULL;
 
-		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+		if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 			access = CreateFunctionAccess(ctx, source, function, wrapped);
 
 		if(!access)
@@ -5088,7 +5161,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 				{
 					wrapped = CreateCast(ctx, source, wrapped, ctx.GetReferenceType(arrayType), false);
 
@@ -5119,7 +5192,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 				// Look for an accessor
 				hash = NULLC::StringHashContinue(hash, "$");
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 				{
 					ExprBase *access = CreateFunctionAccess(ctx, source, function, wrapped);
 
@@ -6959,7 +7032,7 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 			hash = NULLC::StringHashContinue(hash, "::");
 			hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-			if(ctx.functionMap.first(hash))
+			if(LookupFunctionByName(ctx, hash))
 			{
 				if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), name, allowInternal))
 				{
@@ -6969,16 +7042,16 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 			}
 		}
 
-		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(name.hash()))
+		if(FunctionLookupChain function = LookupFunctionChainByName(ctx, name.hash()))
 		{
 			// Collect a set of available functions
 			SmallArray<FunctionValue, 32> functions(ctx.allocator);
 
 			while(function)
 			{
-				functions.push_back(FunctionValue(source, function->value, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function->value)));
+				functions.push_back(FunctionValue(source, *function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), *function)));
 
-				function = ctx.functionMap.next(function);
+				function = function.next();
 			}
 
 			if(ExprBase *result = CreateFunctionCallFinal(ctx, source, NULL, functions, IntrusiveList<TypeHandle>(), arguments, true))
@@ -8272,7 +8345,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		if(isType<TypeError>(initializer->type))
 		{
 			if(!conflict)
-				ctx.variableMap.remove(variable->nameHash, variable);
+				ctx.scope->idLookupMap.remove(variable->nameHash, IdentifierLookupResult(variable));
 
 			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
 		}
@@ -8284,7 +8357,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		if(isType<TypeError>(initializer->type))
 		{
 			if(!conflict)
-				ctx.variableMap.remove(variable->nameHash, variable);
+				ctx.scope->idLookupMap.remove(variable->nameHash, IdentifierLookupResult(variable));
 
 			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
 		}
@@ -8792,7 +8865,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	for(SynIdentifier *curr = aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
 	{
-		if(ctx.typeMap.find(curr->name.hash()))
+		if(LookupTypeByName(ctx, curr->name.hash()))
 			Stop(ctx, curr, "ERROR: there is already a type with the same name");
 
 		for(SynIdentifier *prev = aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
@@ -8867,9 +8940,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(instance)
 		assert(functionType == instance);
 
-	if(VariableData **variable = ctx.variableMap.find(functionName.hash()))
+	if(VariableData *variable = LookupVariableByName(ctx, functionName.hash()))
 	{
-		if((*variable)->scope == ctx.scope)
+		if(variable->scope == ctx.scope)
 			Stop(ctx, errorLocation, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name->name));
 	}
 
@@ -8936,7 +9009,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	// Operator overloads can't be called recursively and become available at the end of the definition
 	if (isOperator)
 	{
-		ctx.functionMap.remove(function->nameHash, function);
+		if(ctx.scope->type == SCOPE_TYPE || ctx.scope->type == SCOPE_NAMESPACE)
+			ctx.globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
+		else
+			ctx.scope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 
 		ctx.noAssignmentOperatorForTypePair.clear();
 	}
@@ -9098,7 +9174,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	// Time to make operator overload visible
 	if(isOperator)
 	{
-		ctx.functionMap.insert(function->nameHash, function);
+		if(ctx.scope->type == SCOPE_TYPE || ctx.scope->type == SCOPE_NAMESPACE)
+			ctx.globalScope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
+		else
+			ctx.scope->idLookupMap.insert(function->nameHash, IdentifierLookupResult(function));
 
 		ctx.noAssignmentOperatorForTypePair.clear();
 	}
@@ -9670,16 +9749,16 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 		hash = NULLC::StringHashContinue(hash, type->name.begin, type->name.end);
 	}
 
-	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
+	for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, hash); chain; chain = chain.next())
 	{
-		if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+		if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 			continue;
 
-		if(node->value->scope->ownerType != type)
+		if(chain->scope->ownerType != type)
 			continue;
 
-		if(!ContainsSameOverload(functions, node->value))
-			functions.push_back(node->value);
+		if(!ContainsSameOverload(functions, *chain))
+			functions.push_back(*chain);
 	}
 
 	if(typeGenericClassProto)
@@ -9691,26 +9770,26 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 
 		hash = NULLC::StringHashContinue(hash, functionName.begin, functionName.end);
 
-		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
+		for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, hash); chain; chain = chain.next())
 		{
-			if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+			if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 				continue;
 
-			if(!ContainsSameOverload(functions, node->value))
-				functions.push_back(node->value);
+			if(!ContainsSameOverload(functions, *chain))
+				functions.push_back(*chain);
 		}
 	}
 
-	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+	for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, NULLC::StringHashContinue(hash, "$")); chain; chain = chain.next())
 	{
-		if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+		if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 			continue;
 
-		if(node->value->scope->ownerType != type)
+		if(chain->scope->ownerType != type)
 			continue;
 
-		if(!ContainsSameOverload(functions, node->value))
-			functions.push_back(node->value);
+		if(!ContainsSameOverload(functions, *chain))
+			functions.push_back(*chain);
 	}
 
 	if(typeGenericClassProto)
@@ -9722,13 +9801,13 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 
 		hash = NULLC::StringHashContinue(hash, functionName.begin, functionName.end);
 
-		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+		for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, NULLC::StringHashContinue(hash, "$")); chain; chain = chain.next())
 		{
-			if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+			if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 				continue;
 
-			if(!ContainsSameOverload(functions, node->value))
-				functions.push_back(node->value);
+			if(!ContainsSameOverload(functions, *chain))
+				functions.push_back(*chain);
 		}
 	}
 
@@ -10397,7 +10476,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	{
 		for(SynIdentifier *curr = syntax->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
 		{
-			if(ctx.typeMap.find(curr->name.hash()))
+			if(LookupTypeByName(ctx, curr->name.hash()))
 				Stop(ctx, curr, "ERROR: there is already a type or an alias with the same name");
 
 			for(SynIdentifier *prev = syntax->aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
@@ -10407,9 +10486,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			}
 		}
 
-		if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+		if(TypeBase *type = LookupTypeByName(ctx, typeName.hash()))
 		{
-			TypeClass *originalDefinition = getType<TypeClass>(*type);
+			TypeClass *originalDefinition = getType<TypeClass>(type);
 
 			if(originalDefinition)
 				Stop(ctx, syntax, "ERROR: type '%.*s' was forward declared as a non-generic type", FMT_ISTR(typeName));
@@ -10433,9 +10512,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	TypeClass *originalDefinition = NULL;
 
-	if(TypeBase **type = ctx.typeMap.find(className.hash()))
+	if(TypeBase *type = LookupTypeByName(ctx, className.hash()))
 	{
-		originalDefinition = getType<TypeClass>(*type);
+		originalDefinition = getType<TypeClass>(type);
 
 		if(!originalDefinition)
 			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
@@ -10580,9 +10659,9 @@ ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *synta
 
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
 
-	if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+	if(TypeBase *type = LookupTypeByName(ctx, typeName.hash()))
 	{
-		TypeClass *originalDefinition = getType<TypeClass>(*type);
+		TypeClass *originalDefinition = getType<TypeClass>(type);
 
 		if(!originalDefinition || originalDefinition->completed)
 			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name->name));
@@ -10655,7 +10734,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
 
-	if(ctx.typeMap.find(typeName.hash()) != NULL)
+	if(LookupTypeByName(ctx, typeName.hash()) != NULL)
 		Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name->name));
 
 	TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(SynIdentifier(syntax->name, typeName), syntax, ctx.scope);
@@ -10850,7 +10929,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 
 ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 {
-	if(ctx.typeMap.find(syntax->alias->name.hash()))
+	if(LookupTypeByName(ctx, syntax->alias->name.hash()))
 		Stop(ctx, syntax, "ERROR: there is already a type or an alias with the same name");
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
@@ -12049,10 +12128,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		TypeClass *forwardDeclaration = NULL;
 
 		// Skip existing types
-		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
+		if(TypeBase *prevType = LookupTypeByName(ctx, type.nameHash))
 		{
-			TypeBase *prevType = *prev;
-
 			TypeClass *prevTypeClass = getType<TypeClass>(prevType);
 
 			if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
@@ -12587,10 +12664,8 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		if(!targetType)
 			Stop(ctx, source, "ERROR: can't find alias '%s' target type in module %.*s", symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
-		if(TypeBase **prev = ctx.typeMap.find(aliasName.hash()))
+		if(TypeBase *type = LookupTypeByName(ctx, aliasName.hash()))
 		{
-			TypeBase *type = *prev;
-
 			if(type->name == aliasName)
 				Stop(ctx, source, "ERROR: type '%.*s' alias '%s' is equal to previously imported class", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
 
@@ -12667,21 +12742,21 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		FunctionData *prev = NULL;
 		FunctionData *prototype = NULL;
 
-		for(HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function.nameHash); curr; curr = ctx.functionMap.next(curr))
+		for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, function.nameHash); chain; chain = chain.next())
 		{
-			if(curr->value->isPrototype)
+			if(chain->isPrototype)
 			{
-				prototype = curr->value;
+				prototype = *chain;
 				continue;
 			}
 
-			if(curr->value->type == functionType)
+			if(chain->type == functionType)
 			{
 				bool explicitTypeMatch = true;
 
 				for(unsigned k = 0; k < function.explicitTypeCount; k++)
 				{
-					TypeBase *prevType = curr->value->generics[k]->type;
+					TypeBase *prevType = chain->generics[k]->type;
 					TypeBase *type = generics[k]->type;
 
 					if(&prevType != &type)
@@ -12690,7 +12765,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 				if(explicitTypeMatch)
 				{
-					prev = curr->value;
+					prev = *chain;
 					break;
 				}
 			}
@@ -13401,7 +13476,8 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code,
 
 		ctx.statistics.Start(NULLCTime::clockMicro());
 
-		ctx.PopScope(SCOPE_EXPLICIT);
+		assert(ctx.scope->type == SCOPE_EXPLICIT);
+		ctx.scope = ctx.scope->scope;
 
 		ctx.statistics.Finish("Cleanup", NULLCTime::clockMicro());
 

@@ -1737,3 +1737,15 @@ b.data.b = string(\"best\");\r\n\
 a = b; \r\n\
 return a.data.b.data.size;";
 TEST_RESULT("Large value reference propagation into the call 2", testLargeValueReferencePropagation2, "5");
+
+const char *testLookupScopeChaining1 =
+"int test()\r\n\
+{\r\n\
+	int foo(int x){ return x; }\r\n\
+	{\r\n\
+		int foo(int x, y){ return x + y; }\r\n\
+		return foo(4) + foo(10, 50);\r\n\
+	}\r\n\
+}\r\n\
+return test();";
+TEST_RESULT("Function lookup in a chain of scopes 1", testLookupScopeChaining1, "64");

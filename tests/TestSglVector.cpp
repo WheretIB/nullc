@@ -150,12 +150,11 @@ arr.push_back(float3(0, 5, 0));\r\n\
 arr.push_back(float3(0, 10, 0));\r\n\
 arr.push_back(float3(0, 20, 0));\r\n\
 \r\n\
-{ // make operators local to this block\r\n\
-	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
-	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
-	assert(1 == arr.min_element().y);\r\n\
-	assert(20 == arr.max_element().y);\r\n\
-}\r\n\
+auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
+auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
+assert(1 == arr.min_element().y);\r\n\
+assert(20 == arr.max_element().y);\r\n\
+\r\n\
 \r\n\
 return 1;";
 TEST_RESULT_SIMPLE("sgl.vector test (aggregation functions) 2", testSglVector7b, "1");
@@ -215,12 +214,10 @@ import std.algorithm;\r\n\
 auto arr = new vector<float3>;\r\n\
 arr.push_back(float3(0, 5, 0));\r\n\
 \r\n\
-{ // make operators local to this block\r\n\
-	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
-	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
-	assert(5 == arr.min_element().y);\r\n\
-	assert(5 == arr.max_element().y);\r\n\
-}\r\n\
+auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
+auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
+assert(5 == arr.min_element().y);\r\n\
+assert(5 == arr.max_element().y);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT_SIMPLE("sgl.vector test (aggregation functions) one element 2", testSglVector9b, "1");

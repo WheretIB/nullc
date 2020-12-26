@@ -499,9 +499,65 @@ enum ScopeType
 	SCOPE_TEMPORARY
 };
 
+struct IdentifierLookupResult
+{
+	IdentifierLookupResult() : variable(0), function(0)
+	{
+	}
+
+	explicit IdentifierLookupResult(VariableData *variable) : variable(variable), function(0)
+	{
+	}
+
+	explicit IdentifierLookupResult(FunctionData *function) : variable(0), function(function)
+	{
+	}
+
+	bool operator==(const IdentifierLookupResult &rhs) const
+	{
+		return variable == rhs.variable && function == rhs.function;
+	}
+
+	bool operator!=(const IdentifierLookupResult &rhs) const
+	{
+		return variable != rhs.variable || function != rhs.function;
+	}
+
+	VariableData *variable;
+	FunctionData *function;
+};
+
+struct TypeLookupResult
+{
+	TypeLookupResult() : type(0), alias(0)
+	{
+	}
+
+	explicit TypeLookupResult(TypeBase *type) : type(type), alias(0)
+	{
+	}
+
+	explicit TypeLookupResult(AliasData *alias) : type(0), alias(alias)
+	{
+	}
+
+	bool operator==(const TypeLookupResult &rhs) const
+	{
+		return type == rhs.type && alias == rhs.alias;
+	}
+
+	bool operator!=(const TypeLookupResult &rhs) const
+	{
+		return type != rhs.type || alias != rhs.alias;
+	}
+
+	TypeBase *type;
+	AliasData *alias;
+};
+
 struct ScopeData
 {
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, ScopeType type): scope(scope), uniqueId(uniqueId), type(type), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), visibleVariables(allocator), shadowedVariables(allocator), allVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, ScopeType type): scope(scope), uniqueId(uniqueId), type(type), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), idLookupMap(allocator), typeLookupMap(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		breakDepth = scope ? scope->breakDepth : 0;
@@ -509,9 +565,11 @@ struct ScopeData
 
 		startOffset = 0;
 		dataSize = 0;
+
+		unrestricted = false;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), type(SCOPE_NAMESPACE), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), visibleVariables(allocator), shadowedVariables(allocator), allVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), type(SCOPE_NAMESPACE), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), idLookupMap(allocator), typeLookupMap(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		breakDepth = 0;
@@ -519,9 +577,11 @@ struct ScopeData
 
 		startOffset = 0;
 		dataSize = 0;
+
+		unrestricted = false;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), type(SCOPE_FUNCTION), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), visibleVariables(allocator), shadowedVariables(allocator), allVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), type(SCOPE_FUNCTION), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), idLookupMap(allocator), typeLookupMap(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		breakDepth = 0;
@@ -529,9 +589,11 @@ struct ScopeData
 
 		startOffset = 0;
 		dataSize = 0;
+
+		unrestricted = false;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), type(SCOPE_TYPE), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), visibleVariables(allocator), shadowedVariables(allocator), allVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), type(SCOPE_TYPE), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), idLookupMap(allocator), typeLookupMap(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		breakDepth = 0;
@@ -539,6 +601,8 @@ struct ScopeData
 
 		startOffset = 0;
 		dataSize = 0;
+
+		unrestricted = false;
 	}
 
 	ScopeData *scope;
@@ -564,11 +628,11 @@ struct ScopeData
 	SmallArray<AliasData*, 2> aliases;
 	SmallArray<ScopeData*, 2> scopes;
 
-	// Set of variables that are accessible from code
-	SmallArray<VariableData*, 4> visibleVariables;
+	// Lookup tables
+	DirectDenseMap<IdentifierLookupResult> idLookupMap;
+	DirectDenseMap<TypeLookupResult> typeLookupMap;
 
-	// Set of variables that are currently shadowed by function names
-	SmallArray<VariableData*, 2> shadowedVariables;
+	bool unrestricted;
 	
 	// Full set of variables including all from nested scopes that have been closed
 	SmallArray<VariableData*, 4> allVariables;

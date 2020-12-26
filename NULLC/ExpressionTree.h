@@ -276,9 +276,8 @@ struct ExpressionContext
 	void PushScope(TypeBase *type);
 	void PushLoopScope(bool allowBreak, bool allowContinue);
 	void PushTemporaryScope();
-	void PopScope(ScopeType type, bool ejectContents, bool keepFunctions);
+	void PopScope(ScopeType type, bool ejectContents);
 	void PopScope(ScopeType type);
-	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation);
 
 	NamespaceData* GetCurrentNamespace(ScopeData *scopeData);
@@ -364,11 +363,8 @@ struct ExpressionContext
 	unsigned baseModuleFunctionCount;
 
 	// Context info
-	HashMap<TypeBase*> typeMap;
-	HashMap<FunctionData*> functionMap;
-	HashMap<VariableData*> variableMap;
-
 	ScopeData *scope;
+	SynBase *lookupLocation;
 
 	ScopeData *globalScope;
 	SmallArray<NamespaceData*, 2> globalNamespaces;
