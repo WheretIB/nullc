@@ -13140,6 +13140,8 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 
 void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 {
+	TRACE_SCOPE("analyze", "AnalyzeImplicitModuleImports");
+
 	// Find which transitive dependencies haven't been imported explicitly
 	for(unsigned i = 0; i < ctx.uniqueDependencies.size(); i++)
 	{
@@ -13178,6 +13180,9 @@ void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 	for(unsigned i = 0; i < ctx.implicitImports.size(); i++)
 	{
 		ModuleData *moduleData = ctx.implicitImports[i];
+
+		TRACE_SCOPE("analyze", "AnalyzeImplicitModuleImport");
+		TRACE_LABEL2(moduleData->name.begin, moduleData->name.end);
 
 		ImportModule(ctx, moduleData->source, moduleData->bytecode, moduleData->lexStream, moduleData->lexStreamSize, moduleData->name);
 	}
