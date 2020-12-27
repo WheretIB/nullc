@@ -759,15 +759,15 @@ struct TypeBase
 
 	unsigned typeID;
 
-	InplaceStr name;
 	unsigned nameHash;
+	InplaceStr name;
 
 	ModuleData *importModule;
 
 	unsigned typeIndex;
-	
-	long long size;
+
 	unsigned alignment;
+	long long size;
 	unsigned padding;
 
 	bool isGeneric;
