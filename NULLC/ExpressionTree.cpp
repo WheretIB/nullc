@@ -4841,7 +4841,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	return NULL;
 }
 
-ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, TypeClass *preferredParent)
+ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
 {
 	SmallArray<TypeBase*, 16> types(ctx.allocator);
 	IntrusiveList<FunctionHandle> functions;
@@ -4877,9 +4877,6 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 			}
 		}
 
-		if(preferredParent && !IsDerivedFrom(preferredParent, getType<TypeClass>(parentType)))
-			continue;
-
 		FunctionHandle *prev = NULL;
 
 		// Pointer to generic types don't stricly match because they might be resolved to different types
@@ -4896,22 +4893,64 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		}
 
 		if(prev)
-		{
-			// Select the most specialized function for extendable member function call
-			if(preferredParent)
-			{
-				unsigned prevDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(prev->function->scope->ownerType));
-				unsigned currDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(function->scope->ownerType));
-
-				if (currDepth < prevDepth)
-					prev->function = function;
-			}
-
 			continue;
-		}
 
 		types.push_back(function->type);
 		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function));
+	}
+
+	if(functions.empty())
+	{
+		if(value->type != ctx.typeAutoRef)
+			return NULL;
+
+		Stop(ctx, source, "ERROR: function '%.*s' is undefined in any of existing classes", FMT_ISTR(name));
+	}
+
+	TypeFunctionSet *type = ctx.GetFunctionSetType(types);
+
+	return new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, functions, value);
+}
+
+ExprBase* CreateVirtualFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, TypeClass *parent)
+{
+	SmallArray<TypeBase*, 16> types(ctx.allocator);
+	IntrusiveList<FunctionHandle> functions;
+
+	for(TypeClass *curr = parent; curr; curr = curr->baseClass)
+	{
+		DirectDenseMap<FunctionData*>::NodeIterator it = curr->methods.first(name.hash());
+
+		while(it)
+		{
+			FunctionData *function = it.node->value;
+
+			FunctionHandle *prev = NULL;
+
+			// Pointer to generic types don't stricly match because they might be resolved to different types
+			if(!function->type->isGeneric)
+			{
+				for(FunctionHandle *curr = functions.head; curr; curr = curr->next)
+				{
+					if(curr->function->type == function->type)
+					{
+						prev = curr;
+						break;
+					}
+				}
+			}
+
+			if(prev)
+			{
+				it = curr->methods.next(it);
+				continue;
+			}
+
+			types.push_back(function->type);
+			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function));
+
+			it = curr->methods.next(it);
+		}
 	}
 
 	if(functions.empty())
@@ -5011,13 +5050,13 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		}
 
 		if(value->type == ctx.typeAutoRef)
-			return CreateAutoRefFunctionSet(ctx, source, value, member->name, NULL);
+			return CreateAutoRefFunctionSet(ctx, source, value, member->name);
 
 		if(TypeClass *classType = getType<TypeClass>(value->type))
 		{
 			if(classType->baseClass != NULL || classType->extendable)
 			{
-				if(ExprBase *overloads = CreateAutoRefFunctionSet(ctx, source, wrapped, member->name, classType))
+				if(ExprBase *overloads = CreateVirtualFunctionSet(ctx, source, wrapped, member->name, classType))
 					return overloads;
 			}
 		}
@@ -8498,7 +8537,7 @@ TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, Inp
 {
 	InplaceStr functionContextName = GetFunctionContextTypeName(ctx, functionName, ctx.functions.size());
 
-	TypeClass *contextClassType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(functionContextName), source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
+	TypeClass *contextClassType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, SynIdentifier(functionContextName), source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
 
 	contextClassType->isInternal = true;
 
@@ -9018,6 +9057,13 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		function->definition = getType<SynFunctionDefinition>(source);
 		function->declaration = new (ctx.get<ExprGenericFunctionPrototype>()) ExprGenericFunctionPrototype(source, function->type, function);
 
+		if(TypeClass *typeClass = getType<TypeClass>(parentType))
+		{
+			// Register type method
+			if(const char *pos = strstr(function->name->name.begin, "::"))
+				typeClass->methods.insert(InplaceStr(pos + 2).hash(), function);
+		}
+
 		return function->declaration;
 	}
 
@@ -9122,10 +9168,14 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	{
 		InplaceStr parentName = parentType->name;
 
-		if(TypeClass *classType = getType<TypeClass>(parentType))
+		if(TypeClass *typeClass = getType<TypeClass>(parentType))
 		{
-			if(classType->proto)
-				parentName = classType->proto->name;
+			if(typeClass->proto)
+				parentName = typeClass->proto->name;
+
+			// Register type method
+			if(const char *pos = strstr(function->name->name.begin, "::"))
+				typeClass->methods.insert(InplaceStr(pos + 2).hash(), function);
 		}
 
 		if(name->name == parentName && function->type->returnType != ctx.typeVoid)
@@ -10604,7 +10654,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	}
 	else
 	{
-		classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(syntax->name, className), syntax, ctx.scope, proto, actualGenerics, extendable, baseClass);
+		classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, SynIdentifier(syntax->name, className), syntax, ctx.scope, proto, actualGenerics, extendable, baseClass);
 
 		ctx.AddType(classType);
 	}
@@ -10686,7 +10736,7 @@ ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *synta
 
 	IntrusiveList<MatchData> actualGenerics;
 
-	TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(syntax->name, typeName), syntax, ctx.scope, NULL, actualGenerics, false, NULL);
+	TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, SynIdentifier(syntax->name, typeName), syntax, ctx.scope, NULL, actualGenerics, false, NULL);
 
 	ctx.AddType(classType);
 
@@ -12355,7 +12405,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
 						if(type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED)
 							classType->completed = true;
@@ -12433,7 +12483,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+						classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, identifier, locationSource, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 					}
 
 					if(type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED)
@@ -12920,6 +12970,13 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable, true);
+
+			// Register type method
+			if(TypeClass *typeClass = getType<TypeClass>(parentType))
+			{
+				if(const char *pos = strstr(data->name->name.begin, "::"))
+					typeClass->methods.insert(InplaceStr(pos + 2).hash(), data);
+			}
 		}
 		else if(contextType)
 		{
