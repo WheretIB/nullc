@@ -1094,6 +1094,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	baseModuleFunctionCount = 0;
 
 	uniqueDependencies.set_allocator(allocator);
+	uniqueDependencyMap.set_allocator(allocator);
+
 	imports.set_allocator(allocator);
 	implicitImports.set_allocator(allocator);
 	namespaces.set_allocator(allocator);
@@ -12038,23 +12040,11 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		const char *moduleFileName = symbols + moduleInfo.nameOffset;
 
-		bool duplicate = false;
-
-		for(unsigned k = 0; k < ctx.uniqueDependencies.size(); k++)
+		if(ModuleData **uniqueModuleData = ctx.uniqueDependencyMap.find(InplaceStr(moduleFileName)))
 		{
-			ModuleData *uniqueModuleData = ctx.uniqueDependencies[k];
-
-			if(uniqueModuleData->name == InplaceStr(moduleFileName))
-			{
-				moduleCtx.dependencies.push_back(uniqueModuleData);
-
-				duplicate = true;
-				break;
-			}
-		}
-
-		if(duplicate)
+			moduleCtx.dependencies.push_back(*uniqueModuleData);
 			continue;
+		}
 
 		const char *bytecode = BinaryCache::FindBytecode(moduleFileName, false);
 
@@ -12069,6 +12059,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 		moduleCtx.dependencies.push_back(moduleData);
 
 		ctx.uniqueDependencies.push_back(moduleData);
+		ctx.uniqueDependencyMap.insert(InplaceStr(moduleFileName), moduleData);
 
 		moduleData->bytecode = (ByteCode*)bytecode;
 
@@ -13080,20 +13071,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	ctx.imports.push_back(moduleData);
 	moduleData->importIndex = ctx.imports.size();
 
-	bool duplicate = false;
-
-	for(unsigned k = 0; k < ctx.uniqueDependencies.size(); k++)
-	{
-		ModuleData *uniqueModuleData = ctx.uniqueDependencies[k];
-
-		if(uniqueModuleData->name == InplaceStr(name))
-		{
-			duplicate = true;
-			break;
-		}
-	}
-
-	if(!duplicate)
+	if(!ctx.uniqueDependencyMap.find(InplaceStr(name)))
 		ctx.uniqueDependencies.push_back(moduleData);
 
 	moduleData->bytecode = bytecode;

@@ -331,6 +331,8 @@ struct ExpressionContext
 	const char *moduleRoot;
 
 	SmallArray<ModuleData*, 128> uniqueDependencies;
+	SmallDenseMap<InplaceStr, ModuleData*, InplaceStrHasher, 128> uniqueDependencyMap;
+
 	SmallArray<ModuleData*, 128> imports;
 	SmallArray<ModuleData*, 128> implicitImports;
 	SmallArray<NamespaceData*, 128> namespaces;
