@@ -8980,6 +8980,21 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 			function->contextType = functionPrototype->contextType;
 
+			// Assign default function arguments
+			for(unsigned i = 0; i < function->arguments.size(); i++)
+			{
+				ArgumentData &protoArg = functionPrototype->arguments[i];
+				ArgumentData &implArg = function->arguments[i];
+
+				if(protoArg.value)
+				{
+					if(!implArg.value)
+						implArg.value = protoArg.value;
+					else
+						Report(ctx, errorLocation, "ERROR: function prototype already has a default value for argument #%d", i + 1);
+				}
+			}
+
 			implementedPrototype = functionPrototype;
 		}
 	}
@@ -13127,6 +13142,8 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 {
 	TRACE_SCOPE("analyze", "CreateDefaultArgumentFunctionWrappers");
 
+	DirectDenseMap<FunctionData*> valueFunctions(ctx.allocator);
+
 	for(unsigned i = 0; i < ctx.functions.size(); i++)
 	{
 		FunctionData *function = ctx.functions[i];
@@ -13160,6 +13177,12 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 
 				InplaceStr functionName = GetDefaultArgumentWrapperFunctionName(ctx, function, argument.name->name);
 
+				if(FunctionData **valueFunction = valueFunctions.find(functionName.hash()))
+				{
+					argument.valueFunction = *valueFunction;
+					continue;
+				}
+
 				ExprBase *access = CreateValueFunctionWrapper(ctx, argument.source, NULL, value, functionName);
 
 				if(isType<ExprError>(access))
@@ -13168,7 +13191,11 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 				assert(isType<ExprFunctionAccess>(access));
 
 				if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(access))
+				{
 					argument.valueFunction = expr->function;
+
+					valueFunctions.insert(functionName.hash(), expr->function);
+				}
 			}
 		}
 	}

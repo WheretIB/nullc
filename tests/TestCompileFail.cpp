@@ -879,6 +879,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ int bar(int a){ return 8 + y; } return foo(4); }", "ERROR: unknown identifier 'bar'");
 	TEST_FOR_FAIL("function lookup", "auto foo(@T a){ return bar(4); } auto test(int y){ { int bar(int a){ return 8 + y; } return foo(4); } }", "ERROR: unknown identifier 'bar'");
 
+	TEST_FOR_FAIL("default function argument conflict", "int test(int a, int b = 10); int test(int a, int b = 12){ return a + b; } return test(4);", "ERROR: function prototype already has a default value for argument #2");
+
 	if(!nullcLoadModuleBySource("test.import_duplicate_a", "class Foo{ int bar; }"))
 		printf("Failed to create module test.import_duplicate_a\n");
 	if(!nullcLoadModuleBySource("test.import_duplicate_b", "class Foo{ int bar; }"))

@@ -99,3 +99,32 @@ TEST_RESULT("Function default argument conversion 1", testDefaultFunctionConvers
 
 const char	*testDefaultFunctionConversion2 = "int x = 5; int foo(auto ref a = &x){return int(a);} return foo() + foo(4);";
 TEST_RESULT("Function default argument conversion 2", testDefaultFunctionConversion2, "9");
+
+const char	*testDefaultFunctionArgumentsInPrototype1 =
+"int test(int a, int b = 10);\r\n\
+int test(int a, int b){ return a + b; }\r\n\
+return test(4);";
+TEST_RESULT("Default function arguments from prototype 1", testDefaultFunctionArgumentsInPrototype1, "14");
+
+const char	*testDefaultFunctionArgumentsInPrototype2 =
+"class Foo\r\n\
+{\r\n\
+	int test(int a, int b = 10);\r\n\
+}\r\n\
+int Foo:test(int a, int b){ return a + b; }\r\n\
+Foo a;\r\n\
+return a.test(4);";
+TEST_RESULT("Default function arguments from prototype 2", testDefaultFunctionArgumentsInPrototype2, "14");
+
+LOAD_MODULE(test_defargs7, "test.defargs7", "int test(int a, int b = 10); int test(int a, int b){ return a + b; }");
+const char	*testDefaultFunctionArgumentExport7 =
+"import test.defargs7;\r\n\
+return test(4);";
+TEST_RESULT("Default function argument export and import 7", testDefaultFunctionArgumentExport7, "14");
+
+LOAD_MODULE(test_defargs8, "test.defargs8", "class Foo{ int test(int a, int b = 10); } int Foo:test(int a, int b){ return a + b; }");
+const char	*testDefaultFunctionArgumentExport8 =
+"import test.defargs8;\r\n\
+Foo a;\r\n\
+return a.test(4);";
+TEST_RESULT("Default function argument export and import 8", testDefaultFunctionArgumentExport8, "14");
