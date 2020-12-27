@@ -12155,6 +12155,37 @@ struct DelayedType
 	ExternConstantInfo *constants;
 };
 
+TypeBase* CheckPreviousTypeDefinition(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, char *symbols, ExternTypeInfo &type, TypeClass **forwardDeclaration)
+{
+	if(TypeBase *prevType = LookupTypeByName(ctx, type.nameHash))
+	{
+		TypeClass *prevTypeClass = getType<TypeClass>(prevType);
+
+		if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
+		{
+			bool duplicate = isType<TypeGenericClassProto>(prevType);
+
+			if(prevTypeClass && prevTypeClass->generics.empty() && prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+				duplicate = true;
+
+			if(duplicate)
+				Stop(ctx, source, "ERROR: type '%s' in module '%.*s' is already defined in module '%.*s'", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
+		}
+
+		if(prevTypeClass && !prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+		{
+			if(forwardDeclaration)
+				*forwardDeclaration = prevTypeClass;
+		}
+		else
+		{
+			return prevType;
+		}
+	}
+
+	return NULL;
+}
+
 void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
 	TRACE_SCOPE("analyze", "ImportModuleTypes");
@@ -12172,8 +12203,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 	moduleCtx.types.resize(bCode->typeCount);
 
-	for(unsigned i = prevSize; i < moduleCtx.types.size(); i++)
-		moduleCtx.types[i] = NULL;
+	memset(moduleCtx.types.data + prevSize, 0, (moduleCtx.types.size() - prevSize) * sizeof(moduleCtx.types.data[0]));
 
 	SmallArray<DelayedType, 32> delayedTypes(ctx.allocator);
 
@@ -12188,42 +12218,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		if(type.definitionModule != 0)
 			importModule = moduleCtx.dependencies[type.definitionModule - 1];
 
-		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
-
-		TypeClass *forwardDeclaration = NULL;
-
-		// Skip existing types
-		if(TypeBase *prevType = LookupTypeByName(ctx, type.nameHash))
-		{
-			TypeClass *prevTypeClass = getType<TypeClass>(prevType);
-
-			if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
-			{
-				bool duplicate = isType<TypeGenericClassProto>(prevType);
-
-				if(prevTypeClass && prevTypeClass->generics.empty() && prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
-					duplicate = true;
-
-				if(duplicate)
-					Stop(ctx, source, "ERROR: type '%.*s' in module '%.*s' is already defined in module '%.*s'", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
-			}
-
-			moduleCtx.types[i] = prevType;
-
-			if(prevTypeClass && !prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
-			{
-				forwardDeclaration = prevTypeClass;
-			}
-			else
-			{
-				currentConstant += type.constantCount;
-				continue;
-			}
-		}
-
 		// Skip internal types if we already imported that module
 		if(type.typeFlags & ExternTypeInfo::TYPE_IS_INTERNAL)
 		{
+			InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
+
 			if(TypeBase **prev = ctx.internalTypeMap.find(TypeModulePair(typeName, importModule)))
 			{
 				moduleCtx.types[i] = *prev;
@@ -12242,8 +12241,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.typeGeneric;
 
 				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else if(*(symbols + type.offsetToName) == '@')
 			{
@@ -12251,25 +12248,29 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.GetGenericAliasType(new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr(symbols + type.offsetToName + 1)));
 
 				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
-				Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data->name), symbols + type.offsetToName);
+				if(TypeBase *prevType = CheckPreviousTypeDefinition(ctx, source, moduleCtx, symbols, type, NULL))
+				{
+					moduleCtx.types[i] = prevType;
+				}
+				else
+				{
+					Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data->name), symbols + type.offsetToName);
+				}
 			}
 			break;
 		case ExternTypeInfo::CAT_ARRAY:
 			if(TypeBase *subType = moduleCtx.types[type.subType])
 			{
+
 				if(type.arrSize == ~0u)
 					moduleCtx.types[i] = ctx.GetUnsizedArrayType(subType);
 				else
 					moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSize);
 
 				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
@@ -12282,8 +12283,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.GetReferenceType(subType);
 
 				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
@@ -12308,8 +12307,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.GetFunctionType(source, returnType, arguments);
 
 				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
@@ -12318,7 +12315,18 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			break;
 		case ExternTypeInfo::CAT_CLASS:
 			{
-				TypeBase *importedType = NULL;
+				TypeClass *forwardDeclaration = NULL;
+
+				// Skip existing types
+				if(TypeBase *prevType = CheckPreviousTypeDefinition(ctx, source, moduleCtx, symbols, type, &forwardDeclaration))
+				{
+					moduleCtx.types[i] = prevType;
+
+					currentConstant += type.constantCount;
+					break;
+				}
+
+				InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
 
 				NamespaceData *parentNamespace = NULL;
 
@@ -12382,6 +12390,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				Lexeme *locationName = type.definitionLocationName + importModule->lexStream;
 
 				SynIdentifier identifier = type.definitionLocationName != 0 ? SynIdentifier(locationName, locationName, typeName) : SynIdentifier(typeName);
+
+				TypeBase *importedType = NULL;
 
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
