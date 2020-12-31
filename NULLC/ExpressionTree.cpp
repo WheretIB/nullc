@@ -1120,6 +1120,17 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 
 	noAssignmentOperatorForTypePair.set_allocator(allocator);
 
+	noIndexOperatorForTypePair.set_allocator(allocator);
+
+	for(unsigned i = 0; i < noUnaryOperatorForTypePair.size(); i++)
+		noUnaryOperatorForTypePair[i].set_allocator(allocator);
+
+	for(unsigned i = 0; i < noBinaryOperatorForTypePair.size(); i++)
+		noBinaryOperatorForTypePair[i].set_allocator(allocator);
+
+	for(unsigned i = 0; i < noModifyOperatorForTypePair.size(); i++)
+		noModifyOperatorForTypePair[i].set_allocator(allocator);
+
 	genericTypeMap.set_allocator(allocator);
 
 	errorHandlerActive = false;
@@ -1339,9 +1350,6 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents)
 		{
 			if(scope->scope && function->isPrototype && !function->implementation)
 				Stop(function->source, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name->name));
-
-			if(function->isOperator)
-				noAssignmentOperatorForTypePair.clear();
 		}
 	}
 
@@ -1360,9 +1368,6 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents)
 				{
 					if(function->name->name.begin && *function->name->name.begin != '$')
 						globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
-
-					if(function->isOperator)
-						noAssignmentOperatorForTypePair.clear();
 				}
 			}
 		}
@@ -1526,9 +1531,6 @@ void ExpressionContext::AddFunction(FunctionData *function)
 			globalScope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
 		else
 			scope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
-
-		if(function->isOperator)
-			noAssignmentOperatorForTypePair.clear();
 	}
 }
 
@@ -1591,9 +1593,6 @@ void ExpressionContext::HideFunction(FunctionData *function)
 			globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 		else
 			scope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
-
-		if(function->isOperator)
-			noAssignmentOperatorForTypePair.clear();
 	}
 
 	SmallArray<FunctionData*, 2> &scopeFunctions = function->scope->functions;
@@ -3084,8 +3083,23 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 	if(!skipOverload)
 	{
-		if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, hasBuiltIn, false, true))
-			return result;
+		if(!hasBuiltIn)
+		{
+			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, false, false, true))
+				return result;
+		}
+		else
+		{
+			TypePair typePair(lhs->type, rhs->type);
+
+			if(!ctx.noBinaryOperatorForTypePair[int(op) - 1].contains(typePair))
+			{
+				if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true, false, true))
+					return result;
+				else
+					ctx.noBinaryOperatorForTypePair[int(op) - 1].insert(typePair);
+			}
+		}
 	}
 
 	AssertValueExpression(ctx, lhs->source, lhs);
@@ -4371,8 +4385,13 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	if(isType<TypeError>(value->type))
 		return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 
-	if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false, true))
-		return result;
+	if(!ctx.noUnaryOperatorForTypePair[int(syntax->type) - 1].contains(value->type))
+	{
+		if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false, true))
+			return result;
+		else
+			ctx.noUnaryOperatorForTypePair[int(syntax->type) - 1].insert(value->type);
+	}
 
 	AssertValueExpression(ctx, syntax, value);
 
@@ -4615,8 +4634,15 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
 		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
 
-	if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false, true))
-		return result;
+	TypePair typePair(lhs->type, rhs->type);
+
+	if(!ctx.noModifyOperatorForTypePair[int(syntax->type) - 1].contains(typePair))
+	{
+		if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false, true))
+			return result;
+		else
+			ctx.noModifyOperatorForTypePair[int(syntax->type) - 1].insert(typePair);
+	}
 
 	// Unwrap modifiable pointer
 	ExprBase* wrapped = lhs;
@@ -5354,15 +5380,17 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 				findOverload = true;
 		}
 
-		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("[]"), false))
+		TypePair typePair(wrapped->type, arguments.empty() ? NULL : arguments[0].type);
+
+		if(findOverload || !ctx.noIndexOperatorForTypePair.contains(typePair))
 		{
-			SmallArray<ArgumentData, 32> callArguments(ctx.allocator);
+			SmallArray<ArgumentData, 4> callArguments(ctx.allocator);
 			callArguments.push_back(ArgumentData(wrapped->source, false, NULL, wrapped->type, wrapped));
 
 			for(unsigned i = 0; i < arguments.size(); i++)
 				callArguments.push_back(arguments[i]);
 
-			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, true))
+			if(ExprBase *result = CreateFunctionCallByName(ctx, source, InplaceStr("[]"), callArguments, true, false, true))
 			{
 				if(TypeRef *refType = getType<TypeRef>(result->type))
 					return new (ctx.get<ExprDereference>()) ExprDereference(source, refType->subType, result);
@@ -5372,13 +5400,15 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 
 			callArguments[0] = ArgumentData(value->source, false, NULL, value->type, value);
 
-			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, !findOverload))
+			if(ExprBase *result = CreateFunctionCallByName(ctx, source, InplaceStr("[]"), callArguments, !findOverload, false, true))
 			{
 				if(TypeRef *refType = getType<TypeRef>(result->type))
 					return new (ctx.get<ExprDereference>()) ExprDereference(source, refType->subType, result);
 
 				return result;
 			}
+
+			ctx.noIndexOperatorForTypePair.insert(typePair);
 		}
 
 		if(findOverload)
@@ -9093,8 +9123,6 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			ctx.globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 		else
 			ctx.scope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
-
-		ctx.noAssignmentOperatorForTypePair.clear();
 	}
 
 	if(genericProto)
@@ -9263,7 +9291,19 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		else
 			ctx.scope->idLookupMap.insert(function->nameHash, IdentifierLookupResult(function));
 
+		// TODO: more precise invalidation
 		ctx.noAssignmentOperatorForTypePair.clear();
+
+		ctx.noIndexOperatorForTypePair.clear();
+
+		for(unsigned i = 0; i < ctx.noUnaryOperatorForTypePair.size(); i++)
+			ctx.noUnaryOperatorForTypePair[i].clear();
+
+		for(unsigned i = 0; i < ctx.noBinaryOperatorForTypePair.size(); i++)
+			ctx.noBinaryOperatorForTypePair[i].clear();
+
+		for(unsigned i = 0; i < ctx.noModifyOperatorForTypePair.size(); i++)
+			ctx.noModifyOperatorForTypePair[i].clear();
 	}
 
 	FunctionData *conflict = CheckUniqueness(ctx, function);

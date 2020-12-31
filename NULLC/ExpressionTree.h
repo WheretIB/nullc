@@ -360,6 +360,12 @@ struct ExpressionContext
 
 	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
 
+	// Indexed with a -1 to skip 'unknown'
+	SmallDenseSet<TypePair, TypePairHasher, 32> noIndexOperatorForTypePair;
+	FixedArray<SmallDenseSet<TypeBase*, TypeBaseHasher, 4>, SYN_UNARY_OP_LOGICAL_NOT> noUnaryOperatorForTypePair;
+	FixedArray<SmallDenseSet<TypePair, TypePairHasher, 4>, SYN_BINARY_OP_IN> noBinaryOperatorForTypePair;
+	FixedArray<SmallDenseSet<TypePair, TypePairHasher, 4>, SYN_MODIFY_ASSIGN_BIT_XOR> noModifyOperatorForTypePair;
+
 	SmallDenseMap<TypedFunctionInstanceRequest, ExprBase*, TypedFunctionInstanceRequestHasher, 32> newConstructorFunctions;
 
 	unsigned baseModuleFunctionCount;
