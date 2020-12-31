@@ -1094,6 +1094,8 @@ struct TypeClass: TypeStruct
 		isInternal = false;
 
 		hasFinalizer = false;
+
+		defaultAssign = NULL;
 	}
 
 	SynIdentifier identifier;
@@ -1116,6 +1118,8 @@ struct TypeClass: TypeStruct
 	bool isInternal;
 
 	bool hasFinalizer;
+
+	FunctionData *defaultAssign;
 
 	DirectDenseMap<FunctionData*> methods;
 

@@ -2634,7 +2634,9 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 		lhs = new (ctx.get<ExprDereference>()) ExprDereference(source, refType->subType, lhs);
 	}
 
-	if(!isType<TypeRef>(wrapped->type))
+	TypeRef *lvalueType = getType<TypeRef>(wrapped->type);
+
+	if(!lvalueType)
 		return ReportExpected(ctx, source, ctx.GetErrorType(), "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
 
 	if(rhs->type == ctx.typeVoid)
@@ -2653,8 +2655,23 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 			ctx.noAssignmentOperatorForTypePair.insert(typePair);
 	}
 
-	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("default_assign$_"), wrapped, rhs, true, false, true))
-		return result;
+	if(TypeClass *typeClass = getType<TypeClass>(lvalueType->subType))
+	{
+		if(FunctionData *function = typeClass->defaultAssign)
+		{
+			SmallArray<ArgumentData, 2> arguments(ctx.allocator);
+
+			arguments.push_back(ArgumentData(wrapped->source, false, NULL, wrapped->type, wrapped));
+			arguments.push_back(ArgumentData(rhs->source, false, NULL, rhs->type, rhs));
+
+			SmallArray<FunctionValue, 1> functions(ctx.allocator);
+
+			functions.push_back(FunctionValue(source, function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function)));
+
+			if(ExprBase *result = CreateFunctionCallFinal(ctx, source, NULL, functions, IntrusiveList<TypeHandle>(), arguments, true))
+				return result;
+		}
+	}
 
 	if((isType<TypeArray>(lhs->type) || isType<TypeUnsizedArray>(lhs->type)) && rhs->type == ctx.typeAutoArray)
 		return CreateFunctionCall2(ctx, source, InplaceStr("__aaassignrev"), wrapped, rhs, false, true, true);
@@ -10211,6 +10228,8 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(ctx.typeVoid), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
+		classType->defaultAssign = function;
+
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
 			function->arguments.push_back(arguments[i]);
@@ -12806,6 +12825,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 	unsigned currCount = ctx.functions.size();
 
+	InplaceStr defaultAssignName = InplaceStr("default_assign$_");
+
 	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
 	{
 		ExternFuncInfo &function = functionList[i];
@@ -13069,6 +13090,12 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(parentNamespace)
 			ctx.PopScope(SCOPE_NAMESPACE);
+
+		if(functionName == defaultAssignName && data->arguments.size() == 2)
+		{
+			if(TypeClass *typeClass = getType<TypeClass>(data->arguments[1].type))
+				typeClass->defaultAssign = data;
+		}
 	}
 
 	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
