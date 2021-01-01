@@ -211,58 +211,6 @@ struct TypeModulePairHasher
 	}
 };
 
-struct FunctionTypeRequest
-{
-	FunctionTypeRequest(): returnType(NULL), hash(0)
-	{
-	}
-
-	FunctionTypeRequest(TypeBase* returnType, IntrusiveList<TypeHandle> arguments): returnType(returnType), arguments(arguments)
-	{
-		hash = returnType->nameHash;
-
-		for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
-			hash += arg->type->nameHash;
-	}
-
-	bool operator==(const FunctionTypeRequest& rhs) const
-	{
-		if(returnType != rhs.returnType)
-			return false;
-
-		TypeHandle *leftArg = arguments.head;
-		TypeHandle *rightArg = rhs.arguments.head;
-
-		while(leftArg && rightArg && leftArg->type == rightArg->type)
-		{
-			leftArg = leftArg->next;
-			rightArg = rightArg->next;
-		}
-
-		if(leftArg != rightArg)
-			return false;
-
-		return true;
-	}
-
-	bool operator!=(const FunctionTypeRequest& rhs) const
-	{
-		return !(*this == rhs);
-	}
-
-	TypeBase* returnType;
-	IntrusiveList<TypeHandle> arguments;
-	unsigned hash;
-};
-
-struct FunctionTypeRequestHasher
-{
-	unsigned operator()(const FunctionTypeRequest& key)
-	{
-		return key.hash;
-	}
-};
-
 struct ExpressionContext
 {
 	ExpressionContext(Allocator *allocator, int optimizationLevel);
