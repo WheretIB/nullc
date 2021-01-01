@@ -867,3 +867,31 @@ for(int k = 0; k < 5; k++)\r\n\
 }\r\n\
 return f();";
 TEST_RESULT("Closure on loop continue in global code", testContinueClosureGlobalCode, "301");
+
+const char	*testIfVariableDefinitionClosure =
+"class Test\r\n\
+{\r\n\
+	int v = 5;\r\n\
+}\r\n\
+\r\n\
+class Holder\r\n\
+{\r\n\
+	Test ref x;\r\n\
+	void ref() c;\r\n\
+}\r\n\
+\r\n\
+auto Holder:a()\r\n\
+{\r\n\
+	if(auto z = this.x)\r\n\
+	{\r\n\
+		c = auto(){ z.v += 10; };\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+Test ref t = new Test();\r\n\
+Holder h;\r\n\
+h.x = t;\r\n\
+h.a();\r\n\
+h.c();\r\n\
+return t.v;";
+TEST_RESULT("Closure of variable defined inside 'if' condition", testIfVariableDefinitionClosure, "15");

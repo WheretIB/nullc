@@ -11173,7 +11173,15 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 
 	if(definitions)
+	{
+		IntrusiveList<ExprBase> expressions;
+
+		expressions.push_back(trueBlock);
+
+		trueBlock = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(ctx.scope), ctx.scope));
+
 		ctx.PopScope(SCOPE_EXPLICIT);
+	}
 
 	ExprBase *falseBlock = syntax->falseBlock ? AnalyzeStatement(ctx, syntax->falseBlock) : NULL;
 
