@@ -379,7 +379,7 @@ struct ExpressionContext
 	IntrusiveList<CloseUpvaluesData> globalCloseUpvalues;
 
 	SmallDenseMap<TypeModulePair, TypeBase*, TypeModulePairHasher, 32> internalTypeMap;
-	SmallDenseMap<FunctionTypeRequest, TypeFunction*, FunctionTypeRequestHasher, 32> functionTypeMap;
+	DirectDenseMap<TypeFunction*> functionTypeMap;
 
 	unsigned functionInstanceDepth;
 	unsigned classInstanceDepth;

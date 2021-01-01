@@ -1060,7 +1060,7 @@ namespace
 	}
 }
 
-ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): optimizationLevel(optimizationLevel), allocator(allocator)
+ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): optimizationLevel(optimizationLevel), allocator(allocator), functionTypeMap(allocator)
 {
 	code = NULL;
 	codeEnd = NULL;
@@ -1777,65 +1777,59 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	return result;
 }
 
-TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+TypeFunction* GetFunctionTypeFromCache(DirectDenseMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
-	// Can't derive from pseudo types
-	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
-	assert(!isType<TypeError>(returnType));
+	typedef DirectDenseMap<TypeFunction*>::NodeIterator Node;
 
-	for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
+	if(Node curr = table.first(hash))
 	{
-		assert(!isType<TypeArgumentSet>(curr->type) && !isType<TypeMemberSet>(curr->type) && !isType<TypeFunctionSet>(curr->type));
-		assert(!isType<TypeError>(curr->type));
+		while(curr)
+		{
+			TypeFunction *type = curr.node->value;
 
-		// Can't have auto as argument
-		assert(curr->type != typeAuto);
+			if(type->returnType != returnType)
+			{
+				curr = table.next(curr);
+				continue;
+			}
+
+			TypeHandle *leftArg = type->arguments.head;
+			TypeHandle *rightArg = arguments.head;
+
+			while(leftArg && rightArg && leftArg->type == rightArg->type)
+			{
+				leftArg = leftArg->next;
+				rightArg = rightArg->next;
+			}
+
+			if(leftArg != rightArg)
+			{
+				curr = table.next(curr);
+				continue;
+			}
+
+			return type;
+		}
 	}
 
-	if(TypeFunction **prev = functionTypeMap.find(FunctionTypeRequest(returnType, arguments)))
-		return *prev;
-
-	// Create new type
-	TypeFunction* result = new (get<TypeFunction>()) TypeFunction(GetFunctionTypeName(*this, returnType, arguments), returnType, arguments);
-
-	if(result->name.length() > NULLC_MAX_TYPE_NAME_LENGTH)
-		Stop(source, "ERROR: generated function type name exceeds maximum type length '%d'", NULLC_MAX_TYPE_NAME_LENGTH);
-
-	result->alignment = 4;
-
-	functionTypes.push_back(result);
-	types.push_back(result);
-
-	functionTypeMap.insert(FunctionTypeRequest(returnType, arguments), result);
-
-	return result;
+	return NULL;
 }
 
-TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments)
+TypeFunction* GetFunctionTypeFromCache(DirectDenseMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, ArrayView<ArgumentData> arguments)
 {
-	// Can't derive from pseudo types
-	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
-	assert(!isType<TypeError>(returnType));
+	typedef DirectDenseMap<TypeFunction*>::NodeIterator Node;
 
-	for(unsigned i = 0; i < arguments.size(); i++)
+	if(Node curr = table.first(hash))
 	{
-		TypeBase *curr = arguments[i].type;
-
-		(void)curr;
-
-		assert(!isType<TypeArgumentSet>(curr) && !isType<TypeMemberSet>(curr) && !isType<TypeFunctionSet>(curr));
-		assert(!isType<TypeError>(curr));
-
-		// Can't have auto as argument
-		assert(curr != typeAuto);
-	}
-
-	for(unsigned i = 0, e = functionTypes.count; i < e; i++)
-	{
-		if(TypeFunction *type = functionTypes.data[i])
+		while(curr)
 		{
+			TypeFunction *type = curr.node->value;
+
 			if(type->returnType != returnType)
+			{
+				curr = table.next(curr);
 				continue;
+			}
 
 			TypeHandle *leftArg = type->arguments.head;
 
@@ -1852,15 +1846,81 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 				leftArg = leftArg->next;
 			}
 
-			if(!match)
+			if(!match || leftArg)
+			{
+				curr = table.next(curr);
 				continue;
-
-			if(leftArg)
-				continue;
+			}
 
 			return type;
 		}
 	}
+
+	return NULL;
+}
+TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+{
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
+	assert(!isType<TypeError>(returnType));
+
+	unsigned hash = returnType->nameHash;
+
+	for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
+	{
+		assert(!isType<TypeArgumentSet>(curr->type) && !isType<TypeMemberSet>(curr->type) && !isType<TypeFunctionSet>(curr->type));
+		assert(!isType<TypeError>(curr->type));
+
+		// Can't have auto as argument
+		assert(curr->type != typeAuto);
+
+		hash = (hash << 1) + hash + curr->type->nameHash;
+	}
+
+	if(TypeFunction *prev = GetFunctionTypeFromCache(functionTypeMap, hash, returnType, arguments))
+		return prev;
+
+	// Create new type
+	TypeFunction* result = new (get<TypeFunction>()) TypeFunction(GetFunctionTypeName(*this, returnType, arguments), returnType, arguments);
+
+	if(result->name.length() > NULLC_MAX_TYPE_NAME_LENGTH)
+		Stop(source, "ERROR: generated function type name exceeds maximum type length '%d'", NULLC_MAX_TYPE_NAME_LENGTH);
+
+	result->alignment = 4;
+
+	functionTypes.push_back(result);
+	types.push_back(result);
+
+	functionTypeMap.insert(hash, result);
+
+	return result;
+}
+
+TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments)
+{
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
+	assert(!isType<TypeError>(returnType));
+
+	unsigned hash = returnType->nameHash;
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		TypeBase *curr = arguments[i].type;
+
+		(void)curr;
+
+		assert(!isType<TypeArgumentSet>(curr) && !isType<TypeMemberSet>(curr) && !isType<TypeFunctionSet>(curr));
+		assert(!isType<TypeError>(curr));
+
+		// Can't have auto as argument
+		assert(curr != typeAuto);
+
+		hash = (hash << 1) + hash + curr->nameHash;
+	}
+
+	if(TypeFunction *prev = GetFunctionTypeFromCache(functionTypeMap, hash, returnType, arguments))
+		return prev;
 
 	IntrusiveList<TypeHandle> argumentTypes;
 
