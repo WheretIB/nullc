@@ -883,53 +883,29 @@ namespace
 
 	FunctionData* ImplementPrototype(ExpressionContext &ctx, FunctionData *function)
 	{
-		ArrayView<FunctionData*> functions = ctx.scope->functions;
+		ScopeData *lookupScope = ctx.scope->type == SCOPE_TYPE || ctx.scope->type == SCOPE_NAMESPACE ? ctx.globalScope : ctx.scope;
 
-		for(unsigned i = 0, e = functions.count; i < e; i++)
+		if(DirectDenseMap<IdentifierLookupResult>::NodeIterator curr = lookupScope->idLookupMap.first(function->name->name.hash()))
 		{
-			FunctionData *curr = functions.data[i];
-
-			// Skip current function
-			if(curr == function)
-				continue;
-
-			// TODO: generic function list
-
-			if(curr->isPrototype && curr->type == function->type && curr->name->name == function->name->name)
+			while(curr)
 			{
-				curr->implementation = function;
+				FunctionData *option = curr.node->value.function;
 
-				ctx.HideFunction(curr);
+				if(option && option != function && option->isPrototype && option->type == function->type)
+					break;
 
-				return curr;
+				curr = ctx.scope->idLookupMap.next(curr);
 			}
-		}
 
-		if(function->scope->ownerType)
-		{
-			FunctionLookupChain chain = LookupFunctionChainByName(ctx, function->name->name.hash());
-
-			while(chain)
+			if(curr)
 			{
-				FunctionData *value = *chain;
+				FunctionData *prototype = curr.node->value.function;
 
-				// Skip current function
-				if(!value || value == function)
-				{
-					chain = chain.next();
-					continue;
-				}
+				prototype->implementation = function;
 
-				if(value->isPrototype && /*SameGenerics(value->generics, function->generics) &&*/ value->type == function->type)
-				{
-					value->implementation = function;
+				ctx.HideFunction(prototype);
 
-					ctx.HideFunction(value);
-
-					return value;
-				}
-
-				chain = chain.next();
+				return prototype;
 			}
 		}
 
