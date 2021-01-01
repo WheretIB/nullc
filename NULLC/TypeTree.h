@@ -1088,7 +1088,7 @@ struct TypeGenericClass: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(Allocator *allocator, const SynIdentifier& identifier, SynBase *source, ScopeData *scope, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass), methods(allocator)
+	TypeClass(Allocator *allocator, const SynIdentifier& identifier, SynBase *source, ScopeData *scope, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass), methods(allocator), methodMap(allocator)
 	{
 		completed = false;
 		isInternal = false;
@@ -1121,7 +1121,8 @@ struct TypeClass: TypeStruct
 
 	FunctionData *defaultAssign;
 
-	DirectDenseMap<FunctionData*> methods;
+	SmallArray<FunctionData*, 4> methods;
+	DirectDenseMap<FunctionData*> methodMap;
 
 	static const unsigned myTypeID = TypeNode::TypeClass;
 };

@@ -1334,17 +1334,13 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents)
 	{
 		TypeBase *type = scope->types[i];
 
-		if(isType<TypeClass>(type))
+		if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
-			for(unsigned k = 0; k < functions.size(); k++)
+			for(unsigned k = 0; k < typeClass->methods.size(); k++)
 			{
-				FunctionData *function = functions[k];
+				FunctionData *function = typeClass->methods[k];
 
-				if(function->scope->ownerType == type)
-				{
-					if(function->name->name.begin && *function->name->name.begin != '$')
-						globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
-				}
+				globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 			}
 		}
 	}
@@ -4940,7 +4936,7 @@ ExprBase* CreateVirtualFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 
 	for(TypeClass *curr = parent; curr; curr = curr->baseClass)
 	{
-		DirectDenseMap<FunctionData*>::NodeIterator it = curr->methods.first(name.hash());
+		DirectDenseMap<FunctionData*>::NodeIterator it = curr->methodMap.first(name.hash());
 
 		while(it)
 		{
@@ -4963,14 +4959,14 @@ ExprBase* CreateVirtualFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 
 			if(prev)
 			{
-				it = curr->methods.next(it);
+				it = curr->methodMap.next(it);
 				continue;
 			}
 
 			types.push_back(function->type);
 			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function));
 
-			it = curr->methods.next(it);
+			it = curr->methodMap.next(it);
 		}
 	}
 
@@ -9086,7 +9082,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		{
 			// Register type method
 			if(const char *pos = strstr(function->name->name.begin, "::"))
-				typeClass->methods.insert(InplaceStr(pos + 2).hash(), function);
+			{
+				typeClass->methods.push_back(function);
+				typeClass->methodMap.insert(InplaceStr(pos + 2).hash(), function);
+			}
 		}
 
 		return function->declaration;
@@ -9198,7 +9197,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 			// Register type method
 			if(const char *pos = strstr(function->name->name.begin, "::"))
-				typeClass->methods.insert(InplaceStr(pos + 2).hash(), function);
+			{
+				typeClass->methods.push_back(function);
+				typeClass->methodMap.insert(InplaceStr(pos + 2).hash(), function);
+			}
 		}
 
 		if(name->name == parentName && function->type->returnType != ctx.typeVoid)
@@ -10167,6 +10169,8 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 		ctx.definitions.push_back(function->declaration);
 
 		classDefinition->functions.push_back(function->declaration);
+
+		classType->methods.push_back(function);
 	}
 }
 
@@ -13049,7 +13053,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			if(TypeClass *typeClass = getType<TypeClass>(parentType))
 			{
 				if(const char *pos = strstr(data->name->name.begin, "::"))
-					typeClass->methods.insert(InplaceStr(pos + 2).hash(), data);
+				{
+					typeClass->methods.push_back(data);
+					typeClass->methodMap.insert(InplaceStr(pos + 2).hash(), data);
+				}
 			}
 		}
 		else if(contextType)
