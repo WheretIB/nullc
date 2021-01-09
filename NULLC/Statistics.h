@@ -32,16 +32,12 @@ struct CompilerStatistics
 
 	void Start(unsigned timeMicros)
 	{
-		assert(startTime == 0);
-
 		startTime = timeMicros;
 		finishTime = 0;
 	}
 
 	void Finish(const char *keyName, unsigned timeMicros)
 	{
-		assert(startTime);
-
 		finishTime = timeMicros;
 
 		InplaceStr key = InplaceStr(keyName);
@@ -65,7 +61,6 @@ struct CompilerStatistics
 		for(unsigned i = 0; i < timers.size(); i++)
 			timers[i].total += other.timers[i].total;
 
-		assert(startTime == 0);
 		finishTime = 0;
 	}
 
