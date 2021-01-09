@@ -136,6 +136,9 @@ const char* GetModuleSourceCode(Context &ctx, const Source& source)
 
 		if(const char *pos = strstr(moduleName.c_str(), name.c_str()))
 		{
+			if(pos > moduleName.c_str() && isalnum(*(pos - 1)))
+				continue;
+
 			if(strlen(pos) == name.length())
 				return fullSource + modules[i].sourceOffset;
 		}
