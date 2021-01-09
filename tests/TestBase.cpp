@@ -136,7 +136,8 @@ namespace Tests
 
 	void* OpenStream(const char *name)
 	{
-		(void)name;
+		if(!*name)
+			return NULL;
 
 		return new int;
 	}

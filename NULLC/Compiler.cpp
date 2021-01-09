@@ -1991,6 +1991,12 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 {
 	TRACE_SCOPE("compiler", "SaveListing");
 
+	if(!ctx.regVmLoweredModule)
+	{
+		NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: no bytecode was built");
+		return false;
+	}
+
 	assert(!ctx.outputCtx.stream);
 	ctx.outputCtx.stream = ctx.outputCtx.openStream(fileName);
 

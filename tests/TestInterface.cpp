@@ -584,6 +584,18 @@ void RunInterfaceTests()
 		}
 	}
 
+	// assembly listing save errors
+	nullcBuild("error");
+	TEST_COMPARE(nullcSaveListing("none.txt"), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: no bytecode was built");
+	nullcClean();
+
+	nullcCompile("return 1;");
+	TEST_COMPARE(nullcSaveListing(""), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: failed to open file");
+	nullcClean();
+
+	// function execution
 	nullcBuild("coroutine int main(){ yield 1; yield 2; }");
 	TEST_COMPARE(nullcRunFunction("main"), 0);
 	TEST_COMPARES(nullcGetLastError(), "ERROR: function uses context, which is unavailable");
