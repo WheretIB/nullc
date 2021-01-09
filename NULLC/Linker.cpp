@@ -4,6 +4,7 @@
 #include "BinaryCache.h"
 #include "DenseMap.h"
 #include "InstructionTreeRegVmLowerGraph.h"
+#include "Trace.h"
 
 #ifdef NULLC_AUTOBINDING
 	#if defined(__linux)
@@ -123,6 +124,8 @@ void Linker::CleanCode()
 
 bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 {
+	TRACE_SCOPE("link", "LinkCode");
+
 	linkError[0] = 0;
 
 #ifdef VERBOSE_DEBUG_OUTPUT
@@ -883,6 +886,8 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 
 bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 {
+	TRACE_SCOPE("link", "SaveRegVmListing");
+
 	unsigned line = 0, lastLine = ~0u;
 
 	unsigned long long total = 0;
