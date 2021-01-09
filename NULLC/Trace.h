@@ -473,6 +473,7 @@ namespace NULLC
 
 #else
 
+#if defined(NULLC_NO_EXECUTOR)
 namespace NULLCTime
 {
 	inline void clockMicroInit()
@@ -484,6 +485,13 @@ namespace NULLCTime
 		return 0;
 	}
 }
+#else
+namespace NULLCTime
+{
+	void clockMicroInit();
+	unsigned clockMicro();
+}
+#endif
 
 namespace NULLC
 {
@@ -491,6 +499,8 @@ namespace NULLC
 
 	inline TraceContext* TraceGetContext()
 	{
+		NULLCTime::clockMicroInit();
+
 		return NULL;
 	}
 
