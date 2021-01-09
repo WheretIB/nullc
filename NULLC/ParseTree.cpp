@@ -2988,7 +2988,7 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
-const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream)
+const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts)
 {
 	ctx.statistics.Start(NULLCTime::clockMicro());
 
@@ -3013,9 +3013,6 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 	}
 
 	ctx.activeImports.push_back(moduleName);
-
-	lexCount = 0;
-	lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexCount);
 
 	if(!bytecode)
 	{
@@ -3128,10 +3125,7 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
 
-		unsigned lexCount = 0;
-		Lexeme *lexStream = NULL;
-
-		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream))
+		if(const char *binary = GetBytecodeFromPath(ctx, start, path))
 		{
 			ImportModuleNamespaces(ctx, start, (ByteCode*)binary);
 
