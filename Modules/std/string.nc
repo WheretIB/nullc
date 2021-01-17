@@ -1,10 +1,36 @@
 // std.string
 
+// C-compatible set of functions to use on null-terminated character arrays
+
+// Find length of a null-terminated character array 'string'
+// Error is generated if array is empty of not null-terminated
+int strlen(char[] string);
+
+// Find occurance of a null-terminated character array 'substring' inside null-terminated character array 'string'
+// Result is either the position in the array or -1
+// Error is generated if array is empty of not null-terminated
 int strstr(char[] string, substring);
+
+// Find occurance of character 'ch' inside null-terminated character array 'string'
+// If 'ch' is '\0', result is the position of the null-terminating character in the array
+// Result is either the position in the array or -1
+// Error is generated if array is empty of not null-terminated
 int strchr(char[] string, char ch);
+
+// Compare and find relation between null-terminated character arrays 'a' and 'b'
+// Return value is the lexographical ordering of the null-terminated character arrays
+// -1 if 'a' comes before 'b'
+// 0 if 'a' is equal o 'b'
+// 1 if 'a' comes after 'b'
+// Error is generated if either array is empty of not null-terminated
 int strcmp(char[] a, b);
 
-// String class to use instead of error-prone raw character array pointers
+// Copy null-terminated character array 'src' into character array 'dst'
+// Return value is the length of a null-terminated character array 'dst'
+// Error is generated if either array is empty of not null-terminated
+int strcpy(char[] dst, src);
+
+// String class to use instead of error-prone raw character arrays
 class string
 {
 	char[] data;
