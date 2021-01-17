@@ -2269,11 +2269,17 @@ void VmFunction::UpdateDominatorTree(VmModule *module, bool clear)
 	// Fill the dominance frontier and dominator tree children
 	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
 	{
+		if(!curr->visited)
+			continue;
+
 		if(curr->predecessors.size() >= 2)
 		{
 			for(unsigned i = 0; i < curr->predecessors.size(); i++)
 			{
 				VmBlock *p = curr->predecessors[i];
+
+				if(!p->visited)
+					continue;
 
 				VmBlock *runner = p;
 

@@ -426,6 +426,11 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 	nullcSetExecutor(executor);
 
+	if (message && strstr(message, "opt_1"))
+		nullcSetOptimizationLevel(1);
+	else
+		nullcSetOptimizationLevel(2);
+
 	if(compareOptimizations)
 		enableTestOptimization = false;
 
@@ -525,7 +530,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 						if(message && !messageVerbose)
 							printf("%s %s [%s]\n", message, variant, executorName);
 
-						printf("Opt delta: peep %+d constprop %+d dce %+d cfsimp %+d lsprop %+d comsubexpr %+d deadstore %+d funcinline %+d\n", deltas[0], deltas[1], deltas[2], deltas[3], deltas[4], deltas[5], deltas[6], deltas[7]);
+						printf("    delta: peep %+d constprop %+d dce %+d cfsimp %+d lsprop %+d comsubexpr %+d deadstore %+d funcinline %+d\n", deltas[0], deltas[1], deltas[2], deltas[3], deltas[4], deltas[5], deltas[6], deltas[7]);
 
 						if(enableDiffOptimization && Tests::enableLogFiles && !Tests::openStreamFunc)
 						{

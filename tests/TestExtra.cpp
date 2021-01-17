@@ -1749,3 +1749,24 @@ const char *testLookupScopeChaining1 =
 }\r\n\
 return test();";
 TEST_RESULT("Function lookup in a chain of scopes 1", testLookupScopeChaining1, "64");
+
+const char *testUnreachableDominanceBlock =
+"int x;\r\n\
+void add(int y){ x += y; }\r\n\
+\r\n\
+bool k = true;\r\n\
+\r\n\
+if (k)\r\n\
+{\r\n\
+	add(5);\r\n\
+}\r\n\
+else\r\n\
+{\r\n\
+	while (x < 1000)\r\n\
+	{\r\n\
+		add(30);\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+return x;";
+TEST_RESULT("Do not compute dominance frontier for unreachable blocks [opt_1]", testUnreachableDominanceBlock, "5");
