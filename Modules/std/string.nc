@@ -44,8 +44,27 @@ void string:string()
 // Basic constructor
 void string:string(char[] right)
 {
-	if(right.size > 1)
-		data = duplicate(right);
+	if(right.size == 0)
+		return;
+
+	// null-terminated source
+	if(right[right.size - 1] == 0)
+	{
+		int len = strlen(right);
+
+		if(len == 0)
+			return;
+
+		data = new char[len + 1];
+		strcpy(data, right);
+	}
+	else
+	{
+		data = new char[right.size + 1];
+
+		for(i in data, j in right)
+			i = j;
+	}
 }
 
 // Fill constructor
@@ -62,24 +81,52 @@ void string:string(int count, char ch)
 }
 
 // Copy constructor
-void string:string(string ref data)
+void string:string(string ref right)
 {
-	this.data = duplicate(data.data);
+	if(right.data)
+		this.data = duplicate(right.data);
 }
 
 // Assignment operator
 string ref operator=(string ref left, string ref right)
 {
-	left.data = duplicate(right.data);
+	if(right.data)
+		left.data = duplicate(right.data);
+	else
+		left.data = nullptr;
 	return left;
 }
 
 string ref operator=(string ref left, char[] right)
 {
-	if(right.size > 1)
-		left.data = duplicate(right);
-	else
+	if(right.size == 0)
+	{
 		left.data = nullptr;
+		return left;
+	}
+
+	// null-terminated source
+	if(right[right.size - 1] == 0)
+	{
+		int len = strlen(right);
+
+		if(len == 0)
+		{
+			left.data = nullptr;
+			return left;
+		}
+
+		left.data = new char[len + 1];
+		strcpy(left.data, right);
+	}
+	else
+	{
+		left.data = new char[right.size + 1];
+
+		for(i in left.data, j in right)
+			i = j;
+	}
+
 	return left;
 }
 
@@ -111,7 +158,7 @@ void string:clear()
 // Checks that the string is empty
 bool string:empty()
 {
-	return data.size == 0;
+	return data.size <= 1;
 }
 
 // return a single character at the specified index
@@ -515,33 +562,36 @@ string operator+(string ref left, string ref right)
 
 string operator+(char[] left, string ref right)
 {
-	return string(left + right.data);
+	return string(left) + right;
 }
 
 string operator+(string ref left, char[] right)
 {
-	return string(left.data + right);
+	return left + string(right);
 }
 
 // Compare strings for equality
 bool operator==(string ref left, string ref right)
 {
+	if(left.size != right.size)
+		return false;
+
 	return left.data == right.data;
 }
 
 bool operator==(string ref left, char[] right)
 {
 	if(right.size > 1)
-		return left.data == right;
-		
+		return strcmp(left.data, right) == 0;
+
 	return left.size == 0;
 }
 
 bool operator==(char[] left, string ref right)
 {
 	if(left.size > 1)
-		return left == right.data;
-		
+		return strcmp(left, right.data) == 0;
+
 	return right.size == 0;
 }
 
@@ -557,7 +607,7 @@ bool operator!=(string ref left, string ref right)
 bool operator!=(string ref left, char[] right)
 {
 	if(right.size > 1)
-		return left.data != right;
+		return strcmp(left.data, right) != 0;
 	
 	return left.size != 0;
 }
@@ -565,7 +615,7 @@ bool operator!=(string ref left, char[] right)
 bool operator!=(char[] left, string ref right)
 {
 	if(left.size > 1)
-		return left != right.data;
+		return strcmp(left, right.data) != 0;
 	
 	return right.size != 0;
 }

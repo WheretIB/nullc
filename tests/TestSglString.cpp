@@ -313,3 +313,141 @@ x.clear();\r\n\
 \r\n\
 return x.length();";
 TEST_RESULT("std.string test (clear)", testSglString1, "0");
+
+const char *testSglStringRawOps =
+"import std.string;\r\n\
+\r\n\
+assert(strlen(\"\") == 0);\r\n\
+assert(strlen(\"test\") == 4);\r\n\
+assert(strlen(\"te\\0st\") == 2);\r\n\
+assert(strlen(\"test\\0\") == 4);\r\n\
+\r\n\
+assert(strstr(\"\", \"\") == 0);\r\n\
+assert(strstr(\"\", \"test\") == -1);\r\n\
+assert(strstr(\"test\", \"st\") == 2);\r\n\
+assert(strstr(\"test\", \"test\") == 0);\r\n\
+assert(strstr(\"test\", \"es\\0zz\") == 1);\r\n\
+assert(strstr(\"te\\0st\", \"st\") == -1);\r\n\
+\r\n\
+assert(strchr(\"test\", 'z') == -1);\r\n\
+assert(strchr(\"test\", 's') == 2);\r\n\
+assert(strchr(\"test\", '\\0') == 4);\r\n\
+assert(strchr(\"\", '\\0') == 0);\r\n\
+assert(strchr(\"te\\0st\", 's') == -1);\r\n\
+\r\n\
+assert(strcmp(\"test\", \"none\") == 1);\r\n\
+assert(strcmp(\"none\", \"test\") == -1);\r\n\
+assert(strcmp(\"test\", \"zz\") == -1);\r\n\
+assert(strcmp(\"zz\", \"test\") == 1);\r\n\
+assert(strcmp(\"test\", \"test\") == 0);\r\n\
+assert(strcmp(\"\", \"\") == 0);\r\n\
+assert(strcmp(\"te\\0st\", \"te\") == 0);\r\n\
+assert(strcmp(\"te\", \"te\\0st\") == 0);\r\n\
+\r\n\
+assert(strcpy(new char[16], \"test\") == 4);\r\n\
+assert(strcpy(new char[16], \"\") == 0);\r\n\
+assert(strcpy(new char[16], \"te\\0st\") == 2);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("std.string test (raw character array operation)", testSglStringRawOps, "1");
+
+const char *testSglStringRawOpsErrors =
+"import std.string;\r\n\
+import std.error;\r\n\
+\r\n\
+assert(try(<> strlen(nullptr)).message == \"string is null\");\r\n\
+assert(try(<> strlen({ 't', 'e', 's', 't' })).message == \"string is not null-terminated\");\r\n\
+\r\n\
+assert(try(<> strstr(nullptr, \"test\")).message == \"string is null\");\r\n\
+assert(try(<> strstr(\"test\", nullptr)).message == \"substring is null\");\r\n\
+assert(try(<> strstr({ 't', 'e', 's', 't' }, \"st\")).message == \"string is not null-terminated\");\r\n\
+assert(try(<> strstr(\"test\", { 's', 't' })).message == \"substring is not null-terminated\");\r\n\
+\r\n\
+assert(try(<> strchr(nullptr, 't')).message == \"string is null\");\r\n\
+assert(try(<> strchr({ 't', 'e', 's', 't' }, 'e')).message == \"string is not null-terminated\");\r\n\
+\r\n\
+assert(try(<> strcmp(nullptr, \"test\")).message == \"first string is null\");\r\n\
+assert(try(<> strcmp(\"test\", nullptr)).message == \"second string is null\");\r\n\
+assert(try(<> strcmp({ 't', 'e', 's', 't' }, \"test\")).message == \"first string is not null-terminated\");\r\n\
+assert(try(<> strcmp(\"test\", { 't', 'e', 's', 't' })).message == \"second string is not null-terminated\");\r\n\
+\r\n\
+assert(try(<> strcpy(nullptr, \"test\")).message == \"destination string is null\");\r\n\
+assert(try(<> strcpy(new char[16], nullptr)).message == \"source string is null\");\r\n\
+assert(try(<> strcpy(new char[16], { 't', 'e', 's', 't' })).message == \"string is not null-terminated\");\r\n\
+assert(try(<> strcpy(new char[1], \"test\")).message == \"buffer overflow\");\r\n\
+assert(try(<> strcpy(new char[4], \"test\")).message == \"buffer overflow\");\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("std.string test (raw character array errors)", testSglStringRawOpsErrors, "1");
+
+const char *testSglStringCharacterArrayInterop =
+"import std.string;\r\n\
+\r\n\
+assert(string(\"test\") == \"test\");\r\n\
+assert(string(\"te\\0st\") == \"te\");\r\n\
+assert(string(\"\\0test\") == \"\");\r\n\
+assert(string({ 't', 'e', 's', 't' }) == \"test\");\r\n\
+assert(string({ '\\0' }) == \"\");\r\n\
+assert(string(char[](nullptr)) == \"\");\r\n\
+\r\n\
+assert(!string(\"test\").empty());\r\n\
+assert(!string(\"te\\0st\").empty());\r\n\
+assert(string(\"\\0test\").empty());\r\n\
+assert(!string({ 't', 'e', 's', 't' }).empty());\r\n\
+assert(string({ '\\0' }).empty());\r\n\
+assert(string(char[](nullptr)).empty());\r\n\
+assert(string().empty());\r\n\
+\r\n\
+assert(string(\"test\").length() == 4);\r\n\
+assert(string(\"te\\0st\").length() == 2);\r\n\
+assert(string(\"\\0test\").length() == 0);\r\n\
+assert(string({ 't', 'e', 's', 't' }).length() == 4);\r\n\
+assert(string({ '\\0' }).length() == 0);\r\n\
+assert(string(char[](nullptr)).length() == 0);\r\n\
+assert(string().length() == 0);\r\n\
+\r\n\
+string s;\r\n\
+assert((s = \"test\") == \"test\");\r\n\
+assert((s = \"te\\0st\") == \"te\");\r\n\
+assert((s = \"\\0test\") == \"\");\r\n\
+assert((s = { 't', 'e', 's', 't' }) == \"test\");\r\n\
+assert((s = { '\\0' }) == \"\");\r\n\
+assert((s = char[](nullptr)) == \"\");\r\n\
+\r\n\
+assert((s = \"test\").length() == 4);\r\n\
+assert((s = \"te\\0st\").length() == 2);\r\n\
+assert((s = \"\\0test\").length() == 0);\r\n\
+assert((s = { 't', 'e', 's', 't' }).length() == 4);\r\n\
+assert((s = { '\\0' }).length() == 0);\r\n\
+assert((s = char[](nullptr)).length() == 0);\r\n\
+\r\n\
+assert(\"te\\0st\" + string(\"test\") == \"tetest\");\r\n\
+assert({ 'z', 'e', 's', 't' } + string(\"test\") == \"zesttest\");\r\n\
+assert(\"\\0test\" + string(\"test\") == \"test\");\r\n\
+assert(\"\\0\" + string(\"test\") == \"test\");\r\n\
+assert(\"\" + string(\"test\") == \"test\");\r\n\
+\r\n\
+assert(string(\"test\") + \"te\\0st\"  == \"testte\");\r\n\
+assert(string(\"test\") + { 'z', 'e', 's', 't' }  == \"testzest\");\r\n\
+assert(string(\"test\") + \"\\0test\" == \"test\");\r\n\
+assert(string(\"test\") + \"\\0\" == \"test\");\r\n\
+assert(string(\"test\") + \"\" == \"test\");\r\n\
+\r\n\
+assert(\"te\\0st\" + string(\"test\") == \"tetest\\0zzz\");\r\n\
+assert({ 'z', 'e', 's', 't' } + string(\"test\") == \"zesttest\\0zzz\");\r\n\
+assert(\"\\0test\" + string(\"test\") == \"test\\0zzz\");\r\n\
+assert(\"\\0\" + string(\"test\") == \"test\\0zzz\");\r\n\
+assert(\"\" + string(\"test\") == \"test\\0zzz\");\r\n\
+\r\n\
+assert(\"tetest\\0zzz\" == \"te\\0st\" + string(\"test\"));\r\n\
+assert(\"zesttest\\0zzz\" == { 'z', 'e', 's', 't' } + string(\"test\"));\r\n\
+assert(\"test\\0zzz\" == \"\\0test\" + string(\"test\"));\r\n\
+assert(\"test\\0zzz\" == \"\\0\" + string(\"test\"));\r\n\
+assert(\"test\\0zzz\" == \"\" + string(\"test\"));\r\n\
+\r\n\
+assert(string(\"test\") + \"te\\0st\"  != \"zestte\");\r\n\
+assert(string(\"test\") + { 'z', 'e', 's', 't' }  != \"zestzest\");\r\n\
+assert(string(\"test\") + \"\\0test\" != \"zest\");\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("std.string test (interaction with character arrays)", testSglStringCharacterArrayInterop, "1");
