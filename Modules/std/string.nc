@@ -619,3 +619,64 @@ bool operator!=(char[] left, string ref right)
 	
 	return right.size != 0;
 }
+
+// String ordering
+bool operator<(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) < 0;
+}
+
+bool operator<(string ref left, char[] right)
+{
+	return strcmp(left.data, right) < 0;
+}
+
+bool operator<(char[] left, string ref right)
+{
+	return strcmp(left, right.data) < 0;
+}
+
+bool operator<=(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) <= 0;
+}
+
+bool operator<=(string ref left, char[] right)
+{
+	return strcmp(left.data, right) <= 0;
+}
+
+bool operator<=(char[] left, string ref right)
+{
+	return strcmp(left, right.data) <= 0;
+}
+
+bool operator>(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) > 0;
+}
+
+bool operator>(string ref left, char[] right)
+{
+	return strcmp(left.data, right) > 0;
+}
+
+bool operator>(char[] left, string ref right)
+{
+	return strcmp(left, right.data) > 0;
+}
+
+bool operator>=(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) >= 0;
+}
+
+bool operator>=(string ref left, char[] right)
+{
+	return strcmp(left.data, right) >= 0;
+}
+
+bool operator>=(char[] left, string ref right)
+{
+	return strcmp(left, right.data) >= 0;
+}

@@ -451,3 +451,45 @@ assert(string(\"test\") + \"\\0test\" != \"zest\");\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("std.string test (interaction with character arrays)", testSglStringCharacterArrayInterop, "1");
+
+const char *testSglStringOrdering =
+"import std.string;\r\n\
+\r\n\
+assert((string(\"a\") < string(\"b\")));\r\n\
+assert(!(string(\"a\") < string(\"a\")));\r\n\
+assert(!(string(\"b\") < string(\"a\")));\r\n\
+assert((string(\"a\") < string(\"ab\")));\r\n\
+assert(!(string(\"a\") < string(\"00\")));\r\n\
+assert(!(string(\"ab\") < string(\"a\")));\r\n\
+assert((\"a\" < string(\"b\")));\r\n\
+assert((string(\"a\") < \"b\"));\r\n\
+\r\n\
+assert((string(\"a\") <= string(\"b\")));\r\n\
+assert((string(\"a\") <= string(\"a\")));\r\n\
+assert(!(string(\"b\") <= string(\"a\")));\r\n\
+assert((string(\"a\") <= string(\"ab\")));\r\n\
+assert(!(string(\"a\") <= string(\"00\")));\r\n\
+assert(!(string(\"ab\") <= string(\"a\")));\r\n\
+assert((\"a\" <= string(\"b\")));\r\n\
+assert((string(\"a\") <= \"b\"));\r\n\
+\r\n\
+assert(!(string(\"a\") > string(\"b\")));\r\n\
+assert(!(string(\"a\") > string(\"a\")));\r\n\
+assert((string(\"b\") > string(\"a\")));\r\n\
+assert(!(string(\"a\") > string(\"ab\")));\r\n\
+assert((string(\"a\") > string(\"00\")));\r\n\
+assert((string(\"ab\") > string(\"a\")));\r\n\
+assert(!(\"a\" > string(\"b\")));\r\n\
+assert(!(string(\"a\") > \"b\"));\r\n\
+\r\n\
+assert(!(string(\"a\") >= string(\"b\")));\r\n\
+assert((string(\"a\") >= string(\"a\")));\r\n\
+assert((string(\"b\") >= string(\"a\")));\r\n\
+assert(!(string(\"a\") >= string(\"ab\")));\r\n\
+assert((string(\"a\") >= string(\"00\")));\r\n\
+assert((string(\"ab\") >= string(\"a\")));\r\n\
+assert(!(\"a\" >= string(\"b\")));\r\n\
+assert(!(string(\"a\") >= \"b\"));\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("std.string test (ordering)", testSglStringOrdering, "1");
