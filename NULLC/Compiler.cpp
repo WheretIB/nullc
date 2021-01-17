@@ -153,6 +153,7 @@ bool operator in(generic x, typeof(x)[] arr)\r\n\
 			return true;\r\n\
 	return false;\r\n\
 }\r\n\
+bool is_derived_from_base(auto ref derived, typeid base);\r\n\
 void ref assert_derived_from_base(void ref derived, typeid base);\r\n\
 auto __gen_list(@T ref() y)\r\n\
 {\r\n\
@@ -273,6 +274,7 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 
 	nullcBindModuleFunctionHelper("$base$", NULLC::GetFinalizationList, "__getFinalizeList", 0);
 
+	nullcBindModuleFunctionHelperNoMemWrite("$base$", NULLC::IsDerivedFromBase, "is_derived_from_base", 0);
 	nullcBindModuleFunctionHelperNoMemWrite("$base$", NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
 
 	nullcBindModuleFunctionHelper("$base$", NULLC::CloseUpvalue, "__closeUpvalue", 0);
@@ -506,70 +508,9 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx)
 	return ctx.exprModule;
 }
 
-bool CompileModuleFromSource(CompilerContext &ctx)
+void OptimizeModule(CompilerContext &ctx)
 {
-	TRACE_SCOPE("compiler", "CompileModuleFromSource");
-
-	if(!AnalyzeModuleFromSource(ctx))
-		return false;
-
 	ExpressionContext &exprCtx = ctx.exprCtx;
-
-	ctx.statistics.Start(NULLCTime::clockMicro());
-
-	ctx.vmModule = CompileVm(exprCtx, ctx.exprModule, ctx.code);
-
-	ctx.statistics.Finish("IrCodeGen", NULLCTime::clockMicro());
-
-	if(!ctx.vmModule)
-	{
-		ctx.errorPos = NULL;
-
-		if(ctx.errorBuf && ctx.errorBufSize)
-			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: failed to create VmModule");
-
-		return false;
-	}
-
-	//printf("# Instruction memory %dkb\n", pool.GetSize() / 1024);
-
-	ctx.statistics.Start(NULLCTime::clockMicro());
-
-	if(ctx.enableLogFiles)
-	{
-		TRACE_SCOPE("compiler", "Debug::inst_graph");
-
-		assert(!ctx.outputCtx.stream);
-		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph.txt");
-
-		if(ctx.outputCtx.stream)
-		{
-			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
-
-			instGraphCtx.showUsers = true;
-			instGraphCtx.displayAsTree = false;
-			instGraphCtx.showFullTypes = false;
-			instGraphCtx.showSource = true;
-
-			PrintGraph(instGraphCtx, ctx.vmModule);
-
-			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
-			ctx.outputCtx.stream = NULL;
-		}
-	}
-
-	ctx.statistics.Finish("Logging", NULLCTime::clockMicro());
-
-	ctx.statistics.Start(NULLCTime::clockMicro());
-
-	// Build LLVM module is support is enabled or just to test execution paths in debug build
-#if defined(NULLC_LLVM_SUPPORT)
-	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
-#elif !defined(NDEBUG)
-	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
-#endif
-
-	ctx.statistics.Finish("LlvmCodeGen", NULLCTime::clockMicro());
 
 	ctx.statistics.Start(NULLCTime::clockMicro());
 
@@ -635,6 +576,74 @@ bool CompileModuleFromSource(CompilerContext &ctx)
 	}
 
 	ctx.statistics.Finish("IrOptimization", NULLCTime::clockMicro());
+}
+
+bool CompileModuleFromSource(CompilerContext &ctx)
+{
+	TRACE_SCOPE("compiler", "CompileModuleFromSource");
+
+	if(!AnalyzeModuleFromSource(ctx))
+		return false;
+
+	ExpressionContext &exprCtx = ctx.exprCtx;
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
+	ctx.vmModule = CompileVm(exprCtx, ctx.exprModule, ctx.code);
+
+	ctx.statistics.Finish("IrCodeGen", NULLCTime::clockMicro());
+
+	if(!ctx.vmModule)
+	{
+		ctx.errorPos = NULL;
+
+		if(ctx.errorBuf && ctx.errorBufSize)
+			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: failed to create VmModule");
+
+		return false;
+	}
+
+	//printf("# Instruction memory %dkb\n", pool.GetSize() / 1024);
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
+	if(ctx.enableLogFiles)
+	{
+		TRACE_SCOPE("compiler", "Debug::inst_graph");
+
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
+
+			instGraphCtx.showUsers = true;
+			instGraphCtx.displayAsTree = false;
+			instGraphCtx.showFullTypes = false;
+			instGraphCtx.showSource = true;
+
+			PrintGraph(instGraphCtx, ctx.vmModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
+	}
+
+	ctx.statistics.Finish("Logging", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
+	// Build LLVM module is support is enabled or just to test execution paths in debug build
+#if defined(NULLC_LLVM_SUPPORT)
+	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
+#elif !defined(NDEBUG)
+	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
+#endif
+
+	ctx.statistics.Finish("LlvmCodeGen", NULLCTime::clockMicro());
+
+	OptimizeModule(ctx);
 
 	ctx.statistics.Start(NULLCTime::clockMicro());
 
