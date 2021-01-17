@@ -1,20 +1,6 @@
 import std.memory;
+import std.string;
 import typetree;
-
-int strlen(char[] str)
-{
-	int count = 0;
-
-	for(i in str)
-	{
-		if(i == 0)
-			break;
-
-		count++;
-	}
-
-	return count;
-}
 
 void memcpy(StringRef dst, InplaceStr src)
 {
