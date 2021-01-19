@@ -899,13 +899,13 @@ namespace
 
 		if(VmConstant *constantAddress = getType<VmConstant>(address))
 		{
-			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, type, true);
+			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, ctx.GetReferenceType(type), true);
 
 			if(VmConstant *constant = getType<VmConstant>(value))
 			{
 				if(constant->isReference)
 				{
-					VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+					VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, ctx.GetReferenceType(type), true);
 
 					return CreateMemCopy(module, source, shiftAddress, 0, pointer, 0, int(type->size));
 				}
@@ -918,7 +918,7 @@ namespace
 		{
 			if(constant->isReference)
 			{
-				VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+				VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, ctx.GetReferenceType(type), true);
 
 				return CreateMemCopy(module, source, address, offset, pointer, 0, int(type->size));
 			}
@@ -5905,7 +5905,7 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 
 		if(IsArgumentVariable(block->parent->function, variable))
 		{
-			VmValue *loadInst = CreateLoad(ctx, module, NULL, variable->type, CreateVariableAddress(module, NULL, variable, variable->type), 0);
+			VmValue *loadInst = CreateLoad(ctx, module, NULL, variable->type, CreateVariableAddress(module, NULL, variable, ctx.GetReferenceType(variable->type)), 0);
 
 			loadInst->comment = variable->name->name;
 
@@ -6514,7 +6514,7 @@ VmValue* RemapInstructionArgument(ExpressionContext &ctx, VmModule *module, VmVa
 			{
 				if(argOrigConstant->isReference)
 				{
-					VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, containerOrig->type), argOrigConstant->source);
+					VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, argOrig->type, argOrigConstant->source);
 
 					reference->iValue = argOrigConstant->iValue;
 					reference->container = (*remap)->container;
@@ -6528,7 +6528,7 @@ VmValue* RemapInstructionArgument(ExpressionContext &ctx, VmModule *module, VmVa
 					return reference;
 				}
 
-				VmConstant *ptr = CreateConstantPointer(ctx.allocator, argOrigConstant->source, argOrigConstant->iValue, (*remap)->container, ctx.GetReferenceType(containerOrig->type), true);
+				VmConstant *ptr = CreateConstantPointer(ctx.allocator, argOrigConstant->source, argOrigConstant->iValue, (*remap)->container, argOrig->type.structType, true);
 
 				if(!argOrigConstant->comment.empty())
 					ptr->comment = argOrigConstant->comment;
