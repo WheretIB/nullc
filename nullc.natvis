@@ -1,132 +1,201 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-  <Type Name="IntrusiveList&lt;*&gt;">
-    <Expand>
-      <LinkedListItems>
-        <HeadPointer>head</HeadPointer>
-        <NextPointer>($T1*)next</NextPointer>
-        <ValueNode>this,na</ValueNode>
-      </LinkedListItems>
-    </Expand>
-  </Type>
-  
-  <Type Name="SmallArray&lt;*,*&gt;">
-    <Expand>
-      <Item Name="[size]">count</Item>
-      <Item Name="[capacity]">max</Item>
-      <ArrayItems>
-        <Size>count</Size>
-        <ValuePointer>data</ValuePointer>
-      </ArrayItems>
-    </Expand>
-  </Type>
+	<Type Name="IntrusiveList&lt;*&gt;">
+		<Expand>
+			<LinkedListItems>
+				<HeadPointer>head</HeadPointer>
+				<NextPointer>($T1*)next</NextPointer>
+				<ValueNode>this,na</ValueNode>
+			</LinkedListItems>
+		</Expand>
+	</Type>
 
-  <Type Name="ArrayView&lt;*&gt;">
-    <Expand>
-      <Item Name="[size]">count</Item>
-      <ArrayItems>
-        <Size>count</Size>
-        <ValuePointer>data</ValuePointer>
-      </ArrayItems>
-    </Expand>
-  </Type>
-  
-  <Type Name="InplaceStr">
-    <DisplayString>{begin,[end-begin]na}</DisplayString>
-  </Type>
-  
-  <Type Name="ExprPointerLiteral">
-    <Expand>
-      <Item Name="[Base]">(ExprBase*)this,nd</Item>
-      <Item Name="poisoned">poisoned</Item>
-      <Item Name="ptr">ptr</Item>
-      <Synthetic Name="bytes" Condition="ptr != 0">
-        <DisplayString>size = {end-ptr}</DisplayString>
-        <Expand>
-          <Item Name="[size]">end-ptr</Item>
-          <ArrayItems>
-            <Size>end-ptr</Size>
-            <ValuePointer>(unsigned char*)ptr</ValuePointer>
-          </ArrayItems>
-        </Expand>
-      </Synthetic>
-      <Synthetic Name="ints" Condition="ptr != 0">
-        <DisplayString>size = {(end-ptr) / 4}</DisplayString>
-        <Expand>
-          <Item Name="[size]">(end-ptr) / 4</Item>
-          <ArrayItems>
-            <Size>(end-ptr) / 4</Size>
-            <ValuePointer>(unsigned*)ptr</ValuePointer>
-          </ArrayItems>
-        </Expand>
-      </Synthetic>
-      <Synthetic Name="pointers" Condition="ptr != 0">
-        <DisplayString>size = {(end-ptr) / 4}</DisplayString>
-        <Expand>
-          <Item Name="[size]">(end-ptr) / 4</Item>
-          <ArrayItems>
-            <Size>(end-ptr) / 4</Size>
-            <ValuePointer>(unsigned**)ptr</ValuePointer>
-          </ArrayItems>
-        </Expand>
-      </Synthetic>
-    </Expand>
-  </Type>
+	<Type Name="SmallArray&lt;*,*&gt;">
+		<Expand>
+			<Item Name="[size]">count</Item>
+			<Item Name="[capacity]">max</Item>
+			<ArrayItems>
+				<Size>count</Size>
+				<ValuePointer>data</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
 
-  <Type Name="FastVector&lt;*,*,*&gt;">
-    <Expand>
-      <Item Name="[size]">count</Item>
-      <Item Name="[capacity]">max</Item>
-      <ArrayItems>
-        <Size>count</Size>
-        <ValuePointer>data</ValuePointer>
-      </ArrayItems>
-    </Expand>
-  </Type>
-  <Type Name="HashMap&lt;*&gt;">
-    <Expand>
-      <CustomListItems MaxItemsPerView="5000">
-        <Variable Name="iBucket" InitialValue="-1" />
-        <Variable Name="pBucket" InitialValue="entries == nullptr ? nullptr : *entries" />
-        <Variable Name="iBucketIncrement" InitialValue="-1" />
+	<Type Name="ArrayView&lt;*&gt;">
+		<Expand>
+			<Item Name="[size]">count</Item>
+			<ArrayItems>
+				<Size>count</Size>
+				<ValuePointer>data</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
 
-        <Exec>pBucket = nullptr</Exec>
-        <Loop>
-          <If Condition="pBucket == nullptr">
-            <Exec>iBucket++</Exec>
-            <Exec>iBucketIncrement = __findnonnull(entries + iBucket, 1024 - iBucket)</Exec>
-            <Break Condition="iBucketIncrement == -1" />
-            <Exec>iBucket += iBucketIncrement</Exec>
-            <Exec>pBucket = entries[iBucket]</Exec>
-          </If>
-          <Item>pBucket,na</Item>
-          <Exec>pBucket = pBucket->next</Exec>
-        </Loop>
-      </CustomListItems>
-    </Expand>
-  </Type>
+	<Type Name="InplaceStr">
+		<DisplayString>{begin,[end-begin]na}</DisplayString>
+	</Type>
 
-  <Type Name="VmLoweredBlock" IncludeView="deep">
-    <Expand HideRawView="1">
-      <LinkedListItems>
-        <HeadPointer>firstInstruction</HeadPointer>
-        <NextPointer>nextSibling</NextPointer>
-        <ValueNode>*this,view(deep)</ValueNode>
-      </LinkedListItems>
-    </Expand>
-  </Type>
+	<Type Name="ExprPointerLiteral">
+		<Expand>
+			<Item Name="[Base]">(ExprBase*)this,nd</Item>
+			<Item Name="poisoned">poisoned</Item>
+			<Item Name="ptr">ptr</Item>
+			<Synthetic Name="bytes" Condition="ptr != 0">
+				<DisplayString>size = {end-ptr}</DisplayString>
+				<Expand>
+					<Item Name="[size]">end-ptr</Item>
+					<ArrayItems>
+						<Size>end-ptr</Size>
+						<ValuePointer>(unsigned char*)ptr</ValuePointer>
+					</ArrayItems>
+				</Expand>
+			</Synthetic>
+			<Synthetic Name="ints" Condition="ptr != 0">
+				<DisplayString>size = {(end-ptr) / 4}</DisplayString>
+				<Expand>
+					<Item Name="[size]">(end-ptr) / 4</Item>
+					<ArrayItems>
+						<Size>(end-ptr) / 4</Size>
+						<ValuePointer>(unsigned*)ptr</ValuePointer>
+					</ArrayItems>
+				</Expand>
+			</Synthetic>
+			<Synthetic Name="pointers" Condition="ptr != 0">
+				<DisplayString>size = {(end-ptr) / 4}</DisplayString>
+				<Expand>
+					<Item Name="[size]">(end-ptr) / 4</Item>
+					<ArrayItems>
+						<Size>(end-ptr) / 4</Size>
+						<ValuePointer>(unsigned**)ptr</ValuePointer>
+					</ArrayItems>
+				</Expand>
+			</Synthetic>
+		</Expand>
+	</Type>
 
-  <Type Name="VmLoweredInstruction" IncludeView="deep">
-    <DisplayString Condition="flag &amp;&amp; helper">{cmd}: {flag->iValue}, {helper->iValue}, {argument->iValue}</DisplayString>
-    <DisplayString Condition="flag">{cmd}: {flag->iValue}, {argument->iValue}</DisplayString>
-    <DisplayString Condition="helper">{cmd}: {helper->iValue}, {argument->iValue}</DisplayString>
-    <DisplayString Condition="argument">{cmd}: {argument->iValue}</DisplayString>
-    <DisplayString>{cmd}</DisplayString>
-    <Expand HideRawView="1">
-      <Item Name="cmd">cmd</Item>
-      <Item Name="flag" Condition="flag">flag->iValue</Item>
-      <Item Name="helper" Condition="helper">helper->iValue</Item>
-      <Item Name="argument" Condition="argument">argument->iValue</Item>
-    </Expand>
-  </Type>
+	<Type Name="FastVector&lt;*,*,*&gt;">
+		<Expand>
+			<Item Name="[size]">count</Item>
+			<Item Name="[capacity]">max</Item>
+			<ArrayItems>
+				<Size>count</Size>
+				<ValuePointer>data</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<Type Name="HashMap&lt;*&gt;">
+		<Expand>
+			<CustomListItems MaxItemsPerView="5000">
+				<Variable Name="iBucket" InitialValue="-1" />
+				<Variable Name="pBucket" InitialValue="entries == nullptr ? nullptr : *entries" />
+				<Variable Name="iBucketIncrement" InitialValue="-1" />
+
+				<Exec>pBucket = nullptr</Exec>
+				<Loop>
+					<If Condition="pBucket == nullptr">
+						<Exec>iBucket++</Exec>
+						<Exec>iBucketIncrement = __findnonnull(entries + iBucket, 1024 - iBucket)</Exec>
+						<Break Condition="iBucketIncrement == -1" />
+						<Exec>iBucket += iBucketIncrement</Exec>
+						<Exec>pBucket = entries[iBucket]</Exec>
+					</If>
+					<Item>pBucket,na</Item>
+					<Exec>pBucket = pBucket->next</Exec>
+				</Loop>
+			</CustomListItems>
+		</Expand>
+	</Type>
+	<Type Name="FixedArray&lt;*,*&gt;">
+		<Expand HideRawView="false">
+			<Item Name="[size]">$T2</Item>
+			<ArrayItems>
+				<Size>$T2</Size>
+				<ValuePointer>data</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<Type Name="SmallDenseSet&lt;*,*,*&gt;">
+		<Expand HideRawView="false">
+			<Item Name="[size]">count</Item>
+			<Item Name="[capacity]">bucketCount</Item>
+			<Item Name="[allocator]">allocator</Item>
+			<ArrayItems>
+				<Size>bucketCount</Size>
+				<ValuePointer>data</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<Type Name="SmallDenseMap&lt;*,*,*,*&gt;">
+		<Expand HideRawView="false">
+			<Item Name="[size]">count</Item>
+			<Item Name="[capacity]">bucketCount</Item>
+			<Item Name="[allocator]">allocator</Item>
+			<ArrayItems>
+				<Size>bucketCount</Size>
+				<ValuePointer>data</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+	<Type Name="DirectChainedMap&lt;*&gt;">
+		<Expand HideRawView="false">
+			<Item Name="[size]">count</Item>
+			<Item Name="[capacity]">bucketCount</Item>
+			<Item Name="[allocator]">allocator</Item>
+			<CustomListItems MaxItemsPerView="5000">
+				<Variable Name="iBucket" InitialValue="0" />
+				<Variable Name="pBucket" InitialValue="(Node*)0" />
+				<Variable Name="pStart" InitialValue="(Node*)0" />
+
+				<Loop>
+					<Exec>pBucket = &amp;data[iBucket]</Exec>
+
+					<If Condition="pBucket->next != nullptr">
+						<Exec>pStart = pBucket</Exec>
+						<Loop>
+							<Item>pBucket->value</Item>
+							<Exec>pBucket = pBucket->next</Exec>
+							<Break Condition="pBucket == pStart"/>
+						</Loop>
+					</If>
+
+					<Exec>iBucket++</Exec>
+					<Break Condition="iBucket == bucketCount"/>
+				</Loop>
+			</CustomListItems>
+			<Item Name="[data]">data</Item>
+		</Expand>
+	</Type>
+
+	<Type Name="VmLoweredBlock" IncludeView="deep">
+		<Expand HideRawView="1">
+			<LinkedListItems>
+				<HeadPointer>firstInstruction</HeadPointer>
+				<NextPointer>nextSibling</NextPointer>
+				<ValueNode>*this,view(deep)</ValueNode>
+			</LinkedListItems>
+		</Expand>
+	</Type>
+
+	<Type Name="VmLoweredInstruction" IncludeView="deep">
+		<DisplayString Condition="flag &amp;&amp; helper">{cmd}: {flag->iValue}, {helper->iValue}, {argument->iValue}</DisplayString>
+		<DisplayString Condition="flag">{cmd}: {flag->iValue}, {argument->iValue}</DisplayString>
+		<DisplayString Condition="helper">{cmd}: {helper->iValue}, {argument->iValue}</DisplayString>
+		<DisplayString Condition="argument">{cmd}: {argument->iValue}</DisplayString>
+		<DisplayString>{cmd}</DisplayString>
+		<Expand HideRawView="1">
+			<Item Name="cmd">cmd</Item>
+			<Item Name="flag" Condition="flag">flag->iValue</Item>
+			<Item Name="helper" Condition="helper">helper->iValue</Item>
+			<Item Name="argument" Condition="argument">argument->iValue</Item>
+		</Expand>
+	</Type>
+
+	<Type Name="ScopeLookupResult">
+		<DisplayString Condition="variable">{variable}</DisplayString>
+		<DisplayString Condition="function">{function}</DisplayString>
+		<Expand HideRawView="1">
+			<Item Name="variable" Condition="variable">variable</Item>
+			<Item Name="function" Condition="function">function</Item>
+		</Expand>
+	</Type>
 </AutoVisualizer>
