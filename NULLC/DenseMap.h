@@ -483,7 +483,7 @@ public:
 		Node *curr = start;
 
 		if(!curr->next)
-			return false;
+			return NULL;
 
 		while(curr)
 		{
