@@ -5192,7 +5192,23 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 
 				assert(target);
 
-				ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
+				// Do not replace block if it is an incoming phi instruction argument
+				bool hasPhiUser = false;
+
+				for(unsigned i = 0; i < curr->users.size(); i++)
+				{
+					if(VmInstruction *inst = getType<VmInstruction>(curr->users[i]))
+					{
+						if(inst->cmd == VM_INST_PHI)
+						{
+							hasPhiUser = true;
+							break;
+						}
+					}
+				}
+
+				if(!hasPhiUser)
+					ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
 			}
 
 			if(curr->users.empty() && !curr->HasExternalInstructionUsers())
