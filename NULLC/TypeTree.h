@@ -629,8 +629,8 @@ struct ScopeData
 	SmallArray<ScopeData*, 2> scopes;
 
 	// Lookup tables
-	DirectDenseMap<IdentifierLookupResult> idLookupMap;
-	DirectDenseMap<TypeLookupResult> typeLookupMap;
+	DirectChainedMap<IdentifierLookupResult> idLookupMap;
+	DirectChainedMap<TypeLookupResult> typeLookupMap;
 
 	bool unrestricted;
 	
@@ -1122,7 +1122,7 @@ struct TypeClass: TypeStruct
 	FunctionData *defaultAssign;
 
 	SmallArray<FunctionData*, 4> methods;
-	DirectDenseMap<FunctionData*> methodMap;
+	DirectChainedMap<FunctionData*> methodMap;
 
 	static const unsigned myTypeID = TypeNode::TypeClass;
 };

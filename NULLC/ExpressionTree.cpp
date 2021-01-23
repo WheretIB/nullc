@@ -519,7 +519,7 @@ namespace
 
 	IdentifierLookupResult* LookupObjectByName(ExpressionContext &ctx, unsigned nameHash)
 	{
-		typedef DirectDenseMap<IdentifierLookupResult>::NodeIterator Node;
+		typedef DirectChainedMap<IdentifierLookupResult>::NodeIterator Node;
 
 		ScopeData *scope = ctx.scope;
 
@@ -626,7 +626,7 @@ namespace
 
 	struct FunctionLookupChain
 	{
-		typedef DirectDenseMap<IdentifierLookupResult>::NodeIterator Node;
+		typedef DirectChainedMap<IdentifierLookupResult>::NodeIterator Node;
 
 		FunctionLookupChain()
 		{
@@ -696,7 +696,7 @@ namespace
 
 	FunctionLookupChain LookupFunctionChainByName(ExpressionContext &ctx, unsigned nameHash)
 	{
-		typedef DirectDenseMap<IdentifierLookupResult>::NodeIterator Node;
+		typedef DirectChainedMap<IdentifierLookupResult>::NodeIterator Node;
 
 		ScopeData *scope = ctx.scope;
 
@@ -885,7 +885,7 @@ namespace
 	{
 		ScopeData *lookupScope = ctx.scope->type == SCOPE_TYPE || ctx.scope->type == SCOPE_NAMESPACE ? ctx.globalScope : ctx.scope;
 
-		if(DirectDenseMap<IdentifierLookupResult>::NodeIterator curr = lookupScope->idLookupMap.first(function->name->name.hash()))
+		if(DirectChainedMap<IdentifierLookupResult>::NodeIterator curr = lookupScope->idLookupMap.first(function->name->name.hash()))
 		{
 			while(curr)
 			{
@@ -1777,9 +1777,9 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	return result;
 }
 
-TypeFunction* GetFunctionTypeFromCache(DirectDenseMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+TypeFunction* GetFunctionTypeFromCache(DirectChainedMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
-	typedef DirectDenseMap<TypeFunction*>::NodeIterator Node;
+	typedef DirectChainedMap<TypeFunction*>::NodeIterator Node;
 
 	if(Node curr = table.first(hash))
 	{
@@ -1815,9 +1815,9 @@ TypeFunction* GetFunctionTypeFromCache(DirectDenseMap<TypeFunction*> &table, uns
 	return NULL;
 }
 
-TypeFunction* GetFunctionTypeFromCache(DirectDenseMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, ArrayView<ArgumentData> arguments)
+TypeFunction* GetFunctionTypeFromCache(DirectChainedMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, ArrayView<ArgumentData> arguments)
 {
-	typedef DirectDenseMap<TypeFunction*>::NodeIterator Node;
+	typedef DirectChainedMap<TypeFunction*>::NodeIterator Node;
 
 	if(Node curr = table.first(hash))
 	{
@@ -4996,7 +4996,7 @@ ExprBase* CreateVirtualFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 
 	for(TypeClass *curr = parent; curr; curr = curr->baseClass)
 	{
-		DirectDenseMap<FunctionData*>::NodeIterator it = curr->methodMap.first(name.hash());
+		DirectChainedMap<FunctionData*>::NodeIterator it = curr->methodMap.first(name.hash());
 
 		while(it)
 		{
@@ -13346,7 +13346,7 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 {
 	TRACE_SCOPE("analyze", "CreateDefaultArgumentFunctionWrappers");
 
-	DirectDenseMap<FunctionData*> valueFunctions(ctx.allocator);
+	DirectChainedMap<FunctionData*> valueFunctions(ctx.allocator);
 
 	for(unsigned i = 0; i < ctx.functions.size(); i++)
 	{

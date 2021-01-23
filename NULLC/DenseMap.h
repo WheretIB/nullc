@@ -325,7 +325,7 @@ struct SmallDenseMapUnsignedHasher
 };
 
 template<typename Value>
-class DirectDenseMap
+class DirectChainedMap
 {
 public:
 	struct Node
@@ -369,7 +369,7 @@ public:
 		}
 	};
 
-	DirectDenseMap(Allocator *allocator) : allocator(allocator)
+	DirectChainedMap(Allocator *allocator) : allocator(allocator)
 	{
 		assert(allocator);
 
@@ -380,7 +380,7 @@ public:
 		memset(data, 0, sizeof(Node) * bucketCount);
 	}
 
-	~DirectDenseMap()
+	~DirectChainedMap()
 	{
 		allocator->dealloc(data);
 	}
@@ -593,6 +593,6 @@ private:
 	Allocator *allocator;
 
 private:
-	DirectDenseMap(const DirectDenseMap&);
-	DirectDenseMap& operator=(const DirectDenseMap&);
+	DirectChainedMap(const DirectChainedMap&);
+	DirectChainedMap& operator=(const DirectChainedMap&);
 };
