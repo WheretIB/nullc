@@ -1060,7 +1060,7 @@ namespace
 	}
 }
 
-ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): optimizationLevel(optimizationLevel), allocator(allocator), functionTypeMap(allocator)
+ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): optimizationLevel(optimizationLevel), functionTypeMap(allocator), allocator(allocator)
 {
 	code = NULL;
 	codeEnd = NULL;
@@ -1078,6 +1078,7 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	types.set_allocator(allocator);
 	functions.set_allocator(allocator);
 	variables.set_allocator(allocator);
+
 	definitions.set_allocator(allocator);
 	setup.set_allocator(allocator);
 
@@ -1091,6 +1092,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	functionSetTypes.set_allocator(allocator);
 	genericAliasTypes.set_allocator(allocator);
 	genericClassTypes.set_allocator(allocator);
+
+	genericTypeMap.set_allocator(allocator);
 
 	genericFunctionInstanceTypeMap.set_allocator(allocator);
 
@@ -1107,7 +1110,9 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	for(unsigned i = 0; i < noModifyOperatorForTypePair.size(); i++)
 		noModifyOperatorForTypePair[i].set_allocator(allocator);
 
-	genericTypeMap.set_allocator(allocator);
+	newConstructorFunctions.set_allocator(allocator);
+
+	internalTypeMap.set_allocator(allocator);
 
 	errorHandlerActive = false;
 	errorHandlerNested = false;
