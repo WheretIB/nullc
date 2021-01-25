@@ -13,6 +13,7 @@
 #include "../NULLC/includes/time.h"
 #include "../NULLC/includes/memory.h"
 #include "../NULLC/includes/error.h"
+#include "../NULLC/includes/string.h"
 
 #include "../NULLC/includes/canvas.h"
 #include "../NULLC/includes/window.h"
@@ -175,6 +176,7 @@ struct TestRestore : TestQueue
 		nullcInitGCModule();
 		nullcInitMemoryModule();
 		nullcInitErrorModule();
+		nullcInitStringModule();
 		nullcInitIOModule();
 		nullcInitCanvasModule();
 #if defined(_MSC_VER)
