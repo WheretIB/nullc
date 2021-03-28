@@ -2464,7 +2464,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 					ExprBase *untyped = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.GetReferenceType(ctx.typeVoid), value, EXPR_CAST_REINTERPRET);
 					ExprBase *typeID = new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, targetClass);
 
-					ExprBase *checked = CreateFunctionCall2(ctx, source, InplaceStr("assert_derived_from_base"), untyped, typeID, false, false, true);
+					ExprBase *checked = CreateFunctionCall2(ctx, source, InplaceStr("__assert_derived_from"), untyped, typeID, false, false, true);
 
 					return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, checked, EXPR_CAST_REINTERPRET);
 				}

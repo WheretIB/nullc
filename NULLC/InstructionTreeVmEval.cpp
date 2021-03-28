@@ -2234,7 +2234,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantInt(ctx.allocator, NULL, jmpOffset->iValue == 0);
 	}
-	else if(function->name->name == InplaceStr("assert_derived_from_base") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
+	else if(function->name->name == InplaceStr("__assert_derived_from") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
 	{
 		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
 

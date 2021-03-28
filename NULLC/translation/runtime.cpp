@@ -1537,7 +1537,32 @@ void __finalizeObjects_void_ref__(void* __context)
 	}
 }
 
-void* assert_derived_from_base_void_ref_ref_void_ref_typeid_(void* derived, unsigned base, void* unused)
+bool is_derived_from_bool_ref_auto_ref_typeid_(NULLCRef derived, unsigned base, void* unused)
+{
+	if((__nullcGetTypeInfo(base)->flags & NULLC_TYPE_FLAG_IS_EXTENDABLE) == 0)
+		nullcThrowError("ERROR: type '%s' is not extendable", nullcGetTypeName(base));
+
+	unsigned typeId = derived.typeID;
+
+	for(;;)
+	{
+		if(base == typeId)
+			return true;
+
+		if(__nullcGetTypeInfo(typeId)->baseClassID != 0)
+		{
+			typeId = __nullcGetTypeInfo(typeId)->baseClassID;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return false;
+}
+
+void* __assert_derived_from_void_ref_ref_void_ref_typeid_(void* derived, unsigned base, void* unused)
 {
 	if(!derived)
 		return derived;

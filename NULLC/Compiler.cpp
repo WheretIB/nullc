@@ -153,8 +153,8 @@ bool operator in(generic x, typeof(x)[] arr)\r\n\
 			return true;\r\n\
 	return false;\r\n\
 }\r\n\
-bool is_derived_from_base(auto ref derived, typeid base);\r\n\
-void ref assert_derived_from_base(void ref derived, typeid base);\r\n\
+bool is_derived_from(auto ref derived, typeid base);\r\n\
+void ref __assert_derived_from(void ref derived, typeid base);\r\n\
 auto __gen_list(@T ref() y)\r\n\
 {\r\n\
 	auto[] res = auto_array(T, 1);\r\n\
@@ -274,8 +274,8 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 
 	nullcBindModuleFunctionHelper("$base$", NULLC::GetFinalizationList, "__getFinalizeList", 0);
 
-	nullcBindModuleFunctionHelperNoMemWrite("$base$", NULLC::IsDerivedFromBase, "is_derived_from_base", 0);
-	nullcBindModuleFunctionHelperNoMemWrite("$base$", NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
+	nullcBindModuleFunctionHelperNoMemWrite("$base$", NULLC::IsDerivedFrom, "is_derived_from", 0);
+	nullcBindModuleFunctionHelperNoMemWrite("$base$", NULLC::AssertDerivedFrom, "__assert_derived_from", 0);
 
 	nullcBindModuleFunctionHelper("$base$", NULLC::CloseUpvalue, "__closeUpvalue", 0);
 

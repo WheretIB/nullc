@@ -116,7 +116,8 @@ namespace NULLC
 
 	void	ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src);
 
-	void*	AssertDerivedFromBase(unsigned* derived, unsigned base);
+	bool	IsDerivedFrom(NULLCRef derived, unsigned base);
+	void*	AssertDerivedFrom(unsigned* derived, unsigned base);
 
 	void	CloseUpvalue(void **upvalueList, void *variable, int offset, int size);
 }

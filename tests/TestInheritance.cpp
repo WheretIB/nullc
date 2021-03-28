@@ -691,4 +691,43 @@ int s = t.x * 10000 + t.y * 1000 + t.z * 100 + t.w * 10 + t.a;\r\n\
 t.x = 5; t.y = 4; t.z = 3; t.w = 2; t.a = 1;\r\n\
 int s2 = t.x * 10000 + t.y * 1000 + t.z * 100 + t.w * 10 + t.a;\r\n\
 return s + s2;";
-TEST_RESULT_SIMPLE("Inheritance test 54 - base class tail padding 2", testInheritance55, "66666");
+TEST_RESULT_SIMPLE("Inheritance test 55 - base class tail padding 2", testInheritance55, "66666");
+
+const char	*testInheritance56 =
+"import std.error;\r\n\
+\r\n\
+class Base extendable{}\r\n\
+class Derived: Base{}\r\n\
+class Derived2: Derived{}\r\n\
+class Unrelated extendable{}\r\n\
+class DerivedUnrelated: Unrelated{}\r\n\
+\r\n\
+assert(!is_derived_from(1, Base));\r\n\
+assert(is_derived_from(new Base(), Base));\r\n\
+assert(is_derived_from(new Derived(), Base));\r\n\
+assert(is_derived_from(new Derived2(), Base));\r\n\
+assert(!is_derived_from(new Unrelated(), Base));\r\n\
+assert(!is_derived_from(new DerivedUnrelated(), Base));\r\n\
+assert(!is_derived_from(1, Derived));\r\n\
+assert(!is_derived_from(new Base(), Derived));\r\n\
+assert(is_derived_from(new Derived(), Derived));\r\n\
+assert(is_derived_from(new Derived2(), Derived));\r\n\
+assert(!is_derived_from(new Unrelated(), Derived));\r\n\
+assert(!is_derived_from(new DerivedUnrelated(), Derived));\r\n\
+assert(!is_derived_from(1, Derived2));\r\n\
+assert(!is_derived_from(new Base(), Derived2));\r\n\
+assert(!is_derived_from(new Derived(), Derived2));\r\n\
+assert(is_derived_from(new Derived2(), Derived2));\r\n\
+assert(!is_derived_from(new Unrelated(), Derived2));\r\n\
+assert(!is_derived_from(new DerivedUnrelated(), Derived2));\r\n\
+assert(!is_derived_from(new Base(), Unrelated));\r\n\
+assert(!is_derived_from(new Derived(), Unrelated));\r\n\
+assert(!is_derived_from(new Derived2(), Unrelated));\r\n\
+assert(!is_derived_from(new Base(), DerivedUnrelated));\r\n\
+assert(!is_derived_from(new Derived(), DerivedUnrelated));\r\n\
+assert(!is_derived_from(new Derived2(), DerivedUnrelated));\r\n\
+assert(try(<> is_derived_from(1, int)).message == \"ERROR: type 'int' is not extendable\");\r\n\
+assert(try(<> is_derived_from(1, void)).message == \"ERROR: type 'void' is not extendable\");\r\n\
+\r\n\
+return 1;";
+TEST_RESULT_SIMPLE("Inheritance test 56 - is_derived_from", testInheritance56, "1");
