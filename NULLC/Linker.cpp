@@ -901,10 +901,15 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 	ExternSourceInfo *info = (ExternSourceInfo*)exRegVmSourceInfo.data;
 	unsigned infoSize = exRegVmSourceInfo.size();
 
-	SmallDenseSet<unsigned, SmallDenseMapUnsignedHasher, 32> regVmJumpTargetMap;
+	SmallDenseSet<unsigned, SmallDenseMapUnsignedHasher, 32> regVmJumpTargetSet;
 
 	for(unsigned i = 0; i < regVmJumpTargets.size(); i++)
-		regVmJumpTargetMap.insert(regVmJumpTargets[i]);
+		regVmJumpTargetSet.insert(regVmJumpTargets[i]);
+
+	SmallDenseMap<unsigned, ExternFuncInfo*, SmallDenseMapUnsignedHasher, 32> regVmFunctionMap;
+
+	for(unsigned i = 0; i < exFunctions.size(); i++)
+		regVmFunctionMap.insert(exFunctions[i].regVmAddress, &exFunctions[i]);
 
 	const char *lastSourcePos = exSource.data;
 	const char *lastCodeStart = NULL;
@@ -948,7 +953,10 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 
 		RegVmCmd cmd = exRegVmCode[i];
 
-		bool found = regVmJumpTargetMap.contains(i);
+		bool found = regVmJumpTargetSet.contains(i);
+
+		if(ExternFuncInfo **func = regVmFunctionMap.find(i))
+			output.Printf("// %s#%d\n", exSymbols.data + (*func)->offsetToName, unsigned(*func - exFunctions.data));
 
 		if(withProfileInfo)
 		{
@@ -958,7 +966,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 
 				double percent = double(exRegVmExecCount[i]) / total * 100.0;
 
-				if (percent > 0.1)
+				if(percent > 0.1)
 					output.Printf("// (%8d %4.1f)      ", exRegVmExecCount[i], percent);
 				else
 					output.Printf("// (%8d     )      ", exRegVmExecCount[i]);
