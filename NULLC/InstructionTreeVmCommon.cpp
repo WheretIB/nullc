@@ -94,6 +94,8 @@ VmConstant* CreateConstantLong(Allocator *allocator, SynBase *source, long long 
 
 VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int offset, VariableData *container, TypeBase *structType, bool trackUsers)
 {
+	assert(isType<TypeRef>(structType) || isType<TypeNullptr>(structType));
+
 	if(trackUsers && container)
 	{
 		if(VmConstant **cached = container->offsetUsers.find(offset + 1))
