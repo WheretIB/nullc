@@ -4,6 +4,7 @@
 #include "../../NULLC/nullbind.h"
 
 #include <string.h>
+#include <stdio.h>
 
 namespace NULLCString
 {
@@ -103,7 +104,9 @@ namespace NULLCString
 			return -1;
 		}
 
-		return ::strcmp(a.ptr, b.ptr);
+		int result = ::strcmp(a.ptr, b.ptr);
+
+		return result < 0 ? -1 : result == 0 ? 0 : 1;
 	}
 
 	int strcpy(NULLCArray dst, NULLCArray src)
