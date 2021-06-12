@@ -25,20 +25,33 @@ char[] r = arr + arr2;\r\n\
 return r.size;";
 TEST_RESULT("Hidden variable exclusion from import", testImportHidding, "12");
 
-#if defined(NULLC_AUTOBINDING)
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 
-NULLC_BIND int myFoo(int x){ return x + 15; }
+int myFoo(int x){ return x + 15; }
+void* myFunctionLookup(const char* name){ return strcmp(name, "myFoo") == 0 ? (void*)myFoo : NULL; }
 
 const char	*testFunctionAutobinding =
 "int myFoo(int x);\r\n\
 return myFoo(5);";
-TEST_RESULT_SIMPLE("Automatic function binding [skip_c]", testFunctionAutobinding, "20");
+TEST_SIMPLE_WITH_SETUP("Automatic function binding [skip_c]", testFunctionAutobinding, "20")
+{
+	if(before)
+		nullcSetMissingFunctionLookup(myFunctionLookup);
+	else
+		nullcSetMissingFunctionLookup(NULL);
+}
 
 LOAD_MODULE(test_Autobind, "test.autobind", "int myFoo(int x);");
 const char	*testFunctionAutobinding2 =
 "import test.autobind;\r\n\
 return myFoo(2);";
-TEST_RESULT("Automatic function binding 2 [skip_c]", testFunctionAutobinding2, "17");
+TEST_SIMPLE_WITH_SETUP("Automatic function binding 2 [skip_c]", testFunctionAutobinding2, "17")
+{
+	if(before)
+		nullcSetMissingFunctionLookup(myFunctionLookup);
+	else
+		nullcSetMissingFunctionLookup(NULL);
+}
 
 #endif
 

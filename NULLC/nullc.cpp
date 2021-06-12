@@ -61,6 +61,8 @@ namespace NULLC
 	void (*writeStream)(void *stream, const char *data, unsigned size) = OutputContext::FileWrite;
 	void (*closeStream)(void* stream) = OutputContext::FileClose;
 
+	void* (*lookupMissingFunction)(const char* name) = NULL;
+
 	int optimizationLevel = 2;
 
 	unsigned moduleAnalyzeMemoryLimit = 128 * 1024 * 1024;
@@ -258,6 +260,11 @@ void nullcSetModuleAnalyzeMemoryLimit(unsigned bytes)
 void nullcSetEnableExternalDebugger(int enable)
 {
 	NULLC::enableExternalDebugger = enable != 0;
+}
+
+void nullcSetMissingFunctionLookup(void* (*lookup)(const char* name))
+{
+	NULLC::lookupMissingFunction = lookup;
 }
 
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)

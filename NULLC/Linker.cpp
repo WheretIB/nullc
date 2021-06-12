@@ -6,15 +6,6 @@
 #include "InstructionTreeRegVmLowerGraph.h"
 #include "Trace.h"
 
-#ifdef NULLC_AUTOBINDING
-	#if defined(__linux)
-		#include <dlfcn.h>
-	#else
-		#define WIN32_LEAN_AND_MEAN
-		#include <windows.h>
-	#endif
-#endif
-
 extern "C"
 {
 	NULLC_DEBUG_EXPORT uintptr_t nullcModuleBytecodeLocation = 0;
@@ -25,6 +16,7 @@ extern "C"
 namespace NULLC
 {
 	extern bool enableLogFiles;
+	extern void* (*lookupMissingFunction)(const char* name);
 
 	template<typename T>
 	unsigned GetArrayDataSize(const FastVector<T> &arr)
@@ -625,15 +617,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 
 			if(exFunctions.back().regVmAddress == 0)
 			{
-#ifdef NULLC_AUTOBINDING
-	#if defined(__linux)
-				void* handle = dlopen(0, RTLD_LAZY | RTLD_LOCAL);
-				exFunctions.back().funcPtrRaw = (void (*)())dlsym(handle, FindSymbols(bCode) + exFunctions.back().offsetToName);
-				dlclose(handle);
-	#else
-				exFunctions.back().funcPtrRaw = (void (*)())GetProcAddress(GetModuleHandle(NULL), FindSymbols(bCode) + exFunctions.back().offsetToName);
-	#endif
-#endif
+				if(NULLC::lookupMissingFunction)
+					exFunctions.back().funcPtrRaw = (void (*)())NULLC::lookupMissingFunction(FindSymbols(bCode) + exFunctions.back().offsetToName);
+
 				if(exFunctions.back().funcPtrRaw || exFunctions.back().funcPtrWrap)
 				{
 					exFunctions.back().regVmAddress = ~0u;
