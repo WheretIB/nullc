@@ -688,7 +688,7 @@ namespace ColorerGrammar
 			vardef		=
 				((strP("align")[ColorRWord] >> chP('(')[ColorText] >> intP[ColorReal] >> chP(')')[ColorText]) | (strP("noalign")[ColorRWord] | epsP)) >>
 				(typeExpr - (typeExpr >> chP('('))) >> 
-				(vardefsub | epsP[LogError("ERROR: variable definition after typename is incorrect")]);
+				(vardefsub);
 
 			ifExpr			=
 				!chP('@')[ColorText] >> strWP("if")[ColorRWord] >>
