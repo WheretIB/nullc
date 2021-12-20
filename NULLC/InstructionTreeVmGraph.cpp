@@ -307,9 +307,23 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 		}
 
 		if(ctx.showComments && !instruction->comment.empty())
-			Print(ctx, " (%.*s) = ", FMT_ISTR(instruction->comment));
-		else
-			Print(ctx, " = ");
+			Print(ctx, " (%.*s)", FMT_ISTR(instruction->comment));
+
+		if (ctx.showFullTypes)
+		{
+			if (instruction->type.structType)
+			{
+				Print(ctx, " <%.*s>", FMT_ISTR(instruction->type.structType->name));
+			}
+			else
+			{
+				Print(ctx, " <");
+				PrintType(ctx, instruction->type);
+				Print(ctx, ">");
+			}
+		}
+
+		Print(ctx, " = ");
 	}
 
 	Print(ctx, "%s", GetInstructionName(instruction));
