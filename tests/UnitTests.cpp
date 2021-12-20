@@ -371,6 +371,7 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 
 	if(Tests::compareOptimizations)
 	{
+		printf("Total RegVM instructions: %+6d\n", Tests::totalDeltaInstructions);
 		printf("Total optimizations: peephole        %+6d const-prop   %+6d dead-code-elim  %+6d cflow-simp  %+6d\n", Tests::totalDeltaPeepholeOptimizations, Tests::totalDeltaConstantPropagations, Tests::totalDeltaDeadCodeEliminations, Tests::totalDeltaControlFlowSimplifications);
 		printf("                   : load-store-prop %+6d subexpr-elim %+6d dead-store-elim %+6d func-inline %+6d\n", Tests::totalDeltaLoadStorePropagations, Tests::totalDeltaCommonSubexprEliminations, Tests::totalDeltaDeadAllocaStoreEliminations, Tests::totalDeltaFunctionInlines);
 	}

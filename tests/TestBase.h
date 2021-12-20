@@ -114,6 +114,7 @@ namespace Tests
 	extern unsigned totalDeltaCommonSubexprEliminations;
 	extern unsigned totalDeltaDeadAllocaStoreEliminations;
 	extern unsigned totalDeltaFunctionInlines;
+	extern unsigned totalDeltaInstructions;
 
 	extern const char		*varData;
 	extern unsigned int		variableCount;
