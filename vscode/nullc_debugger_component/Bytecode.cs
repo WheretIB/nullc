@@ -236,7 +236,7 @@ namespace nullc_debugger_component
 
             public uint namespaceHash;
 
-            public int bytesToPop; // Arguments size
+            public int argumentSize;
             public int stackSize; // Including arguments
 
             // For generic functions
@@ -295,7 +295,7 @@ namespace nullc_debugger_component
 
                 namespaceHash = reader.ReadUInt32();
 
-                bytesToPop = reader.ReadInt32();
+                argumentSize = reader.ReadInt32();
                 stackSize = reader.ReadInt32();
 
                 genericOffsetStart = reader.ReadUInt32();

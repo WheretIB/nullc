@@ -197,7 +197,7 @@ bool ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		if(funcPos == ~0u)
 		{
 			// Copy all arguments
-			memcpy(tempStackPtr, arguments, target.bytesToPop);
+			memcpy(tempStackPtr, arguments, target.argumentSize);
 
 			// Call function
 			if(target.funcPtrWrap)
@@ -220,7 +220,7 @@ bool ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		{
 			instruction = &exLinker->exRegVmCode[funcPos];
 
-			unsigned argumentsSize = target.bytesToPop;
+			unsigned argumentsSize = target.argumentSize;
 
 			// Keep stack frames aligned to 16 byte boundary
 			unsigned alignOffset = (dataStack.size() % 16 != 0) ? (16 - (dataStack.size() % 16)) : 0;
@@ -1386,7 +1386,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 		callStack.push_back(instruction + 1);
 
 		// Take arguments
-		tempStackPtr -= target.bytesToPop >> 2;
+		tempStackPtr -= target.argumentSize >> 2;
 
 		assert(tempStackPtr == tempStackArrayBase);
 
@@ -1453,7 +1453,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 
 	unsigned prevDataSize = dataStack.size();
 
-	unsigned argumentsSize = target.bytesToPop;
+	unsigned argumentsSize = target.argumentSize;
 	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
 	assert(dataStack.size() % 16 == 0);
@@ -1467,7 +1467,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 	}
 
 	// Take arguments
-	tempStackPtr -= target.bytesToPop >> 2;
+	tempStackPtr -= target.argumentSize >> 2;
 
 	assert(tempStackPtr == tempStackArrayBase);
 

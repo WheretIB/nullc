@@ -1612,13 +1612,13 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			helpInsert.item.pszText = name;
 			HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-			unsigned int offsetToNextFrame = function.bytesToPop;
+			unsigned int offsetToNextFrame = function.argumentSize;
 			// Check every function local
 			for(unsigned int i = 0; i < function.localCount; i++)
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + i];
-				if(function.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= function.bytesToPop)
+				if(function.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= function.argumentSize)
 					break;
 
 				char *it = name;
@@ -1658,7 +1658,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			}
 			if(function.parentType != ~0u)
 			{
-				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = (char*)(data + offset + function.argumentSize - NULLC_PTR_SIZE);
 
 				char *it = name;
 				it += safeprintf(it, nameSize, "0x%x: %s %s = %p", ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
@@ -1676,12 +1676,12 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
 				tiExtra.back() = TreeItemExtra(*(char**)ptr, &codeTypes[function.parentType], thisItem, true, "$this");
 
-				if(offset + function.bytesToPop > dataCount)
+				if(offset + function.argumentSize > dataCount)
 					InsertUnavailableInfo(thisItem);
 			}
 			if(function.contextType != ~0u)
 			{
-				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = (char*)(data + offset + function.argumentSize - NULLC_PTR_SIZE);
 
 				char *it = name;
 				it += safeprintf(it, nameSize, "0x%x: %s %s = %p", ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(char**)ptr);
@@ -1699,7 +1699,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
 				tiExtra.back() = TreeItemExtra((void*)ptr, &codeTypes[function.contextType], thisItem, true, "$context");
 
-				if(offset + function.bytesToPop > dataCount)
+				if(offset + function.argumentSize > dataCount)
 					InsertUnavailableInfo(thisItem);
 			}
 			offset += offsetToNextFrame;

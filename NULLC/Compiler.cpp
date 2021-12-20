@@ -1674,7 +1674,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			else if(funcInfo.retType == ExternFuncInfo::RETURN_LONG)
 				funcInfo.returnSize = 8;
 
-			funcInfo.bytesToPop = (unsigned)function->argumentsSize;
+			funcInfo.argumentSize = (unsigned)function->argumentsSize;
 			funcInfo.stackSize = (unsigned)function->stackSize;
 
 			funcInfo.genericOffsetStart = ~0u;
