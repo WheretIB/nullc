@@ -538,7 +538,9 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 						printf("    delta: peep %+d constprop %+d dce %+d cfsimp %+d lsprop %+d comsubexpr %+d deadstore %+d funcinline %+d inst %+d\n", deltas[0], deltas[1], deltas[2], deltas[3], deltas[4], deltas[5], deltas[6], deltas[7], deltas[8]);
 
-						if(enableDiffOptimization && Tests::enableLogFiles && !Tests::openStreamFunc)
+						bool hasChanges = deltas[0] || deltas[1] || deltas[2] || deltas[3] || deltas[4] || deltas[5] || deltas[6] || deltas[7] || deltas[8];
+
+						if(enableDiffOptimization && Tests::enableLogFiles && !Tests::openStreamFunc && hasChanges)
 						{
 							(void)remove("inst_graph_opt_before.txt");
 							(void)remove("inst_graph_opt_after.txt");
@@ -551,6 +553,8 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 							nullcCompile(code);
 
 							(void)rename("inst_graph_opt.txt", "inst_graph_opt_before.txt");
+
+							enableTestOptimization = true;
 						}
 					}
 				}
