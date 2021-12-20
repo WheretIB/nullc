@@ -1356,6 +1356,13 @@ namespace
 			bool hasLoadFromGlobal = el.loadAddress && el.loadAddress->container && IsGlobalScope(el.loadAddress->container->scope);
 			bool hasStoreToGlobal = el.storeAddress && el.storeAddress->container && IsGlobalScope(el.storeAddress->container->scope);
 
+			// If this is an alloca temporary and it cannot be aliased, we can remove it even in the global scope
+			if(hasLoadFromGlobal && el.noLoadOrNoContainerAlias && el.loadAddress->container->isAlloca)
+				hasLoadFromGlobal = false;
+
+			if(hasStoreToGlobal && el.noStoreOrNoContainerAlias && el.storeAddress->container->isAlloca)
+				hasStoreToGlobal = false;
+
 			if(hasLoadFromGlobal || hasStoreToGlobal)
 			{
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
