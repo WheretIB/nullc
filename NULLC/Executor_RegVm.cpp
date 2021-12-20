@@ -1283,23 +1283,24 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 		{
 			// Next instruction for step command
 			RegVmCmd *nextCommand = instruction + 1;
+			RegVmCmd& breakCmd = breakCode[target];
 
 			// Step command - handle unconditional jump step
-			if(breakCode[target].code == rviJmp)
-				nextCommand = codeBase + breakCode[target].argument;
+			if(breakCmd.code == rviJmp)
+				nextCommand = codeBase + breakCmd.argument;
 			// Step command - handle conditional "jump on false" step
-			if(breakCode[target].code == rviJmpz && regFilePtr[cmd.rC].intValue == 0)
-				nextCommand = codeBase + breakCode[target].argument;
+			if(breakCmd.code == rviJmpz && regFilePtr[cmd.rC].intValue == 0)
+				nextCommand = codeBase + breakCmd.argument;
 			// Step command - handle conditional "jump on true" step
-			if(breakCode[target].code == rviJmpnz && regFilePtr[cmd.rC].intValue != 0)
-				nextCommand = codeBase + breakCode[target].argument;
+			if(breakCmd.code == rviJmpnz && regFilePtr[cmd.rC].intValue != 0)
+				nextCommand = codeBase + breakCmd.argument;
 			// Step command - handle "return" step
-			if(breakCode[target].code == rviReturn && callStack.size() != lastFinalReturn)
+			if(breakCmd.code == rviReturn && callStack.size() != lastFinalReturn)
 				nextCommand = callStack.back();
 
-			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCall && exFunctions[breakCode[target].argument].regVmAddress != -1)
-				nextCommand = codeBase + exFunctions[breakCode[target].argument].regVmAddress;
-			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCallPtr && regFilePtr[cmd.rC].intValue && exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress != -1)
+			if(response == NULLC_BREAK_STEP_INTO && breakCmd.code == rviCall && exFunctions[breakCmd.argument].regVmAddress != -1)
+				nextCommand = codeBase + exFunctions[breakCmd.argument].regVmAddress;
+			if(response == NULLC_BREAK_STEP_INTO && breakCmd.code == rviCallPtr && regFilePtr[cmd.rC].intValue && exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress != -1)
 				nextCommand = codeBase + exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress;
 
 			if(response == NULLC_BREAK_STEP_OUT && callStack.size() != lastFinalReturn)
