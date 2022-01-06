@@ -335,10 +335,10 @@ assert(strchr(\"test\", '\\0') == 4);\r\n\
 assert(strchr(\"\", '\\0') == 0);\r\n\
 assert(strchr(\"te\\0st\", 's') == -1);\r\n\
 \r\n\
-assert(strcmp(\"test\", \"none\") == 1);\r\n\
-assert(strcmp(\"none\", \"test\") == -1);\r\n\
-assert(strcmp(\"test\", \"zz\") == -1);\r\n\
-assert(strcmp(\"zz\", \"test\") == 1);\r\n\
+assert(strcmp(\"test\", \"none\") > 0);\r\n\
+assert(strcmp(\"none\", \"test\") < 0);\r\n\
+assert(strcmp(\"test\", \"zz\") < 0);\r\n\
+assert(strcmp(\"zz\", \"test\") > 1);\r\n\
 assert(strcmp(\"test\", \"test\") == 0);\r\n\
 assert(strcmp(\"\", \"\") == 0);\r\n\
 assert(strcmp(\"te\\0st\", \"te\") == 0);\r\n\
