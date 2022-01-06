@@ -35,8 +35,17 @@
 #define assert(expr)	((void)sizeof(!(expr)))
 #endif
 
+#ifdef NO_MEMSET_WRAPPER
+#define NULLC_no_warning_memset(dest, ch, sz) memset(dest, ch, sz)
+#define NULLC_no_warning_memcpy(dest, src, sz) memcpy(dest, src, sz)
+#else
+inline void NULLC_no_warning_memset(void *dest, int ch, size_t sz) {memset(dest, ch, sz);}
+inline void NULLC_no_warning_memcpy(void *dest, void *src, size_t sz) {memcpy(dest, src, sz);}
+#endif
+
 namespace NULLC
 {
+    
 	void*	defaultAlloc(int size);
 	void	defaultDealloc(void* ptr);
 

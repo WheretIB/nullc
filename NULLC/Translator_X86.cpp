@@ -3963,7 +3963,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 
 	unsigned instSize = 256 * 1024;
 	x86Instruction *instList = new x86Instruction[instSize];
-	memset(instList, 0, instSize * sizeof(x86Instruction));
+	NULLC_no_warning_memset(instList, 0, instSize * sizeof(x86Instruction));
 	ctx.SetLastInstruction(instList, instList);
 
 	stream += TestRptrXmmEncoding(ctx, stream, o_movss, x86MOVSS, testSizeDword);
