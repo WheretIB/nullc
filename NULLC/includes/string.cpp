@@ -145,14 +145,14 @@ namespace NULLCString
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.string", NULLCString::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(name, index) if(!nullcBindModuleFunctionHelper("std.string", NULLCString::name, #name, index)) return false;
 bool	nullcInitStringModule()
 {
-	REGISTER_FUNC(strlen, "strlen", 0);
-	REGISTER_FUNC(strstr, "strstr", 0);
-	REGISTER_FUNC(strchr, "strchr", 0);
-	REGISTER_FUNC(strcmp, "strcmp", 0);
-	REGISTER_FUNC(strcpy, "strcpy", 0);
+	REGISTER_FUNC(strlen, 0);
+	REGISTER_FUNC(strstr, 0);
+	REGISTER_FUNC(strchr, 0);
+	REGISTER_FUNC(strcmp, 0);
+	REGISTER_FUNC(strcpy, 0);
 
 	return true;
 }
