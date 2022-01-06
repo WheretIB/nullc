@@ -512,7 +512,7 @@ void Lexer::Lexify(const char* code)
 				}
 
 				if(lType == lex_none)
-					lType = lex_string;
+					lType = lex_identifier;
 			}
 		}
 		Lexeme lex;

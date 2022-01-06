@@ -27,7 +27,7 @@ short[256] chartype_table =
 	192, 192, 192, 192, 192, 192, 192, 192,	192, 192, 192, 192, 192, 192, 192, 192,
 	192, 192, 192, 192, 192, 192, 192, 192,	192, 192, 192, 192, 192, 192, 192, 192
 };
-/* 
+/*
 block comment
 */
 
@@ -39,7 +39,7 @@ bool isDigit(char data)
 enum LexemeType
 {
 	lex_none,
-	lex_number, lex_string, lex_quotedstring, // *(0-9) *(a-z,A-Z,_) "*any"
+	lex_number, lex_identifier, lex_quotedstring, // *(0-9) *(a-z,A-Z,_) "*any"
 	lex_semiquotedchar, lex_point, lex_comma, // ' .
 	lex_inc, lex_dec, // ++ --
 	lex_add, lex_sub, lex_mul, lex_div, lex_mod, lex_pow, lex_less, lex_lequal, lex_shl, lex_greater, lex_gequal, lex_shr, lex_equal, lex_nequal, // + - * / % ** < <= << > >= >> == !=
@@ -68,7 +68,7 @@ class Lexeme
 class Lexer
 {
 	char[] code;
-	
+
 	vector<Lexeme> lexems;
 }
 
@@ -149,14 +149,14 @@ void Lexer:Clear(int count)
 void Lexer:Lexify(char[] code)
 {
 	this.code = code;
-	
+
 	lexems.reserve(2048);
 
 	LexemeType lType = LexemeType.lex_none;
 	int lLength = 1;
 
 	int curr = 0;
-	
+
 	while(curr < code.size)
 	{
 		switch(code[curr])
@@ -536,7 +536,7 @@ void Lexer:Lexify(char[] code)
 				}
 
 				if(lType == LexemeType.lex_none)
-					lType = LexemeType.lex_string;
+					lType = LexemeType.lex_identifier;
 			}
 		}
 		Lexeme lex;

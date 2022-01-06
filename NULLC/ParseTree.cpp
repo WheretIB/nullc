@@ -526,7 +526,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 {
 	Lexeme *start = ctx.currentLexeme;
 
-	if(ctx.At(lex_string))
+	if(ctx.At(lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 
@@ -538,7 +538,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 		{
 			ctx.Skip();
 
-			if(!CheckAt(ctx, lex_string, "ERROR: namespace member is expected after '.'"))
+			if(!CheckAt(ctx, lex_identifier, "ERROR: namespace member is expected after '.'"))
 			{
 				namespacePath.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(start, ctx.Previous(), name));
 
@@ -644,7 +644,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 
 	if(ctx.Consume(lex_at))
 	{
-		if(!ctx.At(lex_string))
+		if(!ctx.At(lex_identifier))
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
@@ -887,7 +887,7 @@ SynNumber* ParseNumber(ParseContext &ctx)
 
 		InplaceStr suffix;
 
-		if(ctx.At(lex_string))
+		if(ctx.At(lex_identifier))
 			suffix = ctx.Consume();
 
 		return new (ctx.get<SynNumber>()) SynNumber(start, ctx.Previous(), value, suffix);
@@ -1027,7 +1027,7 @@ SynCallArgument* ParseCallArgument(ParseContext &ctx)
 {
 	Lexeme *start = ctx.currentLexeme;
 
-	if(ctx.At(lex_string))
+	if(ctx.At(lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -1106,7 +1106,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 
 		if(ctx.Consume(lex_point))
 		{
-			if(ctx.At(lex_return) || CheckAt(ctx, lex_string, "ERROR: member name expected after '.'"))
+			if(ctx.At(lex_return) || CheckAt(ctx, lex_identifier, "ERROR: member name expected after '.'"))
 			{
 				InplaceStr member = ctx.Consume();
 				SynIdentifier *memberIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), member);
@@ -1239,7 +1239,7 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 	if(!node)
 		node = ParseType(ctx);
 
-	if(!node && ctx.At(lex_string))
+	if(!node && ctx.At(lex_identifier))
 	{
 		InplaceStr value = ctx.Consume();
 
@@ -1558,7 +1558,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 	{
 		SynIdentifier *nameIdentifier = NULL;
 
-		if(CheckAt(ctx, lex_string, "ERROR: class name expected"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: class name expected"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -1580,7 +1580,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		if(ctx.Consume(lex_less))
 		{
-			if(CheckAt(ctx, lex_string, "ERROR: generic type alias required after '<'"))
+			if(CheckAt(ctx, lex_identifier, "ERROR: generic type alias required after '<'"))
 			{
 				InplaceStr alias = ctx.Consume();
 
@@ -1588,7 +1588,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 				while(ctx.Consume(lex_comma))
 				{
-					if(!CheckAt(ctx, lex_string, "ERROR: generic type alias required after ','"))
+					if(!CheckAt(ctx, lex_identifier, "ERROR: generic type alias required after ','"))
 						break;
 
 					alias = ctx.Consume();
@@ -1640,7 +1640,7 @@ SynEnumDefinition* ParseEnumDefinition(ParseContext &ctx)
 	{
 		SynIdentifier *nameIdentifier = NULL;
 
-		if(CheckAt(ctx, lex_string, "ERROR: enum name expected"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: enum name expected"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -1658,12 +1658,12 @@ SynEnumDefinition* ParseEnumDefinition(ParseContext &ctx)
 		{
 			if(values.empty())
 			{
-				if(!CheckAt(ctx, lex_string, "ERROR: enumeration name expected after '{'"))
+				if(!CheckAt(ctx, lex_identifier, "ERROR: enumeration name expected after '{'"))
 					break;
 			}
 			else
 			{
-				if(!CheckAt(ctx, lex_string, "ERROR: enumeration name expected after ','"))
+				if(!CheckAt(ctx, lex_identifier, "ERROR: enumeration name expected after ','"))
 					break;
 			}
 
@@ -1706,7 +1706,7 @@ SynNamespaceDefinition* ParseNamespaceDefinition(ParseContext &ctx)
 	{
 		IntrusiveList<SynIdentifier> path;
 
-		if(CheckAt(ctx, lex_string, "ERROR: namespace name required"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: namespace name required"))
 		{
 			InplaceStr value = ctx.Consume();
 			path.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), value));
@@ -1714,7 +1714,7 @@ SynNamespaceDefinition* ParseNamespaceDefinition(ParseContext &ctx)
 
 		while(ctx.Consume(lex_point))
 		{
-			if(!CheckAt(ctx, lex_string, "ERROR: namespace name required after '.'"))
+			if(!CheckAt(ctx, lex_identifier, "ERROR: namespace name required after '.'"))
 				break;
 
 			InplaceStr value = ctx.Consume();
@@ -1825,7 +1825,7 @@ SynTypedef* ParseTypedef(ParseContext &ctx)
 
 		SynIdentifier *aliasIdentifier = NULL;
 
-		if(CheckAt(ctx, lex_string, "ERROR: alias name expected after typename in typedef expression"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: alias name expected after typename in typedef expression"))
 		{
 			InplaceStr alias = ctx.Consume();
 			aliasIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), alias);
@@ -1965,7 +1965,7 @@ SynForEachIterator* ParseForEachIterator(ParseContext &ctx, bool isFirst)
 	SynBase *type = ParseType(ctx);
 
 	// Must be followed by a type
-	if(!ctx.At(lex_string))
+	if(!ctx.At(lex_identifier))
 	{
 		// Backtrack
 		ctx.currentLexeme = start;
@@ -1973,7 +1973,7 @@ SynForEachIterator* ParseForEachIterator(ParseContext &ctx, bool isFirst)
 		type = NULL;
 	}
 
-	if(ctx.At(lex_string))
+	if(ctx.At(lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2274,7 +2274,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 {
 	Lexeme *start = ctx.currentLexeme;
 
-	if(ctx.At(lex_string))
+	if(ctx.At(lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2371,7 +2371,7 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 
 	if(SynBase *type = ParseType(ctx))
 	{
-		if(!CheckAt(ctx, lex_string, "ERROR: class member name expected after type"))
+		if(!CheckAt(ctx, lex_identifier, "ERROR: class member name expected after type"))
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
@@ -2408,7 +2408,7 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 		{
 			if(ctx.Consume(lex_oparen))
 			{
-				if(CheckAt(ctx, lex_string, "ERROR: r-value name not found after '('"))
+				if(CheckAt(ctx, lex_identifier, "ERROR: r-value name not found after '('"))
 				{
 					InplaceStr setName = ctx.Consume();
 					setNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), setName);
@@ -2458,7 +2458,7 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 
 		SynIdentifier *nameIdentifier = NULL;
 
-		if(CheckAt(ctx, lex_string, "ERROR: constant name expected after type"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: constant name expected after type"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2487,7 +2487,7 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 		{
 			pos = ctx.currentLexeme;
 
-			if(CheckAt(ctx, lex_string, "ERROR: constant name expected after ','"))
+			if(CheckAt(ctx, lex_identifier, "ERROR: constant name expected after ','"))
 			{
 				InplaceStr name = ctx.Consume();
 				nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2597,7 +2597,7 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 
 	if(SynBase *type = ParseType(ctx))
 	{
-		if(!ctx.At(lex_string) && lastType)
+		if(!ctx.At(lex_identifier) && lastType)
 		{
 			if(isExplicit)
 				Stop(ctx, ctx.Current(), "ERROR: variable name not found after type in function variable list");
@@ -2611,7 +2611,7 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 
 		SynIdentifier *nameIdentifier = NULL;
 
-		if(CheckAt(ctx, lex_string, "ERROR: variable name not found after type in function variable list"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: variable name not found after type in function variable list"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2738,7 +2738,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 				Stop(ctx, ctx.Current(), "ERROR: invalid operator name");
 			}
 		}
-		else if(ctx.At(lex_string))
+		else if(ctx.At(lex_identifier))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2763,7 +2763,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 				else
 					CheckConsume(ctx, lex_at, "ERROR: '@' is expected after ',' in explicit generic type alias list");
 
-				if(CheckAt(ctx, lex_string, "ERROR: explicit generic type alias is expected after '@'"))
+				if(CheckAt(ctx, lex_identifier, "ERROR: explicit generic type alias is expected after '@'"))
 				{
 					InplaceStr name = ctx.Consume();
 					aliases.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name));
@@ -2842,7 +2842,7 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 
 			SynBase *type = ParseType(ctx);
 
-			if(!ctx.At(lex_string))
+			if(!ctx.At(lex_identifier))
 			{
 				// Backtrack
 				ctx.currentLexeme = lexeme;
@@ -2853,9 +2853,9 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 			bool hasName = false;
 
 			if(arguments.empty())
-				hasName = CheckAt(ctx, lex_string, "ERROR: function argument name not found after '<'");
+				hasName = CheckAt(ctx, lex_identifier, "ERROR: function argument name not found after '<'");
 			else
-				hasName = CheckAt(ctx, lex_string, "ERROR: function argument name not found after ','");
+				hasName = CheckAt(ctx, lex_identifier, "ERROR: function argument name not found after ','");
 
 			SynIdentifier *nameIdentifier = NULL;
 
@@ -3108,7 +3108,7 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 	{
 		IntrusiveList<SynIdentifier> path;
 
-		if(CheckAt(ctx, lex_string, "ERROR: name expected after import"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: name expected after import"))
 		{
 			InplaceStr value = ctx.Consume();
 			path.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), value));
@@ -3116,7 +3116,7 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		while(ctx.Consume(lex_point))
 		{
-			if(CheckAt(ctx, lex_string, "ERROR: name expected after '.'"))
+			if(CheckAt(ctx, lex_identifier, "ERROR: name expected after '.'"))
 			{
 				InplaceStr value = ctx.Consume();
 				path.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), value));

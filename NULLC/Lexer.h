@@ -36,7 +36,7 @@ static inline bool isDigit(char data)
 enum LexemeType
 {
 	lex_none,
-	lex_number, lex_string, lex_quotedstring, // *(0-9) *(a-z,A-Z,_) "*any"
+	lex_number, lex_identifier, lex_quotedstring, // *(0-9) *(a-z,A-Z,_) "*any"
 	lex_semiquotedchar, lex_point, lex_comma, // ' .
 	lex_inc, lex_dec, // ++ --
 	lex_add, lex_sub, lex_mul, lex_div, lex_mod, lex_pow, lex_less, lex_lequal, lex_shl, lex_greater, lex_gequal, lex_shr, lex_equal, lex_nequal, // + - * / % ** < <= << > >= >> == !=

@@ -397,7 +397,7 @@ SynBase ref ParseTerminalType(ParseContext ref ctx, bool ref shrBorrow)
 {
 	LexemeRef start = ctx.currentLexeme;
 
-	if(ctx.At(LexemeType.lex_string))
+	if(ctx.At(LexemeType.lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 
@@ -409,7 +409,7 @@ SynBase ref ParseTerminalType(ParseContext ref ctx, bool ref shrBorrow)
 		{
 			ctx.Skip();
 
-			if(!CheckAt(ctx, LexemeType.lex_string, "ERROR: namespace member is expected after '.'"))
+			if(!CheckAt(ctx, LexemeType.lex_identifier, "ERROR: namespace member is expected after '.'"))
 			{
 				namespacePath.push_back(new SynIdentifier(start, ctx.Previous(), name));
 
@@ -515,7 +515,7 @@ SynBase ref ParseTerminalType(ParseContext ref ctx, bool ref shrBorrow)
 
 	if(ctx.Consume(LexemeType.lex_at))
 	{
-		if(!ctx.At(LexemeType.lex_string))
+		if(!ctx.At(LexemeType.lex_identifier))
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
@@ -542,7 +542,7 @@ SynBase ref ParseType(ParseContext ref ctx, bool ref shrBorrow = nullptr, bool o
 	bool shrBorrowTerminal = shrBorrow ? *shrBorrow : false;
 
 	SynBase ref base = ParseTerminalType(ctx, shrBorrowTerminal);
-	
+
 	if(!base)
 		return nullptr;
 
@@ -758,7 +758,7 @@ SynNumber ref ParseNumber(ParseContext ref ctx)
 
 		InplaceStr suffix;
 
-		if(ctx.At(LexemeType.lex_string))
+		if(ctx.At(LexemeType.lex_identifier))
 			suffix = ctx.Consume();
 
 		return new SynNumber(start, ctx.Previous(), value, suffix);
@@ -898,7 +898,7 @@ SynCallArgument ref ParseCallArgument(ParseContext ref ctx)
 {
 	LexemeRef start = ctx.currentLexeme;
 
-	if(ctx.At(LexemeType.lex_string))
+	if(ctx.At(LexemeType.lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 		SynIdentifier ref nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -977,7 +977,7 @@ SynBase ref ParsePostExpressions(ParseContext ref ctx, SynBase ref node)
 
 		if(ctx.Consume(LexemeType.lex_point))
 		{
-			if(ctx.At(LexemeType.lex_return) || CheckAt(ctx, LexemeType.lex_string, "ERROR: member name expected after '.'"))
+			if(ctx.At(LexemeType.lex_return) || CheckAt(ctx, LexemeType.lex_identifier, "ERROR: member name expected after '.'"))
 			{
 				InplaceStr member = ctx.Consume();
 				SynIdentifier ref memberIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), member);
@@ -1110,7 +1110,7 @@ SynBase ref ParseComplexTerminal(ParseContext ref ctx)
 	if(!node)
 		node = ParseType(ctx);
 
-	if(!node && ctx.At(LexemeType.lex_string))
+	if(!node && ctx.At(LexemeType.lex_identifier))
 	{
 		InplaceStr value = ctx.Consume();
 
@@ -1135,7 +1135,7 @@ SynBase ref ParseComplexTerminal(ParseContext ref ctx)
 
 	if(!node)
 		return nullptr;
-		
+
 	return ParsePostExpressions(ctx, node);
 }
 
@@ -1433,7 +1433,7 @@ SynBase ref ParseClassDefinition(ParseContext ref ctx)
 	{
 		SynIdentifier ref nameIdentifier = nullptr;
 
-		if(CheckAt(ctx, LexemeType.lex_string, "ERROR: class name expected"))
+		if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: class name expected"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -1455,7 +1455,7 @@ SynBase ref ParseClassDefinition(ParseContext ref ctx)
 
 		if(ctx.Consume(LexemeType.lex_less))
 		{
-			if(CheckAt(ctx, LexemeType.lex_string, "ERROR: generic type alias required after '<'"))
+			if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: generic type alias required after '<'"))
 			{
 				InplaceStr alias = ctx.Consume();
 
@@ -1463,7 +1463,7 @@ SynBase ref ParseClassDefinition(ParseContext ref ctx)
 
 				while(ctx.Consume(LexemeType.lex_comma))
 				{
-					if(!CheckAt(ctx, LexemeType.lex_string, "ERROR: generic type alias required after ','"))
+					if(!CheckAt(ctx, LexemeType.lex_identifier, "ERROR: generic type alias required after ','"))
 						break;
 
 					alias = ctx.Consume();
@@ -1515,7 +1515,7 @@ SynEnumDefinition ref ParseEnumDefinition(ParseContext ref ctx)
 	{
 		SynIdentifier ref nameIdentifier = nullptr;
 
-		if(CheckAt(ctx, LexemeType.lex_string, "ERROR: enum name expected"))
+		if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: enum name expected"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -1533,12 +1533,12 @@ SynEnumDefinition ref ParseEnumDefinition(ParseContext ref ctx)
 		{
 			if(values.empty())
 			{
-				if(!CheckAt(ctx, LexemeType.lex_string, "ERROR: enumeration name expected after '{'"))
+				if(!CheckAt(ctx, LexemeType.lex_identifier, "ERROR: enumeration name expected after '{'"))
 					break;
 			}
 			else
 			{
-				if(!CheckAt(ctx, LexemeType.lex_string, "ERROR: enumeration name expected after ','"))
+				if(!CheckAt(ctx, LexemeType.lex_identifier, "ERROR: enumeration name expected after ','"))
 					break;
 			}
 
@@ -1581,7 +1581,7 @@ SynNamespaceDefinition ref ParseNamespaceDefinition(ParseContext ref ctx)
 	{
 		RefList<SynIdentifier> path;
 
-		if(CheckAt(ctx, LexemeType.lex_string, "ERROR: namespace name required"))
+		if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: namespace name required"))
 		{
 			InplaceStr value = ctx.Consume();
 			path.push_back(new SynIdentifier(ctx.Previous(), ctx.Previous(), value));
@@ -1589,7 +1589,7 @@ SynNamespaceDefinition ref ParseNamespaceDefinition(ParseContext ref ctx)
 
 		while(ctx.Consume(LexemeType.lex_point))
 		{
-			if(!CheckAt(ctx, LexemeType.lex_string, "ERROR: namespace name required after '.'"))
+			if(!CheckAt(ctx, LexemeType.lex_identifier, "ERROR: namespace name required after '.'"))
 				break;
 
 			InplaceStr value = ctx.Consume();
@@ -1700,7 +1700,7 @@ SynTypedef ref ParseTypedef(ParseContext ref ctx)
 
 		SynIdentifier ref aliasIdentifier = nullptr;
 
-		if(CheckAt(ctx, LexemeType.lex_string, "ERROR: alias name expected after typename in typedef expression"))
+		if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: alias name expected after typename in typedef expression"))
 		{
 			InplaceStr alias = ctx.Consume();
 			aliasIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), alias);
@@ -1840,7 +1840,7 @@ SynForEachIterator ref ParseForEachIterator(ParseContext ref ctx, bool isFirst)
 	SynBase ref type = ParseType(ctx);
 
 	// Must be followed by a type
-	if(!ctx.At(LexemeType.lex_string))
+	if(!ctx.At(LexemeType.lex_identifier))
 	{
 		// Backtrack
 		ctx.currentLexeme = start;
@@ -1848,7 +1848,7 @@ SynForEachIterator ref ParseForEachIterator(ParseContext ref ctx, bool isFirst)
 		type = nullptr;
 	}
 
-	if(ctx.At(LexemeType.lex_string))
+	if(ctx.At(LexemeType.lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 		SynIdentifier ref nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2149,7 +2149,7 @@ SynVariableDefinition ref ParseVariableDefinition(ParseContext ref ctx)
 {
 	LexemeRef start = ctx.currentLexeme;
 
-	if(ctx.At(LexemeType.lex_string))
+	if(ctx.At(LexemeType.lex_identifier))
 	{
 		InplaceStr name = ctx.Consume();
 		SynIdentifier ref nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2233,7 +2233,7 @@ SynVariableDefinitions ref ParseVariableDefinitions(ParseContext ref ctx, bool c
 
 		return new SynVariableDefinitions(start, ctx.Previous(), alignment, type, definitions);
 	}
-	
+
 	// Backtrack
 	ctx.currentLexeme = start;
 
@@ -2246,7 +2246,7 @@ SynAccessor ref ParseAccessorDefinition(ParseContext ref ctx)
 
 	if(SynBase ref type = ParseType(ctx))
 	{
-		if(!CheckAt(ctx, LexemeType.lex_string, "ERROR: class member name expected after type"))
+		if(!CheckAt(ctx, LexemeType.lex_identifier, "ERROR: class member name expected after type"))
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
@@ -2283,7 +2283,7 @@ SynAccessor ref ParseAccessorDefinition(ParseContext ref ctx)
 		{
 			if(ctx.Consume(LexemeType.lex_oparen))
 			{
-				if(CheckAt(ctx, LexemeType.lex_string, "ERROR: r-value name not found after '('"))
+				if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: r-value name not found after '('"))
 				{
 					InplaceStr setName = ctx.Consume();
 					setNameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), setName);
@@ -2333,7 +2333,7 @@ SynConstantSet ref ParseConstantSet(ParseContext ref ctx)
 
 		SynIdentifier ref nameIdentifier = nullptr;
 
-		if(CheckAt(ctx, LexemeType.lex_string, "ERROR: constant name expected after type"))
+		if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: constant name expected after type"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2362,7 +2362,7 @@ SynConstantSet ref ParseConstantSet(ParseContext ref ctx)
 		{
 			pos = ctx.currentLexeme;
 
-			if(CheckAt(ctx, LexemeType.lex_string, "ERROR: constant name expected after ','"))
+			if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: constant name expected after ','"))
 			{
 				InplaceStr name = ctx.Consume();
 				nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2472,7 +2472,7 @@ SynFunctionArgument ref ParseFunctionArgument(ParseContext ref ctx, bool lastExp
 
 	if(SynBase ref type = ParseType(ctx))
 	{
-		if(!ctx.At(LexemeType.lex_string) && lastType)
+		if(!ctx.At(LexemeType.lex_identifier) && lastType)
 		{
 			if(isExplicit)
 				Stop(ctx, ctx.Current(), "ERROR: variable name not found after type in function variable list");
@@ -2486,7 +2486,7 @@ SynFunctionArgument ref ParseFunctionArgument(ParseContext ref ctx, bool lastExp
 
 		SynIdentifier ref nameIdentifier = nullptr;
 
-		if(CheckAt(ctx, LexemeType.lex_string, "ERROR: variable name not found after type in function variable list"))
+		if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: variable name not found after type in function variable list"))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2613,7 +2613,7 @@ SynFunctionDefinition ref ParseFunctionDefinition(ParseContext ref ctx)
 				Stop(ctx, ctx.Current(), "ERROR: invalid operator name");
 			}
 		}
-		else if(ctx.At(LexemeType.lex_string))
+		else if(ctx.At(LexemeType.lex_identifier))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -2638,7 +2638,7 @@ SynFunctionDefinition ref ParseFunctionDefinition(ParseContext ref ctx)
 				else
 					CheckConsume(ctx, LexemeType.lex_at, "ERROR: '@' is expected after ',' in explicit generic type alias list");
 
-				if(CheckAt(ctx, LexemeType.lex_string, "ERROR: explicit generic type alias is expected after '@'"))
+				if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: explicit generic type alias is expected after '@'"))
 				{
 					InplaceStr name = ctx.Consume();
 					aliases.push_back(new SynIdentifier(ctx.Previous(), ctx.Previous(), name));
@@ -2717,7 +2717,7 @@ SynShortFunctionDefinition ref ParseShortFunctionDefinition(ParseContext ref ctx
 
 			SynBase ref type = ParseType(ctx);
 
-			if(!ctx.At(LexemeType.lex_string))
+			if(!ctx.At(LexemeType.lex_identifier))
 			{
 				// Backtrack
 				ctx.currentLexeme = lexeme;
@@ -2728,9 +2728,9 @@ SynShortFunctionDefinition ref ParseShortFunctionDefinition(ParseContext ref ctx
 			bool hasName = false;
 
 			if(arguments.empty())
-				hasName = CheckAt(ctx, LexemeType.lex_string, "ERROR: function argument name not found after '<'");
+				hasName = CheckAt(ctx, LexemeType.lex_identifier, "ERROR: function argument name not found after '<'");
 			else
-				hasName = CheckAt(ctx, LexemeType.lex_string, "ERROR: function argument name not found after ','");
+				hasName = CheckAt(ctx, LexemeType.lex_identifier, "ERROR: function argument name not found after ','");
 
 			SynIdentifier ref nameIdentifier = nullptr;
 
@@ -2948,7 +2948,7 @@ SynModuleImport ref ParseImport(ParseContext ref ctx)
 	{
 		RefList<SynIdentifier> path;
 
-		if(CheckAt(ctx, LexemeType.lex_string, "ERROR: name expected after import"))
+		if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: name expected after import"))
 		{
 			InplaceStr value = ctx.Consume();
 			path.push_back(new SynIdentifier(ctx.Previous(), ctx.Previous(), value));
@@ -2956,7 +2956,7 @@ SynModuleImport ref ParseImport(ParseContext ref ctx)
 
 		while(ctx.Consume(LexemeType.lex_point))
 		{
-			if(CheckAt(ctx, LexemeType.lex_string, "ERROR: name expected after '.'"))
+			if(CheckAt(ctx, LexemeType.lex_identifier, "ERROR: name expected after '.'"))
 			{
 				InplaceStr value = ctx.Consume();
 				path.push_back(new SynIdentifier(ctx.Previous(), ctx.Previous(), value));
