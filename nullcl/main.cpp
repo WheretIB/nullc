@@ -46,6 +46,11 @@ bool SearchAndAddSourceFile(char*& buf, const char* name)
 	if(AddSourceFile(buf, tmp))
 		return true;
 
+	sprintf(tmp, "NULLC/translation/%s", name);
+
+	if(AddSourceFile(buf, tmp))
+		return true;
+
 	sprintf(tmp, "../NULLC/translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
@@ -159,10 +164,10 @@ int main(int argc, char** argv)
 			strcpy(pos, " __temp.cpp");
 			pos += strlen(pos);
 
-			strcpy(pos, " -lstdc++");
+			strcpy(pos, " -Itranslation");
 			pos += strlen(pos);
 
-			strcpy(pos, " -Itranslation");
+			strcpy(pos, " -INULLC/translation");
 			pos += strlen(pos);
 
 			strcpy(pos, " -I../NULLC/translation");
@@ -172,7 +177,7 @@ int main(int argc, char** argv)
 			pos += strlen(pos);
 
 			if(!SearchAndAddSourceFile(pos, "runtime.cpp"))
-				printf("Failed to find 'runtime.cpp' input file");
+				printf("Failed to find 'runtime.cpp' input file\n");
 
 			for(unsigned i = 0; i < translationDependencyCount; i++)
 			{
@@ -192,10 +197,13 @@ int main(int argc, char** argv)
 						strcpy(pos, "_bind.cpp");
 
 					if(!SearchAndAddSourceFile(pos, tmp))
-						printf("Failed to find '%s' input file", tmp);
+						printf("Failed to find '%s' input file\n", tmp);
 				}
 			}
-			
+
+			strcpy(pos, " -lstdc++ -lm");
+			pos += strlen(pos);
+
 			if (verbose)
 				printf("Command line: %s\n", cmdLine);
 
