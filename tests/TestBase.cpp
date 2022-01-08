@@ -763,16 +763,13 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " 1test.cpp");
 		pos += strlen(pos);
 
-		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -lstdc++");
-		pos += strlen(pos);
-
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -Itranslation");
 		pos += strlen(pos);
 
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -I../NULLC/translation");
 		pos += strlen(pos);
 
-		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++ -lm");
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp");
 		pos += strlen(pos);
 
 		for(unsigned i = 0; i < translationDependencyCount; i++)
@@ -817,6 +814,9 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			free(translationDependencies[i]);
 
 		translationDependencyCount = 0;
+
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -lstdc++ -lm");
+		pos += strlen(pos);
 
 #if defined(_MSC_VER)
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
