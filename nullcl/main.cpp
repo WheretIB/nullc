@@ -67,8 +67,8 @@ int main(int argc, char** argv)
 	if(argc == 1)
 	{
 		printf("usage: nullcl [-o output.ncm] file.nc [-m module.name] [file2.nc [-m module.name] ...]\n");
-		printf("usage: nullcl -c output.cpp file.nc\n");
-		printf("usage: nullcl -x output.exe file.nc\n");
+		printf("usage: nullcl -c [-i import_folder] output.cpp file.nc\n");
+		printf("usage: nullcl -x [-i import_folder] output.exe file.nc\n");
 		return 1;
 	}
 
@@ -103,17 +103,34 @@ int main(int argc, char** argv)
 	}else if(strcmp("-c", argv[argIndex]) == 0 || strcmp("-x", argv[argIndex]) == 0){
 		bool link = strcmp("-x", argv[argIndex]) == 0;
 		argIndex++;
+
+		while(argIndex < argc && strcmp("-i", argv[argIndex]) == 0)
+		{
+			argIndex++;
+
+			if(argIndex == argc)
+			{
+				printf("Missing folder name after -i\n");
+				nullcTerminate();
+				return 1;
+			}
+
+			const char* folder = argv[argIndex++];
+			nullcAddImportPath(folder);
+		}
+
 		if(argIndex == argc)
 		{
-			printf("Output file name not found after -o\n");
+			printf("Output file name not found after options\n");
 			nullcTerminate();
 			return 1;
 		}
+
 		const char *outputName = argv[argIndex++];
 
 		if(argIndex == argc)
 		{
-			printf("Input file name not found\n");
+			printf("Input file name not found after output file name\n");
 			nullcTerminate();
 			return 1;
 		}
