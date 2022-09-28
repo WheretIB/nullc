@@ -15,7 +15,9 @@
 #include "context.h"
 #include "handler.h"
 
+#ifdef _MSC_VER
 #pragma warning(disable: 4996)
+#endif
 
 int main(int argc, char **argv)
 {
