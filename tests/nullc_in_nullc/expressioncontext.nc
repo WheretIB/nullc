@@ -161,7 +161,7 @@ class ExpressionContext
 	int unnamedVariableCount;
 }
 
-void ExpressionContext:ExpressionContext(int optimizationLevel)
+void ExpressionContext::ExpressionContext(int optimizationLevel)
 {
 	this.optimizationLevel = optimizationLevel;
 
@@ -215,17 +215,17 @@ void ExpressionContext:ExpressionContext(int optimizationLevel)
 	unnamedVariableCount = 0;
 }
 
-void ExpressionContext:StopAt(SynBase ref source, StringRef pos, char[] msg, auto ref[] args)
+void ExpressionContext::StopAt(SynBase ref source, StringRef pos, char[] msg, auto ref[] args)
 {
 	//StopAt(*this, source, pos, msg, args);
 }
 
-void ExpressionContext:Stop(SynBase ref source, char[] msg, auto ref[] args)
+void ExpressionContext::Stop(SynBase ref source, char[] msg, auto ref[] args)
 {
 	//StopAt(*this, source, source.pos.begin, msg, args);
 }
 
-void ExpressionContext:PushScope(ScopeType type)
+void ExpressionContext::PushScope(ScopeType type)
 {
 	ScopeData ref next = new ScopeData(scope, uniqueScopeId++, type);
 
@@ -239,7 +239,7 @@ void ExpressionContext:PushScope(ScopeType type)
 	scope = next;
 }
 
-void ExpressionContext:PushScope(NamespaceData ref nameSpace)
+void ExpressionContext::PushScope(NamespaceData ref nameSpace)
 {
 	ScopeData ref next = new ScopeData(scope, uniqueScopeId++, nameSpace);
 
@@ -253,7 +253,7 @@ void ExpressionContext:PushScope(NamespaceData ref nameSpace)
 	scope = next;
 }
 
-void ExpressionContext:PushScope(FunctionData ref function)
+void ExpressionContext::PushScope(FunctionData ref function)
 {
 	ScopeData ref next = new ScopeData(scope, uniqueScopeId++, function);
 
@@ -263,7 +263,7 @@ void ExpressionContext:PushScope(FunctionData ref function)
 	scope = next;
 }
 
-void ExpressionContext:PushScope(TypeBase ref type)
+void ExpressionContext::PushScope(TypeBase ref type)
 {
 	ScopeData ref next = new ScopeData(scope, uniqueScopeId++, type);
 
@@ -273,7 +273,7 @@ void ExpressionContext:PushScope(TypeBase ref type)
 	scope = next;
 }
 
-void ExpressionContext:PushLoopScope(bool allowBreak, bool allowContinue)
+void ExpressionContext::PushLoopScope(bool allowBreak, bool allowContinue)
 {
 	ScopeData ref next = new ScopeData(scope, uniqueScopeId++, ScopeType.SCOPE_LOOP);
 
@@ -293,12 +293,12 @@ void ExpressionContext:PushLoopScope(bool allowBreak, bool allowContinue)
 	scope = next;
 }
 
-void ExpressionContext:PushTemporaryScope()
+void ExpressionContext::PushTemporaryScope()
 {
 	scope = new ScopeData(scope, 0, ScopeType.SCOPE_TEMPORARY);
 }
 
-void ExpressionContext:PopScope(ScopeType scopeType, bool ejectContents, bool keepFunctions)
+void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool keepFunctions)
 {
 	assert(scope.type == scopeType);
 
@@ -421,12 +421,12 @@ void ExpressionContext:PopScope(ScopeType scopeType, bool ejectContents, bool ke
 	scope = scope.scope;
 }
 
-void ExpressionContext:PopScope(ScopeType type)
+void ExpressionContext::PopScope(ScopeType type)
 {
 	PopScope(type, true, false);
 }
 
-void ExpressionContext:RestoreScopesAtPoint(ScopeData ref target, SynBase ref location)
+void ExpressionContext::RestoreScopesAtPoint(ScopeData ref target, SynBase ref location)
 {
 	// Restore parent first, up to the current scope
 	if(target.scope != scope)
@@ -495,7 +495,7 @@ void ExpressionContext:RestoreScopesAtPoint(ScopeData ref target, SynBase ref lo
 	scope = target;
 }
 
-void ExpressionContext:SwitchToScopeAtPoint(ScopeData ref target, SynBase ref targetLocation)
+void ExpressionContext::SwitchToScopeAtPoint(ScopeData ref target, SynBase ref targetLocation)
 {
 	// Reach the same depth
 	while(scope.scopeDepth > target.scopeDepth)
@@ -525,7 +525,7 @@ void ExpressionContext:SwitchToScopeAtPoint(ScopeData ref target, SynBase ref ta
 	RestoreScopesAtPoint(target, targetLocation);
 }
 
-NamespaceData ref ExpressionContext:GetCurrentNamespace(ScopeData ref scopeData)
+NamespaceData ref ExpressionContext::GetCurrentNamespace(ScopeData ref scopeData)
 {
 	// Simply walk up the scopes and find the current one
 	for(ScopeData ref curr = scopeData; curr; curr = curr.scope)
@@ -537,7 +537,7 @@ NamespaceData ref ExpressionContext:GetCurrentNamespace(ScopeData ref scopeData)
 	return nullptr;
 }
 
-FunctionData ref ExpressionContext:GetCurrentFunction(ScopeData ref scopeData)
+FunctionData ref ExpressionContext::GetCurrentFunction(ScopeData ref scopeData)
 {
 	// Walk up, but if we reach a type owner, stop - we're not in a context of a function
 	for(ScopeData ref curr = scopeData; curr; curr = curr.scope)
@@ -552,7 +552,7 @@ FunctionData ref ExpressionContext:GetCurrentFunction(ScopeData ref scopeData)
 	return nullptr;
 }
 
-TypeBase ref ExpressionContext:GetCurrentType(ScopeData ref scopeData)
+TypeBase ref ExpressionContext::GetCurrentType(ScopeData ref scopeData)
 {
 	// Simply walk up the scopes and find the current one
 	for(ScopeData ref curr = scopeData; curr; curr = curr.scope)
@@ -564,7 +564,7 @@ TypeBase ref ExpressionContext:GetCurrentType(ScopeData ref scopeData)
 	return nullptr;
 }
 
-FunctionData ref ExpressionContext:GetFunctionOwner(ScopeData ref scopeData)
+FunctionData ref ExpressionContext::GetFunctionOwner(ScopeData ref scopeData)
 {
 	// Temporary scopes have no owner
 	if(scopeData.type == ScopeType.SCOPE_TEMPORARY)
@@ -586,7 +586,7 @@ FunctionData ref ExpressionContext:GetFunctionOwner(ScopeData ref scopeData)
 	return nullptr;
 }
 
-ScopeData ref ExpressionContext:NamespaceScopeFrom(ScopeData ref scopeData)
+ScopeData ref ExpressionContext::NamespaceScopeFrom(ScopeData ref scopeData)
 {
 	if(!scopeData || scopeData.ownerNamespace)
 		return scopeData;
@@ -594,7 +594,7 @@ ScopeData ref ExpressionContext:NamespaceScopeFrom(ScopeData ref scopeData)
 	return NamespaceScopeFrom(scopeData.scope);
 }
 
-ScopeData ref ExpressionContext:GlobalScopeFrom(ScopeData ref scopeData)
+ScopeData ref ExpressionContext::GlobalScopeFrom(ScopeData ref scopeData)
 {
 	if(!scopeData)
 		return nullptr;
@@ -614,7 +614,7 @@ ScopeData ref ExpressionContext:GlobalScopeFrom(ScopeData ref scopeData)
 	return scopeData;
 }
 
-bool ExpressionContext:IsGenericInstance(FunctionData ref function)
+bool ExpressionContext::IsGenericInstance(FunctionData ref function)
 {
 	if(function.isGenericInstance)
 		return true;
@@ -634,7 +634,7 @@ bool ExpressionContext:IsGenericInstance(FunctionData ref function)
 	return false;
 }
 
-void ExpressionContext:AddType(TypeBase ref type)
+void ExpressionContext::AddType(TypeBase ref type)
 {
 	scope.types.push_back(type);
 
@@ -651,7 +651,7 @@ void ExpressionContext:AddType(TypeBase ref type)
 	}
 }
 
-void ExpressionContext:AddFunction(FunctionData ref function)
+void ExpressionContext::AddFunction(FunctionData ref function)
 {
 	scope.functions.push_back(function);
 
@@ -680,7 +680,7 @@ void ExpressionContext:AddFunction(FunctionData ref function)
 	}
 }
 
-void ExpressionContext:AddVariable(VariableData ref variable, bool visible)
+void ExpressionContext::AddVariable(VariableData ref variable, bool visible)
 {
 	scope.variables.push_back(variable);
 	scope.allVariables.push_back(variable);
@@ -695,14 +695,14 @@ void ExpressionContext:AddVariable(VariableData ref variable, bool visible)
 	}
 }
 
-void ExpressionContext:AddAlias(AliasData ref alias)
+void ExpressionContext::AddAlias(AliasData ref alias)
 {
 	scope.aliases.push_back(alias);
 
 	typeMap.insert(alias.nameHash, alias.type);
 }
 
-int ExpressionContext:GetTypeIndex(TypeBase ref type)
+int ExpressionContext::GetTypeIndex(TypeBase ref type)
 {
 	int index = -1;
 
@@ -720,12 +720,12 @@ int ExpressionContext:GetTypeIndex(TypeBase ref type)
 	return index;
 }
 
-int ExpressionContext:GetFunctionIndex(FunctionData ref data)
+int ExpressionContext::GetFunctionIndex(FunctionData ref data)
 {
 	return data.functionIndex;
 }
 
-void ExpressionContext:HideFunction(FunctionData ref function)
+void ExpressionContext::HideFunction(FunctionData ref function)
 {
 	// Don't have to remove internal functions since they are never added to lookup
 	if(function.name.name && function.name.name[0] != '$')
@@ -760,7 +760,7 @@ void ExpressionContext:HideFunction(FunctionData ref function)
 	}
 }
 
-bool ExpressionContext:IsGenericFunction(FunctionData ref function)
+bool ExpressionContext::IsGenericFunction(FunctionData ref function)
 {
 	if(function.type.isGeneric)
 		return true;
@@ -777,7 +777,7 @@ bool ExpressionContext:IsGenericFunction(FunctionData ref function)
 	return false;
 }
 
-bool ExpressionContext:IsIntegerType(TypeBase ref type)
+bool ExpressionContext::IsIntegerType(TypeBase ref type)
 {
 	if(type == typeBool)
 		return true;
@@ -797,7 +797,7 @@ bool ExpressionContext:IsIntegerType(TypeBase ref type)
 	return false;
 }
 
-bool ExpressionContext:IsFloatingPointType(TypeBase ref type)
+bool ExpressionContext::IsFloatingPointType(TypeBase ref type)
 {
 	if(type == typeFloat)
 		return true;
@@ -808,12 +808,12 @@ bool ExpressionContext:IsFloatingPointType(TypeBase ref type)
 	return false;
 }
 
-bool ExpressionContext:IsNumericType(TypeBase ref type)
+bool ExpressionContext::IsNumericType(TypeBase ref type)
 {
 	return IsIntegerType(type) || IsFloatingPointType(type);
 }
 
-TypeBase ref ExpressionContext:GetBinaryOpResultType(TypeBase ref a, TypeBase ref b)
+TypeBase ref ExpressionContext::GetBinaryOpResultType(TypeBase ref a, TypeBase ref b)
 {
 	if(a == typeDouble || b == typeDouble)
 		return typeDouble;
@@ -839,12 +839,12 @@ TypeBase ref ExpressionContext:GetBinaryOpResultType(TypeBase ref a, TypeBase re
 	return nullptr;
 }
 
-TypeError ref ExpressionContext:GetErrorType()
+TypeError ref ExpressionContext::GetErrorType()
 {
 	return new TypeError();
 }
 
-TypeRef ref ExpressionContext:GetReferenceType(TypeBase ref type)
+TypeRef ref ExpressionContext::GetReferenceType(TypeBase ref type)
 {
 	// Can't derive from pseudo types
 	assert(!isType with<TypeArgumentSet>(type) && !isType with<TypeMemberSet>(type) && !isType with<TypeFunctionSet>(type));
@@ -867,7 +867,7 @@ TypeRef ref ExpressionContext:GetReferenceType(TypeBase ref type)
 	return result;
 }
 
-TypeArray ref ExpressionContext:GetArrayType(TypeBase ref type, long length)
+TypeArray ref ExpressionContext::GetArrayType(TypeBase ref type, long length)
 {
 	// Can't have array of void
 	assert(type != typeVoid);
@@ -916,7 +916,7 @@ TypeArray ref ExpressionContext:GetArrayType(TypeBase ref type, long length)
 	return result;
 }
 
-TypeUnsizedArray ref ExpressionContext:GetUnsizedArrayType(TypeBase ref type)
+TypeUnsizedArray ref ExpressionContext::GetUnsizedArrayType(TypeBase ref type)
 {
 	// Can't have array of void
 	assert(type != typeVoid);
@@ -956,7 +956,7 @@ TypeUnsizedArray ref ExpressionContext:GetUnsizedArrayType(TypeBase ref type)
 	return result;
 }
 
-TypeFunction ref ExpressionContext:GetFunctionType(SynBase ref source, TypeBase ref returnType, RefList<TypeHandle> arguments)
+TypeFunction ref ExpressionContext::GetFunctionType(SynBase ref source, TypeBase ref returnType, RefList<TypeHandle> arguments)
 {
 	// Can't derive from pseudo types
 	assert(!isType with<TypeArgumentSet>(returnType) && !isType with<TypeMemberSet>(returnType) && !isType with<TypeFunctionSet>(returnType));
@@ -1008,7 +1008,7 @@ TypeFunction ref ExpressionContext:GetFunctionType(SynBase ref source, TypeBase 
 	return result;
 }
 
-TypeFunction ref ExpressionContext:GetFunctionType(SynBase ref source, TypeBase ref returnType, ArrayView<ArgumentData> arguments)
+TypeFunction ref ExpressionContext::GetFunctionType(SynBase ref source, TypeBase ref returnType, ArrayView<ArgumentData> arguments)
 {
 	// Can't derive from pseudo types
 	assert(!isType with<TypeArgumentSet>(returnType) && !isType with<TypeMemberSet>(returnType) && !isType with<TypeFunctionSet>(returnType));
@@ -1065,7 +1065,7 @@ TypeFunction ref ExpressionContext:GetFunctionType(SynBase ref source, TypeBase 
 	return GetFunctionType(source, returnType, argumentTypes);
 }
 
-TypeFunctionSet ref ExpressionContext:GetFunctionSetType(ArrayView<TypeBase ref> setTypes)
+TypeFunctionSet ref ExpressionContext::GetFunctionSetType(ArrayView<TypeBase ref> setTypes)
 {
 	for(int i = 0, e = functionSetTypes.count; i < e; i++)
 	{
@@ -1111,7 +1111,7 @@ TypeFunctionSet ref ExpressionContext:GetFunctionSetType(ArrayView<TypeBase ref>
 	return result;
 }
 
-TypeGenericAlias ref ExpressionContext:GetGenericAliasType(SynIdentifier ref baseName)
+TypeGenericAlias ref ExpressionContext::GetGenericAliasType(SynIdentifier ref baseName)
 {
 	for(int i = 0, e = genericAliasTypes.count; i < e; i++)
 	{
@@ -1131,7 +1131,7 @@ TypeGenericAlias ref ExpressionContext:GetGenericAliasType(SynIdentifier ref bas
 	return result;
 }
 
-TypeGenericClass ref ExpressionContext:GetGenericClassType(SynBase ref source, TypeGenericClassProto ref proto, RefList<TypeHandle> generics)
+TypeGenericClass ref ExpressionContext::GetGenericClassType(SynBase ref source, TypeGenericClassProto ref proto, RefList<TypeHandle> generics)
 {
 	for(int i = 0, e = genericClassTypes.count; i < e; i++)
 	{
@@ -1168,7 +1168,7 @@ TypeGenericClass ref ExpressionContext:GetGenericClassType(SynBase ref source, T
 	return result;
 }
 
-ModuleData ref ExpressionContext:GetSourceOwner(LexemeRef lexeme)
+ModuleData ref ExpressionContext::GetSourceOwner(LexemeRef lexeme)
 {
 	// Fast check for current module
 	/*if(lexeme.pos >= code && lexeme.pos <= codeEnd)
@@ -1186,7 +1186,7 @@ ModuleData ref ExpressionContext:GetSourceOwner(LexemeRef lexeme)
 	return nullptr;
 }
 
-SynInternal ref ExpressionContext:MakeInternal(SynBase ref source)
+SynInternal ref ExpressionContext::MakeInternal(SynBase ref source)
 {
 	if(SynInternal ref synInternal = getType with<SynInternal>(source))
 		return synInternal;

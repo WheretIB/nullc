@@ -22,19 +22,19 @@ Canvas Canvas(int width, height)
 	return ret;
 }
 
-void Canvas:Clear(float red, green, blue);
-void Canvas:Clear(float red, green, blue, alpha);
+void Canvas::Clear(float red, green, blue);
+void Canvas::Clear(float red, green, blue, alpha);
 
-void Canvas:SetColor(char red, green, blue);
-void Canvas:SetAA(bool enable);
+void Canvas::SetColor(char red, green, blue);
+void Canvas::SetAA(bool enable);
 
-void Canvas:DrawLine(double x1, y1, x2, y2);
-void Canvas:DrawRect(int x1, y1, x2, y2);
-void Canvas:DrawRect(int x1, y1, x2, y2, double alpha);
-void Canvas:DrawPoint(double x, y);
-void Canvas:DrawPoint(double x, y, alpha);
+void Canvas::DrawLine(double x1, y1, x2, y2);
+void Canvas::DrawRect(int x1, y1, x2, y2);
+void Canvas::DrawRect(int x1, y1, x2, y2, double alpha);
+void Canvas::DrawPoint(double x, y);
+void Canvas::DrawPoint(double x, y, alpha);
 
-float[] Canvas:GetData()
+float[] Canvas::GetData()
 {
 	return data;
 }

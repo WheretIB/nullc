@@ -145,8 +145,8 @@ void RunCompileFailTests()
 
 	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: ambiguity, there is more than one overloaded function available:");
 
-	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist:don(){ return 0; } return 1;", "ERROR: 'dontexist' is not a known type name");
-	TEST_FOR_FAIL("Class externally defined method 2", "int int:(){ return *this; } return 1;", "ERROR: function name expected after ':' or '.'");
+	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist::don(){ return 0; } return 1;", "ERROR: 'dontexist' is not a known type name");
+	TEST_FOR_FAIL("Class externally defined method 2", "int int::(){ return *this; } return 1;", "ERROR: function name expected after ':' or '.'");
 
 	TEST_FOR_FAIL("Member variable or function is not found", "int a; a.b; return 1;", "ERROR: member variable or function 'b' is not defined in class 'int'");
 
@@ -184,7 +184,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Invalid array index type B", "import std.math; float2 a; int[100] arr; arr[a] = 7;", "ERROR: cannot convert 'float2' to 'int'");
 
 	TEST_FOR_FAIL("None of the types implement method", "int i = 0; auto ref u = &i; return u.value();", "ERROR: function 'value' is undefined in any of existing classes");
-	TEST_FOR_FAIL("None of the types implement correct method", "int i = 0; int int:value(){ return *this; } auto ref u = &i; return u.value(15);", "ERROR: can't find function 'int::value' with following arguments:");
+	TEST_FOR_FAIL("None of the types implement correct method", "int i = 0; int int::value(){ return *this; } auto ref u = &i; return u.value(15);", "ERROR: can't find function 'int::value' with following arguments:");
 
 	TEST_FOR_FAIL("Operator overload with no arguments", "int operator+(){ return 5; }", "ERROR: operator '+' definition must accept one or two arguments");
 
@@ -208,7 +208,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Operation unsupported on reference 3", "int x; int ref y = &x; return *(y--);", "ERROR: decrement is not supported on 'int ref'");
 	TEST_FOR_FAIL("Operation unsupported on reference 4", "int x; int ref y = &x; return *--y;", "ERROR: decrement is not supported on 'int ref'");
 
-	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x, y){ *this = x; return this; } return *new int(4, 8);", "ERROR: type constructor return type must be 'void'");
+	TEST_FOR_FAIL("Constructor returns a value", "auto int::int(int x, y){ *this = x; return this; } return *new int(4, 8);", "ERROR: type constructor return type must be 'void'");
 
 const char	*testCompileTimeNoReturn =
 "int foo(int m)\r\n\
@@ -233,8 +233,8 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)++; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)--; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "int[] x = new int[2]; (auto(int ref x){ return x; })(&x.size) = 56; return x.size;", "ERROR: cannot get address of the expression");
-	TEST_FOR_FAIL("Read-only member", "int[] x = { 1, 2 }; typedef int[] wrap; void wrap:rewrite(int x){ size = x; } x.rewrite(2048); return x[1000];", "ERROR: cannot change immutable value of type int");
-	TEST_FOR_FAIL("Read-only member", "auto[] x = { 1, 2 }; typedef auto[] wrap; void wrap:rewrite(){ type = long; } x.rewrite(); return long(x[0]);", "ERROR: cannot change immutable value of type typeid");
+	TEST_FOR_FAIL("Read-only member", "int[] x = { 1, 2 }; typedef int[] wrap; void wrap::rewrite(int x){ size = x; } x.rewrite(2048); return x[1000];", "ERROR: cannot change immutable value of type int");
+	TEST_FOR_FAIL("Read-only member", "auto[] x = { 1, 2 }; typedef auto[] wrap; void wrap::rewrite(){ type = long; } x.rewrite(); return long(x[0]);", "ERROR: cannot change immutable value of type typeid");
 
 	nullcLoadModuleBySource("test.redefinitionPartA", "int foo(int x){ return -x; }");
 	nullcLoadModuleBySource("test.redefinitionPartB", "int foo(int x){ return ~x; }");
@@ -274,7 +274,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function which accepts a 
 
 	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, double);", "ERROR: can't find function 'sum' with following arguments:");
 
-	TEST_FOR_FAIL("coroutine cannot be a member function", "class Foo{} coroutine int Foo:bar(){ yield 1; return 0; } return 1;", "ERROR: coroutine cannot be a member function");
+	TEST_FOR_FAIL("coroutine cannot be a member function", "class Foo{} coroutine int Foo::bar(){ yield 1; return 0; } return 1;", "ERROR: coroutine cannot be a member function");
 
 	TEST_FOR_FAIL("error in generic function body", "auto sum(generic a, b, c){ return a + b + ; } return sum(3, 4.5, 5l);", "ERROR: expression not found after binary operation");
 	TEST_FOR_FAIL_GENERIC("genric function accessing variable that is defined later", "int y = 4; auto foo(generic a){ return i + y; } int i = 2; return foo(4);", "ERROR: unknown identifier 'i'", "while instantiating generic function foo(generic)");
@@ -343,10 +343,10 @@ return bar(foo);",
 	TEST_FOR_FAIL("cannot select function overload", "int foo(int x){ return -x; } int foo(float x){ return x * 2; } int x = foo;", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("Instanced inline function is wrong", "class X{} X x; int foo(int ref(int, X) f){ return f(5, x); } return foo(auto(generic y, double z){ return -y; });", "ERROR: can't find function 'foo' with following arguments:");
 
-	TEST_FOR_FAIL("no finalizable objects on stack", "class Foo{int a;} void Foo:finalize(){} Foo x;", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
-	TEST_FOR_FAIL("no finalizable objects on stack 2", "class Foo{int a;} void Foo:finalize(){} auto x = *(new Foo);", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
-	TEST_FOR_FAIL("no finalizable objects on stack 3", "class Foo{int a;} void Foo:finalize(){} Foo[10] arr;", "ERROR: class 'Foo' implements 'finalize' so only an unsized array type can be created");
-	TEST_FOR_FAIL("no finalizable objects on stack 4", "class Foo{int a;} void Foo:finalize(){} class Bar{ Foo z; }", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
+	TEST_FOR_FAIL("no finalizable objects on stack", "class Foo{int a;} void Foo::finalize(){} Foo x;", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
+	TEST_FOR_FAIL("no finalizable objects on stack 2", "class Foo{int a;} void Foo::finalize(){} auto x = *(new Foo);", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
+	TEST_FOR_FAIL("no finalizable objects on stack 3", "class Foo{int a;} void Foo::finalize(){} Foo[10] arr;", "ERROR: class 'Foo' implements 'finalize' so only an unsized array type can be created");
+	TEST_FOR_FAIL("no finalizable objects on stack 4", "class Foo{int a;} void Foo::finalize(){} class Bar{ Foo z; }", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
 
 	if(!nullcLoadModuleBySource("test.import_typedef1a", "class Foo{ int bar; }"))
 		printf("Failed to create module test.import_typedef1a\n");
@@ -406,7 +406,7 @@ return bar();", "ERROR: unknown identifier 'c'", "while instantiating generic ty
 {\r\n\
 	T x, y, z;\r\n\
 }\r\n\
-int Foo:foo()\r\n\
+int Foo::foo()\r\n\
 {\r\n\
 	return c;\r\n\
 }\r\n\
@@ -458,8 +458,8 @@ return int(foo(b) + foo(c));",
 
 	TEST_FOR_FAIL("generic function specialization fail 6", "class Foo<T>{ T x; } Foo<int> a; a.x = 5; auto foo(Foo<generic> m){ return -m.x; } return foo(&a);", "ERROR: can't find function 'foo' with following arguments:");
 
-	TEST_FOR_FAIL("external function definition syntax inside a type 1", "class Foo{ void Foo:foo(){} }", "ERROR: class name repeated inside the definition of class");
-	TEST_FOR_FAIL("external function definition syntax inside a type 2", "class Bar{} class Foo{ void Bar:foo(){} }", "ERROR: cannot define class 'Bar' function inside the scope of class 'Foo'");
+	TEST_FOR_FAIL("external function definition syntax inside a type 1", "class Foo{ void Foo::foo(){} }", "ERROR: class name repeated inside the definition of class");
+	TEST_FOR_FAIL("external function definition syntax inside a type 2", "class Bar{} class Foo{ void Bar::foo(){} }", "ERROR: cannot define class 'Bar' function inside the scope of class 'Foo'");
 
 	TEST_FOR_FAIL_FULL("function pointer selection fail", "void foo(int a){} void foo(double a){}\r\nauto a = foo;\r\nreturn 1;",
 "ERROR: ambiguity, there is more than one overloaded function available:\n\
@@ -472,7 +472,7 @@ return int(foo(b) + foo(c));",
 
 TEST_FOR_FAIL_FULL("function pointer selection fail 2",
 "class Foo<T>{ T a; auto foo(){ return -a; } }\r\n\
-int Foo<double>:foo(){ return -a; }\r\n\
+int Foo<double>::foo(){ return -a; }\r\n\
 Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
 auto y = x.foo; auto z = s.foo;\r\n\
 return int(y() + z());",
@@ -509,17 +509,17 @@ return int(y() + z());",
 	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(int, float) f){ return f(8, 3); } auto f1(int x){ return x; } return average(f1);", "ERROR: can't find function 'average' with following arguments:");
 	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(int) f){ return f(8, 3); } auto f1(int x, int z){ return x + z; } return average(f1);", "ERROR: can't find function 'average' with following arguments:");
 
-	TEST_FOR_FAIL("cannot find suitable function", "class Foo<T>{} auto Foo:average(generic ref(int, T) f){ return f(5, 4); } Foo<int> m; return m.average(<x, y>{ 5+x+y; }, 4);", "ERROR: can't find function 'Foo::average' with following arguments:");
+	TEST_FOR_FAIL("cannot find suitable function", "class Foo<T>{} auto Foo::average(generic ref(int, T) f){ return f(5, 4); } Foo<int> m; return m.average(<x, y>{ 5+x+y; }, 4);", "ERROR: can't find function 'Foo::average' with following arguments:");
 
 	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(generic, int) f){ return f(4.0, 2); } auto f2(float x, y){ return x * 2.5; } return average(f2);", "ERROR: can't find function 'average' with following arguments:");
 	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(int ref(generic, int) f){ return f(2, 4); } auto f2(float x, y){ return x * 2.5; } return average(f2);", "ERROR: can't find function 'average' with following arguments:");
 
-	TEST_FOR_FAIL("generic type constructor call without generic arguments", "class Foo<T>{ T curr; } auto Foo:Foo(int start){ curr = start; } Foo<int> a = Foo(5);", "ERROR: generic type arguments in <> are not found after constructor name");
-	TEST_FOR_FAIL_GENERIC("generic type constructor call without generic arguments 2", "class list<T>{} class list_iterator<T>{} auto list_iterator:list_iterator(){} auto list:sum(){for(i in list_iterator()){}} list<int> arr; arr.sum();", "ERROR: generic type arguments in <> are not found after constructor name", "while instantiating generic function list::sum()");
+	TEST_FOR_FAIL("generic type constructor call without generic arguments", "class Foo<T>{ T curr; } auto Foo::Foo(int start){ curr = start; } Foo<int> a = Foo(5);", "ERROR: generic type arguments in <> are not found after constructor name");
+	TEST_FOR_FAIL_GENERIC("generic type constructor call without generic arguments 2", "class list<T>{} class list_iterator<T>{} auto list_iterator::list_iterator(){} auto list::sum(){for(i in list_iterator()){}} list<int> arr; arr.sum();", "ERROR: generic type arguments in <> are not found after constructor name", "while instantiating generic function list::sum()");
 	
-	TEST_FOR_FAIL_GENERIC("generic type member function local function is local", "class Foo<T>{ T x; } auto Foo:foo(){ auto bar(){ return x; } return this.bar(); } Foo<int> m; return m.foo();", "ERROR: member variable or function 'bar' is not defined in class 'Foo<int>'", "while instantiating generic function Foo::foo()");
+	TEST_FOR_FAIL_GENERIC("generic type member function local function is local", "class Foo<T>{ T x; } auto Foo::foo(){ auto bar(){ return x; } return this.bar(); } Foo<int> m; return m.foo();", "ERROR: member variable or function 'bar' is not defined in class 'Foo<int>'", "while instantiating generic function Foo::foo()");
 
-	TEST_FOR_FAIL_GENERIC("type aliases are taken from instance", "class Foo<T>{} auto Foo:foo(T key){ bar(10); } auto Foo:bar(T key){} Foo<char[]> map; map.foo(\"foo\"); return 1;", "ERROR: can't find function 'Foo::bar' with following arguments:", "while instantiating generic function Foo::foo(@T)");
+	TEST_FOR_FAIL_GENERIC("type aliases are taken from instance", "class Foo<T>{} auto Foo::foo(T key){ bar(10); } auto Foo::bar(T key){} Foo<char[]> map; map.foo(\"foo\"); return 1;", "ERROR: can't find function 'Foo::bar' with following arguments:", "while instantiating generic function Foo::foo(@T)");
 
 	TEST_FOR_FAIL("wrong function return type", "int foo(int ref(generic) f){ return f(4); } auto f2(float x){ return x * 2.5; } return foo(f2);", "ERROR: can't find function 'foo' with following arguments:");
 
@@ -538,8 +538,8 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("typedef dies after a generic function instance 2", "class Foo<T>{ T x; } auto foo(Foo<@T> x, int ref(int, int) y){ return x.x * y(1, 2); } Foo<int> a; a.x = 2; assert(6 == foo(a, <i, j>{ i+j; })); T x; return x;", "ERROR: 'T' is not a known type name");
 
-	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(Bar<T>())){} return 1;", "ERROR: can't cast to a generic type");
-	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(T())){} return 1;", "ERROR: can't cast to a generic type");
+	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar::bar(generic y = foo(Bar<T>())){} return 1;", "ERROR: can't cast to a generic type");
+	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar::bar(generic y = foo(T())){} return 1;", "ERROR: can't cast to a generic type");
 
 	TEST_FOR_FAIL("operator with short-circuit requirement", "int operator||(int a, b){ return 0; }", "ERROR: operator '||' definition must accept a function returning desired type as the second argument");
 
@@ -622,7 +622,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a(); }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a; }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ &foo; }", "ERROR: function 'foo' type is unresolved at this point");
-	TEST_FOR_FAIL("unresolved type", "class Foo{ } auto Foo:foo(){ auto m = this.foo; return m(); }", "ERROR: function 'Foo::foo' type is unresolved at this point");
+	TEST_FOR_FAIL("unresolved type", "class Foo{ } auto Foo::foo(){ auto m = this.foo; return m(); }", "ERROR: function 'Foo::foo' type is unresolved at this point");
 
 	TEST_FOR_FAIL("no function", "int foo(@T[] arr){ return 1; } return foo(new int);", "ERROR: can't find function 'foo' with following arguments:");
 	TEST_FOR_FAIL("no function", "class Bar<T>{} int foo(Bar<@T>[] arr){ return 1; } Bar<int> ref x; return foo(x);", "ERROR: can't find function 'foo' with following arguments:");
@@ -689,7 +689,7 @@ return 0;",
 
 	TEST_FOR_FAIL("?: exploit", "int foo = 0xdeadbeef; void ref bar = !foo ? nullptr : foo; int ref error = bar; *error;", "ERROR: cannot convert '__nullptr' to 'int'");
 
-	TEST_FOR_FAIL("this exploit", "class X{ int a; } auto X:foo(){ auto bar(){ int this; return a; } return bar(); } X x; x.a = 4; return x.foo();", "ERROR: 'this' is a reserved keyword");
+	TEST_FOR_FAIL("this exploit", "class X{ int a; } auto X::foo(){ auto bar(){ int this; return a; } return bar(); } X x; x.a = 4; return x.foo();", "ERROR: 'this' is a reserved keyword");
 
 	TEST_FOR_FAIL("error with a generic function returning auto printout", "int foo(generic ref(generic, int) x){ return x(4, 5); } auto bar(int a, generic b){ return a + b; } return foo(bar, bar);", "ERROR: can't find function 'foo' with following arguments:");
 	TEST_FOR_FAIL("function selection error printout failure", "auto x = duplicate;", "ERROR: ambiguity, there is more than one overloaded function available:");
@@ -848,7 +848,7 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("invalid cast", "int ref(bool ref) x = int f(bool ref x){ return *x; }; return x(2);", "ERROR: cannot convert 'int' to 'bool ref'");
 
-	TEST_FOR_FAIL("scope switch restore", "auto bar(generic x){ retprn x; } class Foo<T>{} int Foo:foo(typeof(bar(1)) e){ return 1; } Foo<int ref> test2; return test2.foo(1);", "ERROR: can't find function 'Foo::foo' with following arguments:");
+	TEST_FOR_FAIL("scope switch restore", "auto bar(generic x){ retprn x; } class Foo<T>{} int Foo::foo(typeof(bar(1)) e){ return 1; } Foo<int ref> test2; return test2.foo(1);", "ERROR: can't find function 'Foo::foo' with following arguments:");
 
 	TEST_FOR_FAIL("invalid array element size 1", "int[2][100000] a;", "ERROR: array element size cannot exceed 65535 bytes");
 	TEST_FOR_FAIL("invalid array element size 2", "int[][100000] a;", "ERROR: array element size cannot exceed 65535 bytes");
@@ -859,9 +859,9 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("generic function instantiation creates a conflict", "auto foo(generic a, int f = 1){ return -a; } foo(1, 2); auto foo(generic a = 1, int f = 2){ return a; } return foo();", "ERROR: function 'foo' is being defined with the same set of arguments");
 
-	TEST_FOR_FAIL("direct member function call 1", "class Foo{ int x; } (void Foo:reset(){ x = 0; })();", "ERROR: member function can't be called without a class instance");
-	TEST_FOR_FAIL("direct member function call 2", "class Foo{ int x; } (void Foo:reset(generic a){ x = 0; })(4);", "ERROR: member function can't be called without a class instance");
-	TEST_FOR_FAIL("direct member function call 3", "class Foo{ int x; } auto foo(void ref() f){ f(); } foo(void Foo:reset(){ x = 0; });", "ERROR: member function can't be called without a class instance");
+	TEST_FOR_FAIL("direct member function call 1", "class Foo{ int x; } (void Foo::reset(){ x = 0; })();", "ERROR: member function can't be called without a class instance");
+	TEST_FOR_FAIL("direct member function call 2", "class Foo{ int x; } (void Foo::reset(generic a){ x = 0; })(4);", "ERROR: member function can't be called without a class instance");
+	TEST_FOR_FAIL("direct member function call 3", "class Foo{ int x; } auto foo(void ref() f){ f(); } foo(void Foo::reset(){ x = 0; });", "ERROR: member function can't be called without a class instance");
 
 	TEST_FOR_FAIL("early recursive call", "auto foo(){ return foo(); }", "ERROR: function type is unresolved at this point");
 
@@ -900,16 +900,16 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto __runner(){nt i = 1; return i.str() == \"0\" &else& int(i.str()) == i;}return __runner();", "ERROR: expression not found after binary operation");
 	TEST_FOR_FAIL("fuzzing test crash", "auto bar(auto ref x){ if(o tydefotypeoo<int> ", "ERROR: closing ')' not found after 'if' condition");
 	TEST_FOR_FAIL("fuzzing test crash", "auto average(generic ref(int) f){ return f(5); }return int(average(<i>{ i += 8; i * aaaaaaaaaaa5; }));", "ERROR: unknown identifier 'aaaaaaaaaaa5'");
-	TEST_FOR_FAIL("fuzzing test crash", "void int:rgba(int r, g, b, a){r(){ return (*this >> 16) & 0xff; }int ift.g() bm(b.y", "ERROR: ';' not found after expression");
+	TEST_FOR_FAIL("fuzzing test crash", "void int::rgba(int r, g, b, a){r(){ return (*this >> 16) & 0xff; }int ift.g() bm(b.y", "ERROR: ';' not found after expression");
 	TEST_FOR_FAIL("fuzzing test crash", "auto __runner(){class Foo<T>{ T t; }Foo<Foo<int>> b; b.t.t Foo<Foo<ijt>> b; b.t.t = 0;>> z)turn z.t.t; }returFoo<tin>> z){ return z.tuern __runner();", "ERROR: ';' not found after expression");
 	TEST_FOR_FAIL("fuzzing test crash", "class vec2 extendable{ float x, y; int foo(int i, j){ return i / j; } } class vec2 : vec2{ float z; int foo(int j, i){ return i / j; } }", "ERROR: 'vec2' is being redefined");
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine int gen3from(int x){kint ref() m;for(int i = 0; i < 3; i++){int help(){return x + i;}help();m = help;}return m();i = gen3from2(2);t2 = t2 * 10 + i;}return (t1 == 567756) + (t2 == 442344);", "ERROR: 'kint' is not a known type name");
 	TEST_FOR_FAIL("fuzzing test crash", "import std.algorithm;coroutine auto __runner(){int[] arr = { 2, 6 };sort(arr, <int a, int b>{ a > b; });map(arr, <int ref x>{ *x = *x * 2; })==arr = filter(arr, <ynt x>{ x < 8; });int sum = 0;for(i in arr) sum += i;return sum;}return __runner();", "ERROR: 'ynt' is not a known type name");
-	TEST_FOR_FAIL("fuzzing test crash", "Auto int:toString(){}", "ERROR: 'Auto' is not a known type name");
+	TEST_FOR_FAIL("fuzzing test crash", "Auto int::toString(){}", "ERROR: 'Auto' is not a known type name");
 	TEST_FOR_FAIL("fuzzing test crash", "int a = 4;@if(typeof(a) !=)tn i{f;}ora;", "ERROR: expression not found after binary operation");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{ T x; }Foo a = Foo<int>((;a.x = 6;int foo(Foo a){return a.x;}foo(a);", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "int auto.c(){ return 0; }", "ERROR: cannot add accessor to type 'auto'");
-	TEST_FOR_FAIL("fuzzing test crash", "int auto:c(){ return 0; }", "ERROR: cannot add member function to type 'auto'");
+	TEST_FOR_FAIL("fuzzing test crash", "int auto::c(){ return 0; }", "ERROR: cannot add member function to type 'auto'");
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ int bar(); int bar(int x); yield bar; }", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto foo(){ auto a = 2; class T{ int b = a; } }", "ERROR: member function 'T::T$' cannot access external variable 'a'");
 	TEST_FOR_FAIL("fuzzing test crash", "auto(@e x=){}", "ERROR: default argument value not found after '='");
@@ -923,8 +923,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "(.size", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "(.arraySize", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "auto bar<@T,@U>(){ return 1; } return bar with<int,int>() + bar with<>();", "ERROR: type name is expected after 'with'");
-	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}d Foo : o(typeof(Foo<auto ref>o(", "ERROR: '>' expected after generic type alias list");
-	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}typeid Foo:foo(typeof(T(= }Foo<void>test3; test3.foo(4", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}d Foo :: o(typeof(Foo<auto ref>o(", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T}typeid Foo::foo(typeof(T(= }Foo<void>test3; test3.foo(4", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "auto foo(generic x){}coroutine auto f(){auto x = foo;}", "ERROR: cannot instantiate generic function, because target type is not known");
 	TEST_FOR_FAIL("fuzzing test crash", "@if{", "ERROR: '(' not found after 'if'");
 	TEST_FOR_FAIL("fuzzing test crash", "@\"", "ERROR: unclosed string constant");
@@ -949,7 +949,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "auto foo(generic i, j){}foo(i:2);", "ERROR: can't find function 'foo' with following arguments:");
 	TEST_FOR_FAIL("fuzzing test crash", "class j{ @if(j o(){class j{}}){}}", "ERROR: 'j' is being redefined");
 	TEST_FOR_FAIL("fuzzing test crash", "double fo(do typeof(fo).argument[.", "ERROR: ')' not found after function variable list");
-	TEST_FOR_FAIL("fuzzing test crash", "class X{} int X:foo(){ return 1; } auto ref y; int ref() z = y.foo;", "ERROR: can't convert dynamic function set to 'int ref()'");
+	TEST_FOR_FAIL("fuzzing test crash", "class X{} int X::foo(){ return 1; } auto ref y; int ref() z = y.foo;", "ERROR: can't convert dynamic function set to 'int ref()'");
 	TEST_FOR_FAIL("fuzzing test crash", "auto ref x; *x = assert;", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("fuzzing test crash", "int(new{ class auto ref x = Foo; void Foo(", "ERROR: type name expected after 'new'");
 	TEST_FOR_FAIL("fuzzing test crash", "class a; a(); class a{}", "ERROR: type 'a' is not fully defined");

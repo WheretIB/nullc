@@ -379,7 +379,12 @@ void Lexer::Lexify(const char* code)
 			lType = lex_questionmark;
 			break;
 		case ':':
-			lType = lex_colon;
+                        if(code[1] == ':')
+			{
+				lType = lex_dblcolon;
+				lLength = 2;
+			}
+                        else lType = lex_colon;
 			break;
 		case ';':
 			lType = lex_semicolon;

@@ -117,7 +117,7 @@ bool bool(event<@T> ref e)
 }
 
 // Attach the callback to the event (a single callback can be attached only once)
-void event:attach(T callback)
+void event::attach(T callback)
 {
 	if(callback in callbacks)
 		return;
@@ -130,7 +130,7 @@ void operator+=(event<@T> ref e, @T callback)
 }
 
 // Detach the callback from the event
-void event:detach(T callback)
+void event::detach(T callback)
 {
 	auto it = callbacks.find(callback);
 	if(it)
@@ -143,7 +143,7 @@ void operator-=(event<@T> ref e, @T callback)
 }
 
 // Detach all callbacks
-void event:detach_all()
+void event::detach_all()
 {
 	callbacks.clear();
 }

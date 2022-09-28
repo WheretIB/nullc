@@ -24,28 +24,28 @@ int int(int a);\r\n\
 long long(long a);\r\n\
 float float(float a);\r\n\
 double double(double a);\r\n\
-void bool:bool(bool a){ *this = a; }\r\n\
-void char:char(char a){ *this = a; }\r\n\
-void short:short(short a){ *this = a; }\r\n\
-void int:int(int a){ *this = a; }\r\n\
-void long:long(long a){ *this = a; }\r\n\
-void float:float(float a){ *this = a; }\r\n\
-void double:double(double a){ *this = a; }\r\n\
+void bool::bool(bool a){ *this = a; }\r\n\
+void char::char(char a){ *this = a; }\r\n\
+void short::short(short a){ *this = a; }\r\n\
+void int::int(int a){ *this = a; }\r\n\
+void long::long(long a){ *this = a; }\r\n\
+void float::float(float a){ *this = a; }\r\n\
+void double::double(double a){ *this = a; }\r\n\
 \r\n\
 int as_unsigned(char a);\r\n\
 int as_unsigned(short a);\r\n\
 long as_unsigned(int a);\r\n\
 \r\n\
 short short(char[] str);\r\n\
-char[] short:str();\r\n\
+char[] short::str();\r\n\
 int int(char[] str);\r\n\
-char[] int:str();\r\n\
+char[] int::str();\r\n\
 long long(char[] str);\r\n\
-char[] long:str();\r\n\
+char[] long::str();\r\n\
 float float(char[] str);\r\n\
-char[] float:str(int precision = 6, bool showExponent = false);\r\n\
+char[] float::str(int precision = 6, bool showExponent = false);\r\n\
 double double(char[] str);\r\n\
-char[] double:str(int precision = 6, bool showExponent = false);\r\n\
+char[] double::str(int precision = 6, bool showExponent = false);\r\n\
 \r\n\
 void ref __newS(int size, int type);\r\n\
 int[] __newA(int size, int count, int type);\r\n\
@@ -133,7 +133,7 @@ auto[] auto_array(typeid type, int count)\r\n\
 }\r\n\
 typedef auto[] auto_array;\r\n\
 // function will set auto[] element to the specified one, with data reallocation if neccessary\r\n\
-void auto_array:set(auto ref x, int pos);\r\n\
+void auto_array::set(auto ref x, int pos);\r\n\
 void __force_size(auto[] ref s, int size);\r\n\
 \r\n\
 int isCoroutineReset(auto ref f);\r\n\

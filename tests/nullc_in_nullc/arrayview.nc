@@ -52,13 +52,13 @@ auto operator=(ArrayView<@T> ref lhs, vector<@T> ref rhs)
 	return lhs;
 }
 
-auto ArrayView:ArrayView(vector<@T> ref src)
+auto ArrayView::ArrayView(vector<@T> ref src)
 {
 	this.data = src.data;
 	this.count = src.size();
 }
 
-auto ArrayView:ArrayView(vector<@T> ref src, int size)
+auto ArrayView::ArrayView(vector<@T> ref src, int size)
 {
 	assert(size <= src.size());
 

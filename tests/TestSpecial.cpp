@@ -486,23 +486,23 @@ const char	*testVectorSplice =
 	T[]		data;\r\n\
 	int		count;\r\n\
 }\r\n\
-void vector:push_back(generic val)\r\n\
+void vector::push_back(generic val)\r\n\
 {\r\n\
 	if(count == data.size)\r\n\
 		this.grow();\r\n\
 	data[count++] = val;\r\n\
 }\r\n\
-void vector:pop_back()\r\n\
+void vector::pop_back()\r\n\
 {\r\n\
 	assert(count);\r\n\
 	count--;\r\n\
 }\r\n\
-auto vector:back()\r\n\
+auto vector::back()\r\n\
 {\r\n\
 	assert(count);\r\n\
 	return &data[count - 1];\r\n\
 }\r\n\
-auto vector:front()\r\n\
+auto vector::front()\r\n\
 {\r\n\
 	assert(count);\r\n\
 	return &data[0];\r\n\
@@ -512,7 +512,7 @@ auto operator[](vector<generic> ref v, int index)\r\n\
 	assert(index < v.count);\r\n\
 	return &v.data[index];\r\n\
 }\r\n\
-void vector:grow()\r\n\
+void vector::grow()\r\n\
 {\r\n\
 	int nReserved = data.size + (data.size >> 1) + 1;\r\n\
 	T[] nArr = new T[nReserved];\r\n\
@@ -520,7 +520,7 @@ void vector:grow()\r\n\
 		j = i;\r\n\
 	data = nArr;\r\n\
 }\r\n\
-auto vector:size()\r\n\
+auto vector::size()\r\n\
 {\r\n\
 	return count;\r\n\
 }\r\n\

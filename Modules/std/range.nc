@@ -6,16 +6,16 @@ class range_iterator
 	int max;
 	int step;
 }
-auto range_iterator:start()
+auto range_iterator::start()
 {
 	return *this;
 }
-int range_iterator:next()
+int range_iterator::next()
 {
 	pos += step;
 	return pos - step;
 }
-int range_iterator:hasnext()
+int range_iterator::hasnext()
 {
 	return pos < max;
 }

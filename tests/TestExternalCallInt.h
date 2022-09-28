@@ -485,7 +485,7 @@ LOAD_MODULE_BIND_(test_extM2, "test.extM2", "int Call(double a, b, c, d, int e);
 const char	*TEST_CODE(testExternalCallM2) = "import test.extM2" MODULE_SUFFIX ";\r\n double a = 1.6; return Call(a, 2.0, 3.0, 4.0, 5);";
 TEST_RESULT_("External function call. alignment test 2.", testExternalCallM2, "1");
 
-LOAD_MODULE_BIND_(test_extM3, "test.extM3", "class Foo{ int x; } int Foo:Call(double a, b, c, d);")
+LOAD_MODULE_BIND_(test_extM3, "test.extM3", "class Foo{ int x; } int Foo::Call(double a, b, c, d);")
 {
 	BIND_FUNCTION("test.extM3", TestExtM3, "Foo::Call", 0);
 }

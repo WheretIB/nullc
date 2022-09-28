@@ -18,7 +18,7 @@ vector vector(typeid type, int reserved = 0)
 	cConstructVector(ret, type, reserved);
 	return ret;
 }
-void vector:vector(typeid type, int reserved = 0)
+void vector::vector(typeid type, int reserved = 0)
 {
 	cConstructVector(this, type, reserved);
 }
@@ -28,24 +28,24 @@ class vector_iterator
 	vector ref arr;
 	int pos;
 }
-auto vector:start()
+auto vector::start()
 {
 	vector_iterator iter;
 	iter.arr = this;
 	iter.pos = 0;
 	return iter;
 }
-auto ref vector_iterator:next();
-int vector_iterator:hasnext();
+auto ref vector_iterator::next();
+int vector_iterator::hasnext();
 
-void vector:push_back(auto ref val);
-void vector:pop_back();
-auto ref vector:front();
-auto ref vector:back();
+void vector::push_back(auto ref val);
+void vector::pop_back();
+auto ref vector::front();
+auto ref vector::back();
 auto ref operator[](vector ref v, int index);
-void vector:reserve(int size);
-void vector:resize(int size);
-void vector:clear();
-void vector:destroy();
-int vector:size();
-int vector:capacity();
+void vector::reserve(int size);
+void vector::resize(int size);
+void vector::clear();
+void vector::destroy();
+int vector::size();
+int vector::capacity();

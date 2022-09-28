@@ -815,7 +815,7 @@ TEST_RESULT("Fuzzing crash result 11 (removal of unused block that defines instr
 
 const char	*testFuzzingCrash12 =
 "class Foo{ int a, b, c; }\r\n\
-void int:int(Foo x){ *this = sizeof(Foo); }\r\n\
+void int::int(Foo x){ *this = sizeof(Foo); }\r\n\
 return int(*new Foo{int(*new Foo{\r\n\
 int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
 int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
@@ -1700,7 +1700,7 @@ const char *testLargeValueReferencePropagation2 =
 	char[] data;\r\n\
 }\r\n\
 \r\n\
-void string:string(char[] right)\r\n\
+void string::string(char[] right)\r\n\
 {\r\n\
 	data = duplicate(right);\r\n\
 }\r\n\

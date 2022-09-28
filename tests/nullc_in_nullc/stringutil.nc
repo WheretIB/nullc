@@ -231,7 +231,7 @@ bool operator!=(InplaceStr a, InplaceStr b)
 	return !(a== b);
 }
 
-void StringRef:StringRef(InplaceStr str)
+void StringRef::StringRef(InplaceStr str)
 {
 	this.string = str.data;
 	this.pos = str.begin;

@@ -328,7 +328,7 @@ TEST_RESULT("Garbage collection correctness 13 (uninitialized auto[] type).", te
 const char	*testGarbageCollectionCorrectness14 =
 "import std.gc;\r\n\
 class Test{ int x; }\r\n\
-int ref Test:getX(){ GC.CollectMemory(); return &x; }\r\n\
+int ref Test::getX(){ GC.CollectMemory(); return &x; }\r\n\
 auto y = (new Test).getX();\r\n\
 *y = 8;\r\n\
 auto m = new Test;\r\n\

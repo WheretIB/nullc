@@ -48,7 +48,7 @@ enum LexemeType
 	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, lex_modset, lex_shlset, lex_shrset, lex_andset, lex_orset, lex_xorset, // = += -= *= /= **= %= <<= >>= &= |= ^=
 	lex_bitnot, lex_lognot,	// ~ !
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
-	lex_questionmark, lex_colon, lex_semicolon, // ? : ;
+	lex_questionmark, lex_colon, lex_semicolon, lex_dblcolon, // ? : ; ::
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
 	lex_break, lex_continue, lex_return, // break continue return
 	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align
@@ -141,12 +141,12 @@ bool bool(LexemeRef lexeme)
 	return lexeme.owner != nullptr;
 }
 
-void Lexer:Clear(int count)
+void Lexer::Clear(int count)
 {
 	lexems.resize(count);
 }
 
-void Lexer:Lexify(char[] code)
+void Lexer::Lexify(char[] code)
 {
 	this.code = code;
 
@@ -403,7 +403,11 @@ void Lexer:Lexify(char[] code)
 			lType = LexemeType.lex_questionmark;
 			break;
 		case ':':
-			lType = LexemeType.lex_colon;
+			if(code[curr + 1] == ':')
+			{
+				lType = LexemeType.lex_dblcolon;
+				lLength = 2;
+			} else lType = LexemeType.lex_colon;
 			break;
 		case ';':
 			lType = LexemeType.lex_semicolon;
@@ -556,7 +560,7 @@ void Lexer:Lexify(char[] code)
 	lexems.push_back(lex);
 }
 
-void Lexer:Append(Lexeme[] stream)
+void Lexer::Append(Lexeme[] stream)
 {
 	for(i in stream)
 		lexems.push_back(i);

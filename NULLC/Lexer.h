@@ -45,7 +45,7 @@ enum LexemeType
 	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, lex_modset, lex_shlset, lex_shrset, lex_andset, lex_orset, lex_xorset, // = += -= *= /= **= %= <<= >>= &= |= ^=
 	lex_bitnot, lex_lognot,	// ~ !
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
-	lex_questionmark, lex_colon, lex_semicolon, // ? : ;
+	lex_questionmark, lex_colon, lex_semicolon, lex_dblcolon,// ? : ; ::
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
 	lex_break, lex_continue, lex_return, // break continue return
 	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align

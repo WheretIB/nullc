@@ -9,7 +9,7 @@ import binarycache;
 import std.error;
 import std.string;
 
-void string:string(char[] right, int start, int end)
+void string::string(char[] right, int start, int end)
 {
 	assert(start <= end);
 	assert(start >= 0 && start < right.size);
@@ -21,7 +21,7 @@ void string:string(char[] right, int start, int end)
 		data[i] = right[start + i];
 }
 
-void string:string(StringRef right)
+void string::string(StringRef right)
 {
 	int length;
 
@@ -34,7 +34,7 @@ void string:string(StringRef right)
 		data[i] = right.string[right.pos + i];
 }
 
-void string:string(char[] right, int pos)
+void string::string(char[] right, int pos)
 {
 	int length;
 
@@ -47,7 +47,7 @@ void string:string(char[] right, int pos)
 		data[i] = right[pos + i];
 }
 
-void string:string(InplaceStr right)
+void string::string(InplaceStr right)
 {
 	data = new char[right.end - right.begin + 1];
 
@@ -55,7 +55,7 @@ void string:string(InplaceStr right)
 		data[i] = right[i];
 }
 
-void InplaceStr:InplaceStr(StringRef str)
+void InplaceStr::InplaceStr(StringRef str)
 {
 	data = str.string;
 	begin = str.pos;

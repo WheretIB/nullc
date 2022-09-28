@@ -68,7 +68,7 @@ TEST_RESULT("List comprehension with explicit return", testListComprehensionRetu
 
 const char	*testListComprehensionRef =
 "class Foo{ int a; }\r\n\
-void Foo:Foo(int x){ a = x; }\r\n\
+void Foo::Foo(int x){ a = x; }\r\n\
 auto x = { for(int i=0;i<4;i++) yield new Foo(10+i); };\r\n\
 int z = 0; for(i in x) z += i.a;\r\n\
 return z;";

@@ -3,20 +3,20 @@
 const char	*testAutoRefCall1 =
 "int sum = 0;\r\n\
 class Foo{ int i; float u; }\r\n\
-void Foo:add(int u)\r\n\
+void Foo::add(int u)\r\n\
 {\r\n\
 	sum += i * u;\r\n\
 }\r\n\
-void int:add(int u)\r\n\
+void int::add(int u)\r\n\
 {\r\n\
 	sum += *this + u;\r\n\
 }\r\n\
 \r\n\
-void Foo:add()\r\n\
+void Foo::add()\r\n\
 {\r\n\
 	sum -= i;\r\n\
 }\r\n\
-void int:add()\r\n\
+void int::add()\r\n\
 {\r\n\
 	sum *= *this;\r\n\
 }\r\n\
@@ -41,7 +41,7 @@ TEST_RESULT_SIMPLE("auto ref type function call 1", testAutoRefCall1, "32");
 const char	*testAutoRefCall2 =
 "import std.list;\r\n\
 import std.math;\r\n\
-void int:rgba(int r, g, b, a)\r\n\
+void int::rgba(int r, g, b, a)\r\n\
 {\r\n\
 	*this = (a << 24) | (r << 16) | (g << 8) | b;\r\n\
 }\r\n\
@@ -130,7 +130,7 @@ return mp;";
 TEST_RESULT("auto ref type function call 2", testAutoRefCall2, "2760");
 
 const char	*testFunctionCallThroughAutoRefInMemberFunction =
-"int int:foo(){ return -*this; }\r\n\
+"int int::foo(){ return -*this; }\r\n\
 class Foo\r\n\
 {\r\n\
 	auto()\r\n\
@@ -159,7 +159,7 @@ LOAD_MODULE(test_autorefcall, "test.autorefcall", "class Proxy{ int foo(int x){ 
 const char *testIndirectCallModules =
 "import test.autorefcall;\r\n\
 class Bar{ int u; }\r\n\
-int Bar:foo(int x){ return x + u; }\r\n\
+int Bar::foo(int x){ return x + u; }\r\n\
 Bar m; m.u = 10;\r\n\
 return rc(m);";
 TEST_RESULT("Function call through 'auto ref', more types defined later", testIndirectCallModules, "15");
@@ -222,13 +222,13 @@ const char	*testAutorefCallIssue3 =
 "void foo()\r\n\
 {\r\n\
 	class Foo{}\r\n\
-	int Foo:F(){ return 1; }\r\n\
+	int Foo::F(){ return 1; }\r\n\
 }\r\n\
 \r\n\
 auto bar()\r\n\
 {\r\n\
 	class Foo{}\r\n\
-	auto Foo:F(){ return 123; }\r\n\
+	auto Foo::F(){ return 123; }\r\n\
 	\r\n\
 	Foo x;\r\n\
 	auto ref y = x;\r\n\

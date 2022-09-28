@@ -6,6 +6,8 @@ config=debug
 check=none
 
 CXXFLAGS=-fno-exceptions -fno-rtti -fno-threadsafe-statics
+OPTFLAGS=-O2 -pipe
+#OPTFLAGS=-Os -pipe
 
 REG_CFLAGS=-g -Wall -Wextra $(CXXFLAGS)
 COMP_CFLAGS=-g -Wall -Wextra $(CXXFLAGS) -D NULLC_NO_EXECUTOR
@@ -16,9 +18,9 @@ FUZZ_FLAGS=
 ALIGN_FLAGS=
 
 ifeq ($(config),release)
-	REG_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
-	COMP_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
-	DYNCALL_FLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
+	REG_CFLAGS += $(OPTFLAGS) -fno-omit-frame-pointer -DNDEBUG
+	COMP_CFLAGS += $(OPTFLAGS) -fno-omit-frame-pointer -DNDEBUG
+	DYNCALL_FLAGS += $(OPTFLAGS) -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)

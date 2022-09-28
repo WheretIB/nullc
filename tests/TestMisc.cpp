@@ -165,13 +165,13 @@ TEST_RESULT("Function prototype is implemented at a correct time", testFunctionP
 
 const char	*testFunctionPrototypes4 =
 "class Test{ int f(); }\r\n\
-int Test:f(){ return 2; }\r\n\
+int Test::f(){ return 2; }\r\n\
 return Test().f();";
 TEST_RESULT("Member function prototype implementation in a different scope 1", testFunctionPrototypes4, "2");
 
 const char	*testFunctionPrototypes5 =
 "class Test{ int f(int a); }\r\n\
-int Test:f(int a){ if(a) return f(0); return 10; }\r\n\
+int Test::f(int a){ if(a) return f(0); return 10; }\r\n\
 return Test().f(1);";
 TEST_RESULT("Member function prototype implementation in a different scope 2", testFunctionPrototypes5, "10");
 

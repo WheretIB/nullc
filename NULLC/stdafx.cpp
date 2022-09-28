@@ -124,6 +124,11 @@ void NEWDECL_CALL operator delete [] (void *p)
     if (p) free (p);
 }
 
+void NEWDECL_CALL operator delete [] (void *p, size_t)
+{
+    if (p) free (p);
+}
+
 void NEWDECL_CALL operator delete (void *p, size_t)
 {
     if (p) free (p);

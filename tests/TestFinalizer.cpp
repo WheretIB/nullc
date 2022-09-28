@@ -6,7 +6,7 @@ const char	*testFinalizerSimple =
 int z = 0;\r\n\
 \r\n\
 class Foo{ int a; }\r\n\
-void Foo:finalize(){ z = a; }\r\n\
+void Foo::finalize(){ z = a; }\r\n\
 \r\n\
 auto x = new Foo;\r\n\
 (auto(){x.a = 10;\r\n\
@@ -22,7 +22,7 @@ const char	*testFinalizerSelfreference =
 \r\n\
 class Foo{ int a; }\r\n\
 Foo ref m = nullptr;\r\n\
-void Foo:finalize(){ m = this; }\r\n\
+void Foo::finalize(){ m = this; }\r\n\
 \r\n\
 auto x = new Foo;\r\n\
 (auto(){x.a = 10;\r\n\
@@ -42,7 +42,7 @@ class Foo\r\n\
 	int a;\r\n\
 }\r\n\
 Foo ref m;\r\n\
-void Foo:finalize()\r\n\
+void Foo::finalize()\r\n\
 {\r\n\
 	m = this;\r\n\
 }\r\n\
@@ -65,7 +65,7 @@ TEST_SIMPLE("Finalize should not prevent memory collection", testFinalizerFullco
 const char	*testAfterExecution =
 "int z = 0;\r\n\
 class Foo{ int a; }\r\n\
-void Foo:finalize(){ z = a; }\r\n\
+void Foo::finalize(){ z = a; }\r\n\
 auto x = new Foo;\r\n\
 x.a = 10;\r\n\
 x = nullptr;\r\n\
@@ -79,7 +79,7 @@ const char	*testFinalizerOutOfPool =
 "import std.gc;\r\n\
 int z = 0;\r\n\
 class Foo{ int a; int[4096] h; }\r\n\
-void Foo:finalize(){ z = a; }\r\n\
+void Foo::finalize(){ z = a; }\r\n\
 auto x = new Foo;\r\n\
 (auto(){x.a = 10;\r\n\
 x = nullptr;})();\r\n\
@@ -91,8 +91,8 @@ const char	*testFinalizeArray =
 "import std.gc;\r\n\
 int z = 0;\r\n\
 class Foo{ int a; }\r\n\
-void Foo:Foo(int x){ a = x; }\r\n\
-void Foo:finalize(){ z += a; }\r\n\
+void Foo::Foo(int x){ a = x; }\r\n\
+void Foo::finalize(){ z += a; }\r\n\
 Foo[] x;\r\n\
 (auto(){x = new Foo[4];\r\n\
 x[0].a = 10;\r\n\
@@ -117,7 +117,7 @@ class Scary\r\n\
 	int ref value = new int(4);\r\n\
 }\r\n\
 \r\n\
-void Scary:finalize()\r\n\
+void Scary::finalize()\r\n\
 {\r\n\
 	global = value;\r\n\
 }\r\n\
@@ -147,7 +147,7 @@ class Scary\r\n\
 	int[2048] data;\r\n\
 }\r\n\
 \r\n\
-void Scary:finalize()\r\n\
+void Scary::finalize()\r\n\
 {\r\n\
 	global = value;\r\n\
 }\r\n\
@@ -177,7 +177,7 @@ class Scary\r\n\
 	int ref value = new int(next++);\r\n\
 }\r\n\
 \r\n\
-void Scary:finalize()\r\n\
+void Scary::finalize()\r\n\
 {\r\n\
 	if(!global || *global < *value)\r\n\
 		global = value;\r\n\
@@ -208,7 +208,7 @@ class Scary\r\n\
 	int ref value = new int(next++);\r\n\
 }\r\n\
 \r\n\
-void Scary:finalize()\r\n\
+void Scary::finalize()\r\n\
 {\r\n\
 	if(!global || *global < *value)\r\n\
 		global = value;\r\n\

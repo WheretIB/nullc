@@ -59,7 +59,7 @@ auto operator[](RefList<@T> ref lhs, int index)
 	return curr;
 }
 
-auto RefList:start()
+auto RefList::start()
 {
 	return coroutine auto()
 	{

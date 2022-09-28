@@ -308,14 +308,14 @@ float ref operator[](float2 ref a, int index);
 float ref operator[](float3 ref a, int index);
 float ref operator[](float4 ref a, int index);
 
-float float2:length();
-float float2:normalize();
+float float2::length();
+float float2::normalize();
 
-float float3:length();
-float float3:normalize();
+float float3::length();
+float float3::normalize();
 
-float float4:length();
-float float4:normalize();
+float float4::length();
+float float4::normalize();
 
 float dot(float2 ref a, float2 ref b);
 float dot(float3 ref a, float3 ref b);

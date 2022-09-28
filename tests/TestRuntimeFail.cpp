@@ -91,7 +91,7 @@ TEST_RUNTIME_FAIL("Iteration over a a function that is not a coroutine [failure 
 
 const char	*testTypeDoesntImplementMethod =
 "class Foo{ int i; }\r\n\
-void Foo:test(){ assert(i); }\r\n\
+void Foo::test(){ assert(i); }\r\n\
 Foo test; test.i = 5;\r\n\
 auto ref[2] objs;\r\n\
 objs[0] = &test;\r\n\

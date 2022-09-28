@@ -7,20 +7,20 @@ class vector<T>
 	int		count;
 }
 
-void vector:vector(int reserved)
+void vector::vector(int reserved)
 {
 	assert(reserved >= 0);
 	if(reserved)
 		data = new T[reserved];
 	count = 0;
 }
-void vector:vector()
+void vector::vector()
 {
 	data = nullptr;
 	count = 0;
 }
 
-void vector:push_back(T val)
+void vector::push_back(T val)
 {
 	if(count == data.size)
 		this.grow(count);
@@ -28,19 +28,19 @@ void vector:push_back(T val)
 	data[count++] = val;
 }
 
-void vector:pop_back()
+void vector::pop_back()
 {
 	assert(count);
 	count--;
 }
 
-auto vector:back()
+auto vector::back()
 {
 	assert(count);
 	return &data[count - 1];
 }
 
-auto vector:front()
+auto vector::front()
 {
 	assert(count);
 	return &data[0];
@@ -52,7 +52,7 @@ auto operator[](vector<generic> ref v, int index)
 	return &v.data[index];
 }
 
-void vector:grow(int targetSize)
+void vector::grow(int targetSize)
 {
 	int nReserved = data.size + (data.size >> 1) + 1;
 
@@ -64,17 +64,17 @@ void vector:grow(int targetSize)
 	data = nArr;
 }
 
-auto vector:size()
+auto vector::size()
 {
 	return count;
 }
 
-auto vector:capacity()
+auto vector::capacity()
 {
 	return data.size;
 }
 
-void vector:reserve(int size)
+void vector::reserve(int size)
 {
 	assert(size >= 0);
 
@@ -84,7 +84,7 @@ void vector:reserve(int size)
 	grow(size);
 }
 
-void vector:resize(int size)
+void vector::resize(int size)
 {
 	assert(size >= 0);
 
@@ -95,12 +95,12 @@ void vector:resize(int size)
 	count = size;
 }
 
-void vector:clear()
+void vector::clear()
 {
 	count = 0;
 }
 
-void vector:destroy()
+void vector::destroy()
 {
 	count = 0;
 	data = nullptr;
@@ -112,18 +112,18 @@ class vector_iterator<T>
 	vector<T> ref arr;
 	int pos;
 }
-auto vector:start()
+auto vector::start()
 {
 	vector_iterator<T> iter;
 	iter.arr = this;
 	iter.pos = 0;
 	return iter;
 }
-auto vector_iterator:next()
+auto vector_iterator::next()
 {
 	return &arr.data[pos++];
 }
-int vector_iterator:hasnext()
+int vector_iterator::hasnext()
 {
 	return arr != nullptr && pos < arr.count;
 }
@@ -151,7 +151,7 @@ auto operator[](vector_splice<@T> ref a, int index)
 
 // aggregate function and other features on sequences
 
-auto vector:sum(generic ref(T) f)
+auto vector::sum(generic ref(T) f)
 {
 	typeof(f).return sum;
 	for(int i = 0; i < count; i++)
@@ -159,12 +159,12 @@ auto vector:sum(generic ref(T) f)
 	return sum;
 }
 
-auto vector:average(generic ref(T) f)
+auto vector::average(generic ref(T) f)
 {
 	return sum(f) / count;
 }
 
-auto vector:min_element()
+auto vector::min_element()
 {
 	int min = 0;
 	for(int i = 1; i < count; i++)
@@ -172,7 +172,7 @@ auto vector:min_element()
 	return data[min];
 }
 
-auto vector:max_element()
+auto vector::max_element()
 {
 	int max = 0;
 	for(int i = 1; i < count; i++)
@@ -180,7 +180,7 @@ auto vector:max_element()
 	return data[max];
 }
 
-auto vector:min_element(generic ref(T) f)
+auto vector::min_element(generic ref(T) f)
 {
 	typeof(f).return min = f(data[0]), tmp;
 	for(int i = 1; i < count; i++)
@@ -191,7 +191,7 @@ auto vector:min_element(generic ref(T) f)
 	return min;
 }
 
-auto vector:max_element(generic ref(T) f)
+auto vector::max_element(generic ref(T) f)
 {
 	typeof(f).return max = f(data[0]), tmp;
 	for(int i = 1; i < count; i++)
@@ -202,7 +202,7 @@ auto vector:max_element(generic ref(T) f)
 	return max;
 }
 
-auto vector:count_if(generic ref(T) f)
+auto vector::count_if(generic ref(T) f)
 {
 	int c = 0;
 	for(int i = 0; i < count; i++)
@@ -211,7 +211,7 @@ auto vector:count_if(generic ref(T) f)
 	return c;
 }
 
-auto vector:all(generic ref(T) f)
+auto vector::all(generic ref(T) f)
 {
 	int c = count ? 1 : 0;
 	for(int i = 0; i < count && c; i++) // exit immediately if one of elements doesn't pass the test
@@ -219,7 +219,7 @@ auto vector:all(generic ref(T) f)
 	return c;
 }
 
-auto vector:any(generic ref(T) f)
+auto vector::any(generic ref(T) f)
 {
 	int c = 0;
 	for(int i = 0; i < count && !c; i++) // exit immediately if one of elements passed the test
@@ -232,7 +232,7 @@ void vector_sort_impl(generic arr, generic pred)
 	sort(arr.data, 0, arr.count, pred);
 }
 
-auto vector:sort(generic ref(T, T) pred)
+auto vector::sort(generic ref(T, T) pred)
 {
 	vector_sort_impl(this, pred);
 }
@@ -245,33 +245,33 @@ bool operator in(generic x, vector<generic> ref arr)
 	return false;
 }
 
-auto vector:push_back_mult(generic ref() f)
+auto vector::push_back_mult(generic ref() f)
 {
 	for(i in f)
 		push_back(i);
 }
 
-auto vector:push_back_mult(generic[] arr)
+auto vector::push_back_mult(generic[] arr)
 {
 	for(i in arr)
 		push_back(i);
 }
 
-auto vector:fill(generic ref() f)
+auto vector::fill(generic ref() f)
 {
 	clear();
 	for(i in f)
 		push_back(i);
 }
 
-auto vector:fill(generic[] arr)
+auto vector::fill(generic[] arr)
 {
 	clear();
 	for(i in arr)
 		push_back(i);
 }
 
-auto vector:foldl(generic ref(T, T) f)
+auto vector::foldl(generic ref(T, T) f)
 {
 	auto tmp = data[0];
 	for(int i = 1; i < count; i++)
@@ -279,7 +279,7 @@ auto vector:foldl(generic ref(T, T) f)
 	return tmp;
 }
 
-auto vector:foldr(generic ref(T, T) f)
+auto vector::foldr(generic ref(T, T) f)
 {
 	auto tmp = data[count - 1];
 	for(int i = count - 2; i >= 0; i--)
@@ -292,7 +292,7 @@ auto operator=(vector<generic> ref v, generic[] arr)
 	v.fill(arr);
 }
 
-auto vector:map(generic ref(T) f)
+auto vector::map(generic ref(T) f)
 {
 	vector<typeof(f).return> res;
 	res.reserve(count);
@@ -301,7 +301,7 @@ auto vector:map(generic ref(T) f)
 	return res;
 }
 
-auto vector:filter(generic ref(T) f)
+auto vector::filter(generic ref(T) f)
 {
 	vector<T> res;
 	res.reserve(count);

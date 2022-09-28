@@ -2689,7 +2689,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		if(parentType)
 		{
-			if(ctx.Consume(lex_colon))
+			if(ctx.Consume(lex_dblcolon))
 			{
 				accessor = false;
 			}

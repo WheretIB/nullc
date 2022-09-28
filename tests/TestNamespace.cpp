@@ -600,7 +600,7 @@ const char	*testNamespace50 =
 {\r\n\
 	class Foo<T>{ T x; }\r\n\
 	int bar(int x){ return x * 2; }\r\n\
-	int Foo:foo(){ return bar(5); }\r\n\
+	int Foo::foo(){ return bar(5); }\r\n\
 }\r\n\
 namespace Bar\r\n\
 {\r\n\
@@ -690,7 +690,7 @@ const char	*testNamespace56 =
 namespace Test\r\n\
 {\r\n\
 	class Device{ Canvas ref canvas; }\r\n\
-	void Device:Device( Canvas ref canvas )\r\n\
+	void Device::Device( Canvas ref canvas )\r\n\
 	{\r\n\
 		this.canvas = canvas;\r\n\
 	}\r\n\
@@ -749,7 +749,7 @@ TEST_RESULT("namespace test 61", testNamespace61, "-10");
 
 const char	*testNamespace62 =
 "class X{}\r\n\
-int X:pos(){ return 10; }\r\n\
+int X::pos(){ return 10; }\r\n\
 \r\n\
 namespace B\r\n\
 {\r\n\

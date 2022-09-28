@@ -67,7 +67,7 @@ class ParseContext
 	hashmap<int, bool> nonFunctionDefinitionLocations;
 }
 
-void ParseContext:ParseContext(int optimizationLevel, ArrayView<InplaceStr> activeImports)
+void ParseContext::ParseContext(int optimizationLevel, ArrayView<InplaceStr> activeImports)
 {
 	this.optimizationLevel = optimizationLevel;
 
@@ -89,22 +89,22 @@ void ParseContext:ParseContext(int optimizationLevel, ArrayView<InplaceStr> acti
 		this.activeImports.push_back(activeImports[i]);
 }
 
-LexemeType ParseContext:Peek()
+LexemeType ParseContext::Peek()
 {
 	return currentLexeme.type;
 }
 
-InplaceStr ParseContext:Value()
+InplaceStr ParseContext::Value()
 {
 	return InplaceStr(currentLexeme.pos, currentLexeme.length);
 }
 
-bool ParseContext:At(LexemeType type)
+bool ParseContext::At(LexemeType type)
 {
 	return currentLexeme.type == type;
 }
 
-bool ParseContext:Consume(LexemeType type)
+bool ParseContext::Consume(LexemeType type)
 {
 	if(currentLexeme.type == type)
 	{
@@ -115,7 +115,7 @@ bool ParseContext:Consume(LexemeType type)
 	return false;
 }
 
-bool ParseContext:Consume(char[] str)
+bool ParseContext::Consume(char[] str)
 {
 	if(InplaceStr(currentLexeme.pos, currentLexeme.length) == InplaceStr(str))
 	{
@@ -126,7 +126,7 @@ bool ParseContext:Consume(char[] str)
 	return false;
 }
 
-InplaceStr ParseContext:Consume()
+InplaceStr ParseContext::Consume()
 {
 	InplaceStr str = InplaceStr(currentLexeme.pos, currentLexeme.length);
 
@@ -135,47 +135,47 @@ InplaceStr ParseContext:Consume()
 	return str;
 }
 
-void ParseContext:Skip()
+void ParseContext::Skip()
 {
 	if(currentLexeme.type != LexemeType.lex_none)
 		currentLexeme.advance();
 }
 
-LexemeRef ParseContext:First()
+LexemeRef ParseContext::First()
 {
 	return firstLexeme;
 }
 
-LexemeRef ParseContext:Current()
+LexemeRef ParseContext::Current()
 {
 	return currentLexeme;
 }
 
-LexemeRef ParseContext:Previous()
+LexemeRef ParseContext::Previous()
 {
 	assert(currentLexeme > firstLexeme);
 
 	return currentLexeme - 1;
 }
 
-LexemeRef ParseContext:Last()
+LexemeRef ParseContext::Last()
 {
 	return lastLexeme;
 }
 
-StringRef ParseContext:Position()
+StringRef ParseContext::Position()
 {
 	return currentLexeme.pos;
 }
 
-StringRef ParseContext:LastEnding()
+StringRef ParseContext::LastEnding()
 {
 	assert(currentLexeme > firstLexeme);
 
 	return (currentLexeme - 1).pos + (currentLexeme - 1).length;
 }
 
-SynNamespaceElement ref ParseContext:IsNamespace(SynNamespaceElement ref parent, InplaceStr name)
+SynNamespaceElement ref ParseContext::IsNamespace(SynNamespaceElement ref parent, InplaceStr name)
 {
 	// In the context of a parent namespace, we only look for immediate children
 	if(parent)
@@ -218,7 +218,7 @@ SynNamespaceElement ref ParseContext:IsNamespace(SynNamespaceElement ref parent,
 	return nullptr;
 }
 
-SynNamespaceElement ref ParseContext:PushNamespace(SynIdentifier ref name)
+SynNamespaceElement ref ParseContext::PushNamespace(SynIdentifier ref name)
 {
 	SynNamespaceElement ref current = currentNamespace;
 
@@ -240,7 +240,7 @@ SynNamespaceElement ref ParseContext:PushNamespace(SynIdentifier ref name)
 	return ns;
 }
 
-void ParseContext:PopNamespace()
+void ParseContext::PopNamespace()
 {
 	assert(currentNamespace != nullptr);
 
@@ -2564,7 +2564,7 @@ SynFunctionDefinition ref ParseFunctionDefinition(ParseContext ref ctx)
 
 		if(parentType)
 		{
-			if(ctx.Consume(LexemeType.lex_colon))
+			if(ctx.Consume(LexemeType.lex_dblcolon))
 			{
 				accessor = false;
 			}
@@ -2855,10 +2855,10 @@ ByteCode ref GetBytecodeFromPath(ParseContext ref ctx, LexemeRef start, RefList<
 	//TRACE_SCOPE("parser", "GetBytecodeFromPath");
 	//TRACE_LABEL2(moduleName.begin, moduleName.end);
 
-	/*ByteCode ref bytecode = BinaryCache:FindBytecode(moduleName.begin, false);
+	/*ByteCode ref bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
 
 	lexCount = 0;
-	lexStream = BinaryCache:FindLexems(moduleName.begin, false, lexCount);
+	lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexCount);
 
 	if(!bytecode)
 	{
@@ -3037,7 +3037,7 @@ SynModule ref Parse(ParseContext ref ctx, char[] code)
 
 	ctx.lexer.Lexify(code);
 
-	//int traceDepth = NULLC:TraceGetDepth();
+	//int traceDepth = NULLC::TraceGetDepth();
 
 	//if(!setjmp(ctx.errorHandler))
 	{
@@ -3058,7 +3058,7 @@ SynModule ref Parse(ParseContext ref ctx, char[] code)
 		return module;
 	}
 
-	//NULLC:TraceLeaveTo(traceDepth);
+	//NULLC::TraceLeaveTo(traceDepth);
 
 	//assert(ctx.errorPos);
 

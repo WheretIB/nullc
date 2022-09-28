@@ -99,7 +99,7 @@ TEST("Class function return", testClassFuncReturn, "1")
 const char	*testMemberFuncCallRef =
 "typedef char[] string;\r\n\
 \r\n\
-void string:set(int a)\r\n\
+void string::set(int a)\r\n\
 {\r\n\
 	this[0] = a;\r\n\
 }\r\n\
@@ -121,7 +121,7 @@ TEST_RESULT("Indirect function call in member function 2", testIndirectCallInMem
 const char	*testFunctionTypeMemberSelfcall =
 "int foo(int x){ return -x; }\r\n\
 typedef int ref(int) omg;\r\n\
-int omg:call(int x){ return (*this)(x); }\r\n\
+int omg::call(int x){ return (*this)(x); }\r\n\
 auto ref x = duplicate(foo);\r\n\
 return x.call(5);";
 TEST_RESULT("Function type member function that calls itself", testFunctionTypeMemberSelfcall, "-5");

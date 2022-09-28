@@ -215,7 +215,7 @@ TEST_RESULT("Generic type test Stack type 2", testGenericType10, "32");
 
 const char *testGenericType11 =
 "class Foo<T>{ T x; }\r\n\
-int Foo<int>:foo(){ return -x; }\r\n\
+int Foo<int>::foo(){ return -x; }\r\n\
 Foo<int> x;\r\n\
 x.x = 10;\r\n\
 return x.foo();";
@@ -223,7 +223,7 @@ TEST_RESULT("Generic type specialized external function definition", testGeneric
 
 const char *testGenericType12 =
 "class Foo<T>{ T x; }\r\n\
-int Foo:foo(){ @if(typeof(this.x) == int) return x; else return -x; }\r\n\
+int Foo::foo(){ @if(typeof(this.x) == int) return x; else return -x; }\r\n\
 Foo<int> x;\r\n\
 Foo<float> z;\r\n\
 x.x = 10;\r\n\
@@ -234,12 +234,12 @@ TEST_RESULT("Generic type external member function definition", testGenericType1
 const char *testGenericType13 =
 "class Foo<T>{ T x; }\r\n\
 \r\n\
-int Foo:foo(){ return -x; }\r\n\
-int Foo<int>:foo(){ return 2*x; }\r\n\
+int Foo::foo(){ return -x; }\r\n\
+int Foo<int>::foo(){ return 2*x; }\r\n\
 \r\n\
 Foo<int> x;\r\n\
 \r\n\
-int Foo:bar(){ return 9; }\r\n\
+int Foo::bar(){ return 9; }\r\n\
 \r\n\
 Foo<float> z;\r\n\
 x.x = 10;\r\n\
@@ -250,12 +250,12 @@ TEST_RESULT("Generic type external member function definition after instancing",
 const char *testGenericType14 =
 "class Foo<T>{ T x; }\r\n\
 \r\n\
-int Foo:foo(){ return -x; }\r\n\
-int Foo<int>:foo(){ return 2*x; }\r\n\
+int Foo::foo(){ return -x; }\r\n\
+int Foo<int>::foo(){ return 2*x; }\r\n\
 \r\n\
 Foo<int> x;\r\n\
 \r\n\
-int Foo:bar(){ return 9; }\r\n\
+int Foo::bar(){ return 9; }\r\n\
 \r\n\
 Foo<float> z;\r\n\
 x.x = 10;\r\n\
@@ -295,7 +295,7 @@ Pair<int, float> z; z.x = 4; z.y = 2.5;\r\n\
 return z.prod();";
 TEST_RESULT("Generic type import 2", testGenericType18, "10");
 
-LOAD_MODULE(test_generic_type3, "test.generic_type3", "class Pair<T, U>{ T x; U y; } int Pair:prod(){ return x * y; }");
+LOAD_MODULE(test_generic_type3, "test.generic_type3", "class Pair<T, U>{ T x; U y; } int Pair::prod(){ return x * y; }");
 const char *testGenericType19 =
 "import test.generic_type2;\r\n\
 Pair<int, float> z; z.x = 4; z.y = 2.5;\r\n\
@@ -351,7 +351,7 @@ TEST_RESULT("Function that accepts generic type 2", testGenericType24, "-6");
 
 const char *testGenericType25 =
 "class Foo<T>{ T x; }\r\n\
-auto Foo:foo(){ T y = 7; return x + y; }\r\n\
+auto Foo::foo(){ T y = 7; return x + y; }\r\n\
 Foo<int> a; a.x = 4;\r\n\
 return a.foo();";
 TEST_RESULT("Generic type external member function aliases restore", testGenericType25, "11");
@@ -448,7 +448,7 @@ TEST_RESULT("Generic type specialization to reference type 2", testGenericType35
 
 const char *testGenericType36 =
 "class Foo<T>{ T a; }\r\n\
-auto Foo:foo(){ return 2*a; }\r\n\
+auto Foo::foo(){ return 2*a; }\r\n\
 Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
 auto y = x.foo;\r\n\
 auto z = s.foo;\r\n\
@@ -457,8 +457,8 @@ TEST_RESULT("Taking pointer to a generic type member function", testGenericType3
 
 const char *testGenericType37 =
 "class Foo<T>{ T a; }\r\n\
-auto Foo:foo(){ return 2*a; }\r\n\
-int Foo<double>:foo(){ return -a; }\r\n\
+auto Foo::foo(){ return 2*a; }\r\n\
+int Foo<double>::foo(){ return -a; }\r\n\
 Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
 auto y = x.foo;\r\n\
 auto z = s.foo;\r\n\
@@ -471,7 +471,7 @@ const char *testGenericType38 =
 	T a;\r\n\
 	auto foo(){ return -a; }\r\n\
 }\r\n\
-int Foo<double>:foo(){ return 2*a; }\r\n\
+int Foo<double>::foo(){ return 2*a; }\r\n\
 \r\n\
 Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
 auto y = x.foo;\r\n\
@@ -487,7 +487,7 @@ const char *testGenericType39 =
 	auto bar(int x){ return -x; }\r\n\
 	auto bar(float x){ return 2*x; }\r\n\
 }\r\n\
-int Foo:foo()\r\n\
+int Foo::foo()\r\n\
 {\r\n\
 	int ref(int) m = bar;\r\n\
 	return m(a);\r\n\
@@ -501,7 +501,7 @@ TEST_RESULT("Function call by pointer in a member function", testGenericType39, 
 
 const char *testGenericType40 =
 "class Foo<T>{ T x; }\r\n\
-void Foo:set(T x){ assert(typeof(x) == double); this.x = x; }\r\n\
+void Foo::set(T x){ assert(typeof(x) == double); this.x = x; }\r\n\
 Foo<double> m;\r\n\
 m.set(4);\r\n\
 return int(m.x * 1.5);";
@@ -509,8 +509,8 @@ TEST_RESULT("Generic type aliases are available in external unspecialized member
 
 const char *testGenericType41 =
 "class Factorial<T>{}\r\n\
-auto Factorial<int[1] ref>:get(){ T arr; return arr; }\r\n\
-auto Factorial:get()\r\n\
+auto Factorial<int[1] ref>::get(){ T arr; return arr; }\r\n\
+auto Factorial::get()\r\n\
 {\r\n\
 	Factorial<int[typeof(T).target.arraySize - 1] ref> x;\r\n\
 	int[typeof(x.get()).target.arraySize] ref m; // arraysize > 1 ? arraysize - 1 : 1;\r\n\
@@ -736,14 +736,14 @@ const char *testGenericType50 =
 {\r\n\
 	T x;\r\n\
 }\r\n\
-void Foo:Foo(){ x = 4; }\r\n\
+void Foo::Foo(){ x = 4; }\r\n\
 Foo<int> a;\r\n\
 return a.x;";
 TEST_RESULT("automatic constructor call for generic class instance on stack", testGenericType50, "4");
 
 const char *testGenericType51 =
 "class Foo<T>{ T x; }\r\n\
-auto Foo:bar(generic z){ return x - z; }\r\n\
+auto Foo::bar(generic z){ return x - z; }\r\n\
 Foo<int> h;\r\n\
 h.x = 3;\r\n\
 h.bar(3);\r\n\
@@ -755,16 +755,16 @@ const char *testGenericType52 =
 "class Foo<T>{ T x; }\r\n\
 Foo<int> h;\r\n\
 h.x = 3;\r\n\
-int Foo:bar(){ return 5; }\r\n\
+int Foo::bar(){ return 5; }\r\n\
 h.bar();\r\n\
-int Foo:bar(int z){ return x - z; }\r\n\
+int Foo::bar(int z){ return x - z; }\r\n\
 return h.bar(2);";
 TEST_RESULT("generic type member function overload defined after first overload instantion is instanced", testGenericType52, "1");
 
 const char *testGenericType53 =
 "class Foo<T>{ T x; }\r\n\
-int Foo:bar(){ return 5; }\r\n\
-int Foo:bar(int z){ return x - z; }\r\n\
+int Foo::bar(){ return 5; }\r\n\
+int Foo::bar(int z){ return x - z; }\r\n\
 Foo<int> h;\r\n\
 h.x = 3;\r\n\
 return h.bar() + h.bar(1);";
@@ -793,14 +793,14 @@ TEST_RESULT("generic type accessor is instanced 2", testGenericType55, "0");
 
 const char *testGenericType56 =
 "class Foo{ typedef int T; T x; }\r\n\
-auto Foo:bar(T z, generic y){ return x - z + y; }\r\n\
+auto Foo::bar(T z, generic y){ return x - z + y; }\r\n\
 Foo h; h.x = 3;\r\n\
 return h.bar(5, 3);";
 TEST_RESULT("class typedef in a generic member function", testGenericType56, "1");
 
 const char *testGenericType57 =
 "class Foo{ typedef int T; T x; }\r\n\
-auto Foo:bar(generic z, T y){ return x - z + y; }\r\n\
+auto Foo::bar(generic z, T y){ return x - z + y; }\r\n\
 Foo h; h.x = 3;\r\n\
 return h.bar(5, 3);";
 TEST_RESULT("class typedef in a generic member function 2", testGenericType57, "1");
@@ -828,8 +828,8 @@ const char *testGenericType58b =
 {\r\n\
 	T y;\r\n\
 }\r\n\
-int Foo:boo(int x){ return x * y; }\r\n\
-void Foo:Foo(T n){ y = n; }\r\n\
+int Foo::boo(int x){ return x * y; }\r\n\
+void Foo::Foo(T n){ y = n; }\r\n\
 auto ref[2] arr;\r\n\
 arr[0] = new Foo<int>(3);\r\n\
 arr[1] = new Foo<double>(1.5);\r\n\
@@ -907,7 +907,7 @@ const char *testGenericType62b =
 "class Foo<T>\r\n\
 {\r\n\
 }\r\n\
-int Foo:boo(auto ref[] x){ return x.size; }\r\n\
+int Foo::boo(auto ref[] x){ return x.size; }\r\n\
 auto ref x = new Foo<int>;\r\n\
 return x.boo(1, 2, 3) + x.boo(1, 2);";
 TEST_RESULT("Function call through 'auto ref' for generic type, selection of a variable argument function 2", testGenericType62b, "5");
@@ -1145,7 +1145,7 @@ LOAD_MODULE(test_generic_type73, "test.generic_type73",
 "class Foo<T>{ T x; }");
 const char *testGenericType73 =
 "import test.generic_type73;\r\n\
-int Foo<int>:foo(){ return -x; }\r\n\
+int Foo<int>::foo(){ return -x; }\r\n\
 Foo<int> x;\r\n\
 x.x = 10;\r\n\
 return x.foo();";
@@ -1153,7 +1153,7 @@ TEST_RESULT("Generic type specialized external function definition", testGeneric
 
 const char *testGenericType74 =
 "import test.generic_type73;\r\n\
-int Foo:foo(){ @if(typeof(this.x) == int) return x; else return -x; }\r\n\
+int Foo::foo(){ @if(typeof(this.x) == int) return x; else return -x; }\r\n\
 Foo<int> x;\r\n\
 Foo<float> z;\r\n\
 x.x = 10;\r\n\
@@ -1163,12 +1163,12 @@ TEST_RESULT("Generic type external member function definition", testGenericType7
 
 const char *testGenericType75 =
 "import test.generic_type73;\r\n\
-int Foo:foo(){ return -x; }\r\n\
-int Foo<int>:foo(){ return 2*x; }\r\n\
+int Foo::foo(){ return -x; }\r\n\
+int Foo<int>::foo(){ return 2*x; }\r\n\
 \r\n\
 Foo<int> x;\r\n\
 \r\n\
-int Foo:bar(){ return 9; }\r\n\
+int Foo::bar(){ return 9; }\r\n\
 \r\n\
 Foo<float> z;\r\n\
 x.x = 10;\r\n\
@@ -1178,12 +1178,12 @@ TEST_RESULT("Generic type external member function definition after instancing",
 
 const char *testGenericType76 =
 "import test.generic_type73;\r\n\
-int Foo:foo(){ return -x; }\r\n\
-int Foo<int>:foo(){ return 2*x; }\r\n\
+int Foo::foo(){ return -x; }\r\n\
+int Foo<int>::foo(){ return 2*x; }\r\n\
 \r\n\
 Foo<int> x;\r\n\
 \r\n\
-int Foo:bar(){ return 9; }\r\n\
+int Foo::bar(){ return 9; }\r\n\
 \r\n\
 Foo<float> z;\r\n\
 x.x = 10;\r\n\
@@ -1235,7 +1235,7 @@ TEST_RESULT("Function that accepts generic type 2", testGenericType80, "-6");
 const char *testGenericType81 =
 "import test.generic_type73;\r\n\
 \r\n\
-auto Foo:foo(){ T y = 7; return x + y; }\r\n\
+auto Foo::foo(){ T y = 7; return x + y; }\r\n\
 Foo<int> a; a.x = 4;\r\n\
 return a.foo();";
 TEST_RESULT("Generic type external member function aliases restore", testGenericType81, "11");
@@ -1351,7 +1351,7 @@ LOAD_MODULE(test_generic_type92, "test.generic_type92",
 const char *testGenericType92 =
 "import test.generic_type92;\r\n\
 \r\n\
-auto Foo:foo(){ return 2*a; }\r\n\
+auto Foo::foo(){ return 2*a; }\r\n\
 Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
 auto y = x.foo;\r\n\
 auto z = s.foo;\r\n\
@@ -1363,8 +1363,8 @@ LOAD_MODULE(test_generic_type93, "test.generic_type93",
 const char *testGenericType93 =
 "import test.generic_type93;\r\n\
 \r\n\
-auto Foo:foo(){ return 2*a; }\r\n\
-int Foo<double>:foo(){ return -a; }\r\n\
+auto Foo::foo(){ return 2*a; }\r\n\
+int Foo<double>::foo(){ return -a; }\r\n\
 Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
 auto y = x.foo;\r\n\
 auto z = s.foo;\r\n\
@@ -1380,7 +1380,7 @@ LOAD_MODULE(test_generic_type94, "test.generic_type94",
 const char *testGenericType94 =
 "import test.generic_type94;\r\n\
 \r\n\
-int Foo<double>:foo(){ return 2*a; }\r\n\
+int Foo<double>::foo(){ return 2*a; }\r\n\
 \r\n\
 Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
 auto y = x.foo;\r\n\
@@ -1399,7 +1399,7 @@ LOAD_MODULE(test_generic_type95, "test.generic_type95",
 const char *testGenericType95 =
 "import test.generic_type95;\r\n\
 \r\n\
-int Foo:foo()\r\n\
+int Foo::foo()\r\n\
 {\r\n\
 	int ref(int) m = bar;\r\n\
 	return m(a);\r\n\
@@ -1414,7 +1414,7 @@ TEST_RESULT("Function call by pointer in a member function", testGenericType95, 
 const char *testGenericType96 =
 "import test.generic_type73;\r\n\
 \r\n\
-void Foo:set(T x){ assert(typeof(x) == double); this.x = x; }\r\n\
+void Foo::set(T x){ assert(typeof(x) == double); this.x = x; }\r\n\
 Foo<double> m;\r\n\
 m.set(4);\r\n\
 return int(m.x * 1.5);";
@@ -1425,8 +1425,8 @@ LOAD_MODULE(test_generic_type97, "test.generic_type97",
 const char *testGenericType97 =
 "import test.generic_type97;\r\n\
 \r\n\
-auto Factorial<int[1] ref>:get(){ T arr; return arr; }\r\n\
-auto Factorial:get()\r\n\
+auto Factorial<int[1] ref>::get(){ T arr; return arr; }\r\n\
+auto Factorial::get()\r\n\
 {\r\n\
 	Factorial<int[typeof(T).target.arraySize - 1] ref> x;\r\n\
 	int[typeof(x.get()).target.arraySize] ref m; // arraysize > 1 ? arraysize - 1 : 1;\r\n\
@@ -1670,7 +1670,7 @@ TEST_RESULT("Generic function is specialized for reference type but a non-refere
 const char *testGenericType106 =
 "import test.generic_type73;\r\n\
 \r\n\
-void Foo:Foo(){ x = 4; }\r\n\
+void Foo::Foo(){ x = 4; }\r\n\
 Foo<int> a;\r\n\
 return a.x;";
 TEST_RESULT("automatic constructor call for generic class instance on stack", testGenericType106, "4");
@@ -1678,7 +1678,7 @@ TEST_RESULT("automatic constructor call for generic class instance on stack", te
 const char *testGenericType107 =
 "import test.generic_type73;\r\n\
 \r\n\
-auto Foo:bar(generic z){ return x - z; }\r\n\
+auto Foo::bar(generic z){ return x - z; }\r\n\
 Foo<int> h;\r\n\
 h.x = 3;\r\n\
 h.bar(3);\r\n\
@@ -1691,17 +1691,17 @@ const char *testGenericType108 =
 \r\n\
 Foo<int> h;\r\n\
 h.x = 3;\r\n\
-int Foo:bar(){ return 5; }\r\n\
+int Foo::bar(){ return 5; }\r\n\
 h.bar();\r\n\
-int Foo:bar(int z){ return x - z; }\r\n\
+int Foo::bar(int z){ return x - z; }\r\n\
 return h.bar(2);";
 TEST_RESULT("generic type member function overload defined after first overload instantion is instanced", testGenericType108, "1");
 
 const char *testGenericType109 =
 "import test.generic_type73;\r\n\
 \r\n\
-int Foo:bar(){ return 5; }\r\n\
-int Foo:bar(int z){ return x - z; }\r\n\
+int Foo::bar(){ return 5; }\r\n\
+int Foo::bar(int z){ return x - z; }\r\n\
 Foo<int> h;\r\n\
 h.x = 3;\r\n\
 return h.bar() + h.bar(1);";
@@ -1755,8 +1755,8 @@ TEST_RESULT("generic type member function call through 'auto ref'", testGenericT
 
 LOAD_MODULE(test_generic_type114b, "test.generic_type114b",
 "class Foo<T>{ T y; }\r\n\
-int Foo:boo(int x){ return x * y; }\r\n\
-void Foo:Foo(T n){ y = n; }");
+int Foo::boo(int x){ return x * y; }\r\n\
+void Foo::Foo(T n){ y = n; }");
 const char *testGenericType114b =
 "import test.generic_type114b;\r\n\
 \r\n\
@@ -1844,7 +1844,7 @@ TEST_RESULT("Function call through 'auto ref' for generic type, selection of a v
 
 LOAD_MODULE(test_generic_type118b, "test.generic_type118b",
 "class Foo<T>{}\r\n\
-int Foo:boo(auto ref[] x){ return x.size; }");
+int Foo::boo(auto ref[] x){ return x.size; }");
 const char *testGenericType118b =
 "import test.generic_type118b;\r\n\
 \r\n\
@@ -1854,24 +1854,24 @@ TEST_RESULT("Function call through 'auto ref' for generic type, selection of a v
 
 const char *testGenericType119 =
 "class Foo<T>{ T x; }\r\n\
-auto Foo:sum(generic ref(T) f){ return f(10); }\r\n\
-auto Foo:average(generic ref(T) f){ return sum(f) / 2; }\r\n\
+auto Foo::sum(generic ref(T) f){ return f(10); }\r\n\
+auto Foo::average(generic ref(T) f){ return sum(f) / 2; }\r\n\
 Foo<int> m;\r\n\
 return m.average(<i>{ -i; });";
 TEST_RESULT("generic member function instancing in a generic member function", testGenericType119, "-5");
 
 const char *testGenericType120 =
 "import test.generic_type73;\r\n\
-auto Foo:sum(generic ref(T) f){ auto o = x; return f(10); }\r\n\
-auto Foo:average(generic ref(T) f){ return sum(f) / x; }\r\n\
+auto Foo::sum(generic ref(T) f){ auto o = x; return f(10); }\r\n\
+auto Foo::average(generic ref(T) f){ return sum(f) / x; }\r\n\
 Foo<int> m; m.x = 2;\r\n\
 return m.average(<i>{ -i; });";
 TEST_RESULT("generic member function instancing in a generic member function (imported class)", testGenericType120, "-5");
 
 LOAD_MODULE(test_generic_type121, "test.generic_type121",
 "class Foo<T>{ T x; }\r\n\
-auto Foo:sum(generic ref(T) f){ auto o = x; return f(10); }\r\n\
-auto Foo:average(generic ref(T) f){ return sum(f) / x; }");
+auto Foo::sum(generic ref(T) f){ auto o = x; return f(10); }\r\n\
+auto Foo::average(generic ref(T) f){ return sum(f) / x; }");
 const char *testGenericType121 =
 "import test.generic_type121;\r\n\
 Foo<int> m; m.x = 2;\r\n\
@@ -1908,7 +1908,7 @@ TEST_RESULT("short inline function in argument with function with generic type d
 
 const char *testGenericType124 =
 "class Foo<T>{}\r\n\
-int Foo:foo(T ref x){ return *x; }\r\n\
+int Foo::foo(T ref x){ return *x; }\r\n\
 Foo<int> x;\r\n\
 return x.foo(1) + x.foo(2);";
 TEST_RESULT("when generic type member function is instanced, aliases are from instanced type", testGenericType124, "3");
@@ -1916,7 +1916,7 @@ TEST_RESULT("when generic type member function is instanced, aliases are from in
 const char *testGenericType125 =
 "class Node<T>{}\r\n\
 class Foo{}\r\n\
-auto Node:first(int hash)\r\n\
+auto Node::first(int hash)\r\n\
 {\r\n\
 	Foo ref curr;\r\n\
 	return coroutine auto generator()\r\n\
@@ -2091,7 +2091,7 @@ auto bar(generic x){ @if(typeof(x).isReference) return x; else return &x; }\r\n\
 \r\n\
 class Foo<T>{}\r\n\
 \r\n\
-typeid Foo:foo(typeof(bar(T())) e){ return typeof(e); }\r\n\
+typeid Foo::foo(typeof(bar(T())) e){ return typeof(e); }\r\n\
 \r\n\
 Foo<int> test1;\r\n\
 assert(test1.foo(4) == int ref);\r\n\
@@ -2249,7 +2249,7 @@ const char	*testAccessorAccessInsideAMemberFunctionGeneric =
 auto Foo.x(){ return _x; }\r\n\
 void Foo.x(T r){ _x = r / 2; }\r\n\
 \r\n\
-void Foo:Foo(){ x = 4; }\r\n\
+void Foo::Foo(){ x = 4; }\r\n\
 \r\n\
 Foo<int> a;\r\n\
 return a.x;";
@@ -2288,11 +2288,11 @@ class hashmap<Key, Value>\r\n\
 	Node ref	entry;\r\n\
 	int x;\r\n\
 }\r\n\
-void hashmap:hashmap()\r\n\
+void hashmap::hashmap()\r\n\
 {\r\n\
 	x = 5;\r\n\
 }\r\n\
-void hashmap:foo()\r\n\
+void hashmap::foo()\r\n\
 {\r\n\
 	entry = new Node;\r\n\
 }\r\n\
@@ -2429,7 +2429,7 @@ TEST_RESULT("Generic class name can be used if the generic arguments can be dedu
 
 const char *testGenericType148 =
 "class F<T>{}\r\n\
-int F:f(){ return 2; }\r\n\
+int F::f(){ return 2; }\r\n\
 F<int> a;\r\n\
 int operator+(int a, int ref() b){ return a + b(); }\r\n\
 return 1 + a.f;";
@@ -2437,9 +2437,9 @@ TEST_RESULT("Generic class function pointer access performs instantiation", test
 
 const char *testGenericType149 =
 "class F<T>{}\r\n\
-int F:f(){ return 2; }\r\n\
-float F:f(){ return 2; }\r\n\
-double F:f(){ return 2; }\r\n\
+int F::f(){ return 2; }\r\n\
+float F::f(){ return 2; }\r\n\
+double F::f(){ return 2; }\r\n\
 F<int> a;\r\n\
 int operator+(int a, int ref() b){ return a + b(); }\r\n\
 return 1 + a.f;";
@@ -2447,7 +2447,7 @@ TEST_RESULT("Generic class function pointer access performs instantiation", test
 
 const char *testGenericType150 =
 "class Foo<T>{}\r\n\
-auto Foo:foo(){ return sizeof(T); }\r\n\
+auto Foo::foo(){ return sizeof(T); }\r\n\
 \r\n\
 Foo<int> a;\r\n\
 Foo<char> b;\r\n\
@@ -2460,8 +2460,8 @@ TEST_RESULT("Generic class external function definition and auto ref calls", tes
 
 const char *testGenericType151 =
 "class Foo<T>{}\r\n\
-auto Foo:foo(){ return sizeof(T); }\r\n\
-auto Foo:foo(int x){ return sizeof(T) + x; }\r\n\
+auto Foo::foo(){ return sizeof(T); }\r\n\
+auto Foo::foo(int x){ return sizeof(T) + x; }\r\n\
 \r\n\
 Foo<int> a;\r\n\
 Foo<char> b;\r\n\
@@ -2474,7 +2474,7 @@ TEST_RESULT("Generic class external function definition and auto ref calls (over
 
 const char *testGenericType152 =
 "class Foo<T>{}\r\n\
-auto Foo:foo(generic x){ return sizeof(T) * 10 + sizeof(x); }\r\n\
+auto Foo::foo(generic x){ return sizeof(T) * 10 + sizeof(x); }\r\n\
 \r\n\
 Foo<int> a;\r\n\
 Foo<char> b;\r\n\
@@ -2487,10 +2487,10 @@ TEST_RESULT("Generic class external function definition and auto ref calls (gene
 
 const char *testGenericType153 =
 "class Foo<T>{}\r\n\
-auto Foo:foo(generic x){ return sizeof(T) * 10 + sizeof(x); }\r\n\
+auto Foo::foo(generic x){ return sizeof(T) * 10 + sizeof(x); }\r\n\
 \r\n\
 class Bar{}\r\n\
-auto Bar:foo(generic x){ return 100; }\r\n\
+auto Bar::foo(generic x){ return 100; }\r\n\
 \r\n\
 Foo<int> a;\r\n\
 Bar b;\r\n\

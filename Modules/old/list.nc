@@ -29,7 +29,7 @@ auto ref list_node.value(auto ref val)
 	return elem = duplicate(val);
 }
 
-void list:list(typeid type = auto ref)
+void list::list(typeid type = auto ref)
 {
 	anyType = type == auto ref;
 	elemType = type;
@@ -43,7 +43,7 @@ list list(typeid type = auto ref)
 	return ret;
 }
 
-void list:push_back(auto ref elem)
+void list::push_back(auto ref elem)
 {
 	if(!anyType && typeid(elem) != (isPointer(elemType) ? elemType.subType() : elemType))
 		assert(0, "list::push_back argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
@@ -61,7 +61,7 @@ void list:push_back(auto ref elem)
 	}
 	last.parent = this;
 }
-void list:push_front(auto ref elem)
+void list::push_front(auto ref elem)
 {
 	if(!anyType && typeid(elem) != elemType)
 		assert(0, "list::push_front argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
@@ -79,7 +79,7 @@ void list:push_front(auto ref elem)
 	}
 	last.parent = this;
 }
-void list:insert(list_node ref it, auto ref elem)
+void list::insert(list_node ref it, auto ref elem)
 {
 	if(!anyType && typeid(elem) != elemType)
 		assert(0, "list::insert argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
@@ -94,7 +94,7 @@ void list:insert(list_node ref it, auto ref elem)
 	if(next)
 		next.prev = it.next;
 }
-void list:erase(list_node ref it)
+void list::erase(list_node ref it)
 {
 	if(list ref(it.parent) != this)
 		assert(0, "list::insert iterator is from a different list");
@@ -108,29 +108,29 @@ void list:erase(list_node ref it)
 	if(it == last)
 		last = last.prev;
 }
-void list:clear()
+void list::clear()
 {
 	first = last = nullptr;
 }
-auto ref list:back()
+auto ref list::back()
 {
 	assert(first != nullptr, "list::back called on empty list");
 	return last.elem;
 }
-auto ref list:front()
+auto ref list::front()
 {
 	assert(first != nullptr, "list::front called on empty list");
 	return first.elem;
 }
-auto list:begin()
+auto list::begin()
 {
 	return first;
 }
-auto list:end()
+auto list::end()
 {
 	return last;
 }
-int list:empty()
+int list::empty()
 {
 	return first == nullptr;
 }
@@ -146,17 +146,17 @@ auto list_iterator(list_node ref start)
 	ret.curr = start;
 	return ret;
 }
-auto list:start()
+auto list::start()
 {
 	return list_iterator(this.first);
 }
-auto list_iterator:next()
+auto list_iterator::next()
 {
 	auto ref ret = curr.elem;
 	curr = curr.next;
 	return ret;
 }
-auto list_iterator:hasnext()
+auto list_iterator::hasnext()
 {
 	return curr ? 1 : 0;
 }

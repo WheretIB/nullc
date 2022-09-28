@@ -36,7 +36,7 @@ const char	*testAccessorAccessInsideAMemberFunction =
 	int _x;\r\n\
 	int x{ get { return _x; } set{ _x = r / 2; } };\r\n\
 }\r\n\
-void Foo:Foo(){ x = 4; }\r\n\
+void Foo::Foo(){ x = 4; }\r\n\
 Foo a;\r\n\
 return a.x;";
 TEST_RESULT("Accessor access inside a member function", testAccessorAccessInsideAMemberFunction, "2");

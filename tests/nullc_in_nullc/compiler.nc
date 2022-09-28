@@ -28,28 +28,28 @@ int int(int a);
 long long(long a);
 float float(float a);
 double double(double a);
-void bool:bool(bool a){ *this = a; }
-void char:char(char a){ *this = a; }
-void short:short(short a){ *this = a; }
-void int:int(int a){ *this = a; }
-void long:long(long a){ *this = a; }
-void float:float(float a){ *this = a; }
-void double:double(double a){ *this = a; }
+void bool::bool(bool a){ *this = a; }
+void char::char(char a){ *this = a; }
+void short::short(short a){ *this = a; }
+void int::int(int a){ *this = a; }
+void long::long(long a){ *this = a; }
+void float::float(float a){ *this = a; }
+void double::double(double a){ *this = a; }
 
 int as_unsigned(char a);
 int as_unsigned(short a);
 long as_unsigned(int a);
 
 short short(char[] str);
-char[] short:str();
+char[] short::str();
 int int(char[] str);
-char[] int:str();
+char[] int::str();
 long long(char[] str);
-char[] long:str();
+char[] long::str();
 float float(char[] str);
-char[] float:str(int precision = 6, bool showExponent = false);
+char[] float::str(int precision = 6, bool showExponent = false);
 double double(char[] str);
-char[] double:str(int precision = 6, bool showExponent = false);
+char[] double::str(int precision = 6, bool showExponent = false);
 
 void ref __newS(int size, int type);
 int[] __newA(int size, int count, int type);
@@ -137,7 +137,7 @@ auto[] auto_array(typeid type, int count)
 }
 typedef auto[] auto_array;
 // function will set auto[] element to the specified one, with data reallocation if neccessary
-void auto_array:set(auto ref x, int pos);
+void auto_array::set(auto ref x, int pos);
 void __force_size(auto[] ref s, int size);
 
 int isCoroutineReset(auto ref f);

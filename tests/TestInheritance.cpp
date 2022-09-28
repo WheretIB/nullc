@@ -540,7 +540,7 @@ const char	*testInheritance46 =
 	int c;\r\n\
 }\r\n\
 \r\n\
-void Test:Test()\r\n\
+void Test::Test()\r\n\
 {\r\n\
 	a = 1;\r\n\
 	b = 2;\r\n\
@@ -552,7 +552,7 @@ class Test2 : Test\r\n\
 	int d;\r\n\
 }\r\n\
 \r\n\
-void Test2 : Test2()\r\n\
+void Test2 :: Test2()\r\n\
 {\r\n\
 	d = 10;\r\n\
 }\r\n\

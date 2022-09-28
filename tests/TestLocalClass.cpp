@@ -24,7 +24,7 @@ const char	*testLocalClass3 =
 "int foo(int x)\r\n\
 {\r\n\
 	class X{ int i; int bar(){ return -i; } }\r\n\
-	int X:foo(){ return this.i * 2; }\r\n\
+	int X::foo(){ return this.i * 2; }\r\n\
 	X a;\r\n\
 	a.i = x;\r\n\
 	return a.foo();\r\n\
@@ -36,7 +36,7 @@ const char	*testLocalClass4 =
 "class X{ int i; int bar(){ return -i; } }\r\n\
 int foo(int x)\r\n\
 {\r\n\
-	int X:foo(){ return i * 2; }\r\n\
+	int X::foo(){ return i * 2; }\r\n\
 	X a;\r\n\
 	a.i = x;\r\n\
 	return a.foo();\r\n\
@@ -48,7 +48,7 @@ const char	*testLocalClass5 =
 "int foo(int x)\r\n\
 {\r\n\
 	class X{ int i; int bar(){ return -i; } }\r\n\
-	int X:foo(){ return i * 2; }\r\n\
+	int X::foo(){ return i * 2; }\r\n\
 	X a;\r\n\
 	a.i = x;\r\n\
 	return a.bar();\r\n\
@@ -60,7 +60,7 @@ const char	*testLocalClass6 =
 "int foo(int x)\r\n\
 {\r\n\
 	class X{ int i; int bar(){ return -i; } }\r\n\
-	int X:foo(){ return i * 2; }\r\n\
+	int X::foo(){ return i * 2; }\r\n\
 	X a;\r\n\
 	a.i = x;\r\n\
 	return a.foo();\r\n\

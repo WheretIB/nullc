@@ -579,12 +579,12 @@ class SphereNode\r\n\
 	Sphere ref sphere;\r\n\
 	SphereNode ref next;\r\n\
 }\r\n\
-auto SphereNode:init(Sphere ref sphere)\r\n\
+auto SphereNode::init(Sphere ref sphere)\r\n\
 {\r\n\
 	this.sphere = sphere;\r\n\
 	return this;\r\n\
 }\r\n\
-auto SphereNode:add(Sphere ref sphere)\r\n\
+auto SphereNode::add(Sphere ref sphere)\r\n\
 {\r\n\
 	next = new SphereNode;\r\n\
 	next.init(sphere);\r\n\
