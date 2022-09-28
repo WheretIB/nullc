@@ -195,7 +195,10 @@ int main(int argc, char** argv)
 						printf("Failed to find '%s' input file", tmp);
 				}
 			}
-			
+
+			strcpy(pos, " -lm");
+			pos += strlen(pos);
+
 			if (verbose)
 				printf("Command line: %s\n", cmdLine);
 
@@ -324,5 +327,5 @@ int main(int argc, char** argv)
 
 	nullcTerminate();
 
-	return argIndex != argc;	
+	return argIndex != argc;
 }
