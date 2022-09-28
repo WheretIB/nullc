@@ -52,6 +52,14 @@ RAPIDJSON_DIAG_OFF(terminate) // ignore throwing RAPIDJSON_ASSERT in RAPIDJSON_N
 #include <utility> // std::move
 #endif
 
+#ifdef NO_MEMSET_WRAPPER
+#define RAPIDJSON_no_warning_memset(dest, ch, sz) memset(dest, ch, sz)
+#define RAPIDJSON_no_warning_memcpy(dest, src, sz) memcpy(dest, src, sz)
+#else
+inline void RAPIDJSON_no_warning_memset(void *dest, int ch, size_t sz) {memset(dest, ch, sz);}
+inline void RAPIDJSON_no_warning_memcpy(void *dest, void *src, size_t sz) {memcpy(dest, src, sz);}
+#endif
+
 RAPIDJSON_NAMESPACE_BEGIN
 
 // Forward declaration.
@@ -1936,7 +1944,7 @@ private:
         if (count) {
             GenericValue* e = static_cast<GenericValue*>(allocator.Malloc(count * sizeof(GenericValue)));
             SetElementsPointer(e);
-            std::memcpy(e, values, count * sizeof(GenericValue));
+            RAPIDJSON_no_warning_memcpy(e, values, count * sizeof(GenericValue));
         }
         else
             SetElementsPointer(0);
@@ -1949,7 +1957,7 @@ private:
         if (count) {
             Member* m = static_cast<Member*>(allocator.Malloc(count * sizeof(Member)));
             SetMembersPointer(m);
-            std::memcpy(m, members, count * sizeof(Member));
+            RAPIDJSON_no_warning_memcpy(m, members, count * sizeof(Member));
         }
         else
             SetMembersPointer(0);
