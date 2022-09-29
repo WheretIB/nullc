@@ -256,6 +256,9 @@ namespace
 
 	double ParseDouble(ExpressionContext &ctx, const char *str)
 	{
+            char *sTemp;
+            return strtod(str,&sTemp);
+/*
 		unsigned digit;
 		double integer = 0.0;
 
@@ -269,7 +272,7 @@ namespace
 	
 		if(*str == '.')
 		{
-			double power = 0.1f;
+			double power = 0.1;
 			str++;
 
 			while((digit = *str - '0') < 10)
@@ -280,7 +283,7 @@ namespace
 			}
 		}
 
-		if(*str == 'e')
+		if(*str == 'e' || *str == 'E')
 		{
 			str++;
 
@@ -291,6 +294,7 @@ namespace
 		}
 
 		return integer + fractional;
+ */
 	}
 
 	bool IsBinaryOp(SynUnaryOpType type)
@@ -3792,7 +3796,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 	for(unsigned i = 0; i < value.length(); i++)
 	{
-		if(value.begin[i] == '.' || value.begin[i] == 'e')
+		if(value.begin[i] == '.' || value.begin[i] == 'e' || value.begin[i] == 'E')
 			isFP = true;
 	}
 

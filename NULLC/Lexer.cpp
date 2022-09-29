@@ -132,7 +132,8 @@ void Lexer::Lexify(const char* code)
 			}
 			break;
 		case '.':
-			lType = lex_point;
+                        if(isDigit(code[1])) goto do_lex_number;
+			else lType = lex_point;
 			break;
 		case ',':
 			lType = lex_comma;
@@ -392,6 +393,7 @@ void Lexer::Lexify(const char* code)
 		default:
 			if(isDigit(*code))
 			{
+do_lex_number:
 				lType = lex_number;
 
 				const char *pos = code;
@@ -408,7 +410,7 @@ void Lexer::Lexify(const char* code)
 					pos++;
 				while(isDigit(*pos))
 					pos++;
-				if(*pos == 'e')
+				if(*pos == 'e' || *pos == 'E')
 				{
 					pos++;
 					if(*pos == '-')
