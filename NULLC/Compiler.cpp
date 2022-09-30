@@ -185,6 +185,7 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 
 	if(!BuildModuleFromSource(allocator, "$base$.nc", NULL, nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>(), NULL))
 	{
+                fprintf(stderr, "%s\n", errorBuf);
 		assert(!"Failed to compile base NULLC module");
 		return false;
 	}
