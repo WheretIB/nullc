@@ -301,6 +301,10 @@ namespace SynNode
 		SynNamespaceDefinition,
 		SynModuleImport,
 		SynModule,
+		// the order above this line seem to be important
+		// don't change, insert, delete above this line !
+		SynGoto,
+		SynLabel,
 	};
 }
 
@@ -740,6 +744,28 @@ struct SynContinue: SynBase
 	static const unsigned myTypeID = SynNode::SynContinue;
 };
 
+struct SynLabel: SynBase
+{
+	SynLabel(Lexeme *begin, Lexeme *end, SynIdentifier *labeIdentifier): SynBase(myTypeID, begin, end), labeIdentifier(labeIdentifier)
+	{
+	}
+
+	SynIdentifier *labeIdentifier;
+
+	static const unsigned myTypeID = SynNode::SynLabel;
+};
+
+struct SynGoto: SynBase
+{
+	SynGoto(Lexeme *begin, Lexeme *end, SynIdentifier *labeIdentifier): SynBase(myTypeID, begin, end), labeIdentifier(labeIdentifier)
+	{
+	}
+
+	SynIdentifier *labeIdentifier;
+
+	static const unsigned myTypeID = SynNode::SynGoto;
+};
+
 struct SynBlock: SynBase
 {
 	SynBlock(Lexeme *begin, Lexeme *end, IntrusiveList<SynBase> expressions): SynBase(myTypeID, begin, end), expressions(expressions)
@@ -1069,7 +1095,7 @@ struct SynClassElements: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(Lexeme *begin, Lexeme *end, SynAlign* align, SynIdentifier* name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, begin, end), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
+	SynClassDefinition(Lexeme *begin, Lexeme *end, SynAlign* align, SynIdentifier* name, IntrusiveList<SynIdentifier> aliases, bool extendable, bool isStruct, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, begin, end), align(align), name(name), aliases(aliases), extendable(extendable), isStruct(isStruct), baseClass(baseClass), elements(elements)
 	{
 		imported = false;
 	}
@@ -1079,6 +1105,7 @@ struct SynClassDefinition: SynBase
 	SynIdentifier* name;
 	IntrusiveList<SynIdentifier> aliases;
 	bool extendable;
+	bool isStruct;
 	SynBase *baseClass;
 	SynClassElements *elements;
 

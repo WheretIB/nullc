@@ -458,6 +458,8 @@ do_lex_number:
 							lType = lex_enum;
 						else if(memcmp(code, "with", 4) == 0)
 							lType = lex_with;
+						else if(memcmp(code, "goto", 4) == 0)
+							lType = lex_goto;
 						break;
 					case 5:
 						if(memcmp(code, "while", 5) == 0)
@@ -486,6 +488,8 @@ do_lex_number:
 							lType = lex_sizeof;
 						else if(memcmp(code, "import", 6) == 0)
 							lType = lex_import;
+						else if(memcmp(code, "struct", 6) == 0)
+							lType = lex_struct;
 						break;
 					case 7:
 						if(memcmp(code, "noalign", 7) == 0)

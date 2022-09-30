@@ -11656,6 +11656,34 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 	return new (ctx.get<ExprContinue>()) ExprContinue(syntax, ctx.typeVoid, depth, CreateContinueUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(ctx.scope), ctx.scope, depth));
 }
 
+ExprLabel* AnalyzeLabel(ExpressionContext &ctx, SynLabel *syntax)
+{
+	unsigned depth = 1;
+
+	if(syntax->labeIdentifier)
+	{
+	}
+
+	if(ctx.scope->contiueDepth < depth)
+		Stop(ctx, syntax, "ERROR: label level is greater that loop depth");
+
+	return new (ctx.get<ExprLabel>()) ExprLabel(syntax, ctx.typeVoid, depth, NULL /*CreateLabelUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(ctx.scope), ctx.scope, depth)*/);
+}
+
+ExprGoto* AnalyzeGoto(ExpressionContext &ctx, SynGoto *syntax)
+{
+	unsigned depth = 1;
+
+	if(syntax->labeIdentifier)
+	{
+	}
+
+	if(ctx.scope->contiueDepth < depth)
+		Stop(ctx, syntax, "ERROR: goto level is greater that loop depth");
+
+	return new (ctx.get<ExprGoto>()) ExprGoto(syntax, ctx.typeVoid, depth, NULL /*CreateGotoUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(ctx.scope), ctx.scope, depth)*/);
+}
+
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
 {
 	if(createScope)
@@ -12114,6 +12142,16 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynContinue *node = getType<SynContinue>(syntax))
 	{
 		return AnalyzeContinue(ctx, node);
+	}
+
+	if(SynLabel *node = getType<SynLabel>(syntax))
+	{
+		return AnalyzeLabel(ctx, node);
+	}
+
+	if(SynGoto *node = getType<SynGoto>(syntax))
+	{
+		return AnalyzeGoto(ctx, node);
 	}
 
 	if(SynBlock *node = getType<SynBlock>(syntax))

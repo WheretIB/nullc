@@ -475,6 +475,10 @@ namespace ExprNode
 		ExprBlock,
 		ExprSequence,
 		ExprModule,
+		// the order above this line seem to be important
+		// do not change, insert,remove above it
+		ExprLabel,
+		ExprGoto,
 	};
 }
 
@@ -1202,6 +1206,32 @@ struct ExprContinue: ExprBase
 	ExprBase *closures;
 
 	static const unsigned myTypeID = ExprNode::ExprContinue;
+};
+
+struct ExprLabel: ExprBase
+{
+	ExprLabel(SynBase *source, TypeBase *type, unsigned depth, ExprBase *closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
+	{
+	}
+
+	unsigned depth;
+
+	ExprBase *closures;
+
+	static const unsigned myTypeID = ExprNode::ExprLabel;
+};
+
+struct ExprGoto: ExprBase
+{
+	ExprGoto(SynBase *source, TypeBase *type, unsigned depth, ExprBase *closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
+	{
+	}
+
+	unsigned depth;
+
+	ExprBase *closures;
+
+	static const unsigned myTypeID = ExprNode::ExprGoto;
 };
 
 struct ExprBlock: ExprBase

@@ -1429,7 +1429,9 @@ SynBase ref ParseClassDefinition(ParseContext ref ctx)
 
 	SynAlign ref alignment = ParseAlign(ctx);
 
-	if(ctx.Consume(LexemeType.lex_class))
+        bool isStruct = ctx.Consume(LexemeType.lex_struct);
+
+	if(isStruct || ctx.Consume(LexemeType.lex_class))
 	{
 		SynIdentifier ref nameIdentifier = nullptr;
 
@@ -1498,7 +1500,7 @@ SynBase ref ParseClassDefinition(ParseContext ref ctx)
 
 		CheckConsume(ctx, LexemeType.lex_cfigure, "ERROR: '}' not found after class definition");
 
-		return new SynClassDefinition(start, ctx.Previous(), alignment, nameIdentifier, aliases, isExtendable, baseClass, elements);
+		return new SynClassDefinition(start, ctx.Previous(), alignment, nameIdentifier, aliases, isExtendable, isStruct, baseClass, elements);
 	}
 
 	// Backtrack
@@ -1678,6 +1680,40 @@ SynContinue ref ParseContinue(ParseContext ref ctx)
 		CheckConsume(ctx, LexemeType.lex_semicolon, "ERROR: continue statement must be followed by ';' or a constant");
 
 		return new SynContinue(start, ctx.Previous(), node);
+	}
+
+	return nullptr;
+}
+
+SynLabel ref ParseLabel(ParseContext ref ctx)
+{
+	LexemeRef start = ctx.currentLexeme;
+
+	if(ctx.Consume(LexemeType.lex_continue))
+	{
+		// Optional
+		SynNumber ref node = ParseNumber(ctx);
+
+		CheckConsume(ctx, LexemeType.lex_semicolon, "ERROR: continue statement must be followed by ';' or a constant");
+
+		return new SynLabel(start, ctx.Previous(), node);
+	}
+
+	return nullptr;
+}
+
+SynGoto ref ParseGoto(ParseContext ref ctx)
+{
+	LexemeRef start = ctx.currentLexeme;
+
+	if(ctx.Consume(LexemeType.lex_continue))
+	{
+		// Optional
+		SynNumber ref node = ParseNumber(ctx);
+
+		CheckConsume(ctx, LexemeType.lex_semicolon, "ERROR: continue statement must be followed by ';' or a constant");
+
+		return new SynGoto(start, ctx.Previous(), node);
 	}
 
 	return nullptr;
@@ -2787,6 +2823,12 @@ SynBase ref ParseExpression(ParseContext ref ctx)
 	if(SynBase ref node = ParseContinue(ctx))
 		return node;
 
+	if(SynBase ref node = ParseGoto(ctx))
+		return node;
+
+	if(SynBase ref node = ParseLabel(ctx))
+		return node;
+
 	if(SynBase ref node = ParseTypedef(ctx))
 		return node;
 
@@ -3205,6 +3247,14 @@ void VisitParseTreeNodes(SynBase ref syntax, void ref(SynBase ref) accept)
 	{
 		VisitParseTreeNodes(node.number, accept);
 	}
+	else if(SynLabel ref node = getType with<SynLabel>(syntax))
+	{
+		VisitParseTreeNodes(node.number, accept);
+	}
+	else if(SynGoto ref node = getType with<SynGoto>(syntax))
+	{
+		VisitParseTreeNodes(node.number, accept);
+	}
 	else if(SynBlock ref node = getType with<SynBlock>(syntax))
 	{
 		for(SynBase ref expr = node.expressions.head; expr; expr = expr.next)
@@ -3479,6 +3529,10 @@ char[] GetParseTreeNodeName(SynBase ref syntax)
 		return "SynBreak";
 	case SynContinue:
 		return "SynContinue";
+	case SynLabel:
+		return "SynLabel";
+	case SynGoto:
+		return "SynGoto";
 	case SynBlock:
 		return "SynBlock";
 	case SynIfElse:

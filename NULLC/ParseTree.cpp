@@ -1553,12 +1553,15 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 	Lexeme *start = ctx.currentLexeme;
 
 	SynAlign *align = ParseAlign(ctx);
+        
+        bool isStruct = ctx.Consume(lex_struct);
 
-	if(ctx.Consume(lex_class))
+	if(isStruct || ctx.Consume(lex_class))
 	{
 		SynIdentifier *nameIdentifier = NULL;
+                const char *classOrStruct = isStruct ? "struct" : "class";
 
-		if(CheckAt(ctx, lex_identifier, "ERROR: class name expected"))
+		if(CheckAt(ctx, lex_identifier, "ERROR: %s name expected", classOrStruct))
 		{
 			InplaceStr name = ctx.Consume();
 			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
@@ -1571,7 +1574,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		if(ctx.Consume(lex_semicolon))
 		{
 			if(align)
-				Report(ctx, ctx.Current(), "ERROR: can't specify alignment of a class prototype");
+				Report(ctx, ctx.Current(), "ERROR: can't specify alignment of a %s prototype", classOrStruct);
 
 			return new (ctx.get<SynClassPrototype>()) SynClassPrototype(start, ctx.Previous(), nameIdentifier);
 		}
@@ -1612,7 +1615,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 				Report(ctx, ctx.Current(), "ERROR: base type name is expected at this point");
 		}
 
-		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
+		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after %s name", classOrStruct);
 
 		TRACE_SCOPE("parse", "ParseClassBody");
 
@@ -1621,9 +1624,9 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		SynClassElements *elements = ParseClassElements(ctx);
 
-		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after class definition");
+		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after %s definition", classOrStruct);
 
-		return new (ctx.get<SynClassDefinition>()) SynClassDefinition(start, ctx.Previous(), align, nameIdentifier, aliases, extendable, baseClass, elements);
+		return new (ctx.get<SynClassDefinition>()) SynClassDefinition(start, ctx.Previous(), align, nameIdentifier, aliases, extendable, isStruct, baseClass, elements);
 	}
 
 	// Backtrack
@@ -1803,6 +1806,47 @@ SynContinue* ParseContinue(ParseContext &ctx)
 		CheckConsume(ctx, lex_semicolon, "ERROR: continue statement must be followed by ';' or a constant");
 
 		return new (ctx.get<SynContinue>()) SynContinue(start, ctx.Previous(), node);
+	}
+
+	return NULL;
+}
+
+SynLabel* ParseLabel(ParseContext &ctx)
+{
+	Lexeme *start = ctx.currentLexeme;
+
+	if(ctx.At(lex_identifier))
+	{
+                InplaceStr name = ctx.Consume();
+                SynIdentifier *labeIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
+                if(ctx.Consume(lex_colon)) {
+                    return new (ctx.get<SynLabel>()) SynLabel(start, ctx.Previous(), labeIdentifier);
+                }
+	}
+
+	// Backtrack
+	ctx.currentLexeme = start;
+        
+	return NULL;
+}
+
+SynGoto* ParseGoto(ParseContext &ctx)
+{
+	Lexeme *start = ctx.currentLexeme;
+
+	if(ctx.Consume(lex_goto))
+	{
+		SynIdentifier *labeIdentifier = NULL;
+
+		if(CheckAt(ctx, lex_identifier, "ERROR: label name expected"))
+		{
+			InplaceStr name = ctx.Consume();
+			labeIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
+		}
+
+		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after goto");
+
+		return new (ctx.get<SynGoto>()) SynGoto(start, ctx.Previous(), labeIdentifier);
 	}
 
 	return NULL;
@@ -2906,56 +2950,42 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 
 SynBase* ParseStatement(ParseContext &ctx)
 {
-	if(SynBase *node = ParseClassDefinition(ctx))
-		return node;
+        SynBase *node;
+        switch(ctx.Peek()) {
+            case lex_enum: return ParseEnumDefinition(ctx);
+            case lex_namespace: return ParseNamespaceDefinition(ctx);
+            case lex_return: return ParseReturn(ctx);
+            case lex_yield: return ParseYield(ctx);
+            case lex_break: return ParseBreak(ctx);
+            case lex_continue: return ParseContinue(ctx);
+            case lex_goto: return ParseGoto(ctx);
+            case lex_typedef: return ParseTypedef(ctx);
+            case lex_ofigure: return ParseBlock(ctx);
+            case lex_for:
+                if((node = ParseForEach(ctx)))
+                        return node;
+                return ParseFor(ctx);
+            case lex_while: return ParseWhile(ctx);
+            case lex_do: return ParseDoWhile(ctx);
+            case lex_switch: return ParseSwitch(ctx);
+            
+            default:
+                
+                if((node = ParseClassDefinition(ctx)))
+                        return node;
 
-	if(SynBase *node = ParseEnumDefinition(ctx))
-		return node;
+                if((node = ParseFunctionDefinition(ctx)))
+                        return node;
 
-	if(SynBase *node = ParseNamespaceDefinition(ctx))
-		return node;
+                if((node = ParseVariableDefinitions(ctx, false)))
+                        return node;
 
-	if(SynBase *node = ParseReturn(ctx))
-		return node;
+                if((node = ParseIfElse(ctx, false)))
+                        return node;
 
-	if(SynBase *node = ParseYield(ctx))
-		return node;
-
-	if(SynBase *node = ParseBreak(ctx))
-		return node;
-
-	if(SynBase *node = ParseContinue(ctx))
-		return node;
-
-	if(SynBase *node = ParseTypedef(ctx))
-		return node;
-
-	if(SynBase *node = ParseBlock(ctx))
-		return node;
-
-	if(SynBase *node = ParseIfElse(ctx, false))
-		return node;
-
-	if(SynBase *node = ParseForEach(ctx))
-		return node;
-
-	if(SynBase *node = ParseFor(ctx))
-		return node;
-
-	if(SynBase *node = ParseWhile(ctx))
-		return node;
-
-	if(SynBase *node = ParseDoWhile(ctx))
-		return node;
-
-	if(SynBase *node = ParseSwitch(ctx))
-		return node;
-
-	if(SynBase *node = ParseFunctionDefinition(ctx))
-		return node;
-
-	if(SynBase *node = ParseVariableDefinitions(ctx, false))
-		return node;
+                if((node = ParseLabel(ctx)))
+                        return node;
+        }
 
 	return NULL;
 }
@@ -3373,6 +3403,14 @@ void VisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *con
 	else if(SynContinue *node = getType<SynContinue>(syntax))
 	{
 		VisitParseTreeNodes(node->number, context, accept);
+	}
+	else if(SynLabel *node = getType<SynLabel>(syntax))
+	{
+		VisitParseTreeNodes(node->labeIdentifier, context, accept);
+	}
+	else if(SynGoto *node = getType<SynGoto>(syntax))
+	{
+		VisitParseTreeNodes(node->labeIdentifier, context, accept);
 	}
 	else if(SynBlock *node = getType<SynBlock>(syntax))
 	{

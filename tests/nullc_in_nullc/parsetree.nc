@@ -889,6 +889,38 @@ class SynContinue: SynBase
 	SynNumber ref number;
 }
 
+class SynLabel: SynBase
+{
+	void SynLabel(LexemeRef begin, LexemeRef end, SynNumber ref number)
+	{
+		this.begin = begin;
+		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
+		
+		this.number = number;
+	}
+
+	SynNumber ref number;
+}
+
+class SynGoto: SynBase
+{
+	void SynGoto(LexemeRef begin, LexemeRef end, SynNumber ref number)
+	{
+		this.begin = begin;
+		this.end = end;
+
+		if(begin.owner && end.owner)
+			this.pos = InplaceStr(begin.owner.code, begin.pos.pos, end.pos.pos + end.length);
+		
+		this.number = number;
+	}
+
+	SynNumber ref number;
+}
+
 class SynBlock: SynBase
 {
 	void SynBlock(LexemeRef begin, LexemeRef end, RefList<SynBase> expressions)
@@ -1393,7 +1425,7 @@ class SynClassElements: SynBase
 
 class SynClassDefinition: SynBase
 {
-	void SynClassDefinition(LexemeRef begin, LexemeRef end, SynAlign ref alignment, SynIdentifier ref name, RefList<SynIdentifier> aliases, bool isExtendable, SynBase ref baseClass, SynClassElements ref elements)
+	void SynClassDefinition(LexemeRef begin, LexemeRef end, SynAlign ref alignment, SynIdentifier ref name, RefList<SynIdentifier> aliases, bool isExtendable, bool isStruct, SynBase ref baseClass, SynClassElements ref elements)
 	{
 		this.begin = begin;
 		this.end = end;
@@ -1405,6 +1437,7 @@ class SynClassDefinition: SynBase
 		this.name = name;
 		this.aliases = aliases;
 		this.isExtendable = isExtendable;
+		this.isStruct = isStruct;
 		this.baseClass = baseClass;
 		this.elements = elements;
 
@@ -1416,6 +1449,7 @@ class SynClassDefinition: SynBase
 	SynIdentifier ref name;
 	RefList<SynIdentifier> aliases;
 	bool isExtendable;
+	bool isStruct;
 	SynBase ref baseClass;
 	SynClassElements ref elements;
 }
