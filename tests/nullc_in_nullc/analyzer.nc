@@ -354,7 +354,7 @@ double ParseDouble(ExpressionContext ref ctx, StringRef str)
 
 	if(str.curr() == '.')
 	{
-		double power = 0.1f;
+		double power = 0.1;
 		str.advance();
 
 		digit = str.curr() - '0';
@@ -368,7 +368,7 @@ double ParseDouble(ExpressionContext ref ctx, StringRef str)
 		}
 	}
 
-	if(str.curr() == 'e')
+	if(str.curr() == 'e' || str.curr() == 'E')
 	{
 		str.advance();
 

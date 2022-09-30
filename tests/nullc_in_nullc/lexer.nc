@@ -157,6 +157,34 @@ void Lexer::Lexify(char[] code)
 
 	int curr = 0;
 
+	void parserNumber() {
+				lType = LexemeType.lex_number;
+
+				int pos = curr;
+				if(code[pos] == '0' && code[pos + 1] == 'x')
+				{
+					pos += 2;
+					while(isDigit(code[pos]) || ((code[pos] & ~0x20) >= 'A' && (code[pos] & ~0x20) <= 'F'))
+						pos++;
+				}else{
+					while(isDigit(code[pos]))
+						pos++;
+				}
+				if(code[pos] == '.')
+					pos++;
+				while(isDigit(code[pos]))
+					pos++;
+				if(code[pos] == 'e' || code[pos] == 'E')
+				{
+					pos++;
+					if(code[pos] == '-')
+						pos++;
+				}
+				while(isDigit(code[pos]))
+					pos++;
+				lLength = (pos - curr);
+	}
+
 	while(curr < code.size)
 	{
 		switch(code[curr])
@@ -194,7 +222,8 @@ void Lexer::Lexify(char[] code)
 			}
 			break;
 		case '.':
-			lType = LexemeType.lex_point;
+			if(isDigit(code[1])) parserNumber();
+			else lType = LexemeType.lex_point;
 			break;
 		case ',':
 			lType = LexemeType.lex_comma;
@@ -415,31 +444,7 @@ void Lexer::Lexify(char[] code)
 		default:
 			if(isDigit(code[curr]))
 			{
-				lType = LexemeType.lex_number;
-
-				int pos = curr;
-				if(code[pos] == '0' && code[pos + 1] == 'x')
-				{
-					pos += 2;
-					while(isDigit(code[pos]) || ((code[pos] & ~0x20) >= 'A' && (code[pos] & ~0x20) <= 'F'))
-						pos++;
-				}else{
-					while(isDigit(code[pos]))
-						pos++;
-				}
-				if(code[pos] == '.')
-					pos++;
-				while(isDigit(code[pos]))
-					pos++;
-				if(code[pos] == 'e')
-				{
-					pos++;
-					if(code[pos] == '-')
-						pos++;
-				}
-				while(isDigit(code[pos]))
-					pos++;
-				lLength = (pos - curr);
+				parserNumber();
 			}else if(chartype_table[as_unsigned(code[curr])] & int(chartype.ct_start_symbol)){
 				int pos = curr;
 				while(chartype_table[as_unsigned(code[pos])] & int(chartype.ct_symbol))
