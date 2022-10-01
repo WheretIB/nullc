@@ -1499,6 +1499,7 @@ SynBase ref ParseClassDefinition(ParseContext ref ctx)
 		SynClassElements ref elements = ParseClassElements(ctx);
 
 		CheckConsume(ctx, LexemeType.lex_cfigure, "ERROR: '}' not found after class definition");
+                ctx.Consume(LexemeType.lex_semicolon); //Optional
 
 		return new SynClassDefinition(start, ctx.Previous(), alignment, nameIdentifier, aliases, isExtendable, isStruct, baseClass, elements);
 	}
@@ -1568,6 +1569,7 @@ SynEnumDefinition ref ParseEnumDefinition(ParseContext ref ctx)
 		while(ctx.Consume(LexemeType.lex_comma));
 
 		CheckConsume(ctx, LexemeType.lex_cfigure, "ERROR: '}' not found after enum definition");
+                ctx.Consume(LexemeType.lex_semicolon); //Optional
 
 		return new SynEnumDefinition(start, ctx.Previous(), nameIdentifier, values);
 	}
