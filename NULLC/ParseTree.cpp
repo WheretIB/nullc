@@ -2398,6 +2398,7 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 	Lexeme *start = ctx.currentLexeme;
 
 	SynAlign *align = ParseAlign(ctx);
+	bool isStatic = ctx.Consume(lex_static);
 
 	if(SynBase *type = ParseType(ctx))
 	{
@@ -2768,6 +2769,8 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 	if(ctx.nonFunctionDefinitionLocations.find(unsigned(start - ctx.firstLexeme) + 1))
 		return NULL;
 
+	bool isStatic = ctx.Consume(lex_static);
+	bool isInline = ctx.Consume(lex_inline);
 	bool coroutine = ctx.Consume(lex_coroutine);
 
 	if(SynBase *returnType = ParseType(ctx))
@@ -2906,6 +2909,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 	{
 		Stop(ctx, ctx.Current(), "ERROR: function return type not found after 'coroutine'");
 	}
+        else if(isStatic) ctx.currentLexeme = start; //backtrack
 
 	return NULL;
 }

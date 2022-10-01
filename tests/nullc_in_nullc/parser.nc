@@ -2227,6 +2227,7 @@ SynVariableDefinition ref ParseVariableDefinition(ParseContext ref ctx)
 SynVariableDefinitions ref ParseVariableDefinitions(ParseContext ref ctx, bool classMembers)
 {
 	LexemeRef start = ctx.currentLexeme;
+        bool isStatic = ctx.Consume(LexemeType.lex_static);
 
 	SynAlign ref alignment = ParseAlign(ctx);
 
@@ -2599,6 +2600,8 @@ SynFunctionDefinition ref ParseFunctionDefinition(ParseContext ref ctx)
 	if(ctx.nonFunctionDefinitionLocations.find(int(start - ctx.firstLexeme) + 1))
 		return nullptr;
 
+	bool isStatic = ctx.Consume(LexemeType.lex_static);
+	bool isInline = ctx.Consume(LexemeType.lex_inline);
 	bool isCoroutine = ctx.Consume(LexemeType.lex_coroutine);
 
 	if(SynBase ref returnType = ParseType(ctx))

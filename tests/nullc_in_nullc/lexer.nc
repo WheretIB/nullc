@@ -55,7 +55,7 @@ enum LexemeType
 	lex_private, lex_public, lex_protected, lex_static, // private public protected static
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
-	lex_at,	// @
+	lex_at,	lex_inline, // @ inline
 	lex_generic, lex_const, lex_true, lex_false, lex_enum, lex_namespace, lex_extendable, lex_with, // generic const true false enum namespace extendable with
 	// it seems that there is a place where the position of the above tokes is significant
 	// do not change, add, remove anything above this line unless you find it !
@@ -524,6 +524,8 @@ void Lexer::Lexify(char[] code)
 							lType = LexemeType.lex_static;
 						else if(memcmp(code, curr, "public", 6) == 0)
 							lType = LexemeType.lex_public;
+						else if(memcmp(code, curr, "inline", 6) == 0)
+							lType = LexemeType.lex_inline;
 						break;
 					case 7:
 						if(memcmp(code, curr, "noalign", 7) == 0)

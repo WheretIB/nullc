@@ -494,6 +494,8 @@ do_lex_number:
 							lType = LexemeType::lex_static;
 						else if(memcmp(code, "public", 6) == 0)
 							lType = LexemeType::lex_public;
+						else if(memcmp(code, "inline", 6) == 0)
+							lType = LexemeType::lex_inline;
 						break;
 					case 7:
 						if(memcmp(code, "noalign", 7) == 0)
