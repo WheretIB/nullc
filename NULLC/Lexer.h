@@ -45,17 +45,14 @@ enum LexemeType
 	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, lex_modset, lex_shlset, lex_shrset, lex_andset, lex_orset, lex_xorset, // = += -= *= /= **= %= <<= >>= &= |= ^=
 	lex_bitnot, lex_lognot,	// ~ !
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
-	lex_questionmark, lex_colon, lex_semicolon, lex_dblcolon,// ? : ; ::
+	lex_questionmark, lex_colon, lex_dblcolon, lex_semicolon, // ? : :: ;
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
-	lex_break, lex_continue, lex_return, // break continue return
-	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align
+	lex_break, lex_continue, lex_goto, lex_return, // break continue goto return
+	lex_ref, lex_auto, lex_class, lex_struct, lex_noalign, lex_align, // ref auto class struct noalign align
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
 	lex_at,	// @
-	lex_generic, lex_const, lex_true, lex_false, lex_enum, lex_namespace, lex_extendable, lex_with, // generic const true false enum namespace extendable with
-	// it seems that there is a place where the position of the above tokes is significant
-	// do not change, add, remove anything above this line unless you find it !
-	lex_goto, lex_struct // goto struct
+	lex_generic, lex_const, lex_true, lex_false, lex_enum, lex_namespace, lex_extendable, lex_with // generic const true false enum namespace extendable with
 };
 
 struct Lexeme

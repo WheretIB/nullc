@@ -271,6 +271,8 @@ namespace SynNode
 		SynYield,
 		SynBreak,
 		SynContinue,
+		SynGoto,
+		SynLabel,
 		SynBlock,
 		SynIfElse,
 		SynFor,
@@ -301,10 +303,6 @@ namespace SynNode
 		SynNamespaceDefinition,
 		SynModuleImport,
 		SynModule,
-		// the order above this line seem to be important
-		// don't change, insert, delete above this line !
-		SynGoto,
-		SynLabel,
 	};
 }
 
