@@ -255,6 +255,7 @@ namespace SynNode
 		SynArray,
 		SynGenerator,
 		SynAlign,
+		SynTemplate,
 		SynTypedef,
 		SynMemberAccess,
 		SynCallArgument,
@@ -540,6 +541,17 @@ struct SynGenerator: SynBase
 	IntrusiveList<SynBase> expressions;
 
 	static const unsigned myTypeID = SynNode::SynGenerator;
+};
+
+struct SynTemplate: SynBase
+{
+	SynTemplate(Lexeme *begin, Lexeme *end, IntrusiveList<SynIdentifier> aliases): SynBase(myTypeID, begin, end), aliases(aliases)
+	{
+	}
+
+	IntrusiveList<SynIdentifier> aliases;
+
+	static const unsigned myTypeID = SynNode::SynTemplate;
 };
 
 struct SynAlign: SynBase

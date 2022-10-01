@@ -52,6 +52,7 @@ enum LexemeType
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
 	lex_break, lex_continue, lex_return, // break continue return
 	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align
+	lex_private, lex_public, lex_protected, lex_static, // private public protected static
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
 	lex_at,	// @
@@ -519,6 +520,10 @@ void Lexer::Lexify(char[] code)
 							lType = LexemeType.lex_import;
 						else if(memcmp(code, curr, "struct", 6) == 0)
 							lType = LexemeType.lex_struct;
+						else if(memcmp(code, curr, "static", 6) == 0)
+							lType = LexemeType.lex_static;
+						else if(memcmp(code, curr, "public", 6) == 0)
+							lType = LexemeType.lex_public;
 						break;
 					case 7:
 						if(memcmp(code, curr, "noalign", 7) == 0)
@@ -531,6 +536,8 @@ void Lexer::Lexify(char[] code)
 							lType = LexemeType.lex_nullptr;
 						else if(memcmp(code, curr, "generic", 7) == 0)
 							lType = LexemeType.lex_generic;
+						else if(memcmp(code, curr, "private", 7) == 0)
+							lType = LexemeType.lex_private;
 						break;
 					case 8:
 						if(memcmp(code, curr, "continue", 8) == 0)
@@ -543,6 +550,8 @@ void Lexer::Lexify(char[] code)
 							lType = LexemeType.lex_coroutine;
 						else if(memcmp(code, curr, "namespace", 9) == 0)
 							lType = LexemeType.lex_namespace;
+						else if(memcmp(code, curr, "protected", 9) == 0)
+							lType = LexemeType.lex_protected;
 						break;
 					case 10:
 						if(memcmp(code, curr, "extendable", 10) == 0)

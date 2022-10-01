@@ -923,6 +923,42 @@ SynAlign* ParseAlign(ParseContext &ctx)
 	return NULL;
 }
 
+SynTemplate* ParseTemplate(ParseContext &ctx)
+{
+	Lexeme *start = ctx.currentLexeme;
+
+	if(ctx.Consume(lex_template))
+	{
+		if(ctx.Consume(lex_less))
+		{
+                        IntrusiveList<SynIdentifier> aliases;
+
+			if(CheckAt(ctx, lex_identifier, "ERROR: template type alias required after '<'"))
+			{
+				InplaceStr alias = ctx.Consume();
+
+				aliases.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), alias));
+
+				while(ctx.Consume(lex_comma))
+				{
+					if(!CheckAt(ctx, lex_identifier, "ERROR: template type alias required after ','"))
+						break;
+
+					alias = ctx.Consume();
+
+					aliases.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), alias));
+				}
+			}
+
+			CheckConsume(ctx, lex_greater, "ERROR: '>' expected after template type alias list");
+
+                        return new (ctx.get<SynTemplate>()) SynTemplate(start, ctx.Previous(), aliases);
+		}
+	}
+
+        return NULL;
+}
+
 SynNew* ParseNew(ParseContext &ctx)
 {
 	Lexeme *start = ctx.currentLexeme;
@@ -1539,6 +1575,15 @@ SynClassElements* ParseClassElements(ParseContext &ctx)
 		}
 		else
 		{
+                        switch(ctx.Peek()) {
+                            case lex_public:
+                            case lex_private:
+                            case lex_protected:
+                                // for now only consume then and do nothing
+                                ctx.Skip();
+                                CheckConsume(ctx, lex_colon, "ERROR: ':' public/private");
+                                continue;
+                        }
 			break;
 		}
 	}

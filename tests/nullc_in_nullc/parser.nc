@@ -1414,6 +1414,15 @@ SynClassElements ref ParseClassElements(ParseContext ref ctx)
 		}
 		else
 		{
+                        switch(ctx.Peek()) {
+                            case LexemeType.lex_public:
+                            case LexemeType.lex_private:
+                            case LexemeType.lex_protected:
+                                // for now only consume then and do nothing
+                                ctx.Skip();
+                                CheckConsume(ctx, LexemeType.lex_colon, "ERROR: ':' public/private/protected");
+                                continue;
+                        }
 			break;
 		}
 	}

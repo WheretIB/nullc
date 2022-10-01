@@ -19,7 +19,7 @@ void Lexer::Lexify(const char* code)
 	const char *lineStart = code;
 	line = 0;
 
-	LexemeType lType = lex_none;
+	LexemeType lType = LexemeType::lex_none;
 	int lLength = 1;
 
 	while(*code)
@@ -50,7 +50,7 @@ void Lexer::Lexify(const char* code)
 				code++;
 			continue;
 		case '\"':
-			lType = lex_quotedstring;
+			lType = LexemeType::lex_quotedstring;
 			{
 				const char *pos = code;
 				pos++;
@@ -91,7 +91,7 @@ void Lexer::Lexify(const char* code)
 			}
 			break;
 		case '\'':
-			lType = lex_semiquotedchar;
+			lType = LexemeType::lex_semiquotedchar;
 			{
 				const char *pos = code;
 				pos++;
@@ -133,45 +133,45 @@ void Lexer::Lexify(const char* code)
 			break;
 		case '.':
                         if(isDigit(code[1])) goto do_lex_number;
-			else lType = lex_point;
+			else lType = LexemeType::lex_point;
 			break;
 		case ',':
-			lType = lex_comma;
+			lType = LexemeType::lex_comma;
 			break;
 		case '+':
-			lType = lex_add;
+			lType = LexemeType::lex_add;
 			if(code[1] == '=')
 			{
-				lType = lex_addset;
+				lType = LexemeType::lex_addset;
 				lLength = 2;
 			}else if(code[1] == '+'){
-				lType = lex_inc;
+				lType = LexemeType::lex_inc;
 				lLength = 2;
 			}
 			break;
 		case '-':
-			lType = lex_sub;
+			lType = LexemeType::lex_sub;
 			if(code[1] == '=')
 			{
-				lType = lex_subset;
+				lType = LexemeType::lex_subset;
 				lLength = 2;
 			}else if(code[1] == '-'){
-				lType = lex_dec;
+				lType = LexemeType::lex_dec;
 				lLength = 2;
 			}
 			break;
 		case '*':
-			lType = lex_mul;
+			lType = LexemeType::lex_mul;
 			if(code[1] == '=')
 			{
-				lType = lex_mulset;
+				lType = LexemeType::lex_mulset;
 				lLength = 2;
 			}else if(code[1] == '*'){
-				lType = lex_pow;
+				lType = LexemeType::lex_pow;
 				lLength = 2;
 				if(code[2] == '=')
 				{
-					lType = lex_powset;
+					lType = LexemeType::lex_powset;
 					lLength = 3;
 				}
 			}
@@ -179,7 +179,7 @@ void Lexer::Lexify(const char* code)
 		case '/':
 			if(code[1] == '=')
 			{
-				lType = lex_divset;
+				lType = LexemeType::lex_divset;
 				lLength = 2;
 			}else if(code[1] == '/'){
 				while(code[0] != '\n' && code[0] != '\0')
@@ -260,141 +260,141 @@ void Lexer::Lexify(const char* code)
 				}
 				continue;
 			}else{
-				lType = lex_div;
+				lType = LexemeType::lex_div;
 			}
 			break;
 		case '%':
-			lType = lex_mod;
+			lType = LexemeType::lex_mod;
 			if(code[1] == '=')
 			{
-				lType = lex_modset;
+				lType = LexemeType::lex_modset;
 				lLength = 2;
 			}
 			break;
 		case '<':
-			lType = lex_less;
+			lType = LexemeType::lex_less;
 			if(code[1] == '=')
 			{
-				lType = lex_lequal;
+				lType = LexemeType::lex_lequal;
 				lLength = 2;
 			}else if(code[1] == '<'){
-				lType = lex_shl;
+				lType = LexemeType::lex_shl;
 				lLength = 2;
 				if(code[2] == '=')
 				{
-					lType = lex_shlset;
+					lType = LexemeType::lex_shlset;
 					lLength = 3;
 				}
 			}
 			break;
 		case '>':
-			lType = lex_greater;
+			lType = LexemeType::lex_greater;
 			if(code[1] == '=')
 			{
-				lType = lex_gequal;
+				lType = LexemeType::lex_gequal;
 				lLength = 2;
 			}else if(code[1] == '>'){
-				lType = lex_shr;
+				lType = LexemeType::lex_shr;
 				lLength = 2;
 				if(code[2] == '=')
 				{
-					lType = lex_shrset;
+					lType = LexemeType::lex_shrset;
 					lLength = 3;
 				}
 			}
 			break;
 		case '=':
-			lType = lex_set;
+			lType = LexemeType::lex_set;
 			if(code[1] == '=')
 			{
-				lType = lex_equal;
+				lType = LexemeType::lex_equal;
 				lLength = 2;
 			}
 			break;
 		case '!':
-			lType = lex_lognot;
+			lType = LexemeType::lex_lognot;
 			if(code[1] == '=')
 			{
-				lType = lex_nequal;
+				lType = LexemeType::lex_nequal;
 				lLength = 2;
 			}
 			break;
 		case '@':
-			lType = lex_at;
+			lType = LexemeType::lex_at;
 			break;
 		case '~':
-			lType = lex_bitnot;
+			lType = LexemeType::lex_bitnot;
 			break;
 		case '&':
-			lType = lex_bitand;
+			lType = LexemeType::lex_bitand;
 			if(code[1] == '&')
 			{
-				lType = lex_logand;
+				lType = LexemeType::lex_logand;
 				lLength = 2;
 			}else if(code[1] == '='){
-				lType = lex_andset;
+				lType = LexemeType::lex_andset;
 				lLength = 2;
 			}
 			break;
 		case '|':
-			lType = lex_bitor;
+			lType = LexemeType::lex_bitor;
 			if(code[1] == '|')
 			{
-				lType = lex_logor;
+				lType = LexemeType::lex_logor;
 				lLength = 2;
 			}else if(code[1] == '='){
-				lType = lex_orset;
+				lType = LexemeType::lex_orset;
 				lLength = 2;
 			}
 			break;
 		case '^':
-			lType = lex_bitxor;
+			lType = LexemeType::lex_bitxor;
 			if(code[1] == '^')
 			{
-				lType = lex_logxor;
+				lType = LexemeType::lex_logxor;
 				lLength = 2;
 			}else if(code[1] == '='){
-				lType = lex_xorset;
+				lType = LexemeType::lex_xorset;
 				lLength = 2;
 			}
 			break;
 		case '(':
-			lType = lex_oparen;
+			lType = LexemeType::lex_oparen;
 			break;
 		case ')':
-			lType = lex_cparen;
+			lType = LexemeType::lex_cparen;
 			break;
 		case '[':
-			lType = lex_obracket;
+			lType = LexemeType::lex_obracket;
 			break;
 		case ']':
-			lType = lex_cbracket;
+			lType = LexemeType::lex_cbracket;
 			break;
 		case '{':
-			lType = lex_ofigure;
+			lType = LexemeType::lex_ofigure;
 			break;
 		case '}':
-			lType = lex_cfigure;
+			lType = LexemeType::lex_cfigure;
 			break;
 		case '?':
-			lType = lex_questionmark;
+			lType = LexemeType::lex_questionmark;
 			break;
 		case ':':
                         if(code[1] == ':')
 			{
-				lType = lex_dblcolon;
+				lType = LexemeType::lex_dblcolon;
 				lLength = 2;
 			}
-                        else lType = lex_colon;
+                        else lType = LexemeType::lex_colon;
 			break;
 		case ';':
-			lType = lex_semicolon;
+			lType = LexemeType::lex_semicolon;
 			break;
 		default:
 			if(isDigit(*code))
 			{
 do_lex_number:
-				lType = lex_number;
+				lType = LexemeType::lex_number;
 
 				const char *pos = code;
 				if(pos[0] == '0' && pos[1] == 'x')
@@ -431,99 +431,109 @@ do_lex_number:
 					{
 					case 2:
 						if(memcmp(code, "if", 2) == 0)
-							lType = lex_if;
+							lType = LexemeType::lex_if;
 						else if(memcmp(code, "in", 2) == 0)
-							lType = lex_in;
+							lType = LexemeType::lex_in;
 						else if(memcmp(code, "do", 2) == 0)
-							lType = lex_do;
+							lType = LexemeType::lex_do;
 						break;
 					case 3:
 						if(memcmp(code, "for", 3) == 0)
-							lType = lex_for;
+							lType = LexemeType::lex_for;
 						else if(memcmp(code, "ref", 3) == 0)
-							lType = lex_ref;
+							lType = LexemeType::lex_ref;
 						else if(memcmp(code, "new", 3) == 0)
-							lType = lex_new;
+							lType = LexemeType::lex_new;
 						break;
 					case 4:
 						if(memcmp(code, "case", 4) == 0)
-							lType = lex_case;
+							lType = LexemeType::lex_case;
 						else if(memcmp(code, "else", 4) == 0)
-							lType = lex_else;
+							lType = LexemeType::lex_else;
 						else if(memcmp(code, "auto", 4) == 0)
-							lType = lex_auto;
+							lType = LexemeType::lex_auto;
 						else if(memcmp(code, "true", 4) == 0)
-							lType = lex_true;
+							lType = LexemeType::lex_true;
 						else if(memcmp(code, "enum", 4) == 0)
-							lType = lex_enum;
+							lType = LexemeType::lex_enum;
 						else if(memcmp(code, "with", 4) == 0)
-							lType = lex_with;
+							lType = LexemeType::lex_with;
 						else if(memcmp(code, "goto", 4) == 0)
-							lType = lex_goto;
+							lType = LexemeType::lex_goto;
 						break;
 					case 5:
 						if(memcmp(code, "while", 5) == 0)
-							lType = lex_while;
+							lType = LexemeType::lex_while;
 						else if(memcmp(code, "break", 5) == 0)
-							lType = lex_break;
+							lType = LexemeType::lex_break;
 						else if(memcmp(code, "class", 5) == 0)
-							lType = lex_class;
+							lType = LexemeType::lex_class;
 						else if(memcmp(code, "align", 5) == 0)
-							lType = lex_align;
+							lType = LexemeType::lex_align;
 						else if(memcmp(code, "yield", 5) == 0)
-							lType = lex_yield;
+							lType = LexemeType::lex_yield;
 						else if(memcmp(code, "const", 5) == 0)
-							lType = lex_const;
+							lType = LexemeType::lex_const;
 						else if(memcmp(code, "false", 5) == 0)
-							lType = lex_false;
+							lType = LexemeType::lex_false;
 						break;
 					case 6:
 						if(memcmp(code, "switch", 6) == 0)
-							lType = lex_switch;
+							lType = LexemeType::lex_switch;
 						else if(memcmp(code, "return", 6) == 0)
-							lType = lex_return;
+							lType = LexemeType::lex_return;
 						else if(memcmp(code, "typeof", 6) == 0)
-							lType = lex_typeof;
+							lType = LexemeType::lex_typeof;
 						else if(memcmp(code, "sizeof", 6) == 0)
-							lType = lex_sizeof;
+							lType = LexemeType::lex_sizeof;
 						else if(memcmp(code, "import", 6) == 0)
-							lType = lex_import;
+							lType = LexemeType::lex_import;
 						else if(memcmp(code, "struct", 6) == 0)
-							lType = lex_struct;
+							lType = LexemeType::lex_struct;
+						else if(memcmp(code, "static", 6) == 0)
+							lType = LexemeType::lex_static;
+						else if(memcmp(code, "public", 6) == 0)
+							lType = LexemeType::lex_public;
 						break;
 					case 7:
 						if(memcmp(code, "noalign", 7) == 0)
-							lType = lex_noalign;
+							lType = LexemeType::lex_noalign;
 						else if(memcmp(code, "default", 7) == 0)
-							lType = lex_default;
+							lType = LexemeType::lex_default;
 						else if(memcmp(code, "typedef", 7) == 0)
-							lType = lex_typedef;
+							lType = LexemeType::lex_typedef;
 						else if(memcmp(code, "nullptr", 7) == 0)
-							lType = lex_nullptr;
+							lType = LexemeType::lex_nullptr;
 						else if(memcmp(code, "generic", 7) == 0)
-							lType = lex_generic;
+							lType = LexemeType::lex_generic;
+						else if(memcmp(code, "private", 7) == 0)
+							lType = LexemeType::lex_private;
 						break;
 					case 8:
 						if(memcmp(code, "continue", 8) == 0)
-							lType = lex_continue;
+							lType = LexemeType::lex_continue;
 						else if(memcmp(code, "operator", 8) == 0)
-							lType = lex_operator;
+							lType = LexemeType::lex_operator;
+						else if(memcmp(code, "template", 8) == 0)
+							lType = LexemeType::lex_template;
 						break;
 					case 9:
 						if(memcmp(code, "coroutine", 9) == 0)
-							lType = lex_coroutine;
+							lType = LexemeType::lex_coroutine;
 						else if(memcmp(code, "namespace", 9) == 0)
-							lType = lex_namespace;
+							lType = LexemeType::lex_namespace;
+						else if(memcmp(code, "protected", 9) == 0)
+							lType = LexemeType::lex_protected;
 						break;
 					case 10:
 						if(memcmp(code, "extendable", 10) == 0)
-							lType = lex_extendable;
+							lType = LexemeType::lex_extendable;
 						break;
 					}
 				}
 
-				if(lType == lex_none)
-					lType = lex_identifier;
+				if(lType == LexemeType::lex_none)
+					lType = LexemeType::lex_identifier;
 			}
 		}
 		Lexeme lex;
@@ -539,13 +549,13 @@ do_lex_number:
 		lexems.push_back(lex);
 
 		code += lLength;
-		lType = lex_none;
+		lType = LexemeType::lex_none;
 		lLength = 1;
 	}
 
 	Lexeme lex;
 
-	lex.type = lex_none;
+	lex.type = LexemeType::lex_none;
 	lex.length = 1;
 
 	lex.pos = code;

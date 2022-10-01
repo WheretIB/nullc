@@ -48,7 +48,8 @@ enum LexemeType
 	lex_questionmark, lex_colon, lex_dblcolon, lex_semicolon, // ? : :: ;
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
 	lex_break, lex_continue, lex_goto, lex_return, // break continue goto return
-	lex_ref, lex_auto, lex_class, lex_struct, lex_noalign, lex_align, // ref auto class struct noalign align
+	lex_ref, lex_auto, lex_class, lex_struct, lex_template, lex_noalign, lex_align, // ref auto class struct template noalign align
+	lex_private, lex_public, lex_protected, lex_static, // private public protected static
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
 	lex_at,	// @
