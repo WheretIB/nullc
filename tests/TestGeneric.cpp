@@ -1899,7 +1899,7 @@ const char *testGenericClassOperatorInANamespace =
 	\r\n\
 	int operator+(Foo a, generic b){return a.a + b.a; }\r\n\
 }\r\n\
-auto x = Test.Foo(1), y = Test.Foo(20);\r\n\
+auto x = Test::Foo(1), y = Test::Foo(20);\r\n\
 return x + y;";
 TEST_RESULT("Generic operator of a class defined in a namespace", testGenericClassOperatorInANamespace, "21");
 

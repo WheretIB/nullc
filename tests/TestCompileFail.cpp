@@ -146,7 +146,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: ambiguity, there is more than one overloaded function available:");
 
 	TEST_FOR_FAIL("Class externally defined method 1", "int dontexist::don(){ return 0; } return 1;", "ERROR: 'dontexist' is not a known type name");
-	TEST_FOR_FAIL("Class externally defined method 2", "int int::(){ return *this; } return 1;", "ERROR: function name expected after ':' or '.'");
+	TEST_FOR_FAIL("Class externally defined method 2", "int int::(){ return *this; } return 1;", "ERROR: function name expected after '::' or '.'");
 
 	TEST_FOR_FAIL("Member variable or function is not found", "int a; a.b; return 1;", "ERROR: member variable or function 'b' is not defined in class 'int'");
 
@@ -598,7 +598,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("namespace error", "namespace Test{} int Test;", "ERROR: name 'Test' is already taken for a namespace");
 	TEST_FOR_FAIL("namespace error", "int Test; namespace Test{}", "ERROR: name 'Test' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ int foo(){ return 12; } } return foo();", "ERROR: unknown identifier 'foo'");
-	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested.x;", "ERROR: unknown identifier 'Nested'");
+	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested::x;", "ERROR: unknown identifier 'Nested'");
 
 	TEST_FOR_FAIL("enum error", "namespace Test{} enum Test{ A }", "ERROR: name 'Test' is already taken for a namespace");
 	TEST_FOR_FAIL("enum error", "enum Test{ A } namespace Test{}", "ERROR: name 'Test' is already taken for a type");
@@ -606,7 +606,7 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("no biggy", "int[1024 * 1024 * 1024] f; f[3] = 0;", "ERROR: variable size limit exceeded");
 
-	TEST_FOR_FAIL("namespace error", "int foo(){ namespace Test{ int x; } return Test.x; }", "ERROR: a namespace definition must appear either at file scope or immediately within another namespace definition");
+	TEST_FOR_FAIL("namespace error", "int foo(){ namespace Test{ int x; } return Test::x; }", "ERROR: a namespace definition must appear either at file scope or immediately within another namespace definition");
 
 	TEST_FOR_FAIL("reserved function", "int __newS(){ return 4; }", "ERROR: function '__newS' is reserved");
 	TEST_FOR_FAIL("reserved function", "int __newA(){ return 4; }", "ERROR: function '__newA' is reserved");

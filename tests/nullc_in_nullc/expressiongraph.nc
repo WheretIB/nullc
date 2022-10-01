@@ -138,7 +138,7 @@ void Print(ExpressionGraphContext ref ctx, char[] format, auto ref[] args)
 									tmp[tmp.size - 1] = 0;
 								}
 
-								memory.copy(tmp, tmp.size - intStr.size, intStr, 0, intStr.size - 1);
+								memory::copy(tmp, tmp.size - intStr.size, intStr, 0, intStr.size - 1);
 
 								intStr = tmp;
 							}

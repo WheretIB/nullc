@@ -534,11 +534,11 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 
 		SynNamespaceElement *ns = NULL;
 
-		while(ctx.At(lex_point) && (ns = ctx.IsNamespace(ns, name)) != NULL)
+		while(ctx.At(lex_dblcolon) && (ns = ctx.IsNamespace(ns, name)) != NULL)
 		{
 			ctx.Skip();
 
-			if(!CheckAt(ctx, lex_identifier, "ERROR: namespace member is expected after '.'"))
+			if(!CheckAt(ctx, lex_identifier, "ERROR: namespace member is expected after '::'"))
 			{
 				namespacePath.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(start, ctx.Previous(), name));
 
@@ -1715,9 +1715,9 @@ SynNamespaceDefinition* ParseNamespaceDefinition(ParseContext &ctx)
 			path.push_back(new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), value));
 		}
 
-		while(ctx.Consume(lex_point))
+		while(ctx.Consume(lex_dblcolon))
 		{
-			if(!CheckAt(ctx, lex_identifier, "ERROR: namespace name required after '.'"))
+			if(!CheckAt(ctx, lex_identifier, "ERROR: namespace name required after '::'"))
 				break;
 
 			InplaceStr value = ctx.Consume();
@@ -2789,7 +2789,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		}
 		else if(parentType)
 		{
-			Stop(ctx, ctx.Current(), "ERROR: function name expected after ':' or '.'");
+			Stop(ctx, ctx.Current(), "ERROR: function name expected after '::' or '.'");
 		}
 		else if(coroutine && !allowEmptyName)
 		{

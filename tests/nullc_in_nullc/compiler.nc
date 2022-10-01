@@ -1242,7 +1242,7 @@ ByteCode ref GetBytecode(CompilerContext ref ctx)
 				}
 				else if(ExprRationalLiteral ref node = getType with<ExprRationalLiteral>(curr.value))
 				{
-					constant.value = memory.as_long(node.value);
+					constant.value = memory::as_long(node.value);
 				}
 
 				debugSymbols.push_back(curr.name.name.data, curr.name.name.begin, curr.name.name.length());
@@ -2008,7 +2008,7 @@ ByteCode ref BuildModuleFromSource(string modulePath, string moduleRoot, string 
 		c.pos = newStart + (c.pos - code);
 	}*/
 
-	BinaryCache.PutBytecode(modulePath, bytecode, lexer.lexems.data);
+	BinaryCache::PutBytecode(modulePath, bytecode, lexer.lexems.data);
 
 	return bytecode;
 }
@@ -2018,7 +2018,7 @@ char[] FindFileContentInImportPaths(string moduleName, string moduleRoot, bool a
 	char[] fileContent = nullptr;
 
 	int modulePathPos = 0;
-	string ref modulePath = BinaryCache.EnumImportPath(modulePathPos++);
+	string ref modulePath = BinaryCache::EnumImportPath(modulePathPos++);
 	while(modulePath)
 	{
 		string path = modulePath + moduleRoot + (moduleRoot.empty() ? "" : "/") + moduleName;
@@ -2039,7 +2039,7 @@ char[] FindFileContentInImportPaths(string moduleName, string moduleRoot, bool a
 		if(fileContent)
 			break;
 
-		modulePath = BinaryCache.EnumImportPath(modulePathPos++);
+		modulePath = BinaryCache::EnumImportPath(modulePathPos++);
 	}
 
 	return fileContent;
@@ -2119,7 +2119,7 @@ ByteCode ref BuildModuleFromPath(string moduleName, string moduleRoot, bool addE
 /*
 bool AddModuleFunction(const char* module, void (*ptrRaw)(), void *funcWrap, void (*ptrWrap)(void *func, char* retBuf, char* argBuf), const char* name, int index, const char **errorPos, char *errorBuf, int errorBufSize, int optimizationLevel)
 {
-	const char *bytecode = BinaryCache.FindBytecode(module, true);
+	const char *bytecode = BinaryCache::FindBytecode(module, true);
 
 	// Create module if not found
 	if(!bytecode)

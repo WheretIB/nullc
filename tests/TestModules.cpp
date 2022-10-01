@@ -114,14 +114,14 @@ TEST_RESULT("Enum import 3", testImportEnum3, "1");
 LOAD_MODULE(test_importnamespacecoroutine, "test.importnamespacecoroutine", "namespace Foo{coroutine int foo(){return 0;}}");
 const char	*testImportNamespaceCoroutine =
 "import test.importnamespacecoroutine;\r\n\
-for(i in Foo.foo){}\r\n\
+for(i in Foo::foo){}\r\n\
 return 1;";
 TEST_RESULT("Import coroutine from a namespace", testImportNamespaceCoroutine, "1");
 
 LOAD_MODULE(test_importnamespacecoroutine2, "test.importnamespacecoroutine2", "import std.range; namespace Foo{coroutine int foo(){return 5;}}");
 const char	*testImportNamespaceCoroutine2 =
 "import test.importnamespacecoroutine2;\r\n\
-auto y = Foo.foo;\r\n\
+auto y = Foo::foo;\r\n\
 return y();";
 TEST_RESULT("Import coroutine from a namespace 2", testImportNamespaceCoroutine2, "5");
 

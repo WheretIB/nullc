@@ -821,16 +821,16 @@ const char	*testClassAssignmentOperator2 =
 	}\r\n\
 }\r\n\
 \r\n\
-A.Foo a;\r\n\
+A::Foo a;\r\n\
 a.a = new int(4);\r\n\
-A.Foo b = a;\r\n\
+A::Foo b = a;\r\n\
 *b.a = 10;\r\n\
 \r\n\
 assert(a.a != b.a);\r\n\
 assert(*a.a == 4);\r\n\
 assert(*b.a == 10);\r\n\
 \r\n\
-A.Bar1 m1, n1;\r\n\
+A::Bar1 m1, n1;\r\n\
 m1.x = 7;\r\n\
 m1.y.a = &m1.x;\r\n\
 \r\n\
@@ -1182,13 +1182,13 @@ TEST_RESULT("Class custom construction inside a member function", testClassCusto
 
 const char	*testEnumeration3 =
 "namespace Foo{ enum Bar{ C, D } }\r\n\
-Foo.Bar y = Foo.Bar(1);\r\n\
+Foo::Bar y = Foo::Bar(1);\r\n\
 return y;";
 TEST_RESULT("Enumeration test 3", testEnumeration3, "1");
 
 const char	*testEnumeration4 =
 "namespace Foo{ enum Bar{ C, D } }\r\n\
-Foo.Bar y = Foo.Bar(1);\r\n\
+Foo::Bar y = Foo::Bar(1);\r\n\
 return int(y);";
 TEST_RESULT("Enumeration test 4", testEnumeration4, "1");
 

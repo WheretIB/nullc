@@ -250,6 +250,6 @@ StringRef InplaceStr.end_ref()
 char[] FMT_ISTR(InplaceStr str)
 {
 	auto result = new char[str.length() + 1];
-	memory.copy(result, 0, str.data, str.begin, str.length());
+	memory::copy(result, 0, str.data, str.begin, str.length());
 	return result;
 }

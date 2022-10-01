@@ -10723,9 +10723,9 @@ void ImportModuleDependencies(ExpressionContext ref ctx, SynBase ref source, Mod
 
 		StringRef moduleFileName = StringRef(symbols, moduleInfo.nameOffset);
 
-		ByteCode ref bytecode = BinaryCache.FindBytecode(string(moduleFileName), false);
+		ByteCode ref bytecode = BinaryCache::FindBytecode(string(moduleFileName), false);
 
-		Lexeme[] lexStream = BinaryCache.FindLexems(string(moduleFileName), false);
+		Lexeme[] lexStream = BinaryCache::FindLexems(string(moduleFileName), false);
 
 		if(!bytecode)
 			Stop(ctx, source, "ERROR: module dependency import is not implemented");
@@ -10750,7 +10750,7 @@ void ImportModuleDependencies(ExpressionContext ref ctx, SynBase ref source, Mod
 			moduleData.lexer.Lexify(FindSource(moduleData.bytecode));
 			lexStream = moduleData.lexer.lexems.data;
 
-			BinaryCache.PutLexemes(string(moduleFileName), lexStream);
+			BinaryCache::PutLexemes(string(moduleFileName), lexStream);
 		}
 
 		moduleData.lexStream = lexStream;
@@ -11248,7 +11248,7 @@ void ImportModuleTypes(ExpressionContext ref ctx, SynBase ref source, ModuleCont
 						}
 						else if(ctx.IsFloatingPointType(constantType))
 						{
-							double data = memory.as_double(constantInfo.value);
+							double data = memory::as_double(constantInfo.value);
 							value = new ExprRationalLiteral(source, constantType, data);
 						}
 							
@@ -11720,7 +11720,7 @@ void ImportModule(ExpressionContext ref ctx, SynBase ref source, ByteCode ref by
 
 		/*assert(!*name.end);*/
 
-		BinaryCache.PutLexemes(string(name), lexStream);
+		BinaryCache::PutLexemes(string(name), lexStream);
 	}
 	else
 	{
@@ -11763,9 +11763,9 @@ void AnalyzeModuleImport(ExpressionContext ref ctx, SynModuleImport ref syntax)
 	//TRACE_SCOPE("analyze", "AnalyzeModuleImport");
 	//TRACE_LABEL2(moduleName.begin, moduleName.end);
 
-	ByteCode ref bytecode = BinaryCache.FindBytecode(string(moduleName), false);
+	ByteCode ref bytecode = BinaryCache::FindBytecode(string(moduleName), false);
 
-	Lexeme[] lexStream = BinaryCache.FindLexems(string(moduleName), false);
+	Lexeme[] lexStream = BinaryCache::FindLexems(string(moduleName), false);
 
 	if(!bytecode)
 		Stop(ctx, syntax, "ERROR: module import is not implemented");
@@ -11980,9 +11980,9 @@ ExprModule ref AnalyzeModule(ExpressionContext ref ctx, SynModule ref syntax)
 	//TRACE_SCOPE("analyze", "AnalyzeModule");
 
 	// Import base module
-	if(ByteCode ref bytecode = BinaryCache.GetBytecode(string("$base$.nc")))
+	if(ByteCode ref bytecode = BinaryCache::GetBytecode(string("$base$.nc")))
 	{
-		Lexeme[] lexStream = BinaryCache.GetLexems(string("$base$.nc"));
+		Lexeme[] lexStream = BinaryCache::GetLexems(string("$base$.nc"));
 
 		if(bytecode)
 			ImportModule(ctx, syntax, bytecode, lexStream, InplaceStr("$base$.nc"));
