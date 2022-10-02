@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-const char	*testMissingTests = 
+const char	*testMissingTests =
 "long a1 = 01, a2 = 0377, a3 = 01777777, a4 = 017777777777777777;\r\n\
 long b1 = 0b, b2 = 1b, b3 = 1111111111100001010100101b, b4 = 101010101101010101011010101010011101011010010101110101010101001b;\r\n\
 \r\n\
@@ -431,13 +431,13 @@ int CheckAlignmentStruct(NULLCRef ptr)
 	return obj->x == 0x34 && obj->y == 32.0 && obj->z == 0x45;
 }
 
-LOAD_MODULE_BIND(test_alignment_struct, "test.alignment.struct", "int CheckAlignmentStruct(auto ref ptr);")
+LOAD_MODULE_BIND(test_alignment_struct, "test.alignment.xstruct", "int CheckAlignmentStruct(auto ref ptr);")
 {
-	nullcBindModuleFunctionHelper("test.alignment.struct", CheckAlignmentStruct, "CheckAlignmentStruct", 0);
+	nullcBindModuleFunctionHelper("test.alignment.xstruct", CheckAlignmentStruct, "CheckAlignmentStruct", 0);
 }
 
 const char	*testAlignmentPadding4 =
-"import test.alignment.struct;\r\n\
+"import test.alignment.xstruct;\r\n\
 class X{ char x; double v; char z; }\r\n\
 X x;\r\n\
 x.x = 0x34;\r\n\
@@ -815,7 +815,7 @@ TEST_RESULT("Fuzzing crash result 11 (removal of unused block that defines instr
 
 const char	*testFuzzingCrash12 =
 "class Foo{ int a, b, c; }\r\n\
-void int:int(Foo x){ *this = sizeof(Foo); }\r\n\
+void int::int(Foo x){ *this = sizeof(Foo); }\r\n\
 return int(*new Foo{int(*new Foo{\r\n\
 int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
 int(*new Foo{int(*new Foo{int(*new Foo{\r\n\
@@ -1180,7 +1180,7 @@ total += -arr11[0] + -arr11[8];\r\n\
 return total;";
 TEST_RESULT("Array lowering check 6", testArrayLowering6, "10");
 
-const char	*testArrayLowering7 = 
+const char	*testArrayLowering7 =
 "int a(auto ref[] args){ return args.size; }\r\n\
 int b(bool ctx){ return a(ctx ? char[](\"a, \") : char[](\"\"), ctx ? char[](\"b, \") : char[](\"\"), ctx ? char[](\"c, \") : char[](\"\")); }\r\n\
 return b(true);";
@@ -1700,7 +1700,7 @@ const char *testLargeValueReferencePropagation2 =
 	char[] data;\r\n\
 }\r\n\
 \r\n\
-void string:string(char[] right)\r\n\
+void string::string(char[] right)\r\n\
 {\r\n\
 	data = duplicate(right);\r\n\
 }\r\n\

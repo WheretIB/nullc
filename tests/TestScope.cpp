@@ -105,7 +105,7 @@ const char	*testTypedefScopeTypeReturn =
 	typedef int[2] data;\r\n\
 	data x;\r\n\
 }\r\n\
-int TypeA:func(){ data y = x; return y[0] * y[1]; }\r\n\
+int TypeA::func(){ data y = x; return y[0] * y[1]; }\r\n\
 TypeA a;\r\n\
 a.x[0] = 5; a.x[1] = 4;\r\n\
 class TypeB\r\n\
@@ -113,7 +113,7 @@ class TypeB\r\n\
 	typedef float[2] data;\r\n\
 	data x;\r\n\
 }\r\n\
-int TypeB:func(){ data y = x; return y[0] / y[1]; }\r\n\
+int TypeB::func(){ data y = x; return y[0] / y[1]; }\r\n\
 TypeB b;\r\n\
 b.x[0] = 3.6; b.x[1] = 0.5;\r\n\
 typedef int data;\r\n\

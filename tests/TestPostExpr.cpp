@@ -3,7 +3,7 @@
 const char	*testPostExpressions =
 "typedef char[] string;\r\n\
 \r\n\
-int string:find(char a)\r\n\
+int string::find(char a)\r\n\
 {\r\n\
 	int i = 0;\r\n\
 	while(i < this.size && this[i] != a)\r\n\

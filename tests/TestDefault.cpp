@@ -111,7 +111,7 @@ const char	*testDefaultFunctionArgumentsInPrototype2 =
 {\r\n\
 	int test(int a, int b = 10);\r\n\
 }\r\n\
-int Foo:test(int a, int b){ return a + b; }\r\n\
+int Foo::test(int a, int b){ return a + b; }\r\n\
 Foo a;\r\n\
 return a.test(4);";
 TEST_RESULT("Default function arguments from prototype 2", testDefaultFunctionArgumentsInPrototype2, "14");
@@ -122,7 +122,7 @@ const char	*testDefaultFunctionArgumentExport7 =
 return test(4);";
 TEST_RESULT("Default function argument export and import 7", testDefaultFunctionArgumentExport7, "14");
 
-LOAD_MODULE(test_defargs8, "test.defargs8", "class Foo{ int test(int a, int b = 10); } int Foo:test(int a, int b){ return a + b; }");
+LOAD_MODULE(test_defargs8, "test.defargs8", "class Foo{ int test(int a, int b = 10); } int Foo::test(int a, int b){ return a + b; }");
 const char	*testDefaultFunctionArgumentExport8 =
 "import test.defargs8;\r\n\
 Foo a;\r\n\

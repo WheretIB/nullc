@@ -1785,8 +1785,8 @@ TEST("Generic coroutine import (same instantitaion in local scopes)", testGeneri
 
 const char *testGeneric154 =
 "class F{}\r\n\
-int F:f(generic x){ return 2; }\r\n\
-float F:f(generic x){ return 2; }\r\n\
+int F::f(generic x){ return 2; }\r\n\
+float F::f(generic x){ return 2; }\r\n\
 F a;\r\n\
 int operator+(int a, int ref(int) b){ return a + b(1); }\r\n\
 return 1 + a.f;";
@@ -1899,13 +1899,13 @@ const char *testGenericClassOperatorInANamespace =
 	\r\n\
 	int operator+(Foo a, generic b){return a.a + b.a; }\r\n\
 }\r\n\
-auto x = Test.Foo(1), y = Test.Foo(20);\r\n\
+auto x = Test::Foo(1), y = Test::Foo(20);\r\n\
 return x + y;";
 TEST_RESULT("Generic operator of a class defined in a namespace", testGenericClassOperatorInANamespace, "21");
 
 const char *testGenericClassMemberFunction =
 "class F{ int x; }\r\n\
-void F:F<@J>(int a){ x = a * sizeof(J); }\r\n\
+void F::F<@J>(int a){ x = a * sizeof(J); }\r\n\
 auto x = F with<int>(5);\r\n\
 return x.x;";
 TEST_RESULT("Generic member function of a regular class", testGenericClassMemberFunction, "20");

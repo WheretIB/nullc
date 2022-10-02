@@ -30,6 +30,8 @@ int strcmp(char[] a, b);
 // Error is generated if either array is empty of not null-terminated
 int strcpy(char[] dst, src);
 
+int luamatch(char[] str, pattern, int offset = 0, int max_size=0);
+
 // String class to use instead of error-prone raw character arrays
 class string
 {
@@ -37,12 +39,12 @@ class string
 }
 
 // Empty constructor
-void string:string()
+void string::string()
 {
 }
 
 // Basic constructor
-void string:string(char[] right)
+void string::string(char[] right)
 {
 	if(right.size == 0)
 		return;
@@ -68,7 +70,7 @@ void string:string(char[] right)
 }
 
 // Fill constructor
-void string:string(int count, char ch)
+void string::string(int count, char ch)
 {
 	assert(count >= 0);
 
@@ -81,7 +83,7 @@ void string:string(int count, char ch)
 }
 
 // Copy constructor
-void string:string(string ref right)
+void string::string(string ref right)
 {
 	if(right.data)
 		this.data = duplicate(right.data);
@@ -144,19 +146,19 @@ int string.size()
 }
 
 // Length of the string excluding the terminating null-character
-int string:length()
+int string::length()
 {
 	return data.size ? data.size - 1 : 0;
 }
 
 // Clears the string
-void string:clear()
+void string::clear()
 {
 	data = nullptr;
 }
 
 // Checks that the string is empty
-bool string:empty()
+bool string::empty()
 {
 	return data.size <= 1;
 }
@@ -185,13 +187,13 @@ string operator[](string ref left, int start, int end)
 }
 
 // First character
-char ref string:front()
+char ref string::front()
 {
 	return &data[0];
 }
 
 // Last character not counting the null-character
-char ref string:back()
+char ref string::back()
 {
 	return &data[data.size - 2];
 }
@@ -210,7 +212,7 @@ string ref operator+=(string ref left, char[] right)
 }
 
 // Inserts a string before the specified character
-string ref string:insert(int offset, string ref str)
+string ref string::insert(int offset, string ref str)
 {
 	// No change on attempt to insert empty string
 	if(str.size == 0)
@@ -238,19 +240,19 @@ string ref string:insert(int offset, string ref str)
 	return this;
 }
 
-string ref string:insert(int offset, char[] str)
+string ref string::insert(int offset, char[] str)
 {
 	return this.insert(offset, string(str));
 }
 
-string ref string:insert(int offset, int count, char ch)
+string ref string::insert(int offset, int count, char ch)
 {
 	return this.insert(offset, string(count, ch));
 }
 
 // If the length is specified, erases the selected number of characters starting from the specified character
 // If the length is not specified, erases all the characters starting from the specified character
-string ref string:erase(int offset, int length = -1)
+string ref string::erase(int offset, int length = -1)
 {
 	if(length < 0 || length > data.size - offset)
 		length = data.size - offset - 1;
@@ -275,7 +277,7 @@ string ref string:erase(int offset, int length = -1)
 }
 
 // Erases the selected number of characters starting from the specified character and replaces them with a specified string 
-string ref string:replace(int offset, int length, string ref str)
+string ref string::replace(int offset, int length, string ref str)
 {
 	assert(offset == 0 || (offset > 0 && offset < data.size));
 
@@ -297,32 +299,32 @@ string ref string:replace(int offset, int length, string ref str)
 	return this;
 }
 
-string ref string:replace(int offset, int length, char[] str)
+string ref string::replace(int offset, int length, char[] str)
 {
 	return replace(offset, length, string(str));
 }
 
-string ref string:replace(int offset, int length, int count, char ch)
+string ref string::replace(int offset, int length, int count, char ch)
 {
 	return this.replace(offset, length, string(count, ch));
 }
 
 // Swap string data with another string
-void string:swap(string ref right)
+void string::swap(string ref right)
 {
 	char[] tmp = data;
 	data = right.data;
 	right.data = tmp;
 }
 
-void string:swap(char[] right)
+void string::swap(char[] right)
 {
 	data = right;
 }
 
 // Returns the position of the first occurance of the specified string or -1 if it is not found
 // Optional offset specifies how many characters to skip from the start of the string during the search
-int string:find(string ref str, int offset = 0)
+int string::find(string ref str, int offset = 0)
 {
 	int last = data.size - str.data.size + 1;
 
@@ -341,12 +343,12 @@ int string:find(string ref str, int offset = 0)
 	return -1;
 }
 
-int string:find(char[] str, int offset = 0)
+int string::find(char[] str, int offset = 0)
 {
 	return find(string(str), offset);
 }
 
-int string:find(char ch, int offset = 0)
+int string::find(char ch, int offset = 0)
 {
 	for(int i = offset; i < data.size - 1; i++)
 	{
@@ -359,7 +361,7 @@ int string:find(char ch, int offset = 0)
 
 // Returns the position of the last occurance of the specified string or -1 if it is not found
 // Optional offset specifies how many characters to consider in the search counting from the beginning of the string including the character at the specified offset
-int string:rfind(string ref str, int offset = -1)
+int string::rfind(string ref str, int offset = -1)
 {
 	if(str.data.size == 0)
 		return offset >= 0 && offset < data.size ? offset : size;
@@ -382,12 +384,12 @@ int string:rfind(string ref str, int offset = -1)
 	return -1;
 }
 
-int string:rfind(char[] str, int offset = -1)
+int string::rfind(char[] str, int offset = -1)
 {
 	return rfind(string(str), offset);
 }
 
-int string:rfind(char ch, int offset = -1)
+int string::rfind(char ch, int offset = -1)
 {
 	if(offset < 0 || offset >= data.size - 1)
 		offset = data.size - 2;
@@ -403,7 +405,7 @@ int string:rfind(char ch, int offset = -1)
 
 // Returns the position of the first occurance of any of the specified characters in a string or -1 if not a single match is found
 // Optional offset specifies how many characters to skip from the start of the string during the search
-int string:find_first_of(string ref str, int offset = 0)
+int string::find_first_of(string ref str, int offset = 0)
 {
 	for(int i = offset; i < data.size - 1; i++)
 	{
@@ -417,19 +419,19 @@ int string:find_first_of(string ref str, int offset = 0)
 	return -1;
 }
 
-int string:find_first_of(char[] str, int offset = 0)
+int string::find_first_of(char[] str, int offset = 0)
 {
 	return find_first_of(string(str), offset);
 }
 
-int string:find_first_of(char ch, int offset = 0)
+int string::find_first_of(char ch, int offset = 0)
 {
 	return find(ch, offset);
 }
 
 // Returns the position of the last occurance of any of the specified characters in a string or -1 if not a single match is found
 // Optional offset specifies how many characters to consider in the search counting from the beginning of the string including the character at the specified offset
-int string:find_last_of(string ref str, int offset = -1)
+int string::find_last_of(string ref str, int offset = -1)
 {
 	if(offset < 0 || offset >= data.size - 1)
 		offset = data.size - 2;
@@ -446,19 +448,19 @@ int string:find_last_of(string ref str, int offset = -1)
 	return -1;
 }
 
-int string:find_last_of(char[] str, int offset = -1)
+int string::find_last_of(char[] str, int offset = -1)
 {
 	return find_last_of(string(str), offset);
 }
 
-int string:find_last_of(char ch, int offset = -1)
+int string::find_last_of(char ch, int offset = -1)
 {
 	return rfind(ch, offset);
 }
 
 // Returns the position of the first occurance of a character that doesn't match any of the specified characters in a string or -1 if a match is found
 // Optional offset specifies how many characters to skip from the start of the string during the search
-int string:find_first_not_of(string ref str, int offset = 0)
+int string::find_first_not_of(string ref str, int offset = 0)
 {
 	for(int i = offset; i < data.size - 1; i++)
 	{
@@ -475,12 +477,12 @@ int string:find_first_not_of(string ref str, int offset = 0)
 	return -1;
 }
 
-int string:find_first_not_of(char[] str, int offset = 0)
+int string::find_first_not_of(char[] str, int offset = 0)
 {
 	return find_first_not_of(string(str), offset);
 }
 
-int string:find_first_not_of(char ch, int offset = 0)
+int string::find_first_not_of(char ch, int offset = 0)
 {
 	for(int i = offset; i < data.size - 1; i++)
 	{
@@ -493,7 +495,7 @@ int string:find_first_not_of(char ch, int offset = 0)
 
 // Returns the position of the last occurance of a character that doesn't match any of the specified characters in a string or -1 if a match is found
 // Optional offset specifies how many characters to consider in the search counting from the beginning of the string including the character at the specified offset
-int string:find_last_not_of(string ref str, int offset = -1)
+int string::find_last_not_of(string ref str, int offset = -1)
 {
 	if(offset < 0 || offset >= data.size - 1)
 		offset = data.size - 2;
@@ -513,12 +515,12 @@ int string:find_last_not_of(string ref str, int offset = -1)
 	return -1;
 }
 
-int string:find_last_not_of(char[] str, int offset = -1)
+int string::find_last_not_of(char[] str, int offset = -1)
 {
 	return find_last_not_of(string(str), offset);
 }
 
-int string:find_last_not_of(char ch, int offset = -1)
+int string::find_last_not_of(char ch, int offset = -1)
 {
 	if(offset < 0 || offset >= data.size - 1)
 		offset = data.size - 2;
@@ -539,7 +541,7 @@ bool operator in(char ch, string ref str)
 }
 
 // Returns a substring of [start, start + length) array elements
-string string:substr(int start, int length = -1)
+string string::substr(int start, int length = -1)
 {
 	if(length < 0 || start + length >= data.size)
 		length = data.size - start - 1;

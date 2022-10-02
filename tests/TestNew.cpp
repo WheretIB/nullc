@@ -23,16 +23,16 @@ return b[0]() + b[1]() + b[4]();";
 TEST_RESULT("new call with typeof", testTypeOfNew, "8");
 
 const char	*testConstructorAfterNew =
-"void int:int(int x, y){ *this = x; }\r\n\
+"void int::int(int x, y){ *this = x; }\r\n\
 int ref a = new int(5, 0);\r\n\
 int foo(int ref x){ return *x; }\r\n\
 return *a + foo(new int(30, 0));";
 TEST_RESULT("Type constructor after new.", testConstructorAfterNew, "35");
 
-const char	*testConstructorAfterNew2 = "class Test{ int x; } void Test:Test(int x){ this.x = x; } return (new Test(4)).x;";
+const char	*testConstructorAfterNew2 = "class Test{ int x; } void Test::Test(int x){ this.x = x; } return (new Test(4)).x;";
 TEST_RESULT("Type constructor after new 2.", testConstructorAfterNew2, "4");
 
-const char	*testConstructorAfterNew3 = "class Test{ int x; } void Test:Test(){ } return (new Test()).x;";
+const char	*testConstructorAfterNew3 = "class Test{ int x; } void Test::Test(){ } return (new Test()).x;";
 TEST_RESULT("Type constructor after new 3.", testConstructorAfterNew3, "0");
 
 const char	*testTypeChangeInArrayExpression = "int[] arr = new int[(int f(){ return 5; })()]; return arr.size;";

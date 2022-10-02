@@ -251,7 +251,7 @@ LOAD_MODULE(test_class_typedef, "test.class_typedef",
 }");
 const char *testClassTypeAliasImport1 =
 "import test.class_typedef;\r\n\
-void Foo:foo(){ T y; }\r\n\
+void Foo::foo(){ T y; }\r\n\
 return 1;";
 TEST_RESULT("Import of class local aliases", testClassTypeAliasImport1, "1");
 
@@ -347,7 +347,7 @@ const char	*testImplicitConstructorCallForGenericType2 =
 {\r\n\
 	T x;\r\n\
 }\r\n\
-void Foo:Foo(){ x = 42; }\r\n\
+void Foo::Foo(){ x = 42; }\r\n\
 auto x = new Foo<int>;\r\n\
 return x.x;";
 TEST_RESULT("implicit constructor call for generic types 2", testImplicitConstructorCallForGenericType2, "42");
@@ -357,8 +357,8 @@ const char	*testImplicitConstructorCallForGenericType3 =
 {\r\n\
 	T x;\r\n\
 }\r\n\
-void Foo:Foo(){ x = 10; }\r\n\
-void Foo<int>:Foo(){ x = 42; }\r\n\
+void Foo::Foo(){ x = 10; }\r\n\
+void Foo<int>::Foo(){ x = 42; }\r\n\
 auto x = new Foo<int>;\r\n\
 return x.x;";
 TEST_RESULT("implicit constructor call for generic types 3", testImplicitConstructorCallForGenericType3, "42");
@@ -378,7 +378,7 @@ const char	*testImplicitConstructorCallForGenericType5 =
 {\r\n\
 	T x;\r\n\
 }\r\n\
-void Foo:Foo(){ x = 42; }\r\n\
+void Foo::Foo(){ x = 42; }\r\n\
 auto x = new Foo<int>();\r\n\
 return x.x;";
 TEST_RESULT("implicit constructor call for generic types 5", testImplicitConstructorCallForGenericType5, "42");
@@ -388,8 +388,8 @@ const char	*testImplicitConstructorCallForGenericType6 =
 {\r\n\
 	T x;\r\n\
 }\r\n\
-void Foo:Foo(){ x = 10; }\r\n\
-void Foo<int>:Foo(){ x = 42; }\r\n\
+void Foo::Foo(){ x = 10; }\r\n\
+void Foo<int>::Foo(){ x = 42; }\r\n\
 auto x = new Foo<int>();\r\n\
 return x.x;";
 TEST_RESULT("implicit constructor call for generic types 6", testImplicitConstructorCallForGenericType6, "42");
@@ -411,7 +411,7 @@ class Foo<T>\r\n\
 {\r\n\
 	T x;\r\n\
 }\r\n\
-void Foo:Foo(){ x = m++; }\r\n\
+void Foo::Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
 TEST_RESULT_SIMPLE("constructor call for every array element 4", testConstructorForArrayElements4, "29");
@@ -422,15 +422,15 @@ class Foo<T>\r\n\
 {\r\n\
 T x;\r\n\
 }\r\n\
-void Foo:Foo(){ x = 10; }\r\n\
-void Foo<int>:Foo(){ x = m++; }\r\n\
+void Foo::Foo(){ x = 10; }\r\n\
+void Foo<int>::Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
 TEST_RESULT_SIMPLE("constructor call for every array element 5", testConstructorForArrayElements5, "29");
 
 const char	*testConstructorCallOnStaticConstructionOfGenericType1 =
 "class Foo<T>{ T curr; }\r\n\
-auto Foo:Foo(int start)\r\n\
+auto Foo::Foo(int start)\r\n\
 {\r\n\
 	curr = start;\r\n\
 }\r\n\
@@ -441,7 +441,7 @@ TEST_RESULT("member constructor call on external static construction of a generi
 const char	*testCorrectTypeAliasesInAGenericTypeConstructor =
 "class Bar<T>{ Bar<T> ref x; }\r\n\
 class Foo<T>{ T curr; }\r\n\
-auto Foo:Foo(Bar<T> ref start){ curr = 5; }\r\n\
+auto Foo::Foo(Bar<T> ref start){ curr = 5; }\r\n\
 auto a = Foo<int>(new Bar<int>);\r\n\
 return a.curr;";
 TEST_RESULT("correct type alias in a generic type constructor", testCorrectTypeAliasesInAGenericTypeConstructor, "5");
@@ -616,7 +616,7 @@ const char	*testClassConstants3 =
 {\r\n\
 	const int a = 5;\r\n\
 }\r\n\
-int Foo:foo(){ return a; }\r\n\
+int Foo::foo(){ return a; }\r\n\
 Foo m;\r\n\
 return m.foo();";
 TEST_RESULT("Class constants 3", testClassConstants3, "5");
@@ -627,7 +627,7 @@ const char	*testClassConstants4 =
 	const int a = 5;\r\n\
 	const int b = a + 5;\r\n\
 }\r\n\
-int Foo:foo(){ return a * b; }\r\n\
+int Foo::foo(){ return a * b; }\r\n\
 Foo m;\r\n\
 return m.foo();";
 TEST_RESULT("Class constants 4", testClassConstants4, "50");
@@ -688,7 +688,7 @@ TEST_RESULT("Class forward declaration 3", testClassForwardDeclaration3, "10");
 const char	*testClassForwardDeclaration4 =
 "class Node;\r\n\
 \r\n\
-int Node:foo(){ return 12; }\r\n\
+int Node::foo(){ return 12; }\r\n\
 \r\n\
 class Node\r\n\
 {\r\n\
@@ -821,16 +821,16 @@ const char	*testClassAssignmentOperator2 =
 	}\r\n\
 }\r\n\
 \r\n\
-A.Foo a;\r\n\
+A::Foo a;\r\n\
 a.a = new int(4);\r\n\
-A.Foo b = a;\r\n\
+A::Foo b = a;\r\n\
 *b.a = 10;\r\n\
 \r\n\
 assert(a.a != b.a);\r\n\
 assert(*a.a == 4);\r\n\
 assert(*b.a == 10);\r\n\
 \r\n\
-A.Bar1 m1, n1;\r\n\
+A::Bar1 m1, n1;\r\n\
 m1.x = 7;\r\n\
 m1.y.a = &m1.x;\r\n\
 \r\n\
@@ -1145,7 +1145,7 @@ TEST_RESULT("Usage of class value inside if, for, while, do while and switch sta
 
 const char	*testClassConstructorInMemberFunction =
 "class Foo{ int x; void Foo(int y){ x = y; } }\r\n\
-int Foo:xx()\r\n\
+int Foo::xx()\r\n\
 {\r\n\
 	Foo a = Foo(5);\r\n\
 	return 12;\r\n\
@@ -1176,19 +1176,19 @@ class Bar\r\n\
 {\r\n\
 	Foo ref x;\r\n\
 }\r\n\
-void Bar:Bar(){ x = new Foo{ x = 5; }; }\r\n\
+void Bar::Bar(){ x = new Foo{ x = 5; }; }\r\n\
 return (new Bar()).x.x;";
 TEST_RESULT("Class custom construction inside a member function", testClassCustomConstructorInsideAMemberFunction2, "5");
 
 const char	*testEnumeration3 =
 "namespace Foo{ enum Bar{ C, D } }\r\n\
-Foo.Bar y = Foo.Bar(1);\r\n\
+Foo::Bar y = Foo::Bar(1);\r\n\
 return y;";
 TEST_RESULT("Enumeration test 3", testEnumeration3, "1");
 
 const char	*testEnumeration4 =
 "namespace Foo{ enum Bar{ C, D } }\r\n\
-Foo.Bar y = Foo.Bar(1);\r\n\
+Foo::Bar y = Foo::Bar(1);\r\n\
 return int(y);";
 TEST_RESULT("Enumeration test 4", testEnumeration4, "1");
 
@@ -1217,8 +1217,8 @@ TEST_RESULT("Enumeration test 8", testEnumeration8, "20");
 
 const char	*testMemberFunctionCallFromLocalFunctionInsideMemberFunction =
 "class Foo{}\r\n\
-auto Foo:foo(){ return 1; }\r\n\
-auto Foo:bar(){ return coroutine auto(){ return foo(); }; }\r\n\
+auto Foo::foo(){ return 1; }\r\n\
+auto Foo::bar(){ return coroutine auto(){ return foo(); }; }\r\n\
 Foo x; return x.bar()();";
 TEST_RESULT("Member function call from local function inside a member function", testMemberFunctionCallFromLocalFunctionInsideMemberFunction, "1");
 

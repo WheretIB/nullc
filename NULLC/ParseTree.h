@@ -255,6 +255,7 @@ namespace SynNode
 		SynArray,
 		SynGenerator,
 		SynAlign,
+		SynTemplate,
 		SynTypedef,
 		SynMemberAccess,
 		SynCallArgument,
@@ -271,6 +272,8 @@ namespace SynNode
 		SynYield,
 		SynBreak,
 		SynContinue,
+		SynGoto,
+		SynLabel,
 		SynBlock,
 		SynIfElse,
 		SynFor,
@@ -540,6 +543,17 @@ struct SynGenerator: SynBase
 	static const unsigned myTypeID = SynNode::SynGenerator;
 };
 
+struct SynTemplate: SynBase
+{
+	SynTemplate(Lexeme *begin, Lexeme *end, IntrusiveList<SynIdentifier> typeAliases): SynBase(myTypeID, begin, end), typeAliases(typeAliases)
+	{
+	}
+
+	IntrusiveList<SynIdentifier> typeAliases;
+
+	static const unsigned myTypeID = SynNode::SynTemplate;
+};
+
 struct SynAlign: SynBase
 {
 	SynAlign(Lexeme *begin, Lexeme *end, SynBase* value): SynBase(myTypeID, begin, end), value(value)
@@ -738,6 +752,28 @@ struct SynContinue: SynBase
 	SynNumber* number;
 
 	static const unsigned myTypeID = SynNode::SynContinue;
+};
+
+struct SynLabel: SynBase
+{
+	SynLabel(Lexeme *begin, Lexeme *end, SynIdentifier *labeIdentifier): SynBase(myTypeID, begin, end), labeIdentifier(labeIdentifier)
+	{
+	}
+
+	SynIdentifier *labeIdentifier;
+
+	static const unsigned myTypeID = SynNode::SynLabel;
+};
+
+struct SynGoto: SynBase
+{
+	SynGoto(Lexeme *begin, Lexeme *end, SynIdentifier *labeIdentifier): SynBase(myTypeID, begin, end), labeIdentifier(labeIdentifier)
+	{
+	}
+
+	SynIdentifier *labeIdentifier;
+
+	static const unsigned myTypeID = SynNode::SynGoto;
 };
 
 struct SynBlock: SynBase
@@ -1069,7 +1105,7 @@ struct SynClassElements: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(Lexeme *begin, Lexeme *end, SynAlign* align, SynIdentifier* name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, begin, end), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
+	SynClassDefinition(Lexeme *begin, Lexeme *end, SynAlign* align, SynIdentifier* name, IntrusiveList<SynIdentifier> aliases, bool extendable, bool isStruct, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, begin, end), align(align), name(name), aliases(aliases), extendable(extendable), isStruct(isStruct), baseClass(baseClass), elements(elements)
 	{
 		imported = false;
 	}
@@ -1079,6 +1115,7 @@ struct SynClassDefinition: SynBase
 	SynIdentifier* name;
 	IntrusiveList<SynIdentifier> aliases;
 	bool extendable;
+	bool isStruct;
 	SynBase *baseClass;
 	SynClassElements *elements;
 

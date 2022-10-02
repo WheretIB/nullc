@@ -67,6 +67,7 @@ add_library (NULLC
 "includes/window.cpp" "includes/window.h"
 "includes/memory.cpp" "includes/memory.h"
 "includes/error.cpp" "includes/error.h"
+"includes/lua-regex.c" "includes/lua-regex.h"
 
 "../external/pugixml/pugixml.cpp"
 )

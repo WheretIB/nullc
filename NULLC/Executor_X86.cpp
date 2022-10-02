@@ -1214,7 +1214,7 @@ void ExecutorX86::ClearNative()
 	TRACE_SCOPE("x86", "ClearNative");
 
 	if (instList.size())
-		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+		NULLC_no_warning_memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
 	binCodeSize = 0;
@@ -1279,7 +1279,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	TRACE_SCOPE("x86", "TranslateToNative");
 
 	if(instList.size())
-		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+		NULLC_no_warning_memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 	instList.reserve(64);
 

@@ -15,20 +15,20 @@ int isPointer(auto ref type);
 char[] typeid.name();
 
 // For class types
-int		typeid:memberCount();
-typeid	typeid:memberType(int member);
-char[]	typeid:memberName(int member);
+int		typeid::memberCount();
+typeid	typeid::memberType(int member);
+char[]	typeid::memberName(int member);
 
 // For array and pointer types
-typeid	typeid:subType();
+typeid	typeid::subType();
 
 // for array types
-int		typeid:arraySize();
+int		typeid::arraySize();
 
 // for function type
-typeid	typeid:returnType();
-int		typeid:argumentCount();
-typeid	typeid:argumentType(int argument);
+typeid	typeid::returnType();
+int		typeid::argumentCount();
+typeid	typeid::argumentType(int argument);
 
 // iteration over members of a type
 class member_iterator
@@ -41,22 +41,22 @@ class member_info
 	typeid		type;
 	char[]		name;
 }
-auto typeid:members()
+auto typeid::members()
 {
 	member_iterator ret;
 	ret.classID = *this;
 	ret.pos = 0;
 	return ret;
 }
-auto member_iterator:start()
+auto member_iterator::start()
 {
 	return this;
 }
-auto member_iterator:hasnext()
+auto member_iterator::hasnext()
 {
 	return pos < classID.memberCount();
 }
-auto member_iterator:next()
+auto member_iterator::next()
 {
 	member_info ret;
 	ret.type = classID.memberType(pos);
@@ -85,7 +85,7 @@ class member_info_obj
 	char[]		name;
 	auto ref	value;
 }
-auto typeid:members(auto ref obj)
+auto typeid::members(auto ref obj)
 {
 	member_iterator_obj ret;
 	ret.classID = *this;
@@ -93,15 +93,15 @@ auto typeid:members(auto ref obj)
 	ret.pos = 0;
 	return ret;
 }
-auto member_iterator_obj:start()
+auto member_iterator_obj::start()
 {
 	return this;
 }
-auto member_iterator_obj:hasnext()
+auto member_iterator_obj::hasnext()
 {
 	return pos < classID.memberCount();
 }
-auto member_iterator_obj:next()
+auto member_iterator_obj::next()
 {
 	member_info_obj ret;
 	ret.type = classID.memberType(pos);
@@ -117,22 +117,22 @@ class argument_iterator
 	typeid funcID;
 	int pos;
 }
-auto typeid:arguments()
+auto typeid::arguments()
 {
 	argument_iterator ret;
 	ret.funcID = *this;
 	ret.pos = 0;
 	return ret;
 }
-auto argument_iterator:start()
+auto argument_iterator::start()
 {
 	return this;
 }
-auto argument_iterator:hasnext()
+auto argument_iterator::hasnext()
 {
 	return pos < funcID.argumentCount();
 }
-auto argument_iterator:next()
+auto argument_iterator::next()
 {
 	return funcID.argumentType(pos++);
 }

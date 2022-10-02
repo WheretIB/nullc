@@ -34,7 +34,7 @@ bool try_result.has_error()
 	return message != nullptr;
 }
 
-void try_result:rethrow()
+void try_result::rethrow()
 {
 	if(exception)
 		throw(exception);

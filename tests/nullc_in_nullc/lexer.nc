@@ -27,7 +27,7 @@ short[256] chartype_table =
 	192, 192, 192, 192, 192, 192, 192, 192,	192, 192, 192, 192, 192, 192, 192, 192,
 	192, 192, 192, 192, 192, 192, 192, 192,	192, 192, 192, 192, 192, 192, 192, 192
 };
-/* 
+/*
 block comment
 */
 
@@ -39,7 +39,7 @@ bool isDigit(char data)
 enum LexemeType
 {
 	lex_none,
-	lex_number, lex_string, lex_quotedstring, // *(0-9) *(a-z,A-Z,_) "*any"
+	lex_number, lex_identifier, lex_quotedstring, // *(0-9) *(a-z,A-Z,_) "*any"
 	lex_semiquotedchar, lex_point, lex_comma, // ' .
 	lex_inc, lex_dec, // ++ --
 	lex_add, lex_sub, lex_mul, lex_div, lex_mod, lex_pow, lex_less, lex_lequal, lex_shl, lex_greater, lex_gequal, lex_shr, lex_equal, lex_nequal, // + - * / % ** < <= << > >= >> == !=
@@ -48,13 +48,14 @@ enum LexemeType
 	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, lex_modset, lex_shlset, lex_shrset, lex_andset, lex_orset, lex_xorset, // = += -= *= /= **= %= <<= >>= &= |= ^=
 	lex_bitnot, lex_lognot,	// ~ !
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
-	lex_questionmark, lex_colon, lex_semicolon, // ? : ;
+	lex_questionmark, lex_colon, lex_semicolon, lex_dblcolon, // ? : ; ::
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
-	lex_break, lex_continue, lex_return, // break continue return
-	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align
+	lex_break, lex_continue, lex_goto, lex_return, // break continue goto return
+	lex_ref, lex_auto, lex_class, lex_struct, lex_template, lex_noalign, lex_align, // ref auto class struct template noalign align
+	lex_private, lex_public, lex_protected, lex_static, // private public protected static
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
-	lex_at,	// @
+	lex_at,	lex_inline, // @ inline
 	lex_generic, lex_const, lex_true, lex_false, lex_enum, lex_namespace, lex_extendable, lex_with // generic const true false enum namespace extendable with
 }
 
@@ -68,7 +69,7 @@ class Lexeme
 class Lexer
 {
 	char[] code;
-	
+
 	vector<Lexeme> lexems;
 }
 
@@ -141,22 +142,50 @@ bool bool(LexemeRef lexeme)
 	return lexeme.owner != nullptr;
 }
 
-void Lexer:Clear(int count)
+void Lexer::Clear(int count)
 {
 	lexems.resize(count);
 }
 
-void Lexer:Lexify(char[] code)
+void Lexer::Lexify(char[] code)
 {
 	this.code = code;
-	
+
 	lexems.reserve(2048);
 
 	LexemeType lType = LexemeType.lex_none;
 	int lLength = 1;
 
 	int curr = 0;
-	
+
+	void parserNumber() {
+				lType = LexemeType.lex_number;
+
+				int pos = curr;
+				if(code[pos] == '0' && code[pos + 1] == 'x')
+				{
+					pos += 2;
+					while(isDigit(code[pos]) || ((code[pos] & ~0x20) >= 'A' && (code[pos] & ~0x20) <= 'F'))
+						pos++;
+				}else{
+					while(isDigit(code[pos]))
+						pos++;
+				}
+				if(code[pos] == '.')
+					pos++;
+				while(isDigit(code[pos]))
+					pos++;
+				if(code[pos] == 'e' || code[pos] == 'E')
+				{
+					pos++;
+					if(code[pos] == '-')
+						pos++;
+				}
+				while(isDigit(code[pos]))
+					pos++;
+				lLength = (pos - curr);
+	}
+
 	while(curr < code.size)
 	{
 		switch(code[curr])
@@ -194,7 +223,8 @@ void Lexer:Lexify(char[] code)
 			}
 			break;
 		case '.':
-			lType = LexemeType.lex_point;
+			if(isDigit(code[1])) parserNumber();
+			else lType = LexemeType.lex_point;
 			break;
 		case ',':
 			lType = LexemeType.lex_comma;
@@ -403,7 +433,11 @@ void Lexer:Lexify(char[] code)
 			lType = LexemeType.lex_questionmark;
 			break;
 		case ':':
-			lType = LexemeType.lex_colon;
+			if(code[curr + 1] == ':')
+			{
+				lType = LexemeType.lex_dblcolon;
+				lLength = 2;
+			} else lType = LexemeType.lex_colon;
 			break;
 		case ';':
 			lType = LexemeType.lex_semicolon;
@@ -411,31 +445,7 @@ void Lexer:Lexify(char[] code)
 		default:
 			if(isDigit(code[curr]))
 			{
-				lType = LexemeType.lex_number;
-
-				int pos = curr;
-				if(code[pos] == '0' && code[pos + 1] == 'x')
-				{
-					pos += 2;
-					while(isDigit(code[pos]) || ((code[pos] & ~0x20) >= 'A' && (code[pos] & ~0x20) <= 'F'))
-						pos++;
-				}else{
-					while(isDigit(code[pos]))
-						pos++;
-				}
-				if(code[pos] == '.')
-					pos++;
-				while(isDigit(code[pos]))
-					pos++;
-				if(code[pos] == 'e')
-				{
-					pos++;
-					if(code[pos] == '-')
-						pos++;
-				}
-				while(isDigit(code[pos]))
-					pos++;
-				lLength = (pos - curr);
+				parserNumber();
 			}else if(chartype_table[as_unsigned(code[curr])] & int(chartype.ct_start_symbol)){
 				int pos = curr;
 				while(chartype_table[as_unsigned(code[pos])] & int(chartype.ct_symbol))
@@ -475,6 +485,8 @@ void Lexer:Lexify(char[] code)
 							lType = LexemeType.lex_enum;
 						else if(memcmp(code, curr, "with", 4) == 0)
 							lType = LexemeType.lex_with;
+						else if(memcmp(code, curr, "goto", 4) == 0)
+							lType = LexemeType.lex_goto;
 						break;
 					case 5:
 						if(memcmp(code, curr, "while", 5) == 0)
@@ -503,6 +515,14 @@ void Lexer:Lexify(char[] code)
 							lType = LexemeType.lex_sizeof;
 						else if(memcmp(code, curr, "import", 6) == 0)
 							lType = LexemeType.lex_import;
+						else if(memcmp(code, curr, "struct", 6) == 0)
+							lType = LexemeType.lex_struct;
+						else if(memcmp(code, curr, "static", 6) == 0)
+							lType = LexemeType.lex_static;
+						else if(memcmp(code, curr, "public", 6) == 0)
+							lType = LexemeType.lex_public;
+						else if(memcmp(code, curr, "inline", 6) == 0)
+							lType = LexemeType.lex_inline;
 						break;
 					case 7:
 						if(memcmp(code, curr, "noalign", 7) == 0)
@@ -515,18 +535,24 @@ void Lexer:Lexify(char[] code)
 							lType = LexemeType.lex_nullptr;
 						else if(memcmp(code, curr, "generic", 7) == 0)
 							lType = LexemeType.lex_generic;
+						else if(memcmp(code, curr, "private", 7) == 0)
+							lType = LexemeType.lex_private;
 						break;
 					case 8:
 						if(memcmp(code, curr, "continue", 8) == 0)
 							lType = LexemeType.lex_continue;
 						else if(memcmp(code, curr, "operator", 8) == 0)
 							lType = LexemeType.lex_operator;
+						else if(memcmp(code, curr, "template", 8) == 0)
+							lType = LexemeType.lex_template;
 						break;
 					case 9:
 						if(memcmp(code, curr, "coroutine", 9) == 0)
 							lType = LexemeType.lex_coroutine;
 						else if(memcmp(code, curr, "namespace", 9) == 0)
 							lType = LexemeType.lex_namespace;
+						else if(memcmp(code, curr, "protected", 9) == 0)
+							lType = LexemeType.lex_protected;
 						break;
 					case 10:
 						if(memcmp(code, curr, "extendable", 10) == 0)
@@ -536,7 +562,7 @@ void Lexer:Lexify(char[] code)
 				}
 
 				if(lType == LexemeType.lex_none)
-					lType = LexemeType.lex_string;
+					lType = LexemeType.lex_identifier;
 			}
 		}
 		Lexeme lex;
@@ -556,7 +582,7 @@ void Lexer:Lexify(char[] code)
 	lexems.push_back(lex);
 }
 
-void Lexer:Append(Lexeme[] stream)
+void Lexer::Append(Lexeme[] stream)
 {
 	for(i in stream)
 		lexems.push_back(i);

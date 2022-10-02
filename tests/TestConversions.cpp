@@ -46,7 +46,7 @@ TEST_RESULT("Auto ref to value conversion", testAutoRefToValue, "14");
 
 const char	*testImplicitConversionOnReturn =
 "class array{ int[10] arr; int size; }\r\n\
-void array:push_back(auto ref a){ arr[size++] = int(a); }\r\n\
+void array::push_back(auto ref a){ arr[size++] = int(a); }\r\n\
 auto ref operator[](array ref arr, int index){ assert(index<arr.size); return &arr.arr[index]; }\r\n\
 \r\n\
 array a;\r\n\

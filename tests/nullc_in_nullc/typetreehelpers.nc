@@ -4,18 +4,18 @@ import typetree;
 
 void memcpy(StringRef dst, InplaceStr src)
 {
-	memory.copy(dst.string, dst.pos, src.data, src.begin, src.end - src.begin);
+	memory::copy(dst.string, dst.pos, src.data, src.begin, src.end - src.begin);
 }
 
 void memcpy(StringRef dst, char[] src, int length)
 {
-	memory.copy(dst.string, dst.pos, src, 0, length);
+	memory::copy(dst.string, dst.pos, src, 0, length);
 }
 
 void strcpy(StringRef dst, char[] src)
 {
 	if(src.size > 0)
-		memory.copy(dst.string, dst.pos, src, 0, src.size - 1);
+		memory::copy(dst.string, dst.pos, src, 0, src.size - 1);
 }
 
 StringRef strstr(StringRef haystack, char[] needle)
@@ -258,7 +258,7 @@ void sprintf(char[] buffer, char[] format, auto ref[] args)
 					
 					if(str.size > 0)
 					{
-						memory.copy(buffer, pos, str, 0, str.size - 1);
+						memory::copy(buffer, pos, str, 0, str.size - 1);
 						pos += str.size - 1;
 					}
 				}
@@ -318,12 +318,12 @@ void sprintf(char[] buffer, char[] format, auto ref[] args)
 								tmp[tmp.size - 1] = 0;
 							}
 
-							memory.copy(tmp, tmp.size - str.size, str, 0, str.size - 1);
+							memory::copy(tmp, tmp.size - str.size, str, 0, str.size - 1);
 
 							str = tmp;
 						}
 
-						memory.copy(buffer, pos, str, 0, str.size - 1);
+						memory::copy(buffer, pos, str, 0, str.size - 1);
 						pos += str.size - 1;
 					}
 				}
@@ -335,7 +335,7 @@ void sprintf(char[] buffer, char[] format, auto ref[] args)
 
 					if(str.size > 0)
 					{
-						memory.copy(buffer, pos, str, 0, str.size - 1);
+						memory::copy(buffer, pos, str, 0, str.size - 1);
 						pos += str.size - 1;
 					}
 				}

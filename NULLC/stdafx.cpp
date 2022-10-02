@@ -2,7 +2,7 @@
 
 void*	NULLC::defaultAlloc(int size)
 {
-	return ::new(std::nothrow) char[size];
+	return ::new/*(std::nothrow)*/ char[size];
 }
 void	NULLC::defaultDealloc(void* ptr)
 {
@@ -78,3 +78,59 @@ void NULLC::defaultFileFree(const char* data)
 
 const char* (*NULLC::fileLoad)(const char*, unsigned*) = NULLC::defaultFileLoad;
 void (*NULLC::fileFree)(const char*) = NULLC::defaultFileFree;
+
+#ifndef WITH_STDCPP_LIB
+/*
+This code is to have an executable without libstd++ library dependency
+g++ -g -Wall -fno-rtti -fno-exceptions  *.cpp -o YourParser
+ */
+
+// MSVC uses __cdecl calling convention for new/delete :-O
+#ifdef _MSC_VER
+#  define NEWDECL_CALL __cdecl
+#else
+#  define NEWDECL_CALL
+#endif
+
+extern "C" void __cxa_pure_virtual ()
+{
+    puts("__cxa_pure_virtual called\n");
+    abort ();
+}
+
+void * NEWDECL_CALL operator new (size_t size)
+{
+    void *p = malloc (size);
+    if(!p)
+    {
+        puts("not enough memory\n");
+        abort ();
+    }
+    return p;
+}
+
+void * NEWDECL_CALL operator new [] (size_t size)
+{
+    return ::operator new(size);
+}
+
+void NEWDECL_CALL operator delete (void *p)
+{
+    if (p) free (p);
+}
+
+void NEWDECL_CALL operator delete [] (void *p)
+{
+    if (p) free (p);
+}
+
+void NEWDECL_CALL operator delete [] (void *p, size_t)
+{
+    if (p) free (p);
+}
+
+void NEWDECL_CALL operator delete (void *p, size_t)
+{
+    if (p) free (p);
+}
+#endif //WITH_STDCPP_LIB

@@ -275,7 +275,7 @@ struct x86Argument
 
 	void Empty()
 	{
-		memset(this, 0, sizeof(x86Argument));
+		NULLC_no_warning_memset(this, 0, sizeof(x86Argument));
 	}
 
 	bool operator==(const x86Argument& r)

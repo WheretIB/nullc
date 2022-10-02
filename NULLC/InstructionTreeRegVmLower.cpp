@@ -283,7 +283,7 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 
 unsigned RegVmLoweredModule::FindConstant(unsigned value)
 {
-	for(unsigned i = 0; i < constants.size(); i++)
+	for(unsigned i = 0, imax = constants.size(); i < imax; i++)
 	{
 		if(constants[i] == value)
 			return i + 1;
@@ -294,7 +294,7 @@ unsigned RegVmLoweredModule::FindConstant(unsigned value)
 
 unsigned RegVmLoweredModule::FindConstant(unsigned value1, unsigned value2)
 {
-	for(unsigned i = 0; i + 1 < constants.size(); i += 2)
+	for(unsigned i = 0, imax = constants.size(); i + 1 < imax; i += 2)
 	{
 		if(constants[i] == value1 && constants[i + 1] == value2)
 			return i + 1;

@@ -28,28 +28,28 @@ int int(int a);
 long long(long a);
 float float(float a);
 double double(double a);
-void bool:bool(bool a){ *this = a; }
-void char:char(char a){ *this = a; }
-void short:short(short a){ *this = a; }
-void int:int(int a){ *this = a; }
-void long:long(long a){ *this = a; }
-void float:float(float a){ *this = a; }
-void double:double(double a){ *this = a; }
+void bool::bool(bool a){ *this = a; }
+void char::char(char a){ *this = a; }
+void short::short(short a){ *this = a; }
+void int::int(int a){ *this = a; }
+void long::long(long a){ *this = a; }
+void float::float(float a){ *this = a; }
+void double::double(double a){ *this = a; }
 
 int as_unsigned(char a);
 int as_unsigned(short a);
 long as_unsigned(int a);
 
 short short(char[] str);
-char[] short:str();
+char[] short::str();
 int int(char[] str);
-char[] int:str();
+char[] int::str();
 long long(char[] str);
-char[] long:str();
+char[] long::str();
 float float(char[] str);
-char[] float:str(int precision = 6, bool showExponent = false);
+char[] float::str(int precision = 6, bool showExponent = false);
 double double(char[] str);
-char[] double:str(int precision = 6, bool showExponent = false);
+char[] double::str(int precision = 6, bool showExponent = false);
 
 void ref __newS(int size, int type);
 int[] __newA(int size, int count, int type);
@@ -137,7 +137,7 @@ auto[] auto_array(typeid type, int count)
 }
 typedef auto[] auto_array;
 // function will set auto[] element to the specified one, with data reallocation if neccessary
-void auto_array:set(auto ref x, int pos);
+void auto_array::set(auto ref x, int pos);
 void __force_size(auto[] ref s, int size);
 
 int isCoroutineReset(auto ref f);
@@ -1242,7 +1242,7 @@ ByteCode ref GetBytecode(CompilerContext ref ctx)
 				}
 				else if(ExprRationalLiteral ref node = getType with<ExprRationalLiteral>(curr.value))
 				{
-					constant.value = memory.as_long(node.value);
+					constant.value = memory::as_long(node.value);
 				}
 
 				debugSymbols.push_back(curr.name.name.data, curr.name.name.begin, curr.name.name.length());
@@ -2008,7 +2008,7 @@ ByteCode ref BuildModuleFromSource(string modulePath, string moduleRoot, string 
 		c.pos = newStart + (c.pos - code);
 	}*/
 
-	BinaryCache.PutBytecode(modulePath, bytecode, lexer.lexems.data);
+	BinaryCache::PutBytecode(modulePath, bytecode, lexer.lexems.data);
 
 	return bytecode;
 }
@@ -2018,7 +2018,7 @@ char[] FindFileContentInImportPaths(string moduleName, string moduleRoot, bool a
 	char[] fileContent = nullptr;
 
 	int modulePathPos = 0;
-	string ref modulePath = BinaryCache.EnumImportPath(modulePathPos++);
+	string ref modulePath = BinaryCache::EnumImportPath(modulePathPos++);
 	while(modulePath)
 	{
 		string path = modulePath + moduleRoot + (moduleRoot.empty() ? "" : "/") + moduleName;
@@ -2039,7 +2039,7 @@ char[] FindFileContentInImportPaths(string moduleName, string moduleRoot, bool a
 		if(fileContent)
 			break;
 
-		modulePath = BinaryCache.EnumImportPath(modulePathPos++);
+		modulePath = BinaryCache::EnumImportPath(modulePathPos++);
 	}
 
 	return fileContent;
@@ -2119,7 +2119,7 @@ ByteCode ref BuildModuleFromPath(string moduleName, string moduleRoot, bool addE
 /*
 bool AddModuleFunction(const char* module, void (*ptrRaw)(), void *funcWrap, void (*ptrWrap)(void *func, char* retBuf, char* argBuf), const char* name, int index, const char **errorPos, char *errorBuf, int errorBufSize, int optimizationLevel)
 {
-	const char *bytecode = BinaryCache.FindBytecode(module, true);
+	const char *bytecode = BinaryCache::FindBytecode(module, true);
 
 	// Create module if not found
 	if(!bytecode)

@@ -5,25 +5,25 @@
 auto list_node.value();
 auto list_node.value(T ref val);
 
-void list:list();
+void list::list();
 
-void list:push_back(T ref elem);!
-void list:push_front(T ref elem);!
-void list:pop_back();!
-void list:pop_front();!
-void list:insert(list_node<T> ref it, T ref elem);
-void list:erase(list_node<T> ref it);
-void list:clear();!
-auto list:back();!
-auto list:front();!
-auto list:begin();
-auto list:end();
-int list:empty();!
+void list::push_back(T ref elem);!
+void list::push_front(T ref elem);!
+void list::pop_back();!
+void list::pop_front();!
+void list::insert(list_node<T> ref it, T ref elem);
+void list::erase(list_node<T> ref it);
+void list::clear();!
+auto list::back();!
+auto list::front();!
+auto list::begin();
+auto list::end();
+int list::empty();!
 
-auto list_iterator:list_iterator(list_node<T> ref start);
-auto list:start();!
-auto list_iterator:next();!
-auto list_iterator:hasnext();!
+auto list_iterator::list_iterator(list_node<T> ref start);
+auto list::start();!
+auto list_iterator::next();!
+auto list_iterator::hasnext();!
 */
 
 const char *testSglList1 =

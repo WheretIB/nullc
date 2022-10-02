@@ -16,18 +16,18 @@ auto array(int size)\r\n\
 	ret.arr = new int[size];\r\n\
 	return ret;\r\n\
 }\r\n\
-auto array:start()\r\n\
+auto array::start()\r\n\
 {\r\n\
 	array_iterator iter;\r\n\
 	iter.arr = this;\r\n\
 	iter.pos = 0;\r\n\
 	return iter;\r\n\
 }\r\n\
-int ref array_iterator:next()\r\n\
+int ref array_iterator::next()\r\n\
 {\r\n\
 	return &arr.arr[pos++];\r\n\
 }\r\n\
-int array_iterator:hasnext()\r\n\
+int array_iterator::hasnext()\r\n\
 {\r\n\
 	return pos < arr.arr.size;\r\n\
 }\r\n\
@@ -144,16 +144,16 @@ const char	*testRangeIterator =
 	int pos;\r\n\
 	int max;\r\n\
 }\r\n\
-auto range_iterator:start()\r\n\
+auto range_iterator::start()\r\n\
 {\r\n\
 	return *this;\r\n\
 }\r\n\
-int range_iterator:next()\r\n\
+int range_iterator::next()\r\n\
 {\r\n\
 	pos++;\r\n\
 	return pos - 1;\r\n\
 }\r\n\
-int range_iterator:hasnext()\r\n\
+int range_iterator::hasnext()\r\n\
 {\r\n\
 	return pos != max;\r\n\
 }\r\n\

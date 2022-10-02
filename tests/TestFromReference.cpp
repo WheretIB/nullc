@@ -3,14 +3,14 @@
 const char	*testReference1 =
 "class list_node{ list_node ref next; int value; }\r\n\
 class list_iterator{    list_node ref curr; }\r\n\
-auto list_node:start()\r\n\
+auto list_node::start()\r\n\
 {\r\n\
     list_iterator ret;\r\n\
     ret.curr = this;\r\n\
     return ret;\r\n\
 }\r\n\
-auto list_iterator:hasnext(){    return curr ? 1 : 0;}\r\n\
-auto list_iterator:next()\r\n\
+auto list_iterator::hasnext(){    return curr ? 1 : 0;}\r\n\
+auto list_iterator::next()\r\n\
 {\r\n\
     int ret = curr.value;\r\n\
     curr = curr.next;\r\n\

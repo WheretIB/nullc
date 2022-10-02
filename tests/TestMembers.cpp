@@ -18,7 +18,7 @@ return 1;";
 TEST_RESULT("Class method test", testClassMethod, "1");
 
 const char	*testClassExternalMethodInt =
-"auto int:toString()\r\n\
+"auto int::toString()\r\n\
 {\r\n\
 	int copy = *this, len = 0;\r\n\
 	while(copy)\r\n\
@@ -42,7 +42,7 @@ TEST_RESULT("Class externally defined method (int)", testClassExternalMethodInt,
 
 const char	*testClassMethodString =
 "typedef char[] string;\r\n\
-string string:reverse()\r\n\
+string string::reverse()\r\n\
 {\r\n\
 	for(int i = 0; i < (this.size-1) / 2; i++)\r\n\
 	{\r\n\
@@ -63,7 +63,7 @@ const char	*testClassExternalMethod =
 	int bar;\r\n\
 }\r\n\
 \r\n\
-int Foo:GetBar(){ return bar; }\r\n\
+int Foo::GetBar(){ return bar; }\r\n\
 Foo a;\r\n\
 a.bar = 14;\r\n\
 \r\n\

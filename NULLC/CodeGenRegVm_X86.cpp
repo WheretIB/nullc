@@ -1263,7 +1263,7 @@ void x86DtolWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
 	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
+	NULLC_no_warning_memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].longValue = (long long)(regFilePtr[cmd.rC].doubleValue);
 }
@@ -1309,7 +1309,7 @@ void x86LtodWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
 	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
+	NULLC_no_warning_memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = double(regFilePtr[cmd.rC].longValue);
 }
@@ -2728,7 +2728,7 @@ void x86PowWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned 
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
 	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
+	NULLC_no_warning_memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].intValue = VmIntPow(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument), regFilePtr[cmd.rB].intValue);
 }
@@ -3998,7 +3998,7 @@ void x86PowdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
 	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
+	NULLC_no_warning_memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = pow(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
 }
@@ -4038,7 +4038,7 @@ void x86ModdWrap(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned
 
 	unsigned cmdValue[2] = { cmdValueA, cmdValueB };
 	RegVmCmd cmd;
-	memcpy(&cmd, &cmdValue, sizeof(cmd));
+	NULLC_no_warning_memcpy(&cmd, &cmdValue, sizeof(cmd));
 
 	regFilePtr[cmd.rA].doubleValue = fmod(regFilePtr[cmd.rB].doubleValue, *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
 }

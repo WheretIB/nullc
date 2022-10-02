@@ -5,17 +5,22 @@
 config=debug
 check=none
 
-REG_CFLAGS=-g -Wall -Wextra
-COMP_CFLAGS=-g -Wall -Wextra -D NULLC_NO_EXECUTOR
-DYNCALL_FLAGS=-g -Wall -Wextra
-STDLIB_FLAGS=-lstdc++ -lm
+CXXFLAGS=-fno-exceptions -fno-rtti -fno-threadsafe-statics
+OPTFLAGS=-O2 -pipe
+#OPTFLAGS=-Os -pipe
+
+REG_CFLAGS=-g -Wall -Wextra $(CXXFLAGS)
+COMP_CFLAGS=-g -Wall -Wextra $(CXXFLAGS) -D NULLC_NO_EXECUTOR
+DYNCALL_FLAGS=-g -Wall -Wextra $(CXXFLAGS)
+#STDLIB_FLAGS=-lstdc++ -lm
+STDLIB_FLAGS=-lm
 FUZZ_FLAGS=
 ALIGN_FLAGS=
 
 ifeq ($(config),release)
-	REG_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
-	COMP_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
-	DYNCALL_FLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
+	REG_CFLAGS += $(OPTFLAGS) -fno-omit-frame-pointer -DNDEBUG
+	COMP_CFLAGS += $(OPTFLAGS) -fno-omit-frame-pointer -DNDEBUG
+	DYNCALL_FLAGS += $(OPTFLAGS) -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)
@@ -129,6 +134,7 @@ STDLIB_TARGETS = \
   temp/lib/pugi.o \
   temp/lib/random.o \
   temp/lib/string.o \
+  temp/lib/lua-regex.o \
   temp/lib/time.o \
   temp/lib/typeinfo.o \
   temp/lib/vector.o \
@@ -161,6 +167,9 @@ test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/te
 endif
 
 temp/lib/%.o: NULLC/includes/%.cpp
+	$(CXX) $(REG_CFLAGS) -c $< -o $@
+
+temp/lib/lua-regex.o: NULLC/includes/lua-regex.c
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
 ${LIB_TARGETS}: ${LIB_SOURCES}

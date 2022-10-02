@@ -399,6 +399,22 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(SynLabel *node = getType<SynLabel>(syntax))
+	{
+		PrintEnterBlock(ctx, name, "SynLabel()");
+
+		PrintGraph(ctx, node->labeIdentifier, "labeIdentifier");
+
+		PrintLeaveBlock(ctx);
+	}
+	else if(SynGoto *node = getType<SynGoto>(syntax))
+	{
+		PrintEnterBlock(ctx, name, "SynGoto()");
+
+		PrintGraph(ctx, node->labeIdentifier, "labeIdentifier");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(SynBlock *node = getType<SynBlock>(syntax))
 	{
 		PrintEnterBlock(ctx, name, "SynBlock()");

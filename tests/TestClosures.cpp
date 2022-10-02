@@ -880,7 +880,7 @@ class Holder\r\n\
 	void ref() c;\r\n\
 }\r\n\
 \r\n\
-auto Holder:a()\r\n\
+auto Holder::a()\r\n\
 {\r\n\
 	if(auto z = this.x)\r\n\
 	{\r\n\

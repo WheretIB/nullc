@@ -21,12 +21,12 @@ auto list_node.value(T val)
 	return elem = val;
 }
 
-void list:list()
+void list::list()
 {
 	first = last = nullptr;
 }
 
-void list:push_back(T elem)
+void list::push_back(T elem)
 {
 	if(!first)
 	{
@@ -41,7 +41,7 @@ void list:push_back(T elem)
 	last.elem = elem;
 	last.parent = this;
 }
-void list:push_front(T elem)
+void list::push_front(T elem)
 {
 	if(!first)
 	{
@@ -56,19 +56,19 @@ void list:push_front(T elem)
 	first.elem = elem;
 	first.parent = this;
 }
-void list:pop_back()
+void list::pop_back()
 {
 	if(!last)
 		assert(0, "list::pop_back list is empty");
 	last = last.prev;
 }
-void list:pop_front()
+void list::pop_front()
 {
 	if(!first)
 		assert(0, "list::pop_back list is empty");
 	first = first.next;
 }
-void list:insert(list_node<T> ref it, T elem)
+void list::insert(list_node<T> ref it, T elem)
 {
 	if(it.parent != this)
 		assert(0, "list::insert iterator is from a different list");
@@ -81,7 +81,7 @@ void list:insert(list_node<T> ref it, T elem)
 	if(next)
 		next.prev = it.next;
 }
-void list:erase(list_node<T> ref it)
+void list::erase(list_node<T> ref it)
 {
 	if(it.parent != this)
 		assert(0, "list::insert iterator is from a different list");
@@ -95,33 +95,33 @@ void list:erase(list_node<T> ref it)
 	if(it == last)
 		last = last.prev;
 }
-void list:clear()
+void list::clear()
 {
 	first = last = nullptr;
 }
-auto list:back()
+auto list::back()
 {
 	assert(first != nullptr, "list::back called on empty list");
 	return &last.elem;
 }
-auto list:front()
+auto list::front()
 {
 	assert(first != nullptr, "list::front called on empty list");
 	return &first.elem;
 }
-auto list:begin()
+auto list::begin()
 {
 	return first;
 }
-auto list:end()
+auto list::end()
 {
 	return last;
 }
-int list:empty()
+int list::empty()
 {
 	return first == nullptr;
 }
-auto list:find(T elem)
+auto list::find(T elem)
 {
 	auto curr = first;
 
@@ -140,32 +140,32 @@ class list_iterator<T>
 {
 	list_node<T> ref curr;
 }
-auto list_iterator:list_iterator(list_node<T> ref start)
+auto list_iterator::list_iterator(list_node<T> ref start)
 {
 	curr = start;
 }
-auto list_iterator:start()
+auto list_iterator::start()
 {
 	return *this;
 }
-auto list_iterator:next()
+auto list_iterator::next()
 {
 	auto ret = &curr.elem;
 	curr = curr.next;
 	return ret;
 }
-auto list_iterator:hasnext()
+auto list_iterator::hasnext()
 {
 	return curr ? 1 : 0;
 }
-auto list:start()
+auto list::start()
 {
 	return list_iterator<T>(this.first);
 }
 
 // aggregate function and other features on sequences
 
-auto list:sum(generic ref(T) f)
+auto list::sum(generic ref(T) f)
 {
 	typeof(f).return sum;
 	for(i in list_iterator<T>(first))
@@ -173,7 +173,7 @@ auto list:sum(generic ref(T) f)
 	return sum;
 }
 
-auto list:average(generic ref(T) f)
+auto list::average(generic ref(T) f)
 {
 	typeof(f).return sum;
 	int count = 0;
@@ -185,7 +185,7 @@ auto list:average(generic ref(T) f)
 	return sum / count;
 }
 
-auto list:min_element()
+auto list::min_element()
 {
 	auto min = first.elem;
 	for(i in list_iterator<T>(first.next))
@@ -193,7 +193,7 @@ auto list:min_element()
 	return min;
 }
 
-auto list:max_element()
+auto list::max_element()
 {
 	auto max = first.elem;
 	for(i in list_iterator<T>(first.next))
@@ -201,7 +201,7 @@ auto list:max_element()
 	return max;
 }
 
-auto list:min_element(generic ref(T) f)
+auto list::min_element(generic ref(T) f)
 {
 	typeof(f).return min = f(first.elem), tmp;
 	for(i in list_iterator<T>(first.next))
@@ -212,7 +212,7 @@ auto list:min_element(generic ref(T) f)
 	return min;
 }
 
-auto list:max_element(generic ref(T) f)
+auto list::max_element(generic ref(T) f)
 {
 	typeof(f).return max = f(first.elem), tmp;
 	for(i in list_iterator<T>(first.next))
@@ -223,7 +223,7 @@ auto list:max_element(generic ref(T) f)
 	return max;
 }
 
-auto list:count_if(generic ref(T) f)
+auto list::count_if(generic ref(T) f)
 {
 	int c = 0;
 	for(i in list_iterator<T>(first))
@@ -232,7 +232,7 @@ auto list:count_if(generic ref(T) f)
 	return c;
 }
 
-auto list:all(generic ref(T) f)
+auto list::all(generic ref(T) f)
 {
 	int c = first ? 1 : 0;
 	for(i in list_iterator<T>(first))
@@ -244,7 +244,7 @@ auto list:all(generic ref(T) f)
 	return c;
 }
 
-auto list:any(generic ref(T) f)
+auto list::any(generic ref(T) f)
 {
 	int c = 0;
 	for(i in list_iterator<T>(first))

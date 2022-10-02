@@ -6,7 +6,7 @@ int hash_value(int key)
 	return key * 2654435761l;
 }
 
-auto hashmap:insert(Key key, Value value)
+auto hashmap::insert(Key key, Value value)
 {
 	int hash = compute_hash(key);
 	int bucket = hash & bucketMask;
@@ -30,12 +30,12 @@ auto hashmap:insert(Key key, Value value)
 	return &n.value;
 }
 
-bool vector:empty()
+bool vector::empty()
 {
 	return size() == 0;
 }
 
-auto hashmap:first(Key key)
+auto hashmap::first(Key key)
 {
 	int hash = compute_hash(key);
 	int bucket = hash & bucketMask;
@@ -50,12 +50,12 @@ auto hashmap:first(Key key)
 	return nullptr;
 }
 
-bool hashmap:contains(Key key)
+bool hashmap::contains(Key key)
 {
 	return find(key) != nullptr;
 }
 
-auto hashmap:next(hashmap_node<Key, Value> ref node)
+auto hashmap::next(hashmap_node<Key, Value> ref node)
 {
 	Node ref curr = node.next;
 
@@ -70,7 +70,7 @@ auto hashmap:next(hashmap_node<Key, Value> ref node)
 	return nullptr;
 }
 
-auto hashmap:find(Key key, Value value)
+auto hashmap::find(Key key, Value value)
 {
 	int hash = compute_hash(key);
 	int bucket = hash & bucketMask;
@@ -84,7 +84,7 @@ auto hashmap:find(Key key, Value value)
 	return nullptr;
 }
 
-void hashmap:remove(Key key, Value value)
+void hashmap::remove(Key key, Value value)
 {
 	int hash = compute_hash(key);
 	int bucket = hash & bucketMask;
@@ -103,13 +103,13 @@ void hashmap:remove(Key key, Value value)
 		entries[bucket] = curr.next;
 }
 
-void vector:push_back(T[] val, int size)
+void vector::push_back(T[] val, int size)
 {
 	for(int i = 0; i < size; i++)
 		push_back(val[i]);
 }
 
-void vector:shrink(int size)
+void vector::shrink(int size)
 {
 	assert(size <= count);
 

@@ -367,7 +367,7 @@ const char *testCorountineIterator =
 	list_node ref next;\r\n\
 	int value;\r\n\
 }\r\n\
-auto list_node:start()\r\n\
+auto list_node::start()\r\n\
 {\r\n\
 	return coroutine auto(){ list_node ref c = this; while(c){ yield c.value; c = c.next; } return 0; };\r\n\
 }\r\n\

@@ -8,15 +8,15 @@ Window Window(char[] title, int x, y, width, height)
 	return ret;
 }
 
-void Window:SetTitle(char[] title);
-void Window:SetPosition(int x, y);
-void Window:SetSize(int width, height);
+void Window::SetTitle(char[] title);
+void Window::SetPosition(int x, y);
+void Window::SetSize(int width, height);
 
-int Window:GetPosX(){ return x; }
-int Window:GetPosY(){ return y; }
+int Window::GetPosX(){ return x; }
+int Window::GetPosY(){ return y; }
 
-void Window:DrawCanvas(Canvas ref c, int x, y);
+void Window::DrawCanvas(Canvas ref c, int x, y);
 
-void Window:Update();
+void Window::Update();
 
-void Window:Close();
+void Window::Close();

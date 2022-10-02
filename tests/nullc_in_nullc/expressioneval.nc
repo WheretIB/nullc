@@ -9,19 +9,19 @@ void memcpy(char[] dst, int offset, @T ref value, int size)
 	assert(sizeof(T) == size);
 
 	if(T == bool)
-		memory.write(dst, offset, *value);
+		memory::write(dst, offset, *value);
 	else if(T == char)
-		memory.write(dst, offset, *value);
+		memory::write(dst, offset, *value);
 	else if(T == short)
-		memory.write(dst, offset, *value);
+		memory::write(dst, offset, *value);
 	else if(T == int)
-		memory.write(dst, offset, *value);
+		memory::write(dst, offset, *value);
 	else if(T == long)
-		memory.write(dst, offset, *value);
+		memory::write(dst, offset, *value);
 	else if(T == float)
-		memory.write(dst, offset, *value);
+		memory::write(dst, offset, *value);
 	else if(T == double)
-		memory.write(dst, offset, *value);
+		memory::write(dst, offset, *value);
 	else
 		assert(false, "unknown type");
 }
@@ -36,19 +36,19 @@ void memcpy(@T ref value, char[] src, int offset, int size)
 	assert(sizeof(T) == size);
 
 	if(T == bool)
-		*value = memory.read_char(src, offset) != 0;
+		*value = memory::read_char(src, offset) != 0;
 	else if(T == char)
-		*value = memory.read_char(src, offset);
+		*value = memory::read_char(src, offset);
 	else if(T == short)
-		*value = memory.read_short(src, offset);
+		*value = memory::read_short(src, offset);
 	else if(T == int)
-		*value = memory.read_int(src, offset);
+		*value = memory::read_int(src, offset);
 	else if(T == long)
-		*value = memory.read_long(src, offset);
+		*value = memory::read_long(src, offset);
 	else if(T == float)
-		*value = memory.read_float(src, offset);
+		*value = memory::read_float(src, offset);
 	else if(T == double)
-		*value = memory.read_double(src, offset);
+		*value = memory::read_double(src, offset);
 	else
 		assert(false, "unknown type");
 }
@@ -60,14 +60,14 @@ void memcpy(@T ref value, char[] src, int size)
 
 void memcpy(char[] dst, char[] src, int size)
 {
-	memory.copy(dst, 0, src, 0, size);
+	memory::copy(dst, 0, src, 0, size);
 }
 
 void memset(char[] dst, int offset, int value, int size)
 {
 	assert(value == 0);
 	
-	memory.set(dst, offset, value, size);
+	memory::set(dst, offset, value, size);
 }
 
 void memset(char[] dst, int value, int size)
@@ -77,7 +77,7 @@ void memset(char[] dst, int value, int size)
 
 int memcmp(char[] a, char[] b, int size)
 {
-	return memory.compare(a, 0, b, 0, size);
+	return memory::compare(a, 0, b, 0, size);
 }
 
 class StackVariable
@@ -441,7 +441,7 @@ bool CreateStore(ExpressionEvalContext ref ctx, ExprBase ref target, ExprBase re
 
 	if(ExprMemoryLiteral ref expr = getType with<ExprMemoryLiteral>(value))
 	{
-		memory.copy(ptr.ptr.buffer, ptr.start, expr.ptr.ptr.buffer, expr.ptr.start, int(value.type.size));
+		memory::copy(ptr.ptr.buffer, ptr.start, expr.ptr.ptr.buffer, expr.ptr.start, int(value.type.size));
 		return true;
 	}
 
@@ -620,7 +620,7 @@ ExprBase ref CreateLoad(ExpressionEvalContext ref ctx, ExprBase ref target)
 	if(!storage)
 		return nullptr;
 
-	memory.copy(storage.ptr.buffer, storage.start, ptr.ptr.buffer, ptr.start, int(type.size));
+	memory::copy(storage.ptr.buffer, storage.start, ptr.ptr.buffer, ptr.start, int(type.size));
 
 	return new ExprMemoryLiteral(target.source, type, storage);
 }

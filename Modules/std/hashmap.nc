@@ -19,18 +19,18 @@ class hashmap<Key, Value>
 
 int hash_value_default(@Key key){ return hash_value(key); }
 
-void hashmap:hashmap()
+void hashmap::hashmap()
 {
 	entries = new hashmap_node<Key, Value> ref[bucketCount];
 	this.compute_hash = hash_value_default;
 }
-void hashmap:hashmap(int ref(Key) compute_hash)
+void hashmap::hashmap(int ref(Key) compute_hash)
 {
 	entries = new hashmap_node<Key, Value> ref[bucketCount];
 	this.compute_hash = compute_hash;
 }
 
-void hashmap:clear()
+void hashmap::clear()
 {
 	for(i in entries)
 		i = nullptr;
@@ -62,7 +62,7 @@ auto operator[](hashmap<@K, @V> ref m, typeof(m).target.Key key)
 	m.entries[bucket] = n;
 	return &n.value;
 }
-void hashmap:remove(Key key)
+void hashmap::remove(Key key)
 {
 	int hash = compute_hash(key);
 	int bucket = hash & bucketMask;
@@ -81,7 +81,7 @@ void hashmap:remove(Key key)
 		entries[bucket] = curr.next;
 }
 
-auto hashmap:find(Key key)
+auto hashmap::find(Key key)
 {
 	int hash = compute_hash(key);
 	int bucket = hash & bucketMask;

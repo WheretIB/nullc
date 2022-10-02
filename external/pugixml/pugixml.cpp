@@ -6328,7 +6328,7 @@ namespace
 		lex_double_slash,
 		lex_open_square_brace,
 		lex_close_square_brace,
-		lex_string,
+		lex_identifier,
 		lex_comma,
 		lex_axis_attribute,
 		lex_dot,
@@ -6631,7 +6631,7 @@ namespace
 
 					_cur_lexeme_contents.end = cur;
 				
-					_cur_lexeme = lex_string;
+					_cur_lexeme = lex_identifier;
 				}
 				else
 				{
@@ -6654,7 +6654,7 @@ namespace
 
 		const xpath_lexer_string& contents() const
 		{
-			assert(_cur_lexeme == lex_var_ref || _cur_lexeme == lex_number || _cur_lexeme == lex_string || _cur_lexeme == lex_quoted_string);
+			assert(_cur_lexeme == lex_var_ref || _cur_lexeme == lex_number || _cur_lexeme == lex_identifier || _cur_lexeme == lex_quoted_string);
 
 			return _cur_lexeme_contents;
 		}
@@ -8431,7 +8431,7 @@ namespace
 				return n;
 			}
 
-			case lex_string:
+			case lex_identifier:
 			{
 				xpath_ast_node* args[2] = {0};
 				size_t argc = 0;
@@ -8539,7 +8539,7 @@ namespace
 			nodetest_t nt_type = nodetest_none;
 			xpath_lexer_string nt_name;
 			
-			if (_lexer.current() == lex_string)
+			if (_lexer.current() == lex_identifier)
 			{
 				// node name test
 				nt_name = _lexer.contents();
@@ -8564,7 +8564,7 @@ namespace
 						nt_name = xpath_lexer_string();
 						_lexer.next();
 					}
-					else if (_lexer.current() == lex_string)
+					else if (_lexer.current() == lex_identifier)
 					{
 						nt_name = _lexer.contents();
 						_lexer.next();
@@ -8683,7 +8683,7 @@ namespace
 				// relative location path can start from axis_attribute, dot, double_dot, multiply and string lexemes; any other lexeme means standalone root path
 				lexeme_t l = _lexer.current();
 
-				if (l == lex_string || l == lex_axis_attribute || l == lex_dot || l == lex_double_dot || l == lex_multiply)
+				if (l == lex_identifier || l == lex_axis_attribute || l == lex_dot || l == lex_double_dot || l == lex_multiply)
 					return parse_relative_location_path(n);
 				else
 					return n;
@@ -8717,9 +8717,9 @@ namespace
 
 			if (_lexer.current() == lex_var_ref || _lexer.current() == lex_open_brace || 
 				_lexer.current() == lex_quoted_string || _lexer.current() == lex_number ||
-				_lexer.current() == lex_string)
+				_lexer.current() == lex_identifier)
 	    	{
-	    		if (_lexer.current() == lex_string)
+	    		if (_lexer.current() == lex_identifier)
 	    		{
 	    			// This is either a function call, or not - if not, we shall proceed with location path
 	    			const char_t* state = _lexer.state();
@@ -8797,7 +8797,7 @@ namespace
 	    {
 	    	xpath_ast_node* n = parse_unary_expression();
 
-	    	while (_lexer.current() == lex_multiply || (_lexer.current() == lex_string &&
+	    	while (_lexer.current() == lex_multiply || (_lexer.current() == lex_identifier &&
 	    		   (_lexer.contents() == PUGIXML_TEXT("mod") || _lexer.contents() == PUGIXML_TEXT("div"))))
 	    	{
 	    		ast_type_t op = _lexer.current() == lex_multiply ? ast_op_multiply :
@@ -8883,7 +8883,7 @@ namespace
 	    {
 	    	xpath_ast_node* n = parse_equality_expression();
 
-	    	while (_lexer.current() == lex_string && _lexer.contents() == PUGIXML_TEXT("and"))
+	    	while (_lexer.current() == lex_identifier && _lexer.contents() == PUGIXML_TEXT("and"))
 	    	{
 	    		_lexer.next();
 
@@ -8900,7 +8900,7 @@ namespace
 	    {
 	    	xpath_ast_node* n = parse_and_expression();
 
-	    	while (_lexer.current() == lex_string && _lexer.contents() == PUGIXML_TEXT("or"))
+	    	while (_lexer.current() == lex_identifier && _lexer.contents() == PUGIXML_TEXT("or"))
 	    	{
 	    		_lexer.next();
 

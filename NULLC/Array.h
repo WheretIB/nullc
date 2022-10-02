@@ -169,10 +169,10 @@ public:
 		assert(newData);
 
 		if(zeroNewMemory)
-			memset(newData, 0, newSize * sizeof(T));
+			NULLC_no_warning_memset(newData, 0, newSize * sizeof(T));
 
 		if(data)
-			memcpy(newData, data, max * sizeof(T));
+			NULLC_no_warning_memcpy(newData, data, max * sizeof(T));
 
 		data = newData;
 		max = newSize;

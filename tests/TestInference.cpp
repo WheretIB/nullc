@@ -424,28 +424,28 @@ const char	*testSizeofInExternalFunction =
 {\r\n\
 	int k;\r\n\
 }\r\n\
-auto Foo:s(){ return sizeof(Foo); }\r\n\
+auto Foo::s(){ return sizeof(Foo); }\r\n\
 Foo m;\r\n\
 return m.s();";
 TEST_RESULT("sizeof in external member function", testSizeofInExternalFunction, "4");
 
 const char	*testShortFunctionInMemberFunctionCall = 
 "class Foo{}\r\n\
-auto Foo:average(generic ref(int) f){ return f(5); }\r\n\
+auto Foo::average(generic ref(int) f){ return f(5); }\r\n\
 Foo m;\r\n\
 return m.average(<x>{ 5+x; });";
 TEST_RESULT("short function in a member function call", testShortFunctionInMemberFunctionCall, "10");
 
 const char	*testShortFunctionInMemberFunctionCall2 = 
 "class Foo<T>{}\r\n\
-auto Foo:average(generic ref(int) f){ return f(5); }\r\n\
+auto Foo::average(generic ref(int) f){ return f(5); }\r\n\
 Foo<int> m;\r\n\
 return m.average(<x>{ 5+x; });";
 TEST_RESULT("short function in a generic type member function call", testShortFunctionInMemberFunctionCall2, "10");
 
 const char	*testShortFunctionInMemberFunctionCall3 = 
 "class Foo<T>{}\r\n\
-auto Foo:average(generic ref(int, T) f){ return f(5, 4); }\r\n\
+auto Foo::average(generic ref(int, T) f){ return f(5, 4); }\r\n\
 Foo<int> m;\r\n\
 return m.average(<x, y>{ 5+x+y; });";
 TEST_RESULT("short function in a generic type member function call with generic type aliases", testShortFunctionInMemberFunctionCall3, "14");
@@ -477,7 +477,7 @@ const char	*testShortFunctionInMemberFunctionCall6 =
 	typedef int T;\r\n\
 	auto average(generic ref(T) f){ return f(5); }\r\n\
 }\r\n\
-auto Foo:foo(){ return average(<i>{ -i; }); }\r\n\
+auto Foo::foo(){ return average(<i>{ -i; }); }\r\n\
 Foo k;\r\n\
 return k.foo();";
 TEST_RESULT("short function in a member function call in a member function with aliases", testShortFunctionInMemberFunctionCall6, "-5");
@@ -489,7 +489,7 @@ class Foo\r\n\
 	typedef int T;\r\n\
 	auto average(int ref(T) f){ return f(5); }\r\n\
 }\r\n\
-auto Foo:foo(){ return average(<i>{ -i; }); }\r\n\
+auto Foo::foo(){ return average(<i>{ -i; }); }\r\n\
 Foo k;\r\n\
 return k.foo();";
 TEST_RESULT("short function in a member function call in a member function correct selection", testShortFunctionInMemberFunctionCall7, "-5");
@@ -545,7 +545,7 @@ const char	*testGenericTypePointerResolve3 =
 	int boo(int x){ return x * y; }\r\n\
 }\r\n\
 Foo x; x.y = 6;\r\n\
-auto Foo:foo()\r\n\
+auto Foo::foo()\r\n\
 {\r\n\
 	int ref(double) m = x.boo;\r\n\
 	return m(2.5);\r\n\
@@ -560,7 +560,7 @@ const char	*testGenericTypePointerResolve4 =
 	int boo(generic x){ return x * y; }\r\n\
 }\r\n\
 Foo x; x.y = 6;\r\n\
-auto Foo:foo()\r\n\
+auto Foo::foo()\r\n\
 {\r\n\
 	int ref(double) m = x.boo;\r\n\
 	return m(2.5);\r\n\
