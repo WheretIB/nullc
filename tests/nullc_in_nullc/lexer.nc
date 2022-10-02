@@ -50,16 +50,13 @@ enum LexemeType
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
 	lex_questionmark, lex_colon, lex_semicolon, lex_dblcolon, // ? : ; ::
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
-	lex_break, lex_continue, lex_return, // break continue return
-	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align
+	lex_break, lex_continue, lex_goto, lex_return, // break continue goto return
+	lex_ref, lex_auto, lex_class, lex_struct, lex_template, lex_noalign, lex_align, // ref auto class struct template noalign align
 	lex_private, lex_public, lex_protected, lex_static, // private public protected static
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
 	lex_at,	lex_inline, // @ inline
-	lex_generic, lex_const, lex_true, lex_false, lex_enum, lex_namespace, lex_extendable, lex_with, // generic const true false enum namespace extendable with
-	// it seems that there is a place where the position of the above tokes is significant
-	// do not change, add, remove anything above this line unless you find it !
-	lex_goto, lex_struct // goto struct
+	lex_generic, lex_const, lex_true, lex_false, lex_enum, lex_namespace, lex_extendable, lex_with // generic const true false enum namespace extendable with
 }
 
 class Lexeme
@@ -546,6 +543,8 @@ void Lexer::Lexify(char[] code)
 							lType = LexemeType.lex_continue;
 						else if(memcmp(code, curr, "operator", 8) == 0)
 							lType = LexemeType.lex_operator;
+						else if(memcmp(code, curr, "template", 8) == 0)
+							lType = LexemeType.lex_template;
 						break;
 					case 9:
 						if(memcmp(code, curr, "coroutine", 9) == 0)

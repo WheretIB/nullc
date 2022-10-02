@@ -545,11 +545,11 @@ struct SynGenerator: SynBase
 
 struct SynTemplate: SynBase
 {
-	SynTemplate(Lexeme *begin, Lexeme *end, IntrusiveList<SynIdentifier> aliases): SynBase(myTypeID, begin, end), aliases(aliases)
+	SynTemplate(Lexeme *begin, Lexeme *end, IntrusiveList<SynIdentifier> typeAliases): SynBase(myTypeID, begin, end), typeAliases(typeAliases)
 	{
 	}
 
-	IntrusiveList<SynIdentifier> aliases;
+	IntrusiveList<SynIdentifier> typeAliases;
 
 	static const unsigned myTypeID = SynNode::SynTemplate;
 };

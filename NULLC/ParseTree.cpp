@@ -923,7 +923,16 @@ SynAlign* ParseAlign(ParseContext &ctx)
 	return NULL;
 }
 
-SynTemplate* ParseTemplate(ParseContext &ctx)
+static bool CheckClassOrTypeNameLiteral(ParseContext &ctx)
+{
+        if(!(ctx.Consume("typename") || ctx.Consume("classname"))) {
+            Report(ctx, ctx.currentLexeme, "ERROR: template typename or classname expected");
+            return false;
+        }
+        return true;
+}
+
+bool ParseTemplate(ParseContext &ctx, IntrusiveList<SynIdentifier> &aliases)
 {
 	Lexeme *start = ctx.currentLexeme;
 
@@ -931,7 +940,7 @@ SynTemplate* ParseTemplate(ParseContext &ctx)
 	{
 		if(ctx.Consume(lex_less))
 		{
-                        IntrusiveList<SynIdentifier> aliases;
+                        CheckClassOrTypeNameLiteral(ctx);
 
 			if(CheckAt(ctx, lex_identifier, "ERROR: template type alias required after '<'"))
 			{
@@ -941,6 +950,7 @@ SynTemplate* ParseTemplate(ParseContext &ctx)
 
 				while(ctx.Consume(lex_comma))
 				{
+                                        CheckClassOrTypeNameLiteral(ctx);
 					if(!CheckAt(ctx, lex_identifier, "ERROR: template type alias required after ','"))
 						break;
 
@@ -951,12 +961,11 @@ SynTemplate* ParseTemplate(ParseContext &ctx)
 			}
 
 			CheckConsume(ctx, lex_greater, "ERROR: '>' expected after template type alias list");
-
-                        return new (ctx.get<SynTemplate>()) SynTemplate(start, ctx.Previous(), aliases);
+                        return true;
 		}
 	}
 
-        return NULL;
+        return false;
 }
 
 SynNew* ParseNew(ParseContext &ctx)
@@ -1576,13 +1585,15 @@ SynClassElements* ParseClassElements(ParseContext &ctx)
 		else
 		{
                         switch(ctx.Peek()) {
-                            case lex_public:
-                            case lex_private:
-                            case lex_protected:
-                                // for now only consume then and do nothing
-                                ctx.Skip();
-                                CheckConsume(ctx, lex_colon, "ERROR: ':' public/private");
-                                continue;
+                                case lex_public:
+                                case lex_private:
+                                case lex_protected:
+                                    // for now only consume then and do nothing
+                                    ctx.Skip();
+                                    CheckConsume(ctx, lex_colon, "ERROR: ':' public/private");
+                                    continue;
+                                default:
+                                    break;
                         }
 			break;
 		}
@@ -1595,9 +1606,11 @@ SynClassElements* ParseClassElements(ParseContext &ctx)
 
 SynBase* ParseClassDefinition(ParseContext &ctx)
 {
+        IntrusiveList<SynIdentifier> aliases;
 	Lexeme *start = ctx.currentLexeme;
 
 	SynAlign *align = ParseAlign(ctx);
+        ParseTemplate(ctx, aliases);
         
         bool isStruct = ctx.Consume(lex_struct);
 
@@ -1623,8 +1636,6 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 			return new (ctx.get<SynClassPrototype>()) SynClassPrototype(start, ctx.Previous(), nameIdentifier);
 		}
-
-		IntrusiveList<SynIdentifier> aliases;
 
 		if(ctx.Consume(lex_less))
 		{
@@ -1654,6 +1665,13 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		if(ctx.Consume(lex_colon))
 		{
+                        switch(ctx.Peek()) {
+                                case lex_public:
+                                case lex_private:
+                                    ctx.Skip();
+                                default:
+                                    break;
+                        }
 			baseClass = ParseType(ctx);
 
 			if(!baseClass)
@@ -2764,11 +2782,13 @@ IntrusiveList<SynFunctionArgument> ParseFunctionArguments(ParseContext &ctx)
 
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 {
+        IntrusiveList<SynIdentifier> aliases;
 	Lexeme *start = ctx.currentLexeme;
 
 	if(ctx.nonFunctionDefinitionLocations.find(unsigned(start - ctx.firstLexeme) + 1))
 		return NULL;
 
+        ParseTemplate(ctx, aliases);
 	bool isStatic = ctx.Consume(lex_static);
 	bool isInline = ctx.Consume(lex_inline);
 	bool coroutine = ctx.Consume(lex_coroutine);
@@ -2846,8 +2866,6 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 			Stop(ctx, ctx.Current(), "ERROR: function name not found after return type");
 		}
 
-		IntrusiveList<SynIdentifier> aliases;
-
 		if(nameIdentifier && ctx.Consume(lex_less))
 		{
 			do
@@ -2883,6 +2901,8 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		IntrusiveList<SynFunctionArgument> arguments = ParseFunctionArguments(ctx);
 
 		CheckConsume(ctx, lex_cparen, "ERROR: ')' not found after function variable list");
+
+                ctx.Consume("override");
 
 		if(!nameIdentifier)
 			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr());
