@@ -899,13 +899,13 @@ namespace
 
 		if(VmConstant *constantAddress = getType<VmConstant>(address))
 		{
-			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, type, true);
+			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, ctx.GetReferenceType(type), true);
 
 			if(VmConstant *constant = getType<VmConstant>(value))
 			{
 				if(constant->isReference)
 				{
-					VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+					VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, ctx.GetReferenceType(type), true);
 
 					return CreateMemCopy(module, source, shiftAddress, 0, pointer, 0, int(type->size));
 				}
@@ -918,7 +918,7 @@ namespace
 		{
 			if(constant->isReference)
 			{
-				VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+				VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, ctx.GetReferenceType(type), true);
 
 				return CreateMemCopy(module, source, address, offset, pointer, 0, int(type->size));
 			}
@@ -1355,6 +1355,13 @@ namespace
 
 			bool hasLoadFromGlobal = el.loadAddress && el.loadAddress->container && IsGlobalScope(el.loadAddress->container->scope);
 			bool hasStoreToGlobal = el.storeAddress && el.storeAddress->container && IsGlobalScope(el.storeAddress->container->scope);
+
+			// If this is an alloca temporary and it cannot be aliased, we can remove it even in the global scope
+			if(hasLoadFromGlobal && el.noLoadOrNoContainerAlias && el.loadAddress->container->isAlloca)
+				hasLoadFromGlobal = false;
+
+			if(hasStoreToGlobal && el.noStoreOrNoContainerAlias && el.storeAddress->container->isAlloca)
+				hasStoreToGlobal = false;
 
 			if(hasLoadFromGlobal || hasStoreToGlobal)
 			{
@@ -2269,11 +2276,17 @@ void VmFunction::UpdateDominatorTree(VmModule *module, bool clear)
 	// Fill the dominance frontier and dominator tree children
 	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
 	{
+		if(!curr->visited)
+			continue;
+
 		if(curr->predecessors.size() >= 2)
 		{
 			for(unsigned i = 0; i < curr->predecessors.size(); i++)
 			{
 				VmBlock *p = curr->predecessors[i];
+
+				if(!p->visited)
+					continue;
 
 				VmBlock *runner = p;
 
@@ -5186,7 +5199,23 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 
 				assert(target);
 
-				ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
+				// Do not replace block if it is an incoming phi instruction argument
+				bool hasPhiUser = false;
+
+				for(unsigned i = 0; i < curr->users.size(); i++)
+				{
+					if(VmInstruction *inst = getType<VmInstruction>(curr->users[i]))
+					{
+						if(inst->cmd == VM_INST_PHI)
+						{
+							hasPhiUser = true;
+							break;
+						}
+					}
+				}
+
+				if(!hasPhiUser)
+					ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
 			}
 
 			if(curr->users.empty() && !curr->HasExternalInstructionUsers())
@@ -5899,7 +5928,7 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 
 		if(IsArgumentVariable(block->parent->function, variable))
 		{
-			VmValue *loadInst = CreateLoad(ctx, module, NULL, variable->type, CreateVariableAddress(module, NULL, variable, variable->type), 0);
+			VmValue *loadInst = CreateLoad(ctx, module, NULL, variable->type, CreateVariableAddress(module, NULL, variable, ctx.GetReferenceType(variable->type)), 0);
 
 			loadInst->comment = variable->name->name;
 
@@ -6508,7 +6537,7 @@ VmValue* RemapInstructionArgument(ExpressionContext &ctx, VmModule *module, VmVa
 			{
 				if(argOrigConstant->isReference)
 				{
-					VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, containerOrig->type), argOrigConstant->source);
+					VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, argOrig->type, argOrigConstant->source);
 
 					reference->iValue = argOrigConstant->iValue;
 					reference->container = (*remap)->container;
@@ -6522,7 +6551,7 @@ VmValue* RemapInstructionArgument(ExpressionContext &ctx, VmModule *module, VmVa
 					return reference;
 				}
 
-				VmConstant *ptr = CreateConstantPointer(ctx.allocator, argOrigConstant->source, argOrigConstant->iValue, (*remap)->container, ctx.GetReferenceType(containerOrig->type), true);
+				VmConstant *ptr = CreateConstantPointer(ctx.allocator, argOrigConstant->source, argOrigConstant->iValue, (*remap)->container, argOrig->type.structType, true);
 
 				if(!argOrigConstant->comment.empty())
 					ptr->comment = argOrigConstant->comment;

@@ -75,6 +75,7 @@ namespace Tests
 	unsigned totalDeltaCommonSubexprEliminations = 0;
 	unsigned totalDeltaDeadAllocaStoreEliminations = 0;
 	unsigned totalDeltaFunctionInlines = 0;
+	unsigned totalDeltaInstructions = 0;
 
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
@@ -136,7 +137,8 @@ namespace Tests
 
 	void* OpenStream(const char *name)
 	{
-		(void)name;
+		if(!*name)
+			return NULL;
 
 		return new int;
 	}
@@ -425,6 +427,11 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 	nullcSetExecutor(executor);
 
+	if (message && strstr(message, "opt_1"))
+		nullcSetOptimizationLevel(1);
+	else
+		nullcSetOptimizationLevel(2);
+
 	if(compareOptimizations)
 		enableTestOptimization = false;
 
@@ -444,6 +451,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	}
 	else
 	{
+		unsigned instructionsBefore = 0;
 		unsigned optimizationsBefore = 0;
 
 		unsigned peepholeOptimizations = 0;
@@ -457,6 +465,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 		if(CompilerContext *context = nullcGetCompilerContext())
 		{
+			instructionsBefore = context->instRegVmFinalizeCtx.cmds.size();
 			totalRegVmInstructions += context->instRegVmFinalizeCtx.cmds.size();
 
 			if(VmModule *vmModule = context->vmModule)
@@ -493,6 +502,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 			if(CompilerContext *context = nullcGetCompilerContext())
 			{
+				unsigned instructionsAfter = context->instRegVmFinalizeCtx.cmds.size();
 				totalRegVmInstructions += context->instRegVmFinalizeCtx.cmds.size();
 
 				if(VmModule *vmModule = context->vmModule)
@@ -501,7 +511,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 					if(optimizationsAfter != optimizationsBefore)
 					{
-						int deltas[8] = {
+						int deltas[9] = {
 							int(vmModule->peepholeOptimizations - peepholeOptimizations),
 							int(vmModule->constantPropagations - constantPropagations),
 							int(vmModule->deadCodeEliminations - deadCodeEliminations),
@@ -509,7 +519,8 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 							int(vmModule->loadStorePropagations - loadStorePropagations),
 							int(vmModule->commonSubexprEliminations - commonSubexprEliminations),
 							int(vmModule->deadAllocaStoreEliminations - deadAllocaStoreEliminations),
-							int(vmModule->functionInlines - functionInlines)
+							int(vmModule->functionInlines - functionInlines),
+							int(instructionsAfter - instructionsBefore),
 						};
 
 						totalDeltaPeepholeOptimizations += deltas[0];
@@ -520,13 +531,16 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 						totalDeltaCommonSubexprEliminations += deltas[5];
 						totalDeltaDeadAllocaStoreEliminations += deltas[6];
 						totalDeltaFunctionInlines += deltas[7];
+						totalDeltaInstructions += deltas[8];
 
 						if(message && !messageVerbose)
 							printf("%s %s [%s]\n", message, variant, executorName);
 
-						printf("Opt delta: peep %+d constprop %+d dce %+d cfsimp %+d lsprop %+d comsubexpr %+d deadstore %+d funcinline %+d\n", deltas[0], deltas[1], deltas[2], deltas[3], deltas[4], deltas[5], deltas[6], deltas[7]);
+						printf("    delta: peep %+d constprop %+d dce %+d cfsimp %+d lsprop %+d comsubexpr %+d deadstore %+d funcinline %+d inst %+d\n", deltas[0], deltas[1], deltas[2], deltas[3], deltas[4], deltas[5], deltas[6], deltas[7], deltas[8]);
 
-						if(enableDiffOptimization && Tests::enableLogFiles && !Tests::openStreamFunc)
+						bool hasChanges = deltas[0] || deltas[1] || deltas[2] || deltas[3] || deltas[4] || deltas[5] || deltas[6] || deltas[7] || deltas[8];
+
+						if(enableDiffOptimization && Tests::enableLogFiles && !Tests::openStreamFunc && hasChanges)
 						{
 							(void)remove("inst_graph_opt_before.txt");
 							(void)remove("inst_graph_opt_after.txt");
@@ -539,6 +553,8 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 							nullcCompile(code);
 
 							(void)rename("inst_graph_opt.txt", "inst_graph_opt_before.txt");
+
+							enableTestOptimization = true;
 						}
 					}
 				}
@@ -747,16 +763,13 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " 1test.cpp");
 		pos += strlen(pos);
 
-		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -lstdc++");
-		pos += strlen(pos);
-
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -Itranslation");
 		pos += strlen(pos);
 
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -I../NULLC/translation");
 		pos += strlen(pos);
 
-		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++ -lm");
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp");
 		pos += strlen(pos);
 
 		for(unsigned i = 0; i < translationDependencyCount; i++)
@@ -801,6 +814,9 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			free(translationDependencies[i]);
 
 		translationDependencyCount = 0;
+
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -lstdc++ -lm");
+		pos += strlen(pos);
 
 #if defined(_MSC_VER)
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);

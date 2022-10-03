@@ -34,7 +34,7 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, I
 		ctx.output.Print(": ");
 	}
 
-	if(type)
+	if(type && !type->name.empty())
 	{
 		ctx.output.Print(type->name.begin, unsigned(type->name.end - type->name.begin));
 		ctx.output.Print(" ");
@@ -60,7 +60,7 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, I
 		ctx.output.Print(": ");
 	}
 
-	if(node->type)
+	if(node->type && !node->type->name.empty())
 	{
 		ctx.output.Print(node->type->name.begin, unsigned(node->type->name.end - node->type->name.begin));
 		ctx.output.Print(" ");
@@ -104,7 +104,7 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintEnterBlock(ExpressionGraphContext &ctx,
 		ctx.output.Print(": ");
 	}
 
-	if(node->type)
+	if(node->type && !node->type->name.empty())
 	{
 		ctx.output.Print(node->type->name.begin, unsigned(node->type->name.end - node->type->name.begin));
 		ctx.output.Print(" ");
@@ -142,7 +142,7 @@ void PrintEnterBlock(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *typ
 		ctx.output.Print(": ");
 	}
 
-	if(type)
+	if(type && !type->name.empty())
 	{
 		ctx.output.Print(type->name.begin, unsigned(type->name.end - type->name.begin));
 		ctx.output.Print(" ");

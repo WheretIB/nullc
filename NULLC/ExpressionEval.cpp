@@ -2636,7 +2636,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
 	}
-	else if(ptr->data->name->name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
+	else if(ptr->data->name->name == InplaceStr("__assert_derived_from") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
 	{
 		ExprPointerLiteral *object = getType<ExprPointerLiteral>(arguments[0]);
 		ExprTypeLiteral *base = getType<ExprTypeLiteral>(arguments[1]);

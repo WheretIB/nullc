@@ -193,28 +193,35 @@ public:
 	{
 		if(sortedPages.count == 0 || ptr < sortedPages.data[0] || ptr > (char*)sortedPages.data[sortedPages.count - 1] + sizeof(MyLargeBlock))
 			return NULL;
+
 		// Binary search
-		unsigned int lowerBound = 0;
-		unsigned int upperBound = sortedPages.count - 1;
-		unsigned int pointer = 0;
+		unsigned lowerBound = 0;
+		unsigned upperBound = sortedPages.count - 1;
+		unsigned pointer = 0;
+
 		while(upperBound - lowerBound > 1)
 		{
 			pointer = (lowerBound + upperBound) >> 1;
+
 			if(ptr < sortedPages.data[pointer])
 				upperBound = pointer;
-			if(ptr > sortedPages.data[pointer])
+			else if(ptr > sortedPages.data[pointer])
 				lowerBound = pointer;
 		}
+
 		if(ptr < sortedPages.data[pointer])
 			pointer--;
-		if(ptr > (char*)sortedPages.data[pointer]  + sizeof(MyLargeBlock))
+		else if(ptr > (char*)sortedPages.data[pointer] + sizeof(MyLargeBlock))
 			pointer++;
+
 		MyLargeBlock *best = sortedPages.data[pointer];
 
-		if(ptr < best->page || ptr > (char*)best + sizeof(best->page))
+		uintptr_t fromBase = (uintptr_t)((char*)ptr - (char*)best->page);
+
+		if(fromBase > sizeof(best->page))
 			return NULL;
-		unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)best->page);
-		return (char*)best->page + (fromBase & ~(elemSize - 1)) + sizeof(markerType);
+
+		return (char*)best->page + (unsigned(fromBase) & ~(elemSize - 1)) + sizeof(markerType);
 	}
 
 	void Mark(unsigned int number)
@@ -401,6 +408,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 		nullcThrowError("ERROR: requested memory size is less than zero");
 		return NULL;
 	}
+
 	void *data = NULL;
 	size += sizeof(markerType);
 
@@ -1541,23 +1549,53 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 	memcpy(dst.ptr, src.ptr, unsigned(nullcGetTypeSize(dst.typeID) * src.len));
 }
 
-void* NULLC::AssertDerivedFromBase(unsigned* derived, unsigned base)
+bool NULLC::IsDerivedFrom(NULLCRef derived, unsigned base)
+{
+	if((linker->exTypes[base].typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) == 0)
+		nullcThrowError("ERROR: type '%s' is not extendable", nullcGetTypeName(base));
+
+	unsigned typeId = derived.typeID;
+
+	for(;;)
+	{
+		if(base == typeId)
+			return true;
+
+		if(linker->exTypes[typeId].baseType)
+		{
+			typeId = linker->exTypes[typeId].baseType;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return false;
+}
+
+void* NULLC::AssertDerivedFrom(unsigned* derived, unsigned base)
 {
 	if(!derived)
 		return derived;
 
 	unsigned typeId = *derived;
+
 	for(;;)
 	{
 		if(base == typeId)
 			return derived;
+
 		if(linker->exTypes[typeId].baseType)
 		{
 			typeId = linker->exTypes[typeId].baseType;
-		}else{
+		}
+		else
+		{
 			break;
 		}
 	}
+
 	nullcThrowError("ERROR: cannot convert from '%s' to '%s'", nullcGetTypeName(*derived), nullcGetTypeName(base));
 	return derived;
 }

@@ -2988,8 +2988,10 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
-const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream)
+const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts)
 {
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	InplaceStr moduleName = GetModuleName(ctx.allocator, ctx.moduleRoot, parts);
 
 	TRACE_SCOPE("parser", "GetBytecodeFromPath");
@@ -3012,9 +3014,6 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 
 	ctx.activeImports.push_back(moduleName);
 
-	lexCount = 0;
-	lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexCount);
-
 	if(!bytecode)
 	{
 		if(!ctx.bytecodeBuilder)
@@ -3028,8 +3027,16 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 
 		const char *messageStart = ctx.errorBufLocation;
 
+		// Separate allocator for each module
+		ChunkedStackPool<65532> pool;
+		GrowingAllocatorRef<ChunkedStackPool<65532>, 16384> allocator(pool);
+
+		ctx.statistics.Finish("Extra", NULLCTime::clockMicro());
+
 		const char *pos = NULL;
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports);
+		bytecode = ctx.bytecodeBuilder(&allocator, moduleName, ctx.moduleRoot, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), ctx.optimizationLevel, ctx.activeImports, &ctx.statistics);
+
+		ctx.statistics.Start(NULLCTime::clockMicro());
 
 		if(!bytecode)
 		{
@@ -3049,6 +3056,8 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 			ctx.errorCount++;
 		}
 	}
+
+	ctx.statistics.Finish("Extra", NULLCTime::clockMicro());
 
 	return bytecode;
 }
@@ -3093,8 +3102,6 @@ void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode)
 
 SynModuleImport* ParseImport(ParseContext &ctx)
 {
-	TRACE_SCOPE("parser", "ParseImport");
-
 	Lexeme *start = ctx.currentLexeme;
 
 	if(ctx.Consume(lex_import))
@@ -3118,10 +3125,7 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
 
-		unsigned lexCount = 0;
-		Lexeme *lexStream = NULL;
-
-		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream))
+		if(const char *binary = GetBytecodeFromPath(ctx, start, path))
 		{
 			ImportModuleNamespaces(ctx, start, (ByteCode*)binary);
 
@@ -3136,8 +3140,6 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 {
-	TRACE_SCOPE("parser", "ParseImports");
-
 	IntrusiveList<SynModuleImport> imports;
 
 	while(ctx.At(lex_import))
@@ -3155,7 +3157,12 @@ SynModule* ParseModule(ParseContext &ctx)
 
 	Lexeme *start = ctx.currentLexeme;
 
+	// Ignore nested import timing
+	ctx.statistics.finishTime = 0;
+
 	IntrusiveList<SynModuleImport> imports = ParseImports(ctx);
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
@@ -3168,6 +3175,8 @@ SynModule* ParseModule(ParseContext &ctx)
 		while(SynBase* expression = ParseExpression(ctx))
 			expressions.push_back(expression);
 	}
+
+	ctx.statistics.Finish("Parse", NULLCTime::clockMicro());
 
 	if(expressions.empty())
 	{
@@ -3187,7 +3196,11 @@ SynModule* Parse(ParseContext &ctx, const char *code, const char *moduleRoot)
 
 	ctx.moduleRoot = moduleRoot;
 
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	ctx.lexer.Lexify(code);
+
+	ctx.statistics.Finish("Lexer", NULLCTime::clockMicro());
 
 	unsigned traceDepth = NULLC::TraceGetDepth();
 

@@ -1737,3 +1737,36 @@ b.data.b = string(\"best\");\r\n\
 a = b; \r\n\
 return a.data.b.data.size;";
 TEST_RESULT("Large value reference propagation into the call 2", testLargeValueReferencePropagation2, "5");
+
+const char *testLookupScopeChaining1 =
+"int test()\r\n\
+{\r\n\
+	int foo(int x){ return x; }\r\n\
+	{\r\n\
+		int foo(int x, y){ return x + y; }\r\n\
+		return foo(4) + foo(10, 50);\r\n\
+	}\r\n\
+}\r\n\
+return test();";
+TEST_RESULT("Function lookup in a chain of scopes 1", testLookupScopeChaining1, "64");
+
+const char *testUnreachableDominanceBlock =
+"int x;\r\n\
+void add(int y){ x += y; }\r\n\
+\r\n\
+bool k = true;\r\n\
+\r\n\
+if (k)\r\n\
+{\r\n\
+	add(5);\r\n\
+}\r\n\
+else\r\n\
+{\r\n\
+	while (x < 1000)\r\n\
+	{\r\n\
+		add(30);\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+return x;";
+TEST_RESULT("Do not compute dominance frontier for unreachable blocks [opt_1]", testUnreachableDominanceBlock, "5");

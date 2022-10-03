@@ -197,7 +197,7 @@ bool ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		if(funcPos == ~0u)
 		{
 			// Copy all arguments
-			memcpy(tempStackPtr, arguments, target.bytesToPop);
+			memcpy(tempStackPtr, arguments, target.argumentSize);
 
 			// Call function
 			if(target.funcPtrWrap)
@@ -220,7 +220,7 @@ bool ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		{
 			instruction = &exLinker->exRegVmCode[funcPos];
 
-			unsigned argumentsSize = target.bytesToPop;
+			unsigned argumentsSize = target.argumentSize;
 
 			// Keep stack frames aligned to 16 byte boundary
 			unsigned alignOffset = (dataStack.size() % 16 != 0) ? (16 - (dataStack.size() % 16)) : 0;
@@ -1283,23 +1283,24 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 		{
 			// Next instruction for step command
 			RegVmCmd *nextCommand = instruction + 1;
+			RegVmCmd& breakCmd = breakCode[target];
 
 			// Step command - handle unconditional jump step
-			if(breakCode[target].code == rviJmp)
-				nextCommand = codeBase + breakCode[target].argument;
+			if(breakCmd.code == rviJmp)
+				nextCommand = codeBase + breakCmd.argument;
 			// Step command - handle conditional "jump on false" step
-			if(breakCode[target].code == rviJmpz && regFilePtr[cmd.rC].intValue == 0)
-				nextCommand = codeBase + breakCode[target].argument;
+			if(breakCmd.code == rviJmpz && regFilePtr[cmd.rC].intValue == 0)
+				nextCommand = codeBase + breakCmd.argument;
 			// Step command - handle conditional "jump on true" step
-			if(breakCode[target].code == rviJmpnz && regFilePtr[cmd.rC].intValue != 0)
-				nextCommand = codeBase + breakCode[target].argument;
+			if(breakCmd.code == rviJmpnz && regFilePtr[cmd.rC].intValue != 0)
+				nextCommand = codeBase + breakCmd.argument;
 			// Step command - handle "return" step
-			if(breakCode[target].code == rviReturn && callStack.size() != lastFinalReturn)
+			if(breakCmd.code == rviReturn && callStack.size() != lastFinalReturn)
 				nextCommand = callStack.back();
 
-			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCall && exFunctions[breakCode[target].argument].regVmAddress != -1)
-				nextCommand = codeBase + exFunctions[breakCode[target].argument].regVmAddress;
-			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCallPtr && regFilePtr[cmd.rC].intValue && exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress != -1)
+			if(response == NULLC_BREAK_STEP_INTO && breakCmd.code == rviCall && exFunctions[breakCmd.argument].regVmAddress != -1)
+				nextCommand = codeBase + exFunctions[breakCmd.argument].regVmAddress;
+			if(response == NULLC_BREAK_STEP_INTO && breakCmd.code == rviCallPtr && regFilePtr[cmd.rC].intValue && exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress != -1)
 				nextCommand = codeBase + exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress;
 
 			if(response == NULLC_BREAK_STEP_OUT && callStack.size() != lastFinalReturn)
@@ -1386,7 +1387,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 		callStack.push_back(instruction + 1);
 
 		// Take arguments
-		tempStackPtr -= target.bytesToPop >> 2;
+		tempStackPtr -= target.argumentSize >> 2;
 
 		assert(tempStackPtr == tempStackArrayBase);
 
@@ -1453,7 +1454,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 
 	unsigned prevDataSize = dataStack.size();
 
-	unsigned argumentsSize = target.bytesToPop;
+	unsigned argumentsSize = target.argumentSize;
 	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
 	assert(dataStack.size() % 16 == 0);
@@ -1467,7 +1468,7 @@ bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCm
 	}
 
 	// Take arguments
-	tempStackPtr -= target.bytesToPop >> 2;
+	tempStackPtr -= target.argumentSize >> 2;
 
 	assert(tempStackPtr == tempStackArrayBase);
 

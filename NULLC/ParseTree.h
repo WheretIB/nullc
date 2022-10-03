@@ -5,6 +5,7 @@
 #include "Allocator.h"
 #include "Array.h"
 #include "DenseMap.h"
+#include "Statistics.h"
 
 struct CompilerContext;
 
@@ -140,7 +141,7 @@ struct ParseContext
 
 	const char *moduleRoot;
 
-	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
+	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr moduleName, const char *moduleRoot, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports, CompilerStatistics *statistics);
 
 	Lexer lexer;
 
@@ -158,6 +159,7 @@ struct ParseContext
 	SynNamespaceElement *currentNamespace;
 
 	int optimizationLevel;
+
 	SmallArray<InplaceStr, 8> activeImports;
 
 	bool errorHandlerActive;
@@ -169,6 +171,8 @@ struct ParseContext
 	char *errorBufLocation;
 
 	SmallArray<ErrorInfo*, 4> errorInfo;
+
+	CompilerStatistics statistics;
 
 	SmallDenseMap<unsigned, bool, SmallDenseMapUnsignedHasher, 128> nonTypeLocations;
 	SmallDenseMap<unsigned, bool, SmallDenseMapUnsignedHasher, 128> nonFunctionDefinitionLocations;

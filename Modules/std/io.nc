@@ -22,7 +22,7 @@ void Print(char ch);
 int Input(char[] buf);
 
 // Function receives an integer from the user input
-// num must not be a mullptr reference
+// num must not be a nullptr reference
 void Input(int ref num);
 
 // Function writes all the characters in the array to the output

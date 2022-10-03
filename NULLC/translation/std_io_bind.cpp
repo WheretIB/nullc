@@ -66,6 +66,12 @@ void Print_void_ref_char_(char ch, void* unused)
 
 int Input_int_ref_char___(NULLCArray<char > data, void* unused)
 {
+	if(!data.ptr)
+	{
+		nullcThrowError("ERROR: argument should not be a nullptr");
+		return 0;
+	}
+
 	char buffer[2048];
 
 	if(fgets(buffer, 2048, stdin))
@@ -74,22 +80,50 @@ int Input_int_ref_char___(NULLCArray<char > data, void* unused)
 		if(pos)
 			*pos = '\0'; 
 	}
+
+	if(!data.size)
+		return 0;
+
 	unsigned int len = (unsigned int)strlen(buffer) + 1;
 	char *target = data.ptr;
 	for(unsigned int i = 0; i < (data.size < len ? data.size : len); i++)
 		target[i] = buffer[i];
-	buffer[data.size-1] = 0;
+	buffer[data.size - 1] = 0;
 	
 	return ((unsigned int)len < data.size ? len : data.size);
 }
 
 void Input_void_ref_int_ref_(int * num, void* unused)
 {
-	scanf("%d", num);
+	if(!num)
+	{
+		nullcThrowError("ERROR: argument should not be a nullptr");
+		return;
+	}
+
+	int result = scanf("%d", num);
+
+	if(result < 0)
+	{
+		nullcThrowError("ERROR: end of file while reading an int");
+		return;
+	}
+
+	if(result == 0)
+	{
+		nullcThrowError("ERROR: failed to read an int");
+		return;
+	}
 }
 
 void Write_void_ref_char___(NULLCArray<char > buf, void* unused)
 {
+	if(!buf.ptr)
+	{
+		nullcThrowError("ERROR: argument should not be a nullptr");
+		return;
+	}
+
 	fwrite(buf.ptr, 1, buf.size, stdout);
 }
 

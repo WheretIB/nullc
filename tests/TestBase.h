@@ -114,6 +114,7 @@ namespace Tests
 	extern unsigned totalDeltaCommonSubexprEliminations;
 	extern unsigned totalDeltaDeadAllocaStoreEliminations;
 	extern unsigned totalDeltaFunctionInlines;
+	extern unsigned totalDeltaInstructions;
 
 	extern const char		*varData;
 	extern unsigned int		variableCount;
@@ -175,7 +176,7 @@ struct Test_##code : TestQueue {	\
 Test_##code test_##code;	\
 void Test_##code::RunTest()
 
-#define TEST_SIMPLE(name, code, result)	\
+#define TEST_SIMPLE_BASE(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
 		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
@@ -184,12 +185,13 @@ struct Test_##code : TestQueue {	\
 				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
+			RunTest(true);	\
 			if(!Tests::RunCodeSimple(code, testTarget[t], result, name, false, ""))	\
 			{	\
 				lastFailed = true;	\
 				return;	\
 			}else{	\
-				RunTest();	\
+				RunTest(false);	\
 				if(lastFailed)	\
 					printf("%s failed\n", testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM"));	\
 			}	\
@@ -198,10 +200,14 @@ struct Test_##code : TestQueue {	\
 		}	\
 	}	\
 	bool lastFailed;	\
+	void RunTest(bool before);	\
 	void RunTest();	\
 };	\
 Test_##code test_##code;	\
-void Test_##code::RunTest()
+void Test_##code::RunTest(bool before)
+
+#define TEST_SIMPLE(name, code, result) TEST_SIMPLE_BASE(name, code, result){ if(!before) RunTest(); } void Test_##code::RunTest()
+#define TEST_SIMPLE_WITH_SETUP(name, code, result) TEST_SIMPLE_BASE(name, code, result)
 
 #define TEST_RESULT(name, code, result)	\
 struct Test_##code : TestQueue {	\

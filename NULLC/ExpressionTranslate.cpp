@@ -512,9 +512,9 @@ void TranslateIntegerLiteral(ExpressionTranslateContext &ctx, ExprIntegerLiteral
 void TranslateRationalLiteral(ExpressionTranslateContext &ctx, ExprRationalLiteral *expression)
 {
 	if(expression->type == ctx.ctx.typeFloat)
-		Print(ctx, "((float)%e)", expression->value);
+		Print(ctx, "((float)%.9g)", expression->value);
 	else if(expression->type == ctx.ctx.typeDouble)
-		Print(ctx, "%e", expression->value);
+		Print(ctx, "%.17g", expression->value);
 	else
 		assert(!"unknown type");
 }

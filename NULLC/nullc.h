@@ -26,6 +26,7 @@ void		nullcSetOptimizationLevel(int level);
 void		nullcSetEnableTimeTrace(int enable);
 void		nullcSetModuleAnalyzeMemoryLimit(unsigned bytes);
 void		nullcSetEnableExternalDebugger(int enable);
+void		nullcSetMissingFunctionLookup(void* (*lookup)(const char* name));
 
 void		nullcTerminate();
 

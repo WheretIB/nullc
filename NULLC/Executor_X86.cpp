@@ -13,6 +13,7 @@
 #include "Linker.h"
 #include "StdLib.h"
 #include "InstructionTreeRegVmLowerGraph.h"
+#include "Trace.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc
@@ -879,7 +880,7 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			}
 
 			// Copy all arguments
-			memcpy(vmState.tempStackArrayBase, arguments, target.bytesToPop);
+			memcpy(vmState.tempStackArrayBase, arguments, target.argumentSize);
 
 			// Call function
 			if(target.funcPtrWrap)
@@ -910,7 +911,7 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		{
 			instructionPos = funcPos;
 
-			unsigned argumentsSize = target.bytesToPop;
+			unsigned argumentsSize = target.argumentSize;
 
 			if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + argumentsSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
 			{
@@ -1210,6 +1211,8 @@ bool ExecutorX86::SetStackSize(unsigned bytes)
 
 void ExecutorX86::ClearNative()
 {
+	TRACE_SCOPE("x86", "ClearNative");
+
 	if (instList.size())
 		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
@@ -1273,6 +1276,8 @@ void ExecutorX86::ClearNative()
 
 bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
+	TRACE_SCOPE("x86", "TranslateToNative");
+
 	if(instList.size())
 		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
@@ -1420,7 +1425,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				ExternFuncInfo &target = exLinker->exFunctions[codeGenCtx->currFunctionId];
 
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
-				unsigned argumentsSize = target.bytesToPop;
+				unsigned argumentsSize = target.argumentSize;
 
 #if defined(_M_X64)
 				EMIT_OP_NUM(codeGenCtx->ctx, o_set_tracking, 0);
@@ -1994,6 +1999,8 @@ void ExecutorX86::UpdateFunctionPointer(unsigned source, unsigned target)
 
 void ExecutorX86::SaveListing(OutputContext &output)
 {
+	TRACE_SCOPE("x86", "SaveListing");
+
 	char instBuf[128];
 
 	for(unsigned i = 0; i < instList.size(); i++)

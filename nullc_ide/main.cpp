@@ -71,6 +71,7 @@ LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 HWND hWnd;			// Main window
 HWND hButtonCalc;	// Run/Abort button
 HWND hContinue;		// Button that continues an interrupted execution
+HWND hSaveLogFiles;
 HWND hShowTemporaries;	// Show temporary variables
 HWND hExecutionType; // Target selection
 HWND hOptimizationLevel;
@@ -778,10 +779,15 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	ComboBox_SetCurSel(hOptimizationLevel, 2);
 
-	hShowTemporaries = CreateWindow("BUTTON", "Show temps", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-280, 185, 130, 30, hWnd, NULL, hInstance, NULL);
+	hShowTemporaries = CreateWindow("BUTTON", "Show temps", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800 - 2 * (130 + 10), 185, 130, 30, hWnd, NULL, hInstance, NULL);
 	if(!hShowTemporaries)
 		return 0;
 	SendMessage(hShowTemporaries, WM_SETFONT, (WPARAM)fontDefault, 0);
+
+	hSaveLogFiles = CreateWindow("BUTTON", "Save logs", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800 - 3 * (130 + 10), 185, 130, 30, hWnd, NULL, hInstance, NULL);
+	if (!hSaveLogFiles)
+		return 0;
+	SendMessage(hSaveLogFiles, WM_SETFONT, (WPARAM)fontDefault, 0);
 
 	INITCOMMONCONTROLSEX commControlTypes;
 	commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
@@ -1612,13 +1618,13 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			helpInsert.item.pszText = name;
 			HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
 
-			unsigned int offsetToNextFrame = function.bytesToPop;
+			unsigned int offsetToNextFrame = function.argumentSize;
 			// Check every function local
 			for(unsigned int i = 0; i < function.localCount; i++)
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + i];
-				if(function.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= function.bytesToPop)
+				if(function.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= function.argumentSize)
 					break;
 
 				char *it = name;
@@ -1658,7 +1664,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 			}
 			if(function.parentType != ~0u)
 			{
-				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = (char*)(data + offset + function.argumentSize - NULLC_PTR_SIZE);
 
 				char *it = name;
 				it += safeprintf(it, nameSize, "0x%x: %s %s = %p", ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
@@ -1676,12 +1682,12 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
 				tiExtra.back() = TreeItemExtra(*(char**)ptr, &codeTypes[function.parentType], thisItem, true, "$this");
 
-				if(offset + function.bytesToPop > dataCount)
+				if(offset + function.argumentSize > dataCount)
 					InsertUnavailableInfo(thisItem);
 			}
 			if(function.contextType != ~0u)
 			{
-				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = (char*)(data + offset + function.argumentSize - NULLC_PTR_SIZE);
 
 				char *it = name;
 				it += safeprintf(it, nameSize, "0x%x: %s %s = %p", ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(char**)ptr);
@@ -1699,7 +1705,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
 				tiExtra.back() = TreeItemExtra((void*)ptr, &codeTypes[function.contextType], thisItem, true, "$context");
 
-				if(offset + function.bytesToPop > dataCount)
+				if(offset + function.argumentSize > dataCount)
 					InsertUnavailableInfo(thisItem);
 			}
 			offset += offsetToNextFrame;
@@ -2049,6 +2055,8 @@ void IdeRun(bool debug)
 		IdeUpdateModuleImportPaths(activeTab);
 
 		nullcSetOptimizationLevel(ComboBox_GetCurSel(hOptimizationLevel));
+
+		nullcSetEnableLogFiles(Button_GetCheck(hSaveLogFiles), NULL, NULL, NULL);
 
 		nullres good = false;
 
@@ -2684,6 +2692,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hExecutionType, SW_SHOW);
 				ShowWindow(hOptimizationLevel, SW_SHOW);
 				ShowWindow(hShowTemporaries, SW_SHOW);
+				ShowWindow(hSaveLogFiles, SW_SHOW);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
 
 				ShowWindow(hAttachPanel, SW_HIDE);
@@ -2993,6 +3002,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hExecutionType, SW_HIDE);
 				ShowWindow(hOptimizationLevel, SW_HIDE);
 				ShowWindow(hShowTemporaries, SW_HIDE);
+				ShowWindow(hSaveLogFiles, SW_HIDE);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
 
 				ShowWindow(hAttachPanel, SW_SHOW);
@@ -3326,12 +3336,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(hAttachList)
 				SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
 
-			unsigned int buttonWidth = 120;
-			unsigned int resultWidth = width - 5 * buttonWidth - 3 * mainPadding - subPadding * 4;
+			unsigned int buttonWidth = 110;
+			unsigned int resultWidth = width - 6 * buttonWidth - 3 * mainPadding - subPadding * 5;
 
 			unsigned int calcOffsetX = mainPadding;
 			unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
-			unsigned int x86OffsetX = resultOffsetX + (buttonWidth + subPadding) * 2 + resultWidth;
+			unsigned int x86OffsetX = resultOffsetX + (buttonWidth + subPadding) * 3 + resultWidth;
 
 			if(hButtonCalc)
 				SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
@@ -3350,6 +3360,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			if(hShowTemporaries)
 				SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - (buttonWidth + subPadding) * 2, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hSaveLogFiles)
+				SetWindowPos(hSaveLogFiles, HWND_TOP, x86OffsetX - (buttonWidth + subPadding) * 3, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 			if(hAttachDo)
 				SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
@@ -3398,6 +3411,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			if(hShowTemporaries)
 				InvalidateRect(hShowTemporaries, NULL, true);
+
+			if(hSaveLogFiles)
+				InvalidateRect(hSaveLogFiles, NULL, true);
 
 			if(hStatus)
 				InvalidateRect(hStatus, NULL, true);

@@ -46,6 +46,11 @@ bool SearchAndAddSourceFile(char*& buf, const char* name)
 	if(AddSourceFile(buf, tmp))
 		return true;
 
+	sprintf(tmp, "NULLC/translation/%s", name);
+
+	if(AddSourceFile(buf, tmp))
+		return true;
+
 	sprintf(tmp, "../NULLC/translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
@@ -62,8 +67,8 @@ int main(int argc, char** argv)
 	if(argc == 1)
 	{
 		printf("usage: nullcl [-o output.ncm] file.nc [-m module.name] [file2.nc [-m module.name] ...]\n");
-		printf("usage: nullcl -c output.cpp file.nc\n");
-		printf("usage: nullcl -x output.exe file.nc\n");
+		printf("usage: nullcl -c [-i import_folder] output.cpp file.nc\n");
+		printf("usage: nullcl -x [-i import_folder] output.exe file.nc\n");
 		return 1;
 	}
 
@@ -98,17 +103,34 @@ int main(int argc, char** argv)
 	}else if(strcmp("-c", argv[argIndex]) == 0 || strcmp("-x", argv[argIndex]) == 0){
 		bool link = strcmp("-x", argv[argIndex]) == 0;
 		argIndex++;
+
+		while(argIndex < argc && strcmp("-i", argv[argIndex]) == 0)
+		{
+			argIndex++;
+
+			if(argIndex == argc)
+			{
+				printf("Missing folder name after -i\n");
+				nullcTerminate();
+				return 1;
+			}
+
+			const char* folder = argv[argIndex++];
+			nullcAddImportPath(folder);
+		}
+
 		if(argIndex == argc)
 		{
-			printf("Output file name not found after -o\n");
+			printf("Output file name not found after options\n");
 			nullcTerminate();
 			return 1;
 		}
+
 		const char *outputName = argv[argIndex++];
 
 		if(argIndex == argc)
 		{
-			printf("Input file name not found\n");
+			printf("Input file name not found after output file name\n");
 			nullcTerminate();
 			return 1;
 		}
@@ -159,10 +181,10 @@ int main(int argc, char** argv)
 			strcpy(pos, " __temp.cpp");
 			pos += strlen(pos);
 
-			strcpy(pos, " -lstdc++");
+			strcpy(pos, " -Itranslation");
 			pos += strlen(pos);
 
-			strcpy(pos, " -Itranslation");
+			strcpy(pos, " -INULLC/translation");
 			pos += strlen(pos);
 
 			strcpy(pos, " -I../NULLC/translation");
@@ -172,7 +194,7 @@ int main(int argc, char** argv)
 			pos += strlen(pos);
 
 			if(!SearchAndAddSourceFile(pos, "runtime.cpp"))
-				printf("Failed to find 'runtime.cpp' input file");
+				printf("Failed to find 'runtime.cpp' input file\n");
 
 			for(unsigned i = 0; i < translationDependencyCount; i++)
 			{
@@ -192,10 +214,13 @@ int main(int argc, char** argv)
 						strcpy(pos, "_bind.cpp");
 
 					if(!SearchAndAddSourceFile(pos, tmp))
-						printf("Failed to find '%s' input file", tmp);
+						printf("Failed to find '%s' input file\n", tmp);
 				}
 			}
-			
+
+			strcpy(pos, " -lstdc++ -lm");
+			pos += strlen(pos);
+
 			if (verbose)
 				printf("Command line: %s\n", cmdLine);
 

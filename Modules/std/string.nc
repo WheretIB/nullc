@@ -1,10 +1,36 @@
 // std.string
 
+// C-compatible set of functions to use on null-terminated character arrays
+
+// Find length of a null-terminated character array 'string'
+// Error is generated if array is empty of not null-terminated
+int strlen(char[] string);
+
+// Find occurance of a null-terminated character array 'substring' inside null-terminated character array 'string'
+// Result is either the position in the array or -1
+// Error is generated if array is empty of not null-terminated
 int strstr(char[] string, substring);
+
+// Find occurance of character 'ch' inside null-terminated character array 'string'
+// If 'ch' is '\0', result is the position of the null-terminating character in the array
+// Result is either the position in the array or -1
+// Error is generated if array is empty of not null-terminated
 int strchr(char[] string, char ch);
+
+// Compare and find relation between null-terminated character arrays 'a' and 'b'
+// Return value is the lexographical ordering of the null-terminated character arrays
+// -1 if 'a' comes before 'b'
+// 0 if 'a' is equal o 'b'
+// 1 if 'a' comes after 'b'
+// Error is generated if either array is empty of not null-terminated
 int strcmp(char[] a, b);
 
-// String class to use instead of error-prone raw character array pointers
+// Copy null-terminated character array 'src' into character array 'dst'
+// Return value is the length of a null-terminated character array 'dst'
+// Error is generated if either array is empty of not null-terminated
+int strcpy(char[] dst, src);
+
+// String class to use instead of error-prone raw character arrays
 class string
 {
 	char[] data;
@@ -18,8 +44,27 @@ void string:string()
 // Basic constructor
 void string:string(char[] right)
 {
-	if(right.size > 1)
-		data = duplicate(right);
+	if(right.size == 0)
+		return;
+
+	// null-terminated source
+	if(right[right.size - 1] == 0)
+	{
+		int len = strlen(right);
+
+		if(len == 0)
+			return;
+
+		data = new char[len + 1];
+		strcpy(data, right);
+	}
+	else
+	{
+		data = new char[right.size + 1];
+
+		for(i in data, j in right)
+			i = j;
+	}
 }
 
 // Fill constructor
@@ -36,24 +81,52 @@ void string:string(int count, char ch)
 }
 
 // Copy constructor
-void string:string(string ref data)
+void string:string(string ref right)
 {
-	this.data = duplicate(data.data);
+	if(right.data)
+		this.data = duplicate(right.data);
 }
 
 // Assignment operator
 string ref operator=(string ref left, string ref right)
 {
-	left.data = duplicate(right.data);
+	if(right.data)
+		left.data = duplicate(right.data);
+	else
+		left.data = nullptr;
 	return left;
 }
 
 string ref operator=(string ref left, char[] right)
 {
-	if(right.size > 1)
-		left.data = duplicate(right);
-	else
+	if(right.size == 0)
+	{
 		left.data = nullptr;
+		return left;
+	}
+
+	// null-terminated source
+	if(right[right.size - 1] == 0)
+	{
+		int len = strlen(right);
+
+		if(len == 0)
+		{
+			left.data = nullptr;
+			return left;
+		}
+
+		left.data = new char[len + 1];
+		strcpy(left.data, right);
+	}
+	else
+	{
+		left.data = new char[right.size + 1];
+
+		for(i in left.data, j in right)
+			i = j;
+	}
+
 	return left;
 }
 
@@ -85,7 +158,7 @@ void string:clear()
 // Checks that the string is empty
 bool string:empty()
 {
-	return data.size == 0;
+	return data.size <= 1;
 }
 
 // return a single character at the specified index
@@ -489,33 +562,36 @@ string operator+(string ref left, string ref right)
 
 string operator+(char[] left, string ref right)
 {
-	return string(left + right.data);
+	return string(left) + right;
 }
 
 string operator+(string ref left, char[] right)
 {
-	return string(left.data + right);
+	return left + string(right);
 }
 
 // Compare strings for equality
 bool operator==(string ref left, string ref right)
 {
+	if(left.size != right.size)
+		return false;
+
 	return left.data == right.data;
 }
 
 bool operator==(string ref left, char[] right)
 {
 	if(right.size > 1)
-		return left.data == right;
-		
+		return strcmp(left.data, right) == 0;
+
 	return left.size == 0;
 }
 
 bool operator==(char[] left, string ref right)
 {
 	if(left.size > 1)
-		return left == right.data;
-		
+		return strcmp(left, right.data) == 0;
+
 	return right.size == 0;
 }
 
@@ -531,7 +607,7 @@ bool operator!=(string ref left, string ref right)
 bool operator!=(string ref left, char[] right)
 {
 	if(right.size > 1)
-		return left.data != right;
+		return strcmp(left.data, right) != 0;
 	
 	return left.size != 0;
 }
@@ -539,7 +615,68 @@ bool operator!=(string ref left, char[] right)
 bool operator!=(char[] left, string ref right)
 {
 	if(left.size > 1)
-		return left != right.data;
+		return strcmp(left, right.data) != 0;
 	
 	return right.size != 0;
+}
+
+// String ordering
+bool operator<(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) < 0;
+}
+
+bool operator<(string ref left, char[] right)
+{
+	return strcmp(left.data, right) < 0;
+}
+
+bool operator<(char[] left, string ref right)
+{
+	return strcmp(left, right.data) < 0;
+}
+
+bool operator<=(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) <= 0;
+}
+
+bool operator<=(string ref left, char[] right)
+{
+	return strcmp(left.data, right) <= 0;
+}
+
+bool operator<=(char[] left, string ref right)
+{
+	return strcmp(left, right.data) <= 0;
+}
+
+bool operator>(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) > 0;
+}
+
+bool operator>(string ref left, char[] right)
+{
+	return strcmp(left.data, right) > 0;
+}
+
+bool operator>(char[] left, string ref right)
+{
+	return strcmp(left, right.data) > 0;
+}
+
+bool operator>=(string ref left, string ref right)
+{
+	return strcmp(left.data, right.data) >= 0;
+}
+
+bool operator>=(string ref left, char[] right)
+{
+	return strcmp(left.data, right) >= 0;
+}
+
+bool operator>=(char[] left, string ref right)
+{
+	return strcmp(left, right.data) >= 0;
 }

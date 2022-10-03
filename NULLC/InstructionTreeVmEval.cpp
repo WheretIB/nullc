@@ -2234,7 +2234,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantInt(ctx.allocator, NULL, jmpOffset->iValue == 0);
 	}
-	else if(function->name->name == InplaceStr("assert_derived_from_base") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
+	else if(function->name->name == InplaceStr("__assert_derived_from") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
 	{
 		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
 
@@ -2288,7 +2288,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		VmConstant *result = AllocateHeapArray(ctx, ctx.ctx.typeChar, length);
 
-		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
+		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
 
 		StoreFrameValue(ctx, pointer, 0, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
@@ -2313,7 +2313,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		VmConstant *result = AllocateHeapArray(ctx, ctx.ctx.typeChar, length);
 
-		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
+		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
 
 		StoreFrameValue(ctx, pointer, 0, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
@@ -2422,7 +2422,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!copySize)
 			return NULL;
 
-		VmConstant *upvalueListHead = LoadFrameValue(ctx, upvalueListLocation, NULL, VmType::Pointer(ctx.ctx.typeVoid), NULLC_PTR_SIZE);
+		VmConstant *upvalueListHead = LoadFrameValue(ctx, upvalueListLocation, NULL, VmType::Pointer(ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), NULLC_PTR_SIZE);
 
 		if(!upvalueListHead)
 			return NULL;
@@ -2457,7 +2457,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 			upvalueDataPtr = nextDataPtr;
 		}
 
-		StoreFrameValue(ctx, upvalueListLocation, 0, CreateConstantPointer(ctx.allocator, NULL, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
+		StoreFrameValue(ctx, upvalueListLocation, 0, CreateConstantPointer(ctx.allocator, NULL, upvalueVmPtr, NULL, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), false), NULLC_PTR_SIZE);
 
 		return CreateConstantVoid(ctx.allocator);
 	}

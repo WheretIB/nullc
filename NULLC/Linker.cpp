@@ -4,15 +4,7 @@
 #include "BinaryCache.h"
 #include "DenseMap.h"
 #include "InstructionTreeRegVmLowerGraph.h"
-
-#ifdef NULLC_AUTOBINDING
-	#if defined(__linux)
-		#include <dlfcn.h>
-	#else
-		#define WIN32_LEAN_AND_MEAN
-		#include <windows.h>
-	#endif
-#endif
+#include "Trace.h"
 
 extern "C"
 {
@@ -24,6 +16,7 @@ extern "C"
 namespace NULLC
 {
 	extern bool enableLogFiles;
+	extern void* (*lookupMissingFunction)(const char* name);
 
 	template<typename T>
 	unsigned GetArrayDataSize(const FastVector<T> &arr)
@@ -123,6 +116,8 @@ void Linker::CleanCode()
 
 bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 {
+	TRACE_SCOPE("link", "LinkCode");
+
 	linkError[0] = 0;
 
 #ifdef VERBOSE_DEBUG_OUTPUT
@@ -622,15 +617,9 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 
 			if(exFunctions.back().regVmAddress == 0)
 			{
-#ifdef NULLC_AUTOBINDING
-	#if defined(__linux)
-				void* handle = dlopen(0, RTLD_LAZY | RTLD_LOCAL);
-				exFunctions.back().funcPtrRaw = (void (*)())dlsym(handle, FindSymbols(bCode) + exFunctions.back().offsetToName);
-				dlclose(handle);
-	#else
-				exFunctions.back().funcPtrRaw = (void (*)())GetProcAddress(GetModuleHandle(NULL), FindSymbols(bCode) + exFunctions.back().offsetToName);
-	#endif
-#endif
+				if(NULLC::lookupMissingFunction)
+					exFunctions.back().funcPtrRaw = (void (*)())NULLC::lookupMissingFunction(FindSymbols(bCode) + exFunctions.back().offsetToName);
+
 				if(exFunctions.back().funcPtrRaw || exFunctions.back().funcPtrWrap)
 				{
 					exFunctions.back().regVmAddress = ~0u;
@@ -883,6 +872,8 @@ bool Linker::LinkCode(const char *code, const char *moduleName, bool rootModule)
 
 bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 {
+	TRACE_SCOPE("link", "SaveRegVmListing");
+
 	unsigned line = 0, lastLine = ~0u;
 
 	unsigned long long total = 0;
@@ -896,10 +887,15 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 	ExternSourceInfo *info = (ExternSourceInfo*)exRegVmSourceInfo.data;
 	unsigned infoSize = exRegVmSourceInfo.size();
 
-	SmallDenseSet<unsigned, SmallDenseMapUnsignedHasher, 32> regVmJumpTargetMap;
+	SmallDenseSet<unsigned, SmallDenseMapUnsignedHasher, 32> regVmJumpTargetSet;
 
 	for(unsigned i = 0; i < regVmJumpTargets.size(); i++)
-		regVmJumpTargetMap.insert(regVmJumpTargets[i]);
+		regVmJumpTargetSet.insert(regVmJumpTargets[i]);
+
+	SmallDenseMap<unsigned, ExternFuncInfo*, SmallDenseMapUnsignedHasher, 32> regVmFunctionMap;
+
+	for(unsigned i = 0; i < exFunctions.size(); i++)
+		regVmFunctionMap.insert(exFunctions[i].regVmAddress, &exFunctions[i]);
 
 	const char *lastSourcePos = exSource.data;
 	const char *lastCodeStart = NULL;
@@ -943,7 +939,10 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 
 		RegVmCmd cmd = exRegVmCode[i];
 
-		bool found = regVmJumpTargetMap.contains(i);
+		bool found = regVmJumpTargetSet.contains(i);
+
+		if(ExternFuncInfo **func = regVmFunctionMap.find(i))
+			output.Printf("// %s#%d\n", exSymbols.data + (*func)->offsetToName, unsigned(*func - exFunctions.data));
 
 		if(withProfileInfo)
 		{
@@ -953,7 +952,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 
 				double percent = double(exRegVmExecCount[i]) / total * 100.0;
 
-				if (percent > 0.1)
+				if(percent > 0.1)
 					output.Printf("// (%8d %4.1f)      ", exRegVmExecCount[i], percent);
 				else
 					output.Printf("// (%8d     )      ", exRegVmExecCount[i]);

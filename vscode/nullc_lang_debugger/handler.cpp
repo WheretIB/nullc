@@ -1343,7 +1343,7 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 					offset += alignOffset;
 
-					unsigned offsetToNextFrame = function->bytesToPop;
+					unsigned offsetToNextFrame = function->argumentSize;
 
 					for(unsigned int i = 0; i < function->localCount; i++)
 					{
@@ -1664,7 +1664,7 @@ bool HandleRequestSetVariable(Context& ctx, rapidjson::Document &response, rapid
 
 					offset += alignOffset;
 
-					unsigned offsetToNextFrame = function->bytesToPop;
+					unsigned offsetToNextFrame = function->argumentSize;
 
 					for(unsigned int i = 0; i < function->localCount; i++)
 					{

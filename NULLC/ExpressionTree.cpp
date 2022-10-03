@@ -269,7 +269,7 @@ namespace
 	
 		if(*str == '.')
 		{
-			double power = 0.1f;
+			double power = 0.1;
 			str++;
 
 			while((digit = *str - '0') < 10)
@@ -517,26 +517,222 @@ namespace
 		return NULL;
 	}
 
+	IdentifierLookupResult* LookupObjectByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		typedef DirectChainedMap<IdentifierLookupResult>::NodeIterator Node;
+
+		ScopeData *scope = ctx.scope;
+
+		while(scope)
+		{
+			if(Node lookup = scope->idLookupMap.first(nameHash))
+			{
+				if(ctx.lookupLocation && !scope->unrestricted)
+				{
+					VariableData *variable = lookup.node->value.variable;
+
+					// Skip variables that are not visible from current point
+					while(variable && !variable->importModule && variable->source->pos.begin > ctx.lookupLocation->pos.begin)
+					{
+						lookup = scope->idLookupMap.next(lookup);
+
+						if(lookup.node)
+							variable = lookup.node->value.variable;
+						else
+							variable = NULL;
+					}
+				}
+
+				if(lookup.node)
+					return &lookup.node->value;;
+			}
+
+			scope = scope->scope;
+		}
+
+		return NULL;
+	}
+
+	VariableData* LookupVariableByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, nameHash))
+		{
+			if(lookup->variable)
+				return lookup->variable;
+		}
+
+		return NULL;
+	}
+
+	FunctionData* LookupFunctionByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, nameHash))
+		{
+			if(lookup->function)
+				return lookup->function;
+		}
+
+		return NULL;
+	}
+
+	TypeBase* LookupTypeByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		ScopeData *scope = ctx.scope;
+
+		while(scope)
+		{
+			if(TypeLookupResult *lookup = scope->typeLookupMap.find(nameHash))
+			{
+				if(TypeBase *type = lookup->type)
+				{
+					// Check type visibility
+					if(ctx.lookupLocation && !scope->unrestricted && !type->importModule)
+					{
+						SynBase *typeLocation = NULL;
+
+						if(TypeClass *exact = getType<TypeClass>(type))
+							typeLocation = exact->source;
+						else if(TypeGenericClassProto *exact = getType<TypeGenericClassProto>(type))
+							typeLocation = exact->definition;
+
+						if(typeLocation && typeLocation->pos.begin > ctx.lookupLocation->pos.begin)
+						{
+							scope = scope->scope;
+							continue;
+						}
+					}
+
+					return lookup->type;
+				}
+
+				// Check alias visibility
+				if(ctx.lookupLocation && !scope->unrestricted && !lookup->alias->importModule)
+				{
+					if(lookup->alias->source->pos.begin > ctx.lookupLocation->pos.begin)
+					{
+						scope = scope->scope;
+						continue;
+					}
+				}
+
+				return lookup->alias->type;
+			}
+
+			scope = scope->scope;
+		}
+
+		return NULL;
+	}
+
+	struct FunctionLookupChain
+	{
+		typedef DirectChainedMap<IdentifierLookupResult>::NodeIterator Node;
+
+		FunctionLookupChain()
+		{
+			scope = NULL;
+		}
+
+		FunctionLookupChain(Node node, ScopeData *scope)
+		{
+			this->node = node;
+			this->scope = scope;
+		}
+
+		FunctionData* operator*()
+		{
+			return node.node->value.function;
+		}
+
+		FunctionData* operator->()
+		{
+			return node.node->value.function;
+		}
+
+		FunctionLookupChain next()
+		{
+			assert(node);
+
+			// Try the next variable in current scope
+			if(Node curr = scope->idLookupMap.next(node))
+			{
+				// Scopes with mixed variables and functions will block function overload visibility
+				if(curr.node->value.variable)
+					return FunctionLookupChain();
+
+				return FunctionLookupChain(curr, scope);
+			}
+
+			// Search in next scopes
+			while(scope && scope->scope)
+			{
+				scope = scope->scope;
+
+				if(Node curr = scope->idLookupMap.first(node.node->hash))
+				{
+					// Scopes with mixed variables and functions will block function overload visibility
+					if(curr.node->value.variable)
+						return FunctionLookupChain();
+
+					return FunctionLookupChain(curr, scope);
+				}
+			}
+
+			return FunctionLookupChain();
+		}
+
+		Node node;
+		ScopeData *scope;
+
+		// Safe bool cast
+		typedef void (FunctionLookupChain::*bool_type)() const;
+		void safe_bool() const{}
+
+		operator bool_type() const
+		{
+			return node ? &FunctionLookupChain::safe_bool : 0;
+		}
+	};
+
+	FunctionLookupChain LookupFunctionChainByName(ExpressionContext &ctx, unsigned nameHash)
+	{
+		typedef DirectChainedMap<IdentifierLookupResult>::NodeIterator Node;
+
+		ScopeData *scope = ctx.scope;
+
+		while(scope)
+		{
+			if(Node curr = scope->idLookupMap.first(nameHash))
+			{
+				if(curr.node->value.function)
+					return FunctionLookupChain(curr, scope);
+
+				return FunctionLookupChain();
+			}
+
+			scope = scope->scope;
+		}
+
+		return FunctionLookupChain();
+	}
+
 	bool CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
-		if(ctx.typeMap.find(name.hash()))
+		if(LookupTypeByName(ctx, name.hash()))
 		{
 			Report(ctx, source, "ERROR: name '%.*s' is already taken for a type", FMT_ISTR(name));
 			return true;
 		}
 
-		if(VariableData **variable = ctx.variableMap.find(name.hash()))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, name.hash()))
 		{
-			if((*variable)->scope == ctx.scope)
+			if(lookup->variable && lookup->variable->scope == ctx.scope)
 			{
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 				return true;
 			}
-		}
 
-		if(FunctionData **functions = ctx.functionMap.find(name.hash()))
-		{
-			if((*functions)->scope == ctx.scope)
+			if(lookup->function && lookup->function->scope == ctx.scope)
 			{
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(name));
 				return true;
@@ -554,18 +750,18 @@ namespace
 
 	void CheckFunctionConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
-		if(FunctionData **function = ctx.functionMap.find(name.hash()))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, name.hash()))
 		{
-			if((*function)->isInternal)
+			if(lookup->function && lookup->function->isInternal)
 				Report(ctx, source, "ERROR: function '%.*s' is reserved", FMT_ISTR(name));
 		}
 	}
 
 	void CheckTypeConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
-		if(VariableData **variable = ctx.variableMap.find(name.hash()))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, name.hash()))
 		{
-			if((*variable)->scope == ctx.scope)
+			if(lookup->variable && lookup->variable->scope == ctx.scope)
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 		}
 
@@ -575,18 +771,15 @@ namespace
 
 	void CheckNamespaceConflict(ExpressionContext &ctx, SynBase *source, NamespaceData *ns)
 	{
-		if(ctx.typeMap.find(ns->fullNameHash))
+		if(LookupTypeByName(ctx, ns->fullNameHash))
 			Report(ctx, source, "ERROR: name '%.*s' is already taken for a type", FMT_ISTR(ns->name.name));
 
-		if(VariableData **variable = ctx.variableMap.find(ns->nameHash))
+		if(IdentifierLookupResult *lookup = LookupObjectByName(ctx, ns->name.name.hash()))
 		{
-			if((*variable)->scope == ctx.scope)
+			if(lookup->variable && lookup->variable->scope == ctx.scope)
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(ns->name.name));
-		}
 
-		if(FunctionData **functions = ctx.functionMap.find(ns->nameHash))
-		{
-			if((*functions)->scope == ctx.scope)
+			if(lookup->function && lookup->function->scope == ctx.scope)
 				Report(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(ns->name.name));
 		}
 	}
@@ -690,51 +883,29 @@ namespace
 
 	FunctionData* ImplementPrototype(ExpressionContext &ctx, FunctionData *function)
 	{
-		ArrayView<FunctionData*> functions = ctx.scope->functions;
+		ScopeData *lookupScope = ctx.scope->type == SCOPE_TYPE || ctx.scope->type == SCOPE_NAMESPACE ? ctx.globalScope : ctx.scope;
 
-		for(unsigned i = 0, e = functions.count; i < e; i++)
+		if(DirectChainedMap<IdentifierLookupResult>::NodeIterator curr = lookupScope->idLookupMap.first(function->name->name.hash()))
 		{
-			FunctionData *curr = functions.data[i];
-
-			// Skip current function
-			if(curr == function)
-				continue;
-
-			// TODO: generic function list
-
-			if(curr->isPrototype && curr->type == function->type && curr->name->name == function->name->name)
-			{
-				curr->implementation = function;
-
-				ctx.HideFunction(curr);
-
-				return curr;
-			}
-		}
-
-		if(function->scope->ownerType)
-		{
-			HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function->nameHash);
-
 			while(curr)
 			{
-				// Skip current function
-				if(curr->value == function)
-				{
-					curr = ctx.functionMap.next(curr);
-					continue;
-				}
+				FunctionData *option = curr.node->value.function;
 
-				if(curr->value->isPrototype && /*SameGenerics(curr->value->generics, function->generics) &&*/ curr->value->type == function->type)
-				{
-					curr->value->implementation = function;
+				if(option && option != function && option->isPrototype && option->type == function->type)
+					break;
 
-					ctx.HideFunction(curr->value);
+				curr = ctx.scope->idLookupMap.next(curr);
+			}
 
-					return curr->value;
-				}
+			if(curr)
+			{
+				FunctionData *prototype = curr.node->value.function;
 
-				curr = ctx.functionMap.next(curr);
+				prototype->implementation = function;
+
+				ctx.HideFunction(prototype);
+
+				return prototype;
 			}
 		}
 
@@ -791,21 +962,23 @@ namespace
 
 	FunctionData* CheckUniqueness(ExpressionContext &ctx, FunctionData* function)
 	{
-		HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function->nameHash);
+		FunctionLookupChain chain = LookupFunctionChainByName(ctx, function->name->name.hash());
 
-		while(curr)
+		while(chain)
 		{
+			FunctionData *value = *chain;
+
 			// Skip current function
-			if(curr->value == function)
+			if(!value || value == function)
 			{
-				curr = ctx.functionMap.next(curr);
+				chain = chain.next();
 				continue;
 			}
 
-			if(SameGenerics(curr->value->generics, function->generics) && curr->value->type == function->type && curr->value->scope->ownerType == function->scope->ownerType)
-				return curr->value;
+			if(SameGenerics(value->generics, function->generics) && value->type == function->type && value->scope->ownerType == function->scope->ownerType)
+				return value;
 
-			curr = ctx.functionMap.next(curr);
+			chain = chain.next();
 		}
 
 		return NULL;
@@ -887,7 +1060,7 @@ namespace
 	}
 }
 
-ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): optimizationLevel(optimizationLevel), allocator(allocator)
+ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): optimizationLevel(optimizationLevel), functionTypeMap(allocator), allocator(allocator)
 {
 	code = NULL;
 	codeEnd = NULL;
@@ -897,12 +1070,15 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	baseModuleFunctionCount = 0;
 
 	uniqueDependencies.set_allocator(allocator);
+	uniqueDependencyMap.set_allocator(allocator);
+
 	imports.set_allocator(allocator);
 	implicitImports.set_allocator(allocator);
 	namespaces.set_allocator(allocator);
 	types.set_allocator(allocator);
 	functions.set_allocator(allocator);
 	variables.set_allocator(allocator);
+
 	definitions.set_allocator(allocator);
 	setup.set_allocator(allocator);
 
@@ -917,14 +1093,26 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	genericAliasTypes.set_allocator(allocator);
 	genericClassTypes.set_allocator(allocator);
 
+	genericTypeMap.set_allocator(allocator);
+
 	genericFunctionInstanceTypeMap.set_allocator(allocator);
 
 	noAssignmentOperatorForTypePair.set_allocator(allocator);
 
-	genericTypeMap.set_allocator(allocator);
-	typeMap.set_allocator(allocator);
-	functionMap.set_allocator(allocator);
-	variableMap.set_allocator(allocator);
+	noIndexOperatorForTypePair.set_allocator(allocator);
+
+	for(unsigned i = 0; i < noUnaryOperatorForTypePair.size(); i++)
+		noUnaryOperatorForTypePair[i].set_allocator(allocator);
+
+	for(unsigned i = 0; i < noBinaryOperatorForTypePair.size(); i++)
+		noBinaryOperatorForTypePair[i].set_allocator(allocator);
+
+	for(unsigned i = 0; i < noModifyOperatorForTypePair.size(); i++)
+		noModifyOperatorForTypePair[i].set_allocator(allocator);
+
+	newConstructorFunctions.set_allocator(allocator);
+
+	internalTypeMap.set_allocator(allocator);
 
 	errorHandlerActive = false;
 	errorHandlerNested = false;
@@ -958,11 +1146,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel
 	typeAutoRef = NULL;
 	typeAutoArray = NULL;
 
-	typeMap.init();
-	functionMap.init();
-	variableMap.init();
-
 	scope = NULL;
+	lookupLocation = NULL;
 
 	globalScope = NULL;
 	globalNamespaces.set_allocator(allocator);
@@ -1015,6 +1200,9 @@ void ExpressionContext::PushScope(ScopeType type)
 	}
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushScope(NamespaceData *nameSpace)
@@ -1029,6 +1217,9 @@ void ExpressionContext::PushScope(NamespaceData *nameSpace)
 	}
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushScope(FunctionData *function)
@@ -1039,6 +1230,9 @@ void ExpressionContext::PushScope(FunctionData *function)
 		scope->scopes.push_back(next);
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushScope(TypeBase *type)
@@ -1049,6 +1243,9 @@ void ExpressionContext::PushScope(TypeBase *type)
 		scope->scopes.push_back(next);
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushLoopScope(bool allowBreak, bool allowContinue)
@@ -1069,14 +1266,20 @@ void ExpressionContext::PushLoopScope(bool allowBreak, bool allowContinue)
 		next->contiueDepth++;
 
 	scope = next;
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
 void ExpressionContext::PushTemporaryScope()
 {
 	scope = new (get<ScopeData>()) ScopeData(allocator, scope, 0, SCOPE_TEMPORARY);
+
+	if(lookupLocation)
+		scope->unrestricted = true;
 }
 
-void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool keepFunctions)
+void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents)
 {
 	(void)scopeType;
 	assert(scope->type == scopeType);
@@ -1094,16 +1297,12 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 		adopter->types.push_back(scope->types.data, scope->types.size());
 		adopter->aliases.push_back(scope->aliases.data, scope->aliases.size());
 
-		adopter->visibleVariables.push_back(scope->visibleVariables.data, scope->visibleVariables.size());
-
 		adopter->allVariables.push_back(scope->allVariables.data, scope->allVariables.size());
 
 		scope->variables.clear();
 		scope->functions.clear();
 		scope->types.clear();
 		scope->aliases.clear();
-
-		scope->visibleVariables.clear();
 
 		scope->allVariables.clear();
 
@@ -1119,15 +1318,6 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 		scope->allVariables.clear();
 	}
 
-	// Remove scope members from lookup maps
-	for(int i = int(scope->visibleVariables.count) - 1; i >= 0; i--)
-	{
-		VariableData *variable = scope->visibleVariables[i];
-
-		if(variableMap.find(variable->nameHash, variable))
-			variableMap.remove(variable->nameHash, variable);
-	}
-
 	for(int i = int(scope->functions.count) - 1; i >= 0; i--)
 	{
 		FunctionData *function = scope->functions[i];
@@ -1137,64 +1327,27 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 			continue;
 
 		// Always hide local functions
-		if(!keepFunctions || (!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL))
+		if(!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL)
 		{
-			if(scope->scope && function->isPrototype && !function->implementation && !keepFunctions)
+			if(scope->scope && function->isPrototype && !function->implementation)
 				Stop(function->source, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name->name));
-
-			if(functionMap.find(function->nameHash, function))
-			{
-				functionMap.remove(function->nameHash, function);
-
-				if(function->isOperator)
-					noAssignmentOperatorForTypePair.clear();
-			}
 		}
 	}
 
+	// Hide functions of local types
 	for(int i = int(scope->types.count) - 1; i >= 0; i--)
 	{
 		TypeBase *type = scope->types[i];
 
-		if(typeMap.find(type->nameHash, type))
+		if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
-			if(!keepFunctions)
+			for(unsigned k = 0; k < typeClass->methods.size(); k++)
 			{
-				if(isType<TypeClass>(type))
-				{
-					for(unsigned k = 0; k < functions.size(); k++)
-					{
-						FunctionData *function = functions[k];
+				FunctionData *function = typeClass->methods[k];
 
-						if(function->scope->ownerType == type && functionMap.find(function->nameHash, function))
-						{
-							functionMap.remove(function->nameHash, function);
-
-							if(function->isOperator)
-								noAssignmentOperatorForTypePair.clear();
-						}
-					}
-				}
+				globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 			}
-
-			typeMap.remove(type->nameHash, type);
 		}
-	}
-
-	for(int i = int(scope->aliases.count) - 1; i >= 0; i--)
-	{
-		AliasData *alias = scope->aliases[i];
-
-		if(typeMap.find(alias->nameHash, alias->type))
-			typeMap.remove(alias->nameHash, alias->type);
-	}
-
-	for(int i = int(scope->shadowedVariables.count) - 1; i >= 0; i--)
-	{
-		VariableData *variable = scope->shadowedVariables[i];
-
-		if (variable)
-			variableMap.insert(variable->nameHash, variable);
 	}
 
 	scope = scope->scope;
@@ -1202,100 +1355,13 @@ void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool k
 
 void ExpressionContext::PopScope(ScopeType type)
 {
-	PopScope(type, true, false);
-}
-
-void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location)
-{
-	// Restore parent first, up to the current scope
-	if(target->scope != scope)
-		RestoreScopesAtPoint(target->scope, location);
-
-	for(unsigned i = 0, e = target->visibleVariables.count; i < e; i++)
-	{
-		VariableData *variable = target->visibleVariables.data[i];
-
-		if(!location || variable->importModule != NULL || variable->source->pos.begin <= location->pos.begin)
-			variableMap.insert(variable->nameHash, variable);
-	}
-
-	// For functions, restore variable shadowing state and local functions
-	for(unsigned i = 0, e = target->functions.count; i < e; i++)
-	{
-		FunctionData *function = target->functions.data[i];
-
-		if(function->scope->ownerType)
-			continue;
-
-		if(!location || function->importModule != NULL || function->source->pos.begin <= location->pos.begin)
-		{
-			while(VariableData **variable = variableMap.find(function->nameHash))
-				variableMap.remove(function->nameHash, *variable);
-
-			if(!function->scope->ownerNamespace && GlobalScopeFrom(function->scope) == NULL)
-				functionMap.insert(function->nameHash, function);
-		}
-	}
-
-	for(unsigned i = 0, e = target->types.count; i < e; i++)
-	{
-		TypeBase *type = target->types.data[i];
-
-		if(TypeClass *exact = getType<TypeClass>(type))
-		{
-			if(!location || exact->importModule != NULL || exact->source->pos.begin <= location->pos.begin)
-				typeMap.insert(type->nameHash, type);
-		}
-		else if(TypeGenericClassProto *exact = getType<TypeGenericClassProto>(type))
-		{
-			if(!location || exact->definition->imported || exact->definition->pos.begin <= location->pos.begin)
-				typeMap.insert(type->nameHash, type);
-		}
-		else
-		{
-			typeMap.insert(type->nameHash, type);
-		}
-	}
-
-	for(unsigned i = 0, e = target->aliases.count; i < e; i++)
-	{
-		AliasData *alias = target->aliases.data[i];
-
-		if(!location || alias->importModule != NULL || alias->source->pos.begin <= location->pos.begin)
-			typeMap.insert(alias->nameHash, alias->type);
-	}
-
-	scope = target;
+	PopScope(type, true);
 }
 
 void ExpressionContext::SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation)
 {
-	// Reach the same depth
-	while(scope->scopeDepth > target->scopeDepth)
-		PopScope(scope->type, false, true);
-
-	// Reach the same parent
-	ScopeData *curr = target;
-
-	while(curr->scopeDepth > scope->scopeDepth)
-		curr = curr->scope;
-
-	while(scope->scope != curr->scope)
-	{
-		PopScope(scope->type, false, true);
-
-		curr = curr->scope;
-	}
-
-	// We have common parent, but we are in different scopes, go to common parent
-	if(scope != curr)
-		PopScope(scope->type, false, true);
-
-	// When the common parent is reached, remove it without ejecting namespace variables into the outer scope
-	PopScope(scope->type, false, true);
-
-	// Now restore each namespace data up to the source location
-	RestoreScopesAtPoint(target, targetLocation);
+	scope = target;
+	lookupLocation = targetLocation;
 }
 
 NamespaceData* ExpressionContext::GetCurrentNamespace(ScopeData *scopeData)
@@ -1415,13 +1481,15 @@ void ExpressionContext::AddType(TypeBase *type)
 
 	if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
-		if(!typeClass->isInternal)
-			typeMap.insert(type->nameHash, type);
+		if(typeClass->isInternal)
+			return;
 	}
+
+	// Namespaces are allowed only in global scope and namespaced type names are globally accessible through namespace name
+	if(scope->type == SCOPE_NAMESPACE)
+		globalScope->typeLookupMap.insert(type->nameHash, TypeLookupResult(type));
 	else
-	{
-		typeMap.insert(type->nameHash, type);
-	}
+		scope->typeLookupMap.insert(type->nameHash, TypeLookupResult(type));
 }
 
 void ExpressionContext::AddFunction(FunctionData *function)
@@ -1435,17 +1503,11 @@ void ExpressionContext::AddFunction(FunctionData *function)
 	// Don't add internal functions to named lookup
 	if(function->name->name.begin && *function->name->name.begin != '$')
 	{
-		functionMap.insert(function->nameHash, function);
-
-		if(function->isOperator)
-			noAssignmentOperatorForTypePair.clear();
-	}
-
-	while(VariableData **variable = variableMap.find(function->nameHash))
-	{
-		variableMap.remove(function->nameHash, *variable);
-
-		scope->shadowedVariables.push_back(*variable);
+		// Type functions are available globally through member accessand namespaced functions are globally accessible through namespace name
+		if(scope->type == SCOPE_TYPE || scope->type == SCOPE_NAMESPACE)
+			globalScope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
+		else
+			scope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
 	}
 }
 
@@ -1458,9 +1520,10 @@ void ExpressionContext::AddVariable(VariableData *variable, bool visible)
 
 	if(visible)
 	{
-		scope->visibleVariables.push_back(variable);
-
-		variableMap.insert(variable->nameHash, variable);
+		if(scope->type == SCOPE_NAMESPACE)
+			globalScope->idLookupMap.insert(variable->name->name.hash(), IdentifierLookupResult(variable));
+		else
+			scope->idLookupMap.insert(variable->name->name.hash(), IdentifierLookupResult(variable));
 	}
 }
 
@@ -1468,7 +1531,11 @@ void ExpressionContext::AddAlias(AliasData *alias)
 {
 	scope->aliases.push_back(alias);
 
-	typeMap.insert(alias->nameHash, alias->type);
+	// Namespaces are allowed only in global scope and namespaced alias names are globally accessible through namespace name
+	if(scope->type == SCOPE_NAMESPACE)
+		globalScope->typeLookupMap.insert(alias->nameHash, TypeLookupResult(alias));
+	else
+		scope->typeLookupMap.insert(alias->nameHash, TypeLookupResult(alias));
 }
 
 unsigned ExpressionContext::GetTypeIndex(TypeBase *type)
@@ -1499,22 +1566,10 @@ void ExpressionContext::HideFunction(FunctionData *function)
 	// Don't have to remove internal functions since they are never added to lookup
 	if(function->name->name.begin && *function->name->name.begin != '$')
 	{
-		functionMap.remove(function->nameHash, function);
-
-		for(int i = int(scope->shadowedVariables.count) - 1; i >= 0; i--)
-		{
-			VariableData *variable = scope->shadowedVariables[i];
-
-			if(variable && variable->nameHash == function->nameHash)
-			{
-				variableMap.insert(variable->nameHash, variable);
-
-				scope->shadowedVariables[i] = NULL;
-			}
-		}
-
-		if(function->isOperator)
-			noAssignmentOperatorForTypePair.clear();
+		if(scope->type == SCOPE_TYPE || scope->type == SCOPE_NAMESPACE)
+			globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
+		else
+			scope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 	}
 
 	SmallArray<FunctionData*, 2> &scopeFunctions = function->scope->functions;
@@ -1727,65 +1782,59 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	return result;
 }
 
-TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+TypeFunction* GetFunctionTypeFromCache(DirectChainedMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
-	// Can't derive from pseudo types
-	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
-	assert(!isType<TypeError>(returnType));
+	typedef DirectChainedMap<TypeFunction*>::NodeIterator Node;
 
-	for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
+	if(Node curr = table.first(hash))
 	{
-		assert(!isType<TypeArgumentSet>(curr->type) && !isType<TypeMemberSet>(curr->type) && !isType<TypeFunctionSet>(curr->type));
-		assert(!isType<TypeError>(curr->type));
+		while(curr)
+		{
+			TypeFunction *type = curr.node->value;
 
-		// Can't have auto as argument
-		assert(curr->type != typeAuto);
+			if(type->returnType != returnType)
+			{
+				curr = table.next(curr);
+				continue;
+			}
+
+			TypeHandle *leftArg = type->arguments.head;
+			TypeHandle *rightArg = arguments.head;
+
+			while(leftArg && rightArg && leftArg->type == rightArg->type)
+			{
+				leftArg = leftArg->next;
+				rightArg = rightArg->next;
+			}
+
+			if(leftArg != rightArg)
+			{
+				curr = table.next(curr);
+				continue;
+			}
+
+			return type;
+		}
 	}
 
-	if(TypeFunction **prev = functionTypeMap.find(FunctionTypeRequest(returnType, arguments)))
-		return *prev;
-
-	// Create new type
-	TypeFunction* result = new (get<TypeFunction>()) TypeFunction(GetFunctionTypeName(*this, returnType, arguments), returnType, arguments);
-
-	if(result->name.length() > NULLC_MAX_TYPE_NAME_LENGTH)
-		Stop(source, "ERROR: generated function type name exceeds maximum type length '%d'", NULLC_MAX_TYPE_NAME_LENGTH);
-
-	result->alignment = 4;
-
-	functionTypes.push_back(result);
-	types.push_back(result);
-
-	functionTypeMap.insert(FunctionTypeRequest(returnType, arguments), result);
-
-	return result;
+	return NULL;
 }
 
-TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments)
+TypeFunction* GetFunctionTypeFromCache(DirectChainedMap<TypeFunction*> &table, unsigned hash, TypeBase* returnType, ArrayView<ArgumentData> arguments)
 {
-	// Can't derive from pseudo types
-	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
-	assert(!isType<TypeError>(returnType));
+	typedef DirectChainedMap<TypeFunction*>::NodeIterator Node;
 
-	for(unsigned i = 0; i < arguments.size(); i++)
+	if(Node curr = table.first(hash))
 	{
-		TypeBase *curr = arguments[i].type;
-
-		(void)curr;
-
-		assert(!isType<TypeArgumentSet>(curr) && !isType<TypeMemberSet>(curr) && !isType<TypeFunctionSet>(curr));
-		assert(!isType<TypeError>(curr));
-
-		// Can't have auto as argument
-		assert(curr != typeAuto);
-	}
-
-	for(unsigned i = 0, e = functionTypes.count; i < e; i++)
-	{
-		if(TypeFunction *type = functionTypes.data[i])
+		while(curr)
 		{
+			TypeFunction *type = curr.node->value;
+
 			if(type->returnType != returnType)
+			{
+				curr = table.next(curr);
 				continue;
+			}
 
 			TypeHandle *leftArg = type->arguments.head;
 
@@ -1802,15 +1851,81 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 				leftArg = leftArg->next;
 			}
 
-			if(!match)
+			if(!match || leftArg)
+			{
+				curr = table.next(curr);
 				continue;
-
-			if(leftArg)
-				continue;
+			}
 
 			return type;
 		}
 	}
+
+	return NULL;
+}
+TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+{
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
+	assert(!isType<TypeError>(returnType));
+
+	unsigned hash = returnType->nameHash;
+
+	for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
+	{
+		assert(!isType<TypeArgumentSet>(curr->type) && !isType<TypeMemberSet>(curr->type) && !isType<TypeFunctionSet>(curr->type));
+		assert(!isType<TypeError>(curr->type));
+
+		// Can't have auto as argument
+		assert(curr->type != typeAuto);
+
+		hash = (hash << 1) + hash + curr->type->nameHash;
+	}
+
+	if(TypeFunction *prev = GetFunctionTypeFromCache(functionTypeMap, hash, returnType, arguments))
+		return prev;
+
+	// Create new type
+	TypeFunction* result = new (get<TypeFunction>()) TypeFunction(GetFunctionTypeName(*this, returnType, arguments), returnType, arguments);
+
+	if(result->name.length() > NULLC_MAX_TYPE_NAME_LENGTH)
+		Stop(source, "ERROR: generated function type name exceeds maximum type length '%d'", NULLC_MAX_TYPE_NAME_LENGTH);
+
+	result->alignment = 4;
+
+	functionTypes.push_back(result);
+	types.push_back(result);
+
+	functionTypeMap.insert(hash, result);
+
+	return result;
+}
+
+TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments)
+{
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
+	assert(!isType<TypeError>(returnType));
+
+	unsigned hash = returnType->nameHash;
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		TypeBase *curr = arguments[i].type;
+
+		(void)curr;
+
+		assert(!isType<TypeArgumentSet>(curr) && !isType<TypeMemberSet>(curr) && !isType<TypeFunctionSet>(curr));
+		assert(!isType<TypeError>(curr));
+
+		// Can't have auto as argument
+		assert(curr != typeAuto);
+
+		hash = (hash << 1) + hash + curr->nameHash;
+	}
+
+	if(TypeFunction *prev = GetFunctionTypeFromCache(functionTypeMap, hash, returnType, arguments))
+		return prev;
 
 	IntrusiveList<TypeHandle> argumentTypes;
 
@@ -1999,7 +2114,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 VariableData* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype);
 ExprVariableDefinition* CreateFunctionContextVariableDefinition(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype, VariableData *context);
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function);
-ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context);
+ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, FunctionLookupChain chain, ExprBase *context);
 ExprBase* CreateFunctionCoroutineStateUpdate(ExpressionContext &ctx, SynBase *source, FunctionData *function, int state);
 
 TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *matchType, TypeBase *argType, IntrusiveList<MatchData> &aliases, bool strict);
@@ -2349,7 +2464,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 					ExprBase *untyped = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.GetReferenceType(ctx.typeVoid), value, EXPR_CAST_REINTERPRET);
 					ExprBase *typeID = new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, targetClass);
 
-					ExprBase *checked = CreateFunctionCall2(ctx, source, InplaceStr("assert_derived_from_base"), untyped, typeID, false, false, true);
+					ExprBase *checked = CreateFunctionCall2(ctx, source, InplaceStr("__assert_derived_from"), untyped, typeID, false, false, true);
 
 					return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, checked, EXPR_CAST_REINTERPRET);
 				}
@@ -2526,7 +2641,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 				SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 				arguments.push_back(ArgumentData(rhs->source, false, NULL, rhs->type, rhs));
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->nameHash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, access->function->nameHash))
 				{
 					ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
 
@@ -2536,9 +2651,9 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 
 				if(FunctionData *proto = access->function->proto)
 				{
-					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->nameHash))
+					if(FunctionLookupChain chain = LookupFunctionChainByName(ctx, proto->nameHash))
 					{
-						ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
+						ExprBase *overloads = CreateFunctionAccess(ctx, source, chain, access->context);
 
 						if(ExprBase *call = CreateFunctionCall(ctx, source, overloads, arguments, true))
 							return call;
@@ -2555,7 +2670,9 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 		lhs = new (ctx.get<ExprDereference>()) ExprDereference(source, refType->subType, lhs);
 	}
 
-	if(!isType<TypeRef>(wrapped->type))
+	TypeRef *lvalueType = getType<TypeRef>(wrapped->type);
+
+	if(!lvalueType)
 		return ReportExpected(ctx, source, ctx.GetErrorType(), "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
 
 	if(rhs->type == ctx.typeVoid)
@@ -2574,8 +2691,23 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 			ctx.noAssignmentOperatorForTypePair.insert(typePair);
 	}
 
-	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("default_assign$_"), wrapped, rhs, true, false, true))
-		return result;
+	if(TypeClass *typeClass = getType<TypeClass>(lvalueType->subType))
+	{
+		if(FunctionData *function = typeClass->defaultAssign)
+		{
+			SmallArray<ArgumentData, 2> arguments(ctx.allocator);
+
+			arguments.push_back(ArgumentData(wrapped->source, false, NULL, wrapped->type, wrapped));
+			arguments.push_back(ArgumentData(rhs->source, false, NULL, rhs->type, rhs));
+
+			SmallArray<FunctionValue, 1> functions(ctx.allocator);
+
+			functions.push_back(FunctionValue(source, function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function)));
+
+			if(ExprBase *result = CreateFunctionCallFinal(ctx, source, NULL, functions, IntrusiveList<TypeHandle>(), arguments, true))
+				return result;
+		}
+	}
 
 	if((isType<TypeArray>(lhs->type) || isType<TypeUnsizedArray>(lhs->type)) && rhs->type == ctx.typeAutoArray)
 		return CreateFunctionCall2(ctx, source, InplaceStr("__aaassignrev"), wrapped, rhs, false, true, true);
@@ -2988,8 +3120,23 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 	if(!skipOverload)
 	{
-		if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, hasBuiltIn, false, true))
-			return result;
+		if(!hasBuiltIn)
+		{
+			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, false, false, true))
+				return result;
+		}
+		else
+		{
+			TypePair typePair(lhs->type, rhs->type);
+
+			if(!ctx.noBinaryOperatorForTypePair[int(op) - 1].contains(typePair))
+			{
+				if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true, false, true))
+					return result;
+				else
+					ctx.noBinaryOperatorForTypePair[int(op) - 1].insert(typePair);
+			}
+		}
 	}
 
 	AssertValueExpression(ctx, lhs->source, lhs);
@@ -3455,8 +3602,6 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
-		TypeBase **type = NULL;
-
 		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 		{
 			unsigned hash = nsScope->ownerNamespace ? NULLC::StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : NULLC::GetStringHash("");
@@ -3469,10 +3614,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			hash = NULLC::StringHashContinue(hash, node->name.begin, node->name.end);
 
-			type = ctx.typeMap.find(hash);
+			TypeBase *type = LookupTypeByName(ctx, hash);
 
 			if(type)
-				return *type;
+				return type;
 		}
 
 		// Might be a variable
@@ -3869,15 +4014,15 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 
 		InplaceStr contextVariableName = GetFunctionContextVariableName(ctx, function, functionIndex);
 
-		if(VariableData **variable = ctx.variableMap.find(contextVariableName.hash()))
+		if(VariableData *variable = LookupVariableByName(ctx, contextVariableName.hash()))
 		{
-			context = CreateVariableAccess(ctx, source, *variable, true);
+			context = CreateVariableAccess(ctx, source, variable, true);
 
 			if(ExprVariableAccess *access = getType<ExprVariableAccess>(context))
 			{
-				assert(access->variable == *variable);
+				assert(access->variable == variable);
 
-				context = new (ctx.get<ExprFunctionContextAccess>()) ExprFunctionContextAccess(source, access->type, function, *variable);
+				context = new (ctx.get<ExprFunctionContextAccess>()) ExprFunctionContextAccess(source, access->type, function, variable);
 			}
 		}
 		else
@@ -3893,22 +4038,22 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 	return context;
 }
 
-ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context)
+ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, FunctionLookupChain chain, ExprBase *context)
 {
-	if(HashMap<FunctionData*>::Node *curr = ctx.functionMap.next(function))
+	if(FunctionLookupChain curr = chain.next())
 	{
 		SmallArray<TypeBase*, 16> types(ctx.allocator);
 		IntrusiveList<FunctionHandle> functions;
 
-		types.push_back(function->value->type);
-		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function->value));
+		types.push_back(chain->type);
+		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(*chain));
 
 		while(curr)
 		{
-			types.push_back(curr->value->type);
-			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(curr->value));
+			types.push_back(curr->type);
+			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(*curr));
 
-			curr = ctx.functionMap.next(curr);
+			curr = curr.next();
 		}
 
 		TypeFunctionSet *type = ctx.GetFunctionSetType(types);
@@ -3917,9 +4062,9 @@ ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<
 	}
 
 	if(!context)
-		context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function->value);
+		context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), *chain);
 
-	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->value->type, function->value, context);
+	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, chain->type, *chain, context);
 }
 
 ExprBase* CreateFunctionCoroutineStateUpdate(ExpressionContext &ctx, SynBase *source, FunctionData *function, int state)
@@ -4122,11 +4267,11 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-		if(VariableData **variable = ctx.variableMap.find(hash))
+		if(VariableData *variable = LookupVariableByName(ctx, hash))
 		{
 			// Must be non-global scope
-			if(NamedOrGlobalScopeFrom((*variable)->scope) != ctx.globalScope)
-				return CreateVariableAccess(ctx, source, *variable, true);
+			if(NamedOrGlobalScopeFrom(variable->scope) != ctx.globalScope)
+				return CreateVariableAccess(ctx, source, variable, true);
 		}
 	}
 
@@ -4143,8 +4288,8 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-		if(VariableData **variable = ctx.variableMap.find(hash))
-			return CreateVariableAccess(ctx, source, *variable, true);
+		if(VariableData *variable = LookupVariableByName(ctx, hash))
+			return CreateVariableAccess(ctx, source, variable, true);
 	}
 
 	{
@@ -4163,15 +4308,15 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 	{
 		if(FindNextTypeFromScope(ctx.scope))
 		{
-			if(VariableData **variable = ctx.variableMap.find(InplaceStr("this").hash()))
+			if(VariableData *variable = LookupVariableByName(ctx, InplaceStr("this").hash()))
 			{
-				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, *variable, true), new (ctx.get<SynIdentifier>()) SynIdentifier(name), true))
+				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, variable, true), new (ctx.get<SynIdentifier>()) SynIdentifier(name), true))
 					return member;
 			}
 		}
 	}
 
-	HashMap<FunctionData*>::Node *function = NULL;
+	FunctionLookupChain function;
 
 	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 	{
@@ -4185,12 +4330,12 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-		function = ctx.functionMap.first(hash);
+		function = LookupFunctionChainByName(ctx, hash);
 
 		if(function)
 		{
-			if(function->value->isInternal && !allowInternal)
-				function = NULL;
+			if(function->isInternal && !allowInternal)
+				function = FunctionLookupChain();
 
 			break;
 		}
@@ -4277,8 +4422,13 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	if(isType<TypeError>(value->type))
 		return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 
-	if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false, true))
-		return result;
+	if(!ctx.noUnaryOperatorForTypePair[int(syntax->type) - 1].contains(value->type))
+	{
+		if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false, true))
+			return result;
+		else
+			ctx.noUnaryOperatorForTypePair[int(syntax->type) - 1].insert(value->type);
+	}
 
 	AssertValueExpression(ctx, syntax, value);
 
@@ -4521,8 +4671,15 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
 		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
 
-	if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false, true))
-		return result;
+	TypePair typePair(lhs->type, rhs->type);
+
+	if(!ctx.noModifyOperatorForTypePair[int(syntax->type) - 1].contains(typePair))
+	{
+		if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false, true))
+			return result;
+		else
+			ctx.noModifyOperatorForTypePair[int(syntax->type) - 1].insert(typePair);
+	}
 
 	// Unwrap modifiable pointer
 	ExprBase* wrapped = lhs;
@@ -4550,7 +4707,7 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 				SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 				arguments.push_back(ArgumentData(syntax, false, NULL, result->type, result));
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->nameHash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, access->function->nameHash))
 				{
 					ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, access->context);
 
@@ -4560,7 +4717,7 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 
 				if(FunctionData *proto = access->function->proto)
 				{
-					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->nameHash))
+					if(FunctionLookupChain function = LookupFunctionChainByName(ctx, proto->nameHash))
 					{
 						ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, access->context);
 
@@ -4766,7 +4923,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	return NULL;
 }
 
-ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, TypeClass *preferredParent)
+ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
 {
 	SmallArray<TypeBase*, 16> types(ctx.allocator);
 	IntrusiveList<FunctionHandle> functions;
@@ -4802,9 +4959,6 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 			}
 		}
 
-		if(preferredParent && !IsDerivedFrom(preferredParent, getType<TypeClass>(parentType)))
-			continue;
-
 		FunctionHandle *prev = NULL;
 
 		// Pointer to generic types don't stricly match because they might be resolved to different types
@@ -4821,22 +4975,64 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		}
 
 		if(prev)
-		{
-			// Select the most specialized function for extendable member function call
-			if(preferredParent)
-			{
-				unsigned prevDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(prev->function->scope->ownerType));
-				unsigned currDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(function->scope->ownerType));
-
-				if (currDepth < prevDepth)
-					prev->function = function;
-			}
-
 			continue;
-		}
 
 		types.push_back(function->type);
 		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function));
+	}
+
+	if(functions.empty())
+	{
+		if(value->type != ctx.typeAutoRef)
+			return NULL;
+
+		Stop(ctx, source, "ERROR: function '%.*s' is undefined in any of existing classes", FMT_ISTR(name));
+	}
+
+	TypeFunctionSet *type = ctx.GetFunctionSetType(types);
+
+	return new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, functions, value);
+}
+
+ExprBase* CreateVirtualFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, TypeClass *parent)
+{
+	SmallArray<TypeBase*, 16> types(ctx.allocator);
+	IntrusiveList<FunctionHandle> functions;
+
+	for(TypeClass *curr = parent; curr; curr = curr->baseClass)
+	{
+		DirectChainedMap<FunctionData*>::NodeIterator it = curr->methodMap.first(name.hash());
+
+		while(it)
+		{
+			FunctionData *function = it.node->value;
+
+			FunctionHandle *prev = NULL;
+
+			// Pointer to generic types don't stricly match because they might be resolved to different types
+			if(!function->type->isGeneric)
+			{
+				for(FunctionHandle *curr = functions.head; curr; curr = curr->next)
+				{
+					if(curr->function->type == function->type)
+					{
+						prev = curr;
+						break;
+					}
+				}
+			}
+
+			if(prev)
+			{
+				it = curr->methodMap.next(it);
+				continue;
+			}
+
+			types.push_back(function->type);
+			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function));
+
+			it = curr->methodMap.next(it);
+		}
 	}
 
 	if(functions.empty())
@@ -4936,13 +5132,13 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		}
 
 		if(value->type == ctx.typeAutoRef)
-			return CreateAutoRefFunctionSet(ctx, source, value, member->name, NULL);
+			return CreateAutoRefFunctionSet(ctx, source, value, member->name);
 
 		if(TypeClass *classType = getType<TypeClass>(value->type))
 		{
 			if(classType->baseClass != NULL || classType->extendable)
 			{
-				if(ExprBase *overloads = CreateAutoRefFunctionSet(ctx, source, wrapped, member->name, classType))
+				if(ExprBase *overloads = CreateVirtualFunctionSet(ctx, source, wrapped, member->name, classType))
 					return overloads;
 			}
 		}
@@ -4950,10 +5146,8 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		// Check if a name resembles a type alias of the value class
 		TypeBase *aliasType = NULL;
 
-		if(TypeBase **typeName = ctx.typeMap.find(member->name.hash()))
+		if(TypeBase *type = LookupTypeByName(ctx, member->name.hash()))
 		{
-			TypeBase *type = *typeName;
-
 			if(type == value->type && type->name != member->name)
 			{
 				if(TypeClass *typeClass = getType<TypeClass>(type))
@@ -4973,7 +5167,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+		if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 			mainFuncton = CreateFunctionAccess(ctx, source, function, wrapped);
 
 		if(!mainFuncton && aliasType)
@@ -4989,7 +5183,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 				{
 					wrapped = CreateCast(ctx, source, wrapped, ctx.GetReferenceType(arrayType), false);
 
@@ -5009,7 +5203,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 					baseFunction = CreateFunctionAccess(ctx, source, function, wrapped);
 
 				if(!baseFunction && aliasType)
@@ -5075,7 +5269,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		ExprBase *access = NULL;
 
-		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+		if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 			access = CreateFunctionAccess(ctx, source, function, wrapped);
 
 		if(!access)
@@ -5088,7 +5282,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 				{
 					wrapped = CreateCast(ctx, source, wrapped, ctx.GetReferenceType(arrayType), false);
 
@@ -5119,7 +5313,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 				// Look for an accessor
 				hash = NULLC::StringHashContinue(hash, "$");
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				if(FunctionLookupChain function = LookupFunctionChainByName(ctx, hash))
 				{
 					ExprBase *access = CreateFunctionAccess(ctx, source, function, wrapped);
 
@@ -5223,15 +5417,17 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 				findOverload = true;
 		}
 
-		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("[]"), false))
+		TypePair typePair(wrapped->type, arguments.empty() ? NULL : arguments[0].type);
+
+		if(findOverload || !ctx.noIndexOperatorForTypePair.contains(typePair))
 		{
-			SmallArray<ArgumentData, 32> callArguments(ctx.allocator);
+			SmallArray<ArgumentData, 4> callArguments(ctx.allocator);
 			callArguments.push_back(ArgumentData(wrapped->source, false, NULL, wrapped->type, wrapped));
 
 			for(unsigned i = 0; i < arguments.size(); i++)
 				callArguments.push_back(arguments[i]);
 
-			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, true))
+			if(ExprBase *result = CreateFunctionCallByName(ctx, source, InplaceStr("[]"), callArguments, true, false, true))
 			{
 				if(TypeRef *refType = getType<TypeRef>(result->type))
 					return new (ctx.get<ExprDereference>()) ExprDereference(source, refType->subType, result);
@@ -5241,13 +5437,15 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 
 			callArguments[0] = ArgumentData(value->source, false, NULL, value->type, value);
 
-			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, !findOverload))
+			if(ExprBase *result = CreateFunctionCallByName(ctx, source, InplaceStr("[]"), callArguments, !findOverload, false, true))
 			{
 				if(TypeRef *refType = getType<TypeRef>(result->type))
 					return new (ctx.get<ExprDereference>()) ExprDereference(source, refType->subType, result);
 
 				return result;
 			}
+
+			ctx.noIndexOperatorForTypePair.insert(typePair);
 		}
 
 		if(findOverload)
@@ -6959,7 +7157,7 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 			hash = NULLC::StringHashContinue(hash, "::");
 			hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-			if(ctx.functionMap.first(hash))
+			if(LookupFunctionByName(ctx, hash))
 			{
 				if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), name, allowInternal))
 				{
@@ -6969,16 +7167,16 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 			}
 		}
 
-		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(name.hash()))
+		if(FunctionLookupChain function = LookupFunctionChainByName(ctx, name.hash()))
 		{
 			// Collect a set of available functions
 			SmallArray<FunctionValue, 32> functions(ctx.allocator);
 
 			while(function)
 			{
-				functions.push_back(FunctionValue(source, function->value, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function->value)));
+				functions.push_back(FunctionValue(source, *function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), *function)));
 
-				function = ctx.functionMap.next(function);
+				function = function.next();
 			}
 
 			if(ExprBase *result = CreateFunctionCallFinal(ctx, source, NULL, functions, IntrusiveList<TypeHandle>(), arguments, true))
@@ -8272,7 +8470,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		if(isType<TypeError>(initializer->type))
 		{
 			if(!conflict)
-				ctx.variableMap.remove(variable->nameHash, variable);
+				ctx.scope->idLookupMap.remove(variable->nameHash, IdentifierLookupResult(variable));
 
 			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
 		}
@@ -8284,7 +8482,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 		if(isType<TypeError>(initializer->type))
 		{
 			if(!conflict)
-				ctx.variableMap.remove(variable->nameHash, variable);
+				ctx.scope->idLookupMap.remove(variable->nameHash, IdentifierLookupResult(variable));
 
 			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
 		}
@@ -8425,7 +8623,7 @@ TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, Inp
 {
 	InplaceStr functionContextName = GetFunctionContextTypeName(ctx, functionName, ctx.functions.size());
 
-	TypeClass *contextClassType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(functionContextName), source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
+	TypeClass *contextClassType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, SynIdentifier(functionContextName), source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
 
 	contextClassType->isInternal = true;
 
@@ -8792,7 +8990,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	for(SynIdentifier *curr = aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
 	{
-		if(ctx.typeMap.find(curr->name.hash()))
+		if(LookupTypeByName(ctx, curr->name.hash()))
 			Stop(ctx, curr, "ERROR: there is already a type with the same name");
 
 		for(SynIdentifier *prev = aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
@@ -8867,9 +9065,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(instance)
 		assert(functionType == instance);
 
-	if(VariableData **variable = ctx.variableMap.find(functionName.hash()))
+	if(VariableData *variable = LookupVariableByName(ctx, functionName.hash()))
 	{
-		if((*variable)->scope == ctx.scope)
+		if(variable->scope == ctx.scope)
 			Stop(ctx, errorLocation, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name->name));
 	}
 
@@ -8907,6 +9105,21 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 			function->contextType = functionPrototype->contextType;
 
+			// Assign default function arguments
+			for(unsigned i = 0; i < function->arguments.size(); i++)
+			{
+				ArgumentData &protoArg = functionPrototype->arguments[i];
+				ArgumentData &implArg = function->arguments[i];
+
+				if(protoArg.value)
+				{
+					if(!implArg.value)
+						implArg.value = protoArg.value;
+					else
+						Report(ctx, errorLocation, "ERROR: function prototype already has a default value for argument #%d", i + 1);
+				}
+			}
+
 			implementedPrototype = functionPrototype;
 		}
 	}
@@ -8930,15 +9143,26 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		function->definition = getType<SynFunctionDefinition>(source);
 		function->declaration = new (ctx.get<ExprGenericFunctionPrototype>()) ExprGenericFunctionPrototype(source, function->type, function);
 
+		if(TypeClass *typeClass = getType<TypeClass>(parentType))
+		{
+			// Register type method
+			if(const char *pos = strstr(function->name->name.begin, "::"))
+			{
+				typeClass->methods.push_back(function);
+				typeClass->methodMap.insert(InplaceStr(pos + 2).hash(), function);
+			}
+		}
+
 		return function->declaration;
 	}
 
 	// Operator overloads can't be called recursively and become available at the end of the definition
 	if (isOperator)
 	{
-		ctx.functionMap.remove(function->nameHash, function);
-
-		ctx.noAssignmentOperatorForTypePair.clear();
+		if(ctx.scope->type == SCOPE_TYPE || ctx.scope->type == SCOPE_NAMESPACE)
+			ctx.globalScope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
+		else
+			ctx.scope->idLookupMap.remove(function->nameHash, IdentifierLookupResult(function));
 	}
 
 	if(genericProto)
@@ -9031,10 +9255,17 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	{
 		InplaceStr parentName = parentType->name;
 
-		if(TypeClass *classType = getType<TypeClass>(parentType))
+		if(TypeClass *typeClass = getType<TypeClass>(parentType))
 		{
-			if(classType->proto)
-				parentName = classType->proto->name;
+			if(typeClass->proto)
+				parentName = typeClass->proto->name;
+
+			// Register type method
+			if(const char *pos = strstr(function->name->name.begin, "::"))
+			{
+				typeClass->methods.push_back(function);
+				typeClass->methodMap.insert(InplaceStr(pos + 2).hash(), function);
+			}
 		}
 
 		if(name->name == parentName && function->type->returnType != ctx.typeVoid)
@@ -9098,9 +9329,24 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	// Time to make operator overload visible
 	if(isOperator)
 	{
-		ctx.functionMap.insert(function->nameHash, function);
+		if(ctx.scope->type == SCOPE_TYPE || ctx.scope->type == SCOPE_NAMESPACE)
+			ctx.globalScope->idLookupMap.insert(function->name->name.hash(), IdentifierLookupResult(function));
+		else
+			ctx.scope->idLookupMap.insert(function->nameHash, IdentifierLookupResult(function));
 
+		// TODO: more precise invalidation
 		ctx.noAssignmentOperatorForTypePair.clear();
+
+		ctx.noIndexOperatorForTypePair.clear();
+
+		for(unsigned i = 0; i < ctx.noUnaryOperatorForTypePair.size(); i++)
+			ctx.noUnaryOperatorForTypePair[i].clear();
+
+		for(unsigned i = 0; i < ctx.noBinaryOperatorForTypePair.size(); i++)
+			ctx.noBinaryOperatorForTypePair[i].clear();
+
+		for(unsigned i = 0; i < ctx.noModifyOperatorForTypePair.size(); i++)
+			ctx.noModifyOperatorForTypePair[i].clear();
 	}
 
 	FunctionData *conflict = CheckUniqueness(ctx, function);
@@ -9670,16 +9916,16 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 		hash = NULLC::StringHashContinue(hash, type->name.begin, type->name.end);
 	}
 
-	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
+	for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, hash); chain; chain = chain.next())
 	{
-		if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+		if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 			continue;
 
-		if(node->value->scope->ownerType != type)
+		if(chain->scope->ownerType != type)
 			continue;
 
-		if(!ContainsSameOverload(functions, node->value))
-			functions.push_back(node->value);
+		if(!ContainsSameOverload(functions, *chain))
+			functions.push_back(*chain);
 	}
 
 	if(typeGenericClassProto)
@@ -9691,26 +9937,26 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 
 		hash = NULLC::StringHashContinue(hash, functionName.begin, functionName.end);
 
-		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
+		for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, hash); chain; chain = chain.next())
 		{
-			if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+			if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 				continue;
 
-			if(!ContainsSameOverload(functions, node->value))
-				functions.push_back(node->value);
+			if(!ContainsSameOverload(functions, *chain))
+				functions.push_back(*chain);
 		}
 	}
 
-	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+	for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, NULLC::StringHashContinue(hash, "$")); chain; chain = chain.next())
 	{
-		if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+		if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 			continue;
 
-		if(node->value->scope->ownerType != type)
+		if(chain->scope->ownerType != type)
 			continue;
 
-		if(!ContainsSameOverload(functions, node->value))
-			functions.push_back(node->value);
+		if(!ContainsSameOverload(functions, *chain))
+			functions.push_back(*chain);
 	}
 
 	if(typeGenericClassProto)
@@ -9722,13 +9968,13 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 
 		hash = NULLC::StringHashContinue(hash, functionName.begin, functionName.end);
 
-		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+		for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, NULLC::StringHashContinue(hash, "$")); chain; chain = chain.next())
 		{
-			if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
+			if(noArguments && !chain->arguments.empty() && !chain->arguments[0].value)
 				continue;
 
-			if(!ContainsSameOverload(functions, node->value))
-				functions.push_back(node->value);
+			if(!ContainsSameOverload(functions, *chain))
+				functions.push_back(*chain);
 		}
 	}
 
@@ -9988,6 +10234,8 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 		ctx.definitions.push_back(function->declaration);
 
 		classDefinition->functions.push_back(function->declaration);
+
+		classType->methods.push_back(function);
 	}
 }
 
@@ -10064,6 +10312,8 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 		SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(functionName);
 
 		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(ctx.typeVoid), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+		classType->defaultAssign = function;
 
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -10397,7 +10647,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	{
 		for(SynIdentifier *curr = syntax->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
 		{
-			if(ctx.typeMap.find(curr->name.hash()))
+			if(LookupTypeByName(ctx, curr->name.hash()))
 				Stop(ctx, curr, "ERROR: there is already a type or an alias with the same name");
 
 			for(SynIdentifier *prev = syntax->aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
@@ -10407,9 +10657,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			}
 		}
 
-		if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+		if(TypeBase *type = LookupTypeByName(ctx, typeName.hash()))
 		{
-			TypeClass *originalDefinition = getType<TypeClass>(*type);
+			TypeClass *originalDefinition = getType<TypeClass>(type);
 
 			if(originalDefinition)
 				Stop(ctx, syntax, "ERROR: type '%.*s' was forward declared as a non-generic type", FMT_ISTR(typeName));
@@ -10433,9 +10683,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	TypeClass *originalDefinition = NULL;
 
-	if(TypeBase **type = ctx.typeMap.find(className.hash()))
+	if(TypeBase *type = LookupTypeByName(ctx, className.hash()))
 	{
-		originalDefinition = getType<TypeClass>(*type);
+		originalDefinition = getType<TypeClass>(type);
 
 		if(!originalDefinition)
 			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
@@ -10510,7 +10760,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	}
 	else
 	{
-		classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(syntax->name, className), syntax, ctx.scope, proto, actualGenerics, extendable, baseClass);
+		classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, SynIdentifier(syntax->name, className), syntax, ctx.scope, proto, actualGenerics, extendable, baseClass);
 
 		ctx.AddType(classType);
 	}
@@ -10580,9 +10830,9 @@ ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *synta
 
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
 
-	if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+	if(TypeBase *type = LookupTypeByName(ctx, typeName.hash()))
 	{
-		TypeClass *originalDefinition = getType<TypeClass>(*type);
+		TypeClass *originalDefinition = getType<TypeClass>(type);
 
 		if(!originalDefinition || originalDefinition->completed)
 			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name->name));
@@ -10592,7 +10842,7 @@ ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *synta
 
 	IntrusiveList<MatchData> actualGenerics;
 
-	TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(syntax->name, typeName), syntax, ctx.scope, NULL, actualGenerics, false, NULL);
+	TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, SynIdentifier(syntax->name, typeName), syntax, ctx.scope, NULL, actualGenerics, false, NULL);
 
 	ctx.AddType(classType);
 
@@ -10655,7 +10905,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
 
-	if(ctx.typeMap.find(typeName.hash()) != NULL)
+	if(LookupTypeByName(ctx, typeName.hash()) != NULL)
 		Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name->name));
 
 	TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(SynIdentifier(syntax->name, typeName), syntax, ctx.scope);
@@ -10850,7 +11100,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 
 ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 {
-	if(ctx.typeMap.find(syntax->alias->name.hash()))
+	if(LookupTypeByName(ctx, syntax->alias->name.hash()))
 		Stop(ctx, syntax, "ERROR: there is already a type or an alias with the same name");
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
@@ -10928,7 +11178,15 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 
 	if(definitions)
+	{
+		IntrusiveList<ExprBase> expressions;
+
+		expressions.push_back(trueBlock);
+
+		trueBlock = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(ctx.scope), ctx.scope));
+
 		ctx.PopScope(SCOPE_EXPLICIT);
+	}
 
 	ExprBase *falseBlock = syntax->falseBlock ? AnalyzeStatement(ctx, syntax->falseBlock) : NULL;
 
@@ -11894,23 +12152,11 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		const char *moduleFileName = symbols + moduleInfo.nameOffset;
 
-		bool duplicate = false;
-
-		for(unsigned k = 0; k < ctx.uniqueDependencies.size(); k++)
+		if(ModuleData **uniqueModuleData = ctx.uniqueDependencyMap.find(InplaceStr(moduleFileName)))
 		{
-			ModuleData *uniqueModuleData = ctx.uniqueDependencies[k];
-
-			if(uniqueModuleData->name == InplaceStr(moduleFileName))
-			{
-				moduleCtx.dependencies.push_back(uniqueModuleData);
-
-				duplicate = true;
-				break;
-			}
-		}
-
-		if(duplicate)
+			moduleCtx.dependencies.push_back(*uniqueModuleData);
 			continue;
+		}
 
 		const char *bytecode = BinaryCache::FindBytecode(moduleFileName, false);
 
@@ -11925,6 +12171,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 		moduleCtx.dependencies.push_back(moduleData);
 
 		ctx.uniqueDependencies.push_back(moduleData);
+		ctx.uniqueDependencyMap.insert(InplaceStr(moduleFileName), moduleData);
 
 		moduleData->bytecode = (ByteCode*)bytecode;
 
@@ -12011,6 +12258,147 @@ struct DelayedType
 	ExternConstantInfo *constants;
 };
 
+TypeBase* CheckPreviousTypeDefinition(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, char *symbols, ExternTypeInfo &type, TypeClass **forwardDeclaration)
+{
+	if(TypeBase *prevType = LookupTypeByName(ctx, type.nameHash))
+	{
+		TypeClass *prevTypeClass = getType<TypeClass>(prevType);
+
+		if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
+		{
+			bool duplicate = isType<TypeGenericClassProto>(prevType);
+
+			if(prevTypeClass && prevTypeClass->generics.empty() && prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+				duplicate = true;
+
+			if(duplicate)
+				Stop(ctx, source, "ERROR: type '%s' in module '%.*s' is already defined in module '%.*s'", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
+		}
+
+		if(prevTypeClass && !prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
+		{
+			if(forwardDeclaration)
+				*forwardDeclaration = prevTypeClass;
+		}
+		else
+		{
+			return prevType;
+		}
+	}
+
+	return NULL;
+}
+
+TypeBase* GetImportedModuleTypeAt(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, unsigned i);
+
+void ImportSimpleModuleType(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, unsigned i)
+{
+	ModuleData *importModule = moduleCtx.data;
+
+	ByteCode *bCode = moduleCtx.data->bytecode;
+	char *symbols = FindSymbols(bCode);
+
+	ExternTypeInfo *typeList = FindFirstType(bCode);
+	ExternMemberInfo *memberList = FindFirstMember(bCode);
+
+	ExternTypeInfo &type = typeList[i];
+
+	switch(type.subCat)
+	{
+	case ExternTypeInfo::CAT_NONE:
+		if(strcmp(symbols + type.offsetToName, "generic") == 0)
+		{
+			// TODO: explicit category
+			moduleCtx.types[i] = ctx.typeGeneric;
+
+			moduleCtx.types[i]->importModule = importModule;
+		}
+		else if(*(symbols + type.offsetToName) == '@')
+		{
+			// TODO: explicit category
+			moduleCtx.types[i] = ctx.GetGenericAliasType(new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr(symbols + type.offsetToName + 1)));
+
+			moduleCtx.types[i]->importModule = importModule;
+		}
+		else
+		{
+			if(TypeBase *prevType = CheckPreviousTypeDefinition(ctx, source, moduleCtx, symbols, type, NULL))
+			{
+				moduleCtx.types[i] = prevType;
+			}
+			else
+			{
+				Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data->name), symbols + type.offsetToName);
+			}
+		}
+		break;
+	case ExternTypeInfo::CAT_ARRAY:
+		if(TypeBase *subType = GetImportedModuleTypeAt(ctx, source, moduleCtx, type.subType))
+		{
+
+			if(type.arrSize == ~0u)
+				moduleCtx.types[i] = ctx.GetUnsizedArrayType(subType);
+			else
+				moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSize);
+
+			moduleCtx.types[i]->importModule = importModule;
+		}
+		else
+		{
+			Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
+		}
+		break;
+	case ExternTypeInfo::CAT_POINTER:
+		if(TypeBase *subType = GetImportedModuleTypeAt(ctx, source, moduleCtx, type.subType))
+		{
+			moduleCtx.types[i] = ctx.GetReferenceType(subType);
+
+			moduleCtx.types[i]->importModule = importModule;
+		}
+		else
+		{
+			Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
+		}
+		break;
+	case ExternTypeInfo::CAT_FUNCTION:
+		if(TypeBase *returnType = GetImportedModuleTypeAt(ctx, source, moduleCtx, memberList[type.memberOffset].type))
+		{
+			IntrusiveList<TypeHandle> arguments;
+
+			for(unsigned n = 0; n < type.memberCount; n++)
+			{
+				TypeBase *argType = GetImportedModuleTypeAt(ctx, source, moduleCtx, memberList[type.memberOffset + n + 1].type);
+
+				if(!argType)
+					Stop(ctx, source, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
+
+				arguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argType));
+			}
+
+			moduleCtx.types[i] = ctx.GetFunctionType(source, returnType, arguments);
+
+			moduleCtx.types[i]->importModule = importModule;
+		}
+		else
+		{
+			Stop(ctx, source, "ERROR: can't find return type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
+		}
+		break;
+	default:
+		assert(!"unexpected type category");
+	}
+}
+
+TypeBase* GetImportedModuleTypeAt(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, unsigned i)
+{
+	if(TypeBase *type = moduleCtx.types[i])
+		return type;
+
+	ImportSimpleModuleType(ctx, source, moduleCtx, i);
+
+	return moduleCtx.types[i];
+}
+
 void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
 	TRACE_SCOPE("analyze", "ImportModuleTypes");
@@ -12028,8 +12416,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 	moduleCtx.types.resize(bCode->typeCount);
 
-	for(unsigned i = prevSize; i < moduleCtx.types.size(); i++)
-		moduleCtx.types[i] = NULL;
+	memset(moduleCtx.types.data + prevSize, 0, (moduleCtx.types.size() - prevSize) * sizeof(moduleCtx.types.data[0]));
 
 	SmallArray<DelayedType, 32> delayedTypes(ctx.allocator);
 
@@ -12044,44 +12431,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		if(type.definitionModule != 0)
 			importModule = moduleCtx.dependencies[type.definitionModule - 1];
 
-		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
-
-		TypeClass *forwardDeclaration = NULL;
-
-		// Skip existing types
-		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
-		{
-			TypeBase *prevType = *prev;
-
-			TypeClass *prevTypeClass = getType<TypeClass>(prevType);
-
-			if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
-			{
-				bool duplicate = isType<TypeGenericClassProto>(prevType);
-
-				if(prevTypeClass && prevTypeClass->generics.empty() && prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
-					duplicate = true;
-
-				if(duplicate)
-					Stop(ctx, source, "ERROR: type '%.*s' in module '%.*s' is already defined in module '%.*s'", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
-			}
-
-			moduleCtx.types[i] = prevType;
-
-			if(prevTypeClass && !prevTypeClass->completed && (type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED) != 0)
-			{
-				forwardDeclaration = prevTypeClass;
-			}
-			else
-			{
-				currentConstant += type.constantCount;
-				continue;
-			}
-		}
-
 		// Skip internal types if we already imported that module
 		if(type.typeFlags & ExternTypeInfo::TYPE_IS_INTERNAL)
 		{
+			InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
+
 			if(TypeBase **prev = ctx.internalTypeMap.find(TypeModulePair(typeName, importModule)))
 			{
 				moduleCtx.types[i] = *prev;
@@ -12094,89 +12448,24 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		switch(type.subCat)
 		{
 		case ExternTypeInfo::CAT_NONE:
-			if(strcmp(symbols + type.offsetToName, "generic") == 0)
-			{
-				// TODO: explicit category
-				moduleCtx.types[i] = ctx.typeGeneric;
-
-				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
-			}
-			else if(*(symbols + type.offsetToName) == '@')
-			{
-				// TODO: explicit category
-				moduleCtx.types[i] = ctx.GetGenericAliasType(new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr(symbols + type.offsetToName + 1)));
-
-				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
-			}
-			else
-			{
-				Stop(ctx, source, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data->name), symbols + type.offsetToName);
-			}
-			break;
 		case ExternTypeInfo::CAT_ARRAY:
-			if(TypeBase *subType = moduleCtx.types[type.subType])
-			{
-				if(type.arrSize == ~0u)
-					moduleCtx.types[i] = ctx.GetUnsizedArrayType(subType);
-				else
-					moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSize);
-
-				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
-			}
-			else
-			{
-				Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
-			}
-			break;
 		case ExternTypeInfo::CAT_POINTER:
-			if(TypeBase *subType = moduleCtx.types[type.subType])
-			{
-				moduleCtx.types[i] = ctx.GetReferenceType(subType);
-
-				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
-			}
-			else
-			{
-				Stop(ctx, source, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
-			}
-			break;
 		case ExternTypeInfo::CAT_FUNCTION:
-			if(TypeBase *returnType = moduleCtx.types[memberList[type.memberOffset].type])
-			{
-				IntrusiveList<TypeHandle> arguments;
-
-				for(unsigned n = 0; n < type.memberCount; n++)
-				{
-					TypeBase *argType = moduleCtx.types[memberList[type.memberOffset + n + 1].type];
-
-					if(!argType)
-						Stop(ctx, source, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
-
-					arguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argType));
-				}
-
-				moduleCtx.types[i] = ctx.GetFunctionType(source, returnType, arguments);
-
-				moduleCtx.types[i]->importModule = importModule;
-
-				assert(moduleCtx.types[i]->name == typeName);
-			}
-			else
-			{
-				Stop(ctx, source, "ERROR: can't find return type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
-			}
 			break;
 		case ExternTypeInfo::CAT_CLASS:
 			{
-				TypeBase *importedType = NULL;
+				TypeClass *forwardDeclaration = NULL;
+
+				// Skip existing types
+				if(TypeBase *prevType = CheckPreviousTypeDefinition(ctx, source, moduleCtx, symbols, type, &forwardDeclaration))
+				{
+					moduleCtx.types[i] = prevType;
+
+					currentConstant += type.constantCount;
+					break;
+				}
+
+				InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
 
 				NamespaceData *parentNamespace = NULL;
 
@@ -12208,7 +12497,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						SynIdentifier *aliasNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(aliasName);
 
-						TypeBase *targetType = moduleCtx.types[alias.targetType];
+						TypeBase *targetType = GetImportedModuleTypeAt(ctx, source, moduleCtx, alias.targetType);
 
 						if(!targetType)
 							Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12224,7 +12513,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				if(type.baseType)
 				{
-					baseType = getType<TypeClass>(moduleCtx.types[type.baseType]);
+					baseType = getType<TypeClass>(GetImportedModuleTypeAt(ctx, source, moduleCtx, type.baseType));
 
 					if(!baseType)
 						Stop(ctx, source, "ERROR: can't find type '%.*s' base type in module %.*s", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name));
@@ -12241,11 +12530,13 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				SynIdentifier identifier = type.definitionLocationName != 0 ? SynIdentifier(locationName, locationName, typeName) : SynIdentifier(typeName);
 
+				TypeBase *importedType = NULL;
+
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
 					assert(!forwardDeclaration);
 
-					TypeBase *proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
+					TypeBase *proto = GetImportedModuleTypeAt(ctx, source, moduleCtx, type.definitionOffset & ~0x80000000);
 
 					if(!proto)
 						Stop(ctx, source, "ERROR: can't find proto type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12263,7 +12554,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
 						if(type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED)
 							classType->completed = true;
@@ -12341,7 +12632,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+						classType = new (ctx.get<TypeClass>()) TypeClass(ctx.allocator, identifier, locationSource, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 					}
 
 					if(type.typeFlags & ExternTypeInfo::TYPE_IS_COMPLETED)
@@ -12401,7 +12692,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			{
 				InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
 
-				TypeBase *importedType = moduleCtx.types[delayedType.index];
+				TypeBase *importedType = GetImportedModuleTypeAt(ctx, source, moduleCtx, delayedType.index);
 
 				const char *memberNames = typeName.end + 1;
 
@@ -12432,7 +12723,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						ExternMemberInfo &memberInfo = memberList[type.memberOffset + n];
 
-						TypeBase *memberType = moduleCtx.types[memberInfo.type];
+						TypeBase *memberType = GetImportedModuleTypeAt(ctx, source, moduleCtx, memberInfo.type);
 
 						if(!memberType)
 							Stop(ctx, source, "ERROR: can't find member %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12452,7 +12743,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						memberNames = memberName.end + 1;
 
-						TypeBase *constantType = moduleCtx.types[constantInfo->type];
+						TypeBase *constantType = GetImportedModuleTypeAt(ctx, source, moduleCtx, constantInfo->type);
 
 						if(!constantType)
 							Stop(ctx, source, "ERROR: can't find constant %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12501,7 +12792,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 							SynIdentifier *aliasNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(aliasName);
 
-							TypeBase *targetType = moduleCtx.types[alias.targetType];
+							TypeBase *targetType = GetImportedModuleTypeAt(ctx, source, moduleCtx, alias.targetType);
 
 							if(!targetType)
 								Stop(ctx, source, "ERROR: can't find type '%.*s' alias '%s' target type in module %.*s", FMT_ISTR(typeName), symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12543,7 +12834,7 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(name.length() >= 5 && InplaceStr(name.begin, name.begin + 5) == InplaceStr("$temp"))
 			continue;
 
-		TypeBase *type = moduleCtx.types[variable.type];
+		TypeBase *type = GetImportedModuleTypeAt(ctx, source, moduleCtx, variable.type);
 
 		if(!type)
 			Stop(ctx, source, "ERROR: can't find variable '%s' type in module %.*s", symbols + variable.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12582,15 +12873,13 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 
 		SynIdentifier *aliasNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(aliasName);
 
-		TypeBase *targetType = moduleCtx.types[alias.targetType];
+		TypeBase *targetType = GetImportedModuleTypeAt(ctx, source, moduleCtx, alias.targetType);
 
 		if(!targetType)
 			Stop(ctx, source, "ERROR: can't find alias '%s' target type in module %.*s", symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
-		if(TypeBase **prev = ctx.typeMap.find(aliasName.hash()))
+		if(TypeBase *type = LookupTypeByName(ctx, aliasName.hash()))
 		{
-			TypeBase *type = *prev;
-
 			if(type->name == aliasName)
 				Stop(ctx, source, "ERROR: type '%.*s' alias '%s' is equal to previously imported class", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
 
@@ -12629,13 +12918,15 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 	unsigned currCount = ctx.functions.size();
 
+	InplaceStr defaultAssignName = InplaceStr("default_assign$_");
+
 	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
 	{
 		ExternFuncInfo &function = functionList[i];
 
 		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
 
-		TypeBase *functionType = moduleCtx.types[function.funcType];
+		TypeBase *functionType = GetImportedModuleTypeAt(ctx, source, moduleCtx, function.funcType);
 
 		if(!functionType)
 			Stop(ctx, source, "ERROR: can't find function '%s' type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12651,7 +12942,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(name);
 
-			TypeBase *type = explicitTypeInfo[k].type == ~0u ? ctx.typeGeneric : moduleCtx.types[explicitTypeInfo[k].type];
+			TypeBase *type = explicitTypeInfo[k].type == ~0u ? ctx.typeGeneric : GetImportedModuleTypeAt(ctx, source, moduleCtx, explicitTypeInfo[k].type);
 
 			if(!type)
 				Stop(ctx, source, "ERROR: can't find function '%s' explicit type '%d' in module %.*s", symbols + function.offsetToName, k, FMT_ISTR(moduleCtx.data->name));
@@ -12667,21 +12958,21 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		FunctionData *prev = NULL;
 		FunctionData *prototype = NULL;
 
-		for(HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function.nameHash); curr; curr = ctx.functionMap.next(curr))
+		for(FunctionLookupChain chain = LookupFunctionChainByName(ctx, function.nameHash); chain; chain = chain.next())
 		{
-			if(curr->value->isPrototype)
+			if(chain->isPrototype)
 			{
-				prototype = curr->value;
+				prototype = *chain;
 				continue;
 			}
 
-			if(curr->value->type == functionType)
+			if(chain->type == functionType)
 			{
 				bool explicitTypeMatch = true;
 
 				for(unsigned k = 0; k < function.explicitTypeCount; k++)
 				{
-					TypeBase *prevType = curr->value->generics[k]->type;
+					TypeBase *prevType = chain->generics[k]->type;
 					TypeBase *type = generics[k]->type;
 
 					if(&prevType != &type)
@@ -12690,7 +12981,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 				if(explicitTypeMatch)
 				{
-					prev = curr->value;
+					prev = *chain;
 					break;
 				}
 			}
@@ -12724,7 +13015,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(function.parentType != ~0u)
 		{
-			parentType = moduleCtx.types[function.parentType];
+			parentType = GetImportedModuleTypeAt(ctx, source, moduleCtx, function.parentType);
 
 			if(!parentType)
 				Stop(ctx, source, "ERROR: can't find function '%s' parent type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12734,7 +13025,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(function.contextType != ~0u)
 		{
-			contextType = moduleCtx.types[function.contextType];
+			contextType = GetImportedModuleTypeAt(ctx, source, moduleCtx, function.contextType);
 
 			if(!contextType)
 				Stop(ctx, source, "ERROR: can't find function '%s' context type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12800,7 +13091,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			bool isExplicit = (argument.paramFlags & ExternLocalInfo::IS_EXPLICIT) != 0;
 
-			TypeBase *argType = argument.type == ~0u ? ctx.typeGeneric : moduleCtx.types[argument.type];
+			TypeBase *argType = argument.type == ~0u ? ctx.typeGeneric : GetImportedModuleTypeAt(ctx, source, moduleCtx, argument.type);
 
 			if(!argType)
 				Stop(ctx, source, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12830,6 +13121,16 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable, true);
+
+			// Register type method
+			if(TypeClass *typeClass = getType<TypeClass>(parentType))
+			{
+				if(const char *pos = strstr(data->name->name.begin, "::"))
+				{
+					typeClass->methods.push_back(data);
+					typeClass->methodMap.insert(InplaceStr(pos + 2).hash(), data);
+				}
+			}
 		}
 		else if(contextType)
 		{
@@ -12854,7 +13155,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			TypeBase *returnType = ctx.typeAuto;
 
 			if(function.genericReturnType != ~0u)
-				returnType = moduleCtx.types[function.genericReturnType];
+				returnType = GetImportedModuleTypeAt(ctx, source, moduleCtx, function.genericReturnType);
 
 			if(!returnType)
 				Stop(ctx, source, "ERROR: can't find generic function '%s' return type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
@@ -12865,7 +13166,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			{
 				ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
 
-				argTypes.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argument.type == ~0u ? ctx.typeGeneric : moduleCtx.types[argument.type]));
+				argTypes.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argument.type == ~0u ? ctx.typeGeneric : GetImportedModuleTypeAt(ctx, source, moduleCtx, argument.type)));
 			}
 
 			data->type = ctx.GetFunctionType(source, returnType, argTypes);
@@ -12885,6 +13186,12 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(parentNamespace)
 			ctx.PopScope(SCOPE_NAMESPACE);
+
+		if(functionName == defaultAssignName && data->arguments.size() == 2)
+		{
+			if(TypeClass *typeClass = getType<TypeClass>(data->arguments[1].type))
+				typeClass->defaultAssign = data;
+		}
 	}
 
 	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
@@ -12923,20 +13230,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	ctx.imports.push_back(moduleData);
 	moduleData->importIndex = ctx.imports.size();
 
-	bool duplicate = false;
-
-	for(unsigned k = 0; k < ctx.uniqueDependencies.size(); k++)
-	{
-		ModuleData *uniqueModuleData = ctx.uniqueDependencies[k];
-
-		if(uniqueModuleData->name == InplaceStr(name))
-		{
-			duplicate = true;
-			break;
-		}
-	}
-
-	if(!duplicate)
+	if(!ctx.uniqueDependencyMap.find(InplaceStr(name)))
 		ctx.uniqueDependencies.push_back(moduleData);
 
 	moduleData->bytecode = bytecode;
@@ -13005,6 +13299,8 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 
 void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 {
+	TRACE_SCOPE("analyze", "AnalyzeImplicitModuleImports");
+
 	// Find which transitive dependencies haven't been imported explicitly
 	for(unsigned i = 0; i < ctx.uniqueDependencies.size(); i++)
 	{
@@ -13044,6 +13340,9 @@ void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 	{
 		ModuleData *moduleData = ctx.implicitImports[i];
 
+		TRACE_SCOPE("analyze", "AnalyzeImplicitModuleImport");
+		TRACE_LABEL2(moduleData->name.begin, moduleData->name.end);
+
 		ImportModule(ctx, moduleData->source, moduleData->bytecode, moduleData->lexStream, moduleData->lexStreamSize, moduleData->name);
 	}
 }
@@ -13051,6 +13350,8 @@ void AnalyzeImplicitModuleImports(ExpressionContext &ctx)
 void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 {
 	TRACE_SCOPE("analyze", "CreateDefaultArgumentFunctionWrappers");
+
+	DirectChainedMap<FunctionData*> valueFunctions(ctx.allocator);
 
 	for(unsigned i = 0; i < ctx.functions.size(); i++)
 	{
@@ -13085,6 +13386,12 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 
 				InplaceStr functionName = GetDefaultArgumentWrapperFunctionName(ctx, function, argument.name->name);
 
+				if(FunctionData **valueFunction = valueFunctions.find(functionName.hash()))
+				{
+					argument.valueFunction = *valueFunction;
+					continue;
+				}
+
 				ExprBase *access = CreateValueFunctionWrapper(ctx, argument.source, NULL, value, functionName);
 
 				if(isType<ExprError>(access))
@@ -13093,7 +13400,11 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 				assert(isType<ExprFunctionAccess>(access));
 
 				if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(access))
+				{
 					argument.valueFunction = expr->function;
+
+					valueFunctions.insert(functionName.hash(), expr->function);
+				}
 			}
 		}
 	}
@@ -13221,6 +13532,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 {
 	TRACE_SCOPE("analyze", "AnalyzeModule");
 
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	// Import base module
 	if(const char *bytecode = BinaryCache::GetBytecode("$base$.nc"))
 	{
@@ -13240,10 +13553,18 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 
 	AnalyzeImplicitModuleImports(ctx);
 
+	ctx.statistics.Finish("Import", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
+
 	IntrusiveList<ExprBase> expressions;
 
 	for(SynBase *expr = syntax->expressions.head; expr; expr = expr->next)
 		expressions.push_back(AnalyzeStatement(ctx, expr));
+
+	ctx.statistics.Finish("Expressions", NULLCTime::clockMicro());
+
+	ctx.statistics.Start(NULLCTime::clockMicro());
 
 	ClosePendingUpvalues(ctx, NULL);
 
@@ -13311,6 +13632,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 		for(unsigned i = 0; i < ctx.upvalues.size(); i++)
 			module->setup.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(ctx.MakeInternal(syntax), ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, ctx.upvalues[i]), NULL));
 	}
+
+	ctx.statistics.Finish("Finalization", NULLCTime::clockMicro());
 
 	return module;
 }
@@ -13387,7 +13710,12 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code,
 		if(ctx.memoryLimit != 0)
 			ctx.allocator->clear_limit();
 
-		ctx.PopScope(SCOPE_EXPLICIT);
+		ctx.statistics.Start(NULLCTime::clockMicro());
+
+		assert(ctx.scope->type == SCOPE_EXPLICIT);
+		ctx.scope = ctx.scope->scope;
+
+		ctx.statistics.Finish("Cleanup", NULLCTime::clockMicro());
 
 		assert(ctx.scope == NULL);
 

@@ -6,6 +6,7 @@
 #include "Array.h"
 #include "HashMap.h"
 #include "StrAlgo.h"
+#include "Statistics.h"
 
 #include "ParseTree.h"
 #include "TypeTree.h"
@@ -210,58 +211,6 @@ struct TypeModulePairHasher
 	}
 };
 
-struct FunctionTypeRequest
-{
-	FunctionTypeRequest(): returnType(NULL), hash(0)
-	{
-	}
-
-	FunctionTypeRequest(TypeBase* returnType, IntrusiveList<TypeHandle> arguments): returnType(returnType), arguments(arguments)
-	{
-		hash = returnType->nameHash;
-
-		for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
-			hash += arg->type->nameHash;
-	}
-
-	bool operator==(const FunctionTypeRequest& rhs) const
-	{
-		if(returnType != rhs.returnType)
-			return false;
-
-		TypeHandle *leftArg = arguments.head;
-		TypeHandle *rightArg = rhs.arguments.head;
-
-		while(leftArg && rightArg && leftArg->type == rightArg->type)
-		{
-			leftArg = leftArg->next;
-			rightArg = rightArg->next;
-		}
-
-		if(leftArg != rightArg)
-			return false;
-
-		return true;
-	}
-
-	bool operator!=(const FunctionTypeRequest& rhs) const
-	{
-		return !(*this == rhs);
-	}
-
-	TypeBase* returnType;
-	IntrusiveList<TypeHandle> arguments;
-	unsigned hash;
-};
-
-struct FunctionTypeRequestHasher
-{
-	unsigned operator()(const FunctionTypeRequest& key)
-	{
-		return key.hash;
-	}
-};
-
 struct ExpressionContext
 {
 	ExpressionContext(Allocator *allocator, int optimizationLevel);
@@ -275,9 +224,8 @@ struct ExpressionContext
 	void PushScope(TypeBase *type);
 	void PushLoopScope(bool allowBreak, bool allowContinue);
 	void PushTemporaryScope();
-	void PopScope(ScopeType type, bool ejectContents, bool keepFunctions);
+	void PopScope(ScopeType type, bool ejectContents);
 	void PopScope(ScopeType type);
-	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation);
 
 	NamespaceData* GetCurrentNamespace(ScopeData *scopeData);
@@ -331,6 +279,8 @@ struct ExpressionContext
 	const char *moduleRoot;
 
 	SmallArray<ModuleData*, 128> uniqueDependencies;
+	SmallDenseMap<InplaceStr, ModuleData*, InplaceStrHasher, 128> uniqueDependencyMap;
+
 	SmallArray<ModuleData*, 128> imports;
 	SmallArray<ModuleData*, 128> implicitImports;
 	SmallArray<NamespaceData*, 128> namespaces;
@@ -358,23 +308,26 @@ struct ExpressionContext
 
 	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
 
+	// Indexed with a -1 to skip 'unknown'
+	SmallDenseSet<TypePair, TypePairHasher, 32> noIndexOperatorForTypePair;
+	FixedArray<SmallDenseSet<TypeBase*, TypeBaseHasher, 4>, SYN_UNARY_OP_LOGICAL_NOT> noUnaryOperatorForTypePair;
+	FixedArray<SmallDenseSet<TypePair, TypePairHasher, 4>, SYN_BINARY_OP_IN> noBinaryOperatorForTypePair;
+	FixedArray<SmallDenseSet<TypePair, TypePairHasher, 4>, SYN_MODIFY_ASSIGN_BIT_XOR> noModifyOperatorForTypePair;
+
 	SmallDenseMap<TypedFunctionInstanceRequest, ExprBase*, TypedFunctionInstanceRequestHasher, 32> newConstructorFunctions;
 
 	unsigned baseModuleFunctionCount;
 
 	// Context info
-	HashMap<TypeBase*> typeMap;
-	HashMap<FunctionData*> functionMap;
-	HashMap<VariableData*> variableMap;
-
 	ScopeData *scope;
+	SynBase *lookupLocation;
 
 	ScopeData *globalScope;
 	SmallArray<NamespaceData*, 2> globalNamespaces;
 	IntrusiveList<CloseUpvaluesData> globalCloseUpvalues;
 
 	SmallDenseMap<TypeModulePair, TypeBase*, TypeModulePairHasher, 32> internalTypeMap;
-	SmallDenseMap<FunctionTypeRequest, TypeFunction*, FunctionTypeRequestHasher, 32> functionTypeMap;
+	DirectChainedMap<TypeFunction*> functionTypeMap;
 
 	unsigned functionInstanceDepth;
 	unsigned classInstanceDepth;
@@ -393,6 +346,8 @@ struct ExpressionContext
 	char *errorBufLocation;
 
 	SmallArray<ErrorInfo*, 4> errorInfo;
+
+	CompilerStatistics statistics;
 
 	// Base types
 	TypeBase* typeVoid;

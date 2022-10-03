@@ -197,7 +197,13 @@ namespace NULLCIO
 		char buf[128];
 		ReadString(buf, 128);
 
-		sscanf(buf, "%d", val);
+		int result = sscanf(buf, "%d", val);
+
+		if(result != 1)
+		{
+			nullcThrowError("ERROR: failed to read an int");
+			return;
+		}
 	}
 
 	int ReadTextFromConsole(NULLCArray data)

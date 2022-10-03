@@ -167,7 +167,7 @@ struct ExternFuncInfo
 
 	unsigned int	namespaceHash;
 
-	unsigned int	bytesToPop; // Arguments size
+	unsigned int	argumentSize;
 	unsigned int	stackSize; // Including arguments
 
 	// For generic functions

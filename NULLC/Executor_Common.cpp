@@ -627,7 +627,7 @@ void nullcDumpStackData()
 					printf(", ");
 			}
 
-			unsigned argumentsSize = function.bytesToPop;
+			unsigned argumentsSize = function.argumentSize;
 			unsigned stackSize = (function.stackSize + 0xf) & ~0xf;
 
 			printf(") argument size %u, stack size %u\n", argumentsSize, stackSize);
@@ -659,7 +659,7 @@ void nullcDumpStackData()
 
 			if(function.parentType != ~0u)
 			{
-				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = (char*)(data + offset + function.argumentSize - NULLC_PTR_SIZE);
 
 				nullcPrintDepthIndent(indent);
 				printf("%p: %s %s = %p\n", (void*)ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(void**)ptr);
@@ -667,7 +667,7 @@ void nullcDumpStackData()
 
 			if(function.contextType != ~0u)
 			{
-				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = (char*)(data + offset + function.argumentSize - NULLC_PTR_SIZE);
 
 				nullcPrintDepthIndent(indent);
 				printf("%p: %s %s = %p\n", (void*)ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(void**)ptr);
@@ -1125,8 +1125,8 @@ void GC::MarkUsedBlocks()
 
 			if(function.contextType != ~0u)
 			{
-				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\n", symbols + types[function.contextType].offsetToName, offset, function.bytesToPop - NULLC_PTR_SIZE);
-				char *ptr = GC::unmanageableBase + offset + function.bytesToPop - NULLC_PTR_SIZE;
+				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\n", symbols + types[function.contextType].offsetToName, offset, function.argumentSize - NULLC_PTR_SIZE);
+				char *ptr = GC::unmanageableBase + offset + function.argumentSize - NULLC_PTR_SIZE;
 				GC::CheckPointer(ptr);
 			}
 

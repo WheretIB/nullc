@@ -469,12 +469,12 @@ bool ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	{
 		ExternFuncInfo &targetFunction = exLinker->exFunctions[functionID];
 
-		unsigned int dwordsToPop = (targetFunction.bytesToPop >> 2);
+		unsigned int dwordsToPop = (targetFunction.argumentSize >> 2);
 
 		/*if(targetFunction.regVmAddress == ~0u)
 		{
 			// Copy all arguments
-			memcpy(tempStackPtr, arguments, target.bytesToPop);
+			memcpy(tempStackPtr, arguments, target.argumentSize);
 
 			// Call function
 			if(target.funcPtrWrap)
