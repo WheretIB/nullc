@@ -585,3 +585,14 @@ auto x5 = -4l, y5 = -126l;\r\n\
 \r\n\
 return ((x1 ** y1) == -1) + ((x2 ** y2) == 1) * 10 + ((x3 ** y3) == 0) * 100 + ((x4 ** y4) == 0) * 1000 + ((x5 ** y5) == 0) * 10000;";
 TEST_RESULT("Exponentiation corner cases 2 (long)", testExponentiationCornerCasesLong2, "11111");
+
+const char* testDoublePrecision =
+"double x, y, z, w;\r\n\
+\r\n\
+x = 11.12345678910737373;\r\n\
+y = 22.12345678910737373;\r\n\
+z = 33.12345678910737373;\r\n\
+\r\n\
+assert(1.0037271710465911 == (x + y) / z);\r\n\
+return 1;";
+TEST_RESULT("Precision of double numbers", testDoublePrecision, "1");

@@ -269,7 +269,7 @@ namespace
 	
 		if(*str == '.')
 		{
-			double power = 0.1f;
+			double power = 0.1;
 			str++;
 
 			while((digit = *str - '0') < 10)
