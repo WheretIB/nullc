@@ -1,6 +1,4 @@
 #pragma once
-#ifndef NULLC_LINKER_H
-#define NULLC_LINKER_H
 
 #include "stdafx.h"
 #include "Bytecode.h"
@@ -82,5 +80,3 @@ public:
 
 	unsigned debugOutputIndent;
 };
-
-#endif

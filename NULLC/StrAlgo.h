@@ -1,6 +1,4 @@
 #pragma once
-#ifndef NULLC_STRALGO_H
-#define NULLC_STRALGO_H
 
 #include "stdafx.h"
 
@@ -111,5 +109,3 @@ struct InplaceStrHasher
 		return key.hash();
 	}
 };
-
-#endif

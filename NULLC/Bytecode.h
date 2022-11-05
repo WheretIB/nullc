@@ -1,6 +1,4 @@
 #pragma once
-#ifndef NULLC_BYTECODE_H
-#define NULLC_BYTECODE_H
 
 #include "nullcdef.h"
 
@@ -337,5 +335,3 @@ char*				FindSymbols(ByteCode *code);
 char*				FindSource(ByteCode *code);
 unsigned*			FindRegVmConstants(ByteCode *code);
 unsigned char*		FindRegVmRegKillInfo(ByteCode *code);
-
-#endif

@@ -1,6 +1,4 @@
 #pragma once
-#ifndef NULLC_ARRAY_H
-#define NULLC_ARRAY_H
 
 #include "Allocator.h"
 
@@ -600,5 +598,3 @@ struct VectorView
 
 	T *data;
 };
-
-#endif
