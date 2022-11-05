@@ -72,14 +72,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 			exprDone = true;
 
 			if(strchr(exprResult, '.'))
-				sprintf(exprResult, "%d", int(atof(exprResult) + 0.5));
+				snprintf(exprResult, 256, "%d", int(atof(exprResult) + 0.5));
 		}
 
 		char instResult[256];
 		if(nullcTestEvaluateInstructionTree(instResult, 256))
 		{
 			if(strchr(instResult, '.'))
-				sprintf(instResult, "%d", int(atof(instResult) + 0.5));
+				snprintf(instResult, 256, "%d", int(atof(instResult) + 0.5));
 
 			if(exprDone)
 				assert(strcmp(exprResult, instResult) == 0);

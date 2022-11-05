@@ -1913,18 +1913,19 @@ bool CheckFile(const char *name)
 
 std::string ResolveSourceFile(const char* name)
 {
-	char tmp[256];
-	sprintf(tmp, "%s", name);
+	const unsigned tmpLength = 1024;
+	char tmp[tmpLength];
+	safeprintf(tmp, tmpLength, "%s", name);
 
 	if(CheckFile(tmp))
 		return tmp;
 
-	sprintf(tmp, "translation/%s", name);
+	safeprintf(tmp, tmpLength, "translation/%s", name);
 
 	if(CheckFile(tmp))
 		return tmp;
 
-	sprintf(tmp, "../NULLC/translation/%s", name);
+	safeprintf(tmp, tmpLength, "../NULLC/translation/%s", name);
 
 	if(CheckFile(tmp))
 		return tmp;
@@ -2017,8 +2018,9 @@ void IdeUpdateModuleImportPaths(TabbedFiles::TabInfo *info)
 
 	if(const char *pos = strrchr(info->name, '\\'))
 	{
-		char path[512];
-		NULLC::SafeSprintf(path, 1024, "%.*s", unsigned(pos - info->name) + 1, info->name);
+		const unsigned pathLength = 1024;
+		char path[pathLength];
+		safeprintf(path, pathLength, "%.*s", unsigned(pos - info->name) + 1, info->name);
 
 		for(unsigned i = 0; i < unsigned(strlen(path)); i++)
 			path[i] = path[i] == '\\' ? '/' : path[i];

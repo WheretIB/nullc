@@ -1348,13 +1348,13 @@ VOID CALLBACK RichTextarea::AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEv
 	if(areaStatus)
 	{
 		char buf[256];
-		sprintf(buf, "Ln %d", data->cursorCharY + 1);
+		snprintf(buf, 256, "Ln %d", data->cursorCharY + 1);
 		SendMessage(areaStatus, (WM_USER+1), 1, (LPARAM)buf);
-		sprintf(buf, "Col %d", posInChars + 1);
+		snprintf(buf, 256, "Col %d", posInChars + 1);
 		SendMessage(areaStatus, (WM_USER+1), 2, (LPARAM)buf);
-		sprintf(buf, "Ch %d", data->cursorCharX + 1);
+		snprintf(buf, 256, "Ch %d", data->cursorCharX + 1);
 		SendMessage(areaStatus, (WM_USER+1), 3, (LPARAM)buf);
-		sprintf(buf, "%s", insertionMode ? "OVR" : "INS");
+		snprintf(buf, 256, "%s", insertionMode ? "OVR" : "INS");
 		SendMessage(areaStatus, (WM_USER+1), 4, (LPARAM)buf);
 	}
 
