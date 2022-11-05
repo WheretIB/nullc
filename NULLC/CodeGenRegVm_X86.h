@@ -123,15 +123,15 @@ struct CodeGenRegVmStateContext
 	double (*x64ModdWrap)(double lhs, double rhs);
 	long long (*x64PowlWrap)(long long lhs, long long rhs);
 
-	void (*x86PowWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86PowdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86ModdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86PowWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueABC, unsigned cmdArgument);
+	void (*x86PowdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueABC, unsigned cmdArgument);
+	void (*x86ModdWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueABC, unsigned cmdArgument);
 	long long (*x86MullWrap)(long long lhs, long long rhs);
 	long long (*x86DivlWrap)(long long lhs, long long rhs);
 	long long (*x86PowlWrap)(long long lhs, long long rhs);
 	long long (*x86ModlWrap)(long long lhs, long long rhs);
-	void (*x86LtodWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
-	void (*x86DtolWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueA, unsigned cmdValueB);
+	void (*x86LtodWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueAC);
+	void (*x86DtolWrap)(CodeGenRegVmStateContext *vmState, unsigned cmdValueAC);
 	long long (*x86ShllWrap)(long long lhs, long long rhs);
 	long long (*x86ShrlWrap)(long long lhs, long long rhs);
 

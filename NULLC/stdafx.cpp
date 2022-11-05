@@ -39,6 +39,16 @@ void NULLC::alignedDealloc(void* ptr)
 	dealloc(unaligned);
 }
 
+void NULLC::copyMemory(void* dst, const void* src, size_t size)
+{
+	memcpy(dst, src, size);
+}
+
+void NULLC::fillMemory(void* dst, int val, size_t size)
+{
+	memset(dst, val, size);
+}
+
 const char* NULLC::defaultFileLoad(const char* name, unsigned* size)
 {
 	assert(name);

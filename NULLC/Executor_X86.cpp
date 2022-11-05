@@ -393,7 +393,7 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 	execErrorBuffer = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
 	*execErrorBuffer = 0;
 
-	memset(execResult, 0, execResultSize);
+	NULLC::fillMemory(execResult, 0, execResultSize);
 
 	codeRunning = false;
 
@@ -410,7 +410,7 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exTypes(linker->exTy
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
 
-	memset(codeLaunchHeader, 0, codeLaunchHeaderSize);
+	NULLC::fillMemory(codeLaunchHeader, 0, codeLaunchHeaderSize);
 	oldCodeLaunchHeaderProtect = 0;
 
 	codeLaunchHeaderLength = 0;
@@ -714,7 +714,7 @@ bool ExecutorX86::Initialize()
 	unwindInfo.unwindCode[8].operationCode = UWOP_PUSH_NONVOL;
 	unwindInfo.unwindCode[8].operationInfo = UWOP_REGISTER_RBP;
 
-	memcpy(pos, &unwindInfo, sizeof(unwindInfo));
+	NULLC::copyMemory(pos, &unwindInfo, sizeof(unwindInfo));
 	pos += sizeof(unwindInfo);
 
 	assert(pos <= codeLaunchHeader + codeLaunchHeaderSize);
@@ -742,28 +742,28 @@ bool ExecutorX86::Initialize()
 	if(!vmState.callStackBase)
 	{
 		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2 + 8192); // Two extra pages for page guard
-		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
+		NULLC::fillMemory(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 2);
 		vmState.callStackEnd = vmState.callStackBase + 1024 * 2;
 	}
 
 	if(!vmState.tempStackArrayBase)
 	{
 		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 16);
-		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
+		NULLC::fillMemory(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
 		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 16;
 	}
 
 	if(!vmState.dataStackBase)
 	{
 		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize + 8192); // Two extra pages for page guard
-		memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
+		NULLC::fillMemory(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
 		vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
 	}
 
 	if(!vmState.regFileArrayBase)
 	{
 		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32 + 8192); // Two extra pages for page guard
-		memset(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
+		NULLC::fillMemory(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
 		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
 	}
 
@@ -881,7 +881,7 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			}
 
 			// Copy all arguments
-			memcpy(vmState.tempStackArrayBase, arguments, target.argumentSize);
+			NULLC::copyMemory(vmState.tempStackArrayBase, arguments, target.argumentSize);
 
 			// Call function
 			if(target.funcPtrWrap)
@@ -929,7 +929,7 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			else
 			{
 				// Copy arguments to new stack frame
-				memcpy(vmState.dataStackTop, arguments, argumentsSize);
+				NULLC::copyMemory(vmState.dataStackTop, arguments, argumentsSize);
 
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
@@ -959,14 +959,14 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	{
 		// If global code is executed, reset all global variables
 		assert(unsigned(vmState.dataStackTop - vmState.dataStackBase) >= exLinker->globalVarSize);
-		memset(vmState.dataStackBase, 0, exLinker->globalVarSize);
+		NULLC::fillMemory(vmState.dataStackBase, 0, exLinker->globalVarSize);
 
 		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState.dataStackBase);
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState.dataStackBase);
 		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 		regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 
-		memset(regFilePtr + rvrrCount, 0, (256 - rvrrCount) * sizeof(regFilePtr[0]));
+		NULLC::fillMemory(regFilePtr + rvrrCount, 0, (256 - rvrrCount) * sizeof(regFilePtr[0]));
 	}
 
 	RegVmRegister *prevRegFilePtr = vmState.regFileLastPtr;
@@ -1002,14 +1002,14 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		int errorCode = 0;
 
 		NULLC::JmpBufData data;
-		memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
+		NULLC::copyMemory(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
 
 		if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
 		{
 			unsigned char *codeStart = instAddress[instructionPos];
 
 			jmp_buf prevErrorHandler;
-			memcpy(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
+			NULLC::copyMemory(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
 
 			if(!setjmp(vmState.errorHandler))
 			{
@@ -1022,7 +1022,7 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				resultType = rvrError;
 			}
 
-			memcpy(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+			NULLC::copyMemory(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		}
 		else
 		{
@@ -1037,14 +1037,14 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			sigaction(SIGSEGV, &sigSEGV, NULL);
 		}
 
-		memcpy(NULLC::errorHandler, data.data, sizeof(sigjmp_buf));
+		NULLC::copyMemory(NULLC::errorHandler, data.data, sizeof(sigjmp_buf));
 #else
 		__try
 		{
 			unsigned char *codeStart = instAddress[instructionPos];
 
 			jmp_buf prevErrorHandler;
-			memcpy(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
+			NULLC::copyMemory(&prevErrorHandler, &vmState.errorHandler, sizeof(jmp_buf));
 
 			if(!setjmp(vmState.errorHandler))
 			{
@@ -1057,7 +1057,7 @@ bool ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				resultType = rvrError;
 			}
 
-			memcpy(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+			NULLC::copyMemory(&vmState.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		}
 		__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation()))
 		{
@@ -1202,7 +1202,7 @@ bool ExecutorX86::SetStackSize(unsigned bytes)
 	NULLC::dealloc(vmState.dataStackBase);
 
 	vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize + 8192); // Two extra pages for page guard
-	memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
+	NULLC::fillMemory(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
 	vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
 
 	NULLC::DenyMemoryPageRead(vmState.dataStackEnd);
@@ -1215,7 +1215,7 @@ void ExecutorX86::ClearNative()
 	TRACE_SCOPE("x86", "ClearNative");
 
 	if (instList.size())
-		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+		NULLC::fillMemory(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 
 	binCodeSize = 0;
@@ -1280,7 +1280,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	TRACE_SCOPE("x86", "TranslateToNative");
 
 	if(instList.size())
-		memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
+		NULLC::fillMemory(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
 	instList.reserve(64);
 
@@ -1311,7 +1311,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	codeJumpTargets.resize(exRegVmCode.size());
 	if(codeJumpTargets.size())
-		memset(&codeJumpTargets[lastInstructionCount], 0, (codeJumpTargets.size() - lastInstructionCount) * sizeof(codeJumpTargets[0]));
+		NULLC::fillMemory(&codeJumpTargets[lastInstructionCount], 0, (codeJumpTargets.size() - lastInstructionCount) * sizeof(codeJumpTargets[0]));
 
 	// Mirror extra global return so that jump to global return can be marked (rviNop, because we will have some custom code)
 	codeJumpTargets.push_back(0);
@@ -1802,7 +1802,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 #endif
 
 		if(binCodeSize)
-			memcpy(binCodeNew, binCode, binCodeSize);
+			NULLC::copyMemory(binCodeNew, binCode, binCodeSize);
 
 		// If code is currently running, update all instruction pointers
 		if(codeRunning)
@@ -1866,7 +1866,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	}
 
 	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
-	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
+	NULLC::fillMemory(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
 
 	vmState.instAddress = instAddress.data;
 
@@ -1918,7 +1918,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	unsigned char *unwindPos = code;
 
-	memcpy(code, &unwindInfo, sizeof(unwindInfo));
+	NULLC::copyMemory(code, &unwindInfo, sizeof(unwindInfo));
 	code += sizeof(unwindInfo);
 
 	assert(code < binCode + binCodeReserved);

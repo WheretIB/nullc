@@ -5,7 +5,7 @@
 config=debug
 check=none
 
-WARNINGFLAGS = -Wall -Wextra -Wno-unknown-warning-option -Wno-class-memaccess
+WARNINGFLAGS = -Wall -Wextra
 
 REG_CFLAGS=-g $(WARNINGFLAGS)
 COMP_CFLAGS=-g $(WARNINGFLAGS) -DNULLC_NO_EXECUTOR

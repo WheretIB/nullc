@@ -73,6 +73,9 @@ namespace NULLC
 		dealloc(ptr);
 	}
 
+	void copyMemory(void* dst, const void* src, size_t size);
+	void fillMemory(void* dst, int val, size_t size);
+
 	const char* defaultFileLoad(const char* name, unsigned* size);
 	void defaultFileFree(const char* data);
 
