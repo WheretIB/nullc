@@ -1,5 +1,9 @@
 #pragma once
+
 #include "stdafx.h"
+
+#include "Allocator.h"
+#include "Array.h"
 
 enum chartype
 {

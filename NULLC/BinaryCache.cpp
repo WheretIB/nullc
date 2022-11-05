@@ -1,6 +1,7 @@
 #include "BinaryCache.h"
 
 #include "Lexer.h"
+#include "StrAlgo.h"
 
 namespace BinaryCache
 {

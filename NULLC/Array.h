@@ -1,6 +1,4 @@
 #pragma once
-#ifndef NULLC_ARRAY_H
-#define NULLC_ARRAY_H
 
 #include "Allocator.h"
 
@@ -30,7 +28,7 @@ public:
 		assert(data);
 
 		if(zeroNewMemory)
-			memset(data, 0, reserved * sizeof(T));
+			NULLC::fillMemory(data, 0, reserved * sizeof(T));
 
 		max = reserved;
 		count = 0;
@@ -169,10 +167,10 @@ public:
 		assert(newData);
 
 		if(zeroNewMemory)
-			memset(newData, 0, newSize * sizeof(T));
+			NULLC::fillMemory(newData, 0, newSize * sizeof(T));
 
 		if(data)
-			memcpy(newData, data, max * sizeof(T));
+			NULLC::copyMemory(newData, data, max * sizeof(T));
 
 		data = newData;
 		max = newSize;
@@ -591,7 +589,7 @@ struct VectorView
 	{
 		assert(count + amount <= capacity);
 
-		memcpy(data + count, elems, amount * sizeof(T));
+		NULLC::copyMemory(data + count, elems, amount * sizeof(T));
 		count += amount;
 	}
 
@@ -600,5 +598,3 @@ struct VectorView
 
 	T *data;
 };
-
-#endif

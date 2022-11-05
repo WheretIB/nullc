@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Array.h"
 #include "Instruction_X86.h"
 
 void x86ResetLabels();

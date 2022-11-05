@@ -5,9 +5,11 @@
 config=debug
 check=none
 
-REG_CFLAGS=-g -Wall -Wextra
-COMP_CFLAGS=-g -Wall -Wextra -D NULLC_NO_EXECUTOR
-DYNCALL_FLAGS=-g -Wall -Wextra
+WARNINGFLAGS = -Wall -Wextra
+
+REG_CFLAGS=-g $(WARNINGFLAGS)
+COMP_CFLAGS=-g $(WARNINGFLAGS) -DNULLC_NO_EXECUTOR
+DYNCALL_FLAGS=-g -Wall -Wextra -Wno-unknown-warning-option -Wno-cast-function-type -Wno-bad-function-cast
 STDLIB_FLAGS=-lstdc++ -lm
 FUZZ_FLAGS=
 ALIGN_FLAGS=
@@ -43,7 +45,7 @@ ifeq ($(check),fuzz)
 endif
 
 ifeq ($(CXX),clang)
-	ALIGN_FLAGS += -mllvm -align-all-nofallthru-blocks=4
+	ALIGN_FLAGS +=-mllvm -align-all-nofallthru-blocks=4
 endif
 
 LIB_SOURCES = \
@@ -147,16 +149,16 @@ DYNCALL_TARGETS = \
   temp/dyncall_s/dyncall_call.o
 
 all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
-    bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
+	bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
 
 ifeq ($(config),coverage)
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
-    bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
+	bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
 	./bin/TestRun -v -o -t
 	gcov -o temp NULLC/BinaryCache.cpp NULLC/Bytecode.cpp NULLC/Compiler.cpp NULLC/Executor_Common.cpp NULLC/Executor.cpp NULLC/ExpressionEval.cpp NULLC/ExpressionGraph.cpp NULLC/ExpressionTranslate.cpp NULLC/ExpressionTree.cpp NULLC/InstructionTreeLlvm.cpp NULLC/InstructionTreeVm.cpp NULLC/InstructionTreeVmCommon.cpp NULLC/InstructionTreeVmEval.cpp NULLC/InstructionTreeVmGraph.cpp NULLC/InstructionTreeVmLower.cpp NULLC/InstructionTreeVmLowerGraph.cpp NULLC/Lexer.cpp NULLC/Linker.cpp NULLC/nullc.cpp NULLC/ParseGraph.cpp NULLC/ParseTree.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/StrAlgo.cpp NULLC/TypeTree.cpp
 else
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
-    bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
+	bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
 	./bin/TestRun
 endif
 

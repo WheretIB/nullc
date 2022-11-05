@@ -7,6 +7,20 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
+
+size_t format(char* dst, size_t size, const char* src, ...)
+{
+	va_list args;
+	va_start(args, src);
+
+	int result = vsnprintf(dst, size, src, args);
+	dst[size - 1] = '\0';
+
+	va_end(args);
+
+	return result == -1 ? 0 : (unsigned(result) > size ? size : result);
+}
 
 const char* translationDependencies[128];
 unsigned translationDependencyCount = 0;
@@ -35,23 +49,24 @@ bool AddSourceFile(char *&buf, const char *name)
 
 bool SearchAndAddSourceFile(char*& buf, const char* name)
 {
-	char tmp[256];
-	sprintf(tmp, "%s", name);
+	const unsigned tmpSize = 256;
+	char tmp[tmpSize];
+	format(tmp, tmpSize, "%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
 
-	sprintf(tmp, "translation/%s", name);
+	format(tmp, tmpSize, "translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
 
-	sprintf(tmp, "NULLC/translation/%s", name);
+	format(tmp, tmpSize, "NULLC/translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
 
-	sprintf(tmp, "../NULLC/translation/%s", name);
+	format(tmp, tmpSize, "../NULLC/translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
@@ -208,7 +223,7 @@ int main(int argc, char** argv)
 				if(strstr(dependency, "import_"))
 				{
 					char tmp[256];
-					sprintf(tmp, "%s", dependency + strlen("import_"));
+					format(tmp, 256, "%s", dependency + strlen("import_"));
 
 					if(char *pos = strstr(tmp, "_nc.cpp"))
 						strcpy(pos, "_bind.cpp");

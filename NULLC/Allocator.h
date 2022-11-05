@@ -1,10 +1,6 @@
 #pragma once
-#ifndef NULLC_ALLOCATOR_H
-#define NULLC_ALLOCATOR_H
 
 #include "stdafx.h"
-#include "Array.h"
-#include "Pool.h"
 
 struct Allocator
 {
@@ -218,5 +214,3 @@ private:
 	void operator =(GrowingAllocatorRef &r);
 	GrowingAllocatorRef(GrowingAllocatorRef &r);
 };
-
-#endif

@@ -3963,7 +3963,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 
 	unsigned instSize = 256 * 1024;
 	x86Instruction *instList = new x86Instruction[instSize];
-	memset(instList, 0, instSize * sizeof(x86Instruction));
+	NULLC::fillMemory(instList, 0, instSize * sizeof(x86Instruction));
 	ctx.SetLastInstruction(instList, instList);
 
 	stream += TestRptrXmmEncoding(ctx, stream, o_movss, x86MOVSS, testSizeDword);
@@ -4163,7 +4163,8 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 
 	assert(stream < buf + bufSize);
 
-	char instBuf[128];
+	const unsigned instBufSize = 128;
+	char instBuf[instBufSize];
 
 	unsigned instCount = unsigned(ctx.GetLastInstruction() - instList);
 
@@ -4176,7 +4177,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 
 	for(unsigned i = 0; i < instCount; i++)
 	{
-		instList[i].Decode(vmState, instBuf);
+		instList[i].Decode(vmState, instBuf, instBufSize);
 
 		output.Print(instBuf);
 		output.Print('\n');

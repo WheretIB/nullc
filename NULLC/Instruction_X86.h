@@ -200,90 +200,131 @@ struct x86Argument
 	// no argument
 	x86Argument()
 	{
-		Empty();
+		this->type = argNone;
+		this->imm64Arg = 0;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 0;
+		this->ptrNum = 0;
 	}
 
 	// immediate number
-	explicit x86Argument(int Num)
+	explicit x86Argument(int num)
 	{
-		Empty();
-		type = argNumber;
-		num = Num;
+		this->type = argNumber;
+		this->num = num;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 0;
+		this->ptrNum = 0;
 	}
-	explicit x86Argument(unsigned Num)
+
+	explicit x86Argument(unsigned num)
 	{
-		Empty();
-		type = argNumber;
-		num = Num;
+		this->type = argNumber;
+		this->num = num;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 0;
+		this->ptrNum = 0;
 	}
+
 	// register
-	explicit x86Argument(x86Reg Register)
+	explicit x86Argument(x86Reg reg)
 	{
-		Empty();
-		type = argReg;
-		reg = Register;
+		this->type = argReg;
+		this->reg = reg;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 0;
+		this->ptrNum = 0;
 	}
+
 	// sse register
 	explicit x86Argument(x86XmmReg xmmReg)
 	{
-		Empty();
-		type = argXmmReg;
-		xmmArg = xmmReg;
-	}
-	// size [num]
-	x86Argument(x86Size Size, unsigned int Num)
-	{
-		Empty();
-		type = argPtr;
-		ptrSize = Size; ptrMult = 1; ptrNum = Num;
-	}
-	// size [register + num]
-	x86Argument(x86Size Size, x86Reg RegA, unsigned int Num)
-	{
-		Empty();
-		type = argPtr;
-		ptrSize = Size; ptrBase = RegA; ptrMult = 1; ptrNum = Num;
-	}
-	// size [register + register + num]
-	x86Argument(x86Size Size, x86Reg RegA, x86Reg RegB, unsigned int Num)
-	{
-		Empty();
-		type = argPtr;
-		ptrSize = Size; ptrBase = RegB; ptrMult = 1; ptrIndex = RegA; ptrNum = Num;
-	}
-	// size [register * multiplier + register + num]
-	x86Argument(x86Size Size, x86Reg RegA, unsigned int Mult, x86Reg RegB, unsigned int Num)
-	{
-		Empty();
-		type = argPtr;
-		ptrSize = Size; ptrBase = RegB; ptrMult = Mult; ptrIndex = RegA; ptrNum = Num;
-	}
-	// long immediate number
-	explicit x86Argument(long long Num)
-	{
-		Empty();
-		type = argImm64;
-		imm64Arg = Num;
-	}
-	// long immediate number
-	explicit x86Argument(unsigned long long Num)
-	{
-		Empty();
-		type = argImm64;
-		imm64Arg = Num;
+		this->type = argXmmReg;
+		this->xmmArg = xmmReg;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 0;
+		this->ptrNum = 0;
 	}
 
-	void Empty()
+	// size [num]
+	x86Argument(x86Size size, unsigned num)
 	{
-		memset(this, 0, sizeof(x86Argument));
+		this->type = argPtr;
+		this->ptrSize = size;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 1;
+		this->ptrNum = num;
+	}
+
+	// size [register + num]
+	x86Argument(x86Size size, x86Reg regA, unsigned num)
+	{
+		this->type = argPtr;
+		this->ptrSize = size;
+		this->ptrBase = regA;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 1;
+		this->ptrNum = num;
+	}
+
+	// size [register + register + num]
+	x86Argument(x86Size size, x86Reg regA, x86Reg regB, unsigned num)
+	{
+		this->type = argPtr;
+		this->ptrSize = size;
+		this->ptrBase = regB;
+		this->ptrIndex = regA;
+		this->ptrMult = 1;
+		this->ptrNum = num;
+	}
+
+	// size [register * multiplier + register + num]
+	x86Argument(x86Size size, x86Reg regA, unsigned mult, x86Reg regB, unsigned num)
+	{
+		this->type = argPtr;
+		this->ptrSize = size;
+		this->ptrBase = regB;
+		this->ptrIndex = regA;
+		this->ptrMult = mult;
+		this->ptrNum = num;
+	}
+
+	// long immediate number
+	explicit x86Argument(long long num)
+	{
+		this->type = argImm64;
+		this->imm64Arg = num;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 0;
+		this->ptrNum = 0;
+	}
+
+	// long immediate number
+	explicit x86Argument(unsigned long long num)
+	{
+		this->type = argImm64;
+		this->imm64Arg = num;
+		this->ptrBase = rNONE;
+		this->ptrIndex = rNONE;
+		this->ptrMult = 0;
+		this->ptrNum = 0;
 	}
 
 	bool operator==(const x86Argument& r)
 	{
 		if(type != r.type || reg != r.reg)
 			return false;
+
 		if(ptrSize != r.ptrSize || ptrBase != r.ptrBase || ptrIndex != r.ptrIndex || ptrMult != r.ptrMult || ptrNum != r.ptrNum)
 			return false;
+
 		return true;
 	}
 
@@ -299,11 +340,12 @@ struct x86Argument
 		unsigned long long imm64Arg;		// Used only when type == argImm64
 	};
 
-	x86Reg	ptrBase, ptrIndex;
+	x86Reg	ptrBase;
+	x86Reg	ptrIndex;
 	int		ptrMult;
 	int		ptrNum;
 
-	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize);
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, unsigned bufSize, bool x64, bool useMmWord, bool skipSize);
 };
 
 struct x86Instruction
@@ -342,5 +384,5 @@ struct x86Instruction
 	};
 
 	// returns string length
-	int	Decode(CodeGenRegVmStateContext &ctx, char *buf);
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, unsigned bufSize);
 };

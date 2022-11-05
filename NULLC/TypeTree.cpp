@@ -141,30 +141,31 @@ InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 {
 	unsigned typeNameLength = unsigned(type->name.end - type->name.begin);
 
-	unsigned nameLength = unsigned(typeNameLength + 4);
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	unsigned nameLength = typeNameLength + 4 + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	if(typeNameLength)
 		memcpy(name, type->name.begin, typeNameLength);
 
 	memcpy(name + typeNameLength, " ref", 5);
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
 InplaceStr GetArrayTypeName(ExpressionContext &ctx, TypeBase* type, long long length)
 {
-	unsigned nameLength = unsigned(type->name.length() + strlen("[]") + 21);
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "%.*s[%lld]", FMT_ISTR(type->name), length);
+	unsigned nameLength = type->name.length() + unsigned(strlen("[]")) + 21 + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
+	NULLC::SafeSprintf(name, nameLength, "%.*s[%lld]", FMT_ISTR(type->name), length);
 
 	return InplaceStr(name);
 }
 
 InplaceStr GetUnsizedArrayTypeName(ExpressionContext &ctx, TypeBase* type)
 {
-	unsigned nameLength = unsigned(type->name.length() + strlen("[]"));
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	unsigned nameLength = type->name.length() + unsigned(strlen("[]")) + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -176,17 +177,18 @@ InplaceStr GetUnsizedArrayTypeName(ExpressionContext &ctx, TypeBase* type)
 
 	*pos++ = 0;
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
 InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
-	unsigned nameLength = unsigned(returnType->name.length() + strlen(" ref()"));
+	unsigned nameLength = returnType->name.length() + unsigned(strlen(" ref()")) + 1;
 
 	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
-		nameLength += arg->type->name.length() + 1;
+		nameLength += arg->type->name.length() + (arg->next ? 1 : 0);
 
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -210,22 +212,26 @@ InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, Int
 	*pos++ = ')';
 	*pos++ = 0;
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
 InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, IntrusiveList<TypeHandle> generics)
 {
-	unsigned nameLength = unsigned(proto->name.length() + strlen("<>"));
+	unsigned nameLength = proto->name.length() + unsigned(strlen("<>")) + 1;
 
 	for(TypeHandle *arg = generics.head; arg; arg = arg->next)
 	{
 		if(arg->type->isGeneric)
-			nameLength += unsigned(strlen("generic") + 1);
+			nameLength += unsigned(strlen("generic"));
 		else
-			nameLength += arg->type->name.length() + 1;
+			nameLength += arg->type->name.length();
+
+		if(arg->next)
+			nameLength += 1;
 	}
 
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -255,6 +261,7 @@ InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, Intr
 	*pos++ = '>';
 	*pos++ = 0;
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
@@ -265,9 +272,11 @@ InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 	unsigned nameLength = 0;
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
-		nameLength += unsigned(arg->type->name.length() + strlen(" or "));
+		nameLength += arg->type->name.length() + (arg->next ? unsigned(strlen(" or ")) : 0);
 
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	nameLength += 1;
+
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -285,6 +294,7 @@ InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 
 	*pos++ = 0;
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
@@ -293,9 +303,11 @@ InplaceStr GetArgumentSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 	unsigned nameLength = 2;
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
-		nameLength += arg->type->name.length() + 1;
+		nameLength += arg->type->name.length() + (arg->next ? 1 : 0);
 
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	nameLength += 1;
+
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -313,13 +325,14 @@ InplaceStr GetArgumentSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 	*pos++ = ')';
 	*pos++ = 0;
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
 InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type)
 {
-	unsigned nameLength = unsigned(type->name.length() + strlen(" members"));
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	unsigned nameLength = type->name.length() + unsigned(strlen(" members")) + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -331,13 +344,14 @@ InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type)
 
 	*pos++ = 0;
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
 InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr baseName)
 {
-	unsigned nameLength = baseName.length() + 1;
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	unsigned nameLength = baseName.length() + 1 + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -348,6 +362,7 @@ InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr baseName)
 
 	*pos++ = 0;
 
+	assert(strlen(name) + 1 == nameLength);
 	return InplaceStr(name);
 }
 
@@ -361,8 +376,8 @@ InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functio
 			functionName = operatorName;
 	}
 
-	unsigned nameLength = functionName.length() + 32;
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	unsigned nameLength = functionName.length() + 32 + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -380,6 +395,7 @@ InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functio
 
 	*pos++ = 0;
 
+	assert(strlen(name) < nameLength);
 	return InplaceStr(name);
 }
 
@@ -395,8 +411,8 @@ InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *
 			functionName = operatorName;
 	}
 
-	unsigned nameLength = functionName.length() + 32;
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	unsigned nameLength = functionName.length() + 32 + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -416,6 +432,7 @@ InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *
 
 	*pos++ = 0;
 
+	assert(strlen(name) < nameLength);
 	return InplaceStr(name);
 }
 
@@ -427,9 +444,9 @@ InplaceStr GetFunctionTableName(ExpressionContext &ctx, FunctionData *function)
 
 	assert(pos);
 
-	unsigned nameLength = function->name->name.length() + 32;
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "$vtbl%010u%s", function->type->name.hash(), pos + 2);
+	unsigned nameLength = function->name->name.length() + 32 + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
+	NULLC::SafeSprintf(name, nameLength, "$vtbl%010u%s", function->type->name.hash(), pos + 2);
 
 	return InplaceStr(name);
 }
@@ -457,6 +474,7 @@ InplaceStr GetFunctionContextMemberName(ExpressionContext &ctx, InplaceStr prefi
 
 	*pos++ = 0;
 
+	assert(strlen(name) < nameLength);
 	return InplaceStr(name);
 }
 
@@ -474,7 +492,7 @@ InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *
 			functionName = operatorName;
 	}
 
-	unsigned nameLength = functionName.length() + variable->name->name.length() + 24;
+	unsigned nameLength = functionName.length() + variable->name->name.length() + 24 + 1;
 	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
@@ -495,6 +513,7 @@ InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *
 
 	*pos++ = 0;
 
+	assert(strlen(name) < nameLength);
 	return InplaceStr(name);
 }
 
@@ -517,13 +536,15 @@ InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceS
 		}
 	}
 
+	nameLength += 1;
+
 	if(!foundNamespace)
 		return str;
 
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	// Format a string back-to-front
-	char *pos = name + nameLength + 1;
+	char *pos = name + nameLength;
 
 	pos -= 1;
 	*pos = 0;
@@ -562,10 +583,12 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 {
 	if(parentType)
 	{
-		char *name = (char*)ctx.allocator->alloc(parentType->name.length() + 2 + str.length() + (isAccessor ? 1 : 0) + 1);
+		unsigned nameLength = parentType->name.length() + 2 + str.length() + (isAccessor ? 1 : 0) + 1;
+		char *name = (char*)ctx.allocator->alloc(nameLength);
 
-		sprintf(name, "%.*s::%.*s%s", FMT_ISTR(parentType->name), FMT_ISTR(str), isAccessor ? "$" : "");
+		NULLC::SafeSprintf(name, nameLength, "%.*s::%.*s%s", FMT_ISTR(parentType->name), FMT_ISTR(str), isAccessor ? "$" : "");
 
+		assert(strlen(name) + 1 == nameLength);
 		return InplaceStr(name);
 	}
 
@@ -599,13 +622,15 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 		}
 	}
 
-	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	nameLength += 1;
 
 	if(!foundNamespace)
 		return str;
 
+	char *name = (char*)ctx.allocator->alloc(nameLength);
+
 	// Format a string back-to-front
-	char *pos = name + nameLength + 1;
+	char *pos = name + nameLength;
 
 	pos -= 1;
 	*pos = 0;

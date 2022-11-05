@@ -174,10 +174,7 @@ namespace NULLCIO
 		if(!writeFunc)
 			return;
 
-		char buf[128];
-		sprintf(buf, "%c", ch);
-
-		writeFunc(contextFunc, buf, (unsigned)strlen(buf));
+		writeFunc(contextFunc, &ch, 1);
 	}
 
 	void ReadIntFromConsole(int* val)

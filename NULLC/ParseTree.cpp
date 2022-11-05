@@ -7,6 +7,7 @@
 #include "BinaryCache.h"
 #include "Bytecode.h"
 #include "Lexer.h"
+#include "Pool.h"
 #include "Trace.h"
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize);

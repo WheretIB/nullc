@@ -16,19 +16,14 @@
 
 #include <new>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#ifndef _MSC_VER
-	#include <stdint.h>
-#endif
-
-#include <string.h>
-#include <setjmp.h>
-
-#include <math.h>
-
 #include <assert.h>
+#include <math.h>
+#include <setjmp.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef NDEBUG
 #undef assert
@@ -78,13 +73,12 @@ namespace NULLC
 		dealloc(ptr);
 	}
 
+	void copyMemory(void* dst, const void* src, size_t size);
+	void fillMemory(void* dst, int val, size_t size);
+
 	const char* defaultFileLoad(const char* name, unsigned* size);
 	void defaultFileFree(const char* data);
 
 	extern const char* (*fileLoad)(const char*, unsigned*);
 	extern void (*fileFree)(const char*);
 }
-
-#include "Array.h"
-#include "Pool.h"
-#include "StrAlgo.h"

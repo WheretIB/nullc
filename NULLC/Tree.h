@@ -1,6 +1,4 @@
 #pragma once
-#ifndef NULLC_TREE_H
-#define NULLC_TREE_H
 
 namespace detail
 {
@@ -258,5 +256,3 @@ private:
 
 	node_type	*root;
 };
-
-#endif

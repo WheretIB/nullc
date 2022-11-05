@@ -24,7 +24,7 @@ public:
 
 		data = storage;
 
-		memset(data, 0, sizeof(Node) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Node) * bucketCount);
 	}
 
 	~SmallDenseMap()
@@ -50,7 +50,7 @@ public:
 	{
 		count = 0;
 
-		memset(data, 0, sizeof(Node) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Node) * bucketCount);
 	}
 
 	void insert(const Key& key, const Value& value)
@@ -125,7 +125,7 @@ public:
 		else
 			data = (Node*)NULLC::alloc(sizeof(Node) * bucketCount);
 
-		memset(data, 0, sizeof(Node) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Node) * bucketCount);
 
 		count = 0;
 
@@ -182,7 +182,7 @@ public:
 
 		data = storage;
 
-		memset(data, 0, sizeof(Key) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Key) * bucketCount);
 	}
 
 	~SmallDenseSet()
@@ -208,7 +208,7 @@ public:
 	{
 		count = 0;
 
-		memset(data, 0, sizeof(Key) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Key) * bucketCount);
 	}
 
 	void insert(const Key& key)
@@ -279,7 +279,7 @@ public:
 		else
 			data = (Key*)NULLC::alloc(sizeof(Key) * bucketCount);
 
-		memset(data, 0, sizeof(Key) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Key) * bucketCount);
 
 		count = 0;
 
@@ -377,7 +377,7 @@ public:
 		count = 0;
 
 		data = (Node*)allocator->alloc(sizeof(Node) * bucketCount);
-		memset(data, 0, sizeof(Node) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Node) * bucketCount);
 	}
 
 	~DirectChainedMap()
@@ -387,7 +387,7 @@ public:
 
 	void clear()
 	{
-		memset(data, 0, sizeof(Node) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Node) * bucketCount);
 
 		count = 0;
 	}
@@ -569,7 +569,7 @@ public:
 		count = 0;
 
 		data = (Node*)allocator->alloc(sizeof(Node) * bucketCount);
-		memset(data, 0, sizeof(Node) * bucketCount);
+		NULLC::fillMemory(data, 0, sizeof(Node) * bucketCount);
 
 		for(unsigned i = 0; i < oldBucketCount; i++)
 		{

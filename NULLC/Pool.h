@@ -1,6 +1,6 @@
 #pragma once
-#ifndef NULLC_POOL_H
-#define NULLC_POOL_H
+
+#include "stdafx.h"
 
 template<int chunkSize>
 class ChunkedStackPool
@@ -181,5 +181,3 @@ public:
 	MyLargeBlock	*activePages;
 	unsigned		lastNum;
 };
-
-#endif

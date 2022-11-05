@@ -7,6 +7,7 @@
 #include "Executor_LLVM.h"
 #include "Executor_RegVm.h"
 #include "Linker.h"
+#include "StrAlgo.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc

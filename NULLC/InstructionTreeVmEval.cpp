@@ -2282,7 +2282,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 			return NULL;
 
 		char buf[32];
-		sprintf(buf, "%d", value->iValue);
+		NULLC::SafeSprintf(buf, 32, "%d", value->iValue);
 
 		unsigned length = unsigned(strlen(buf) + 1);
 
@@ -2307,7 +2307,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 			return NULL;
 
 		char buf[32];
-		sprintf(buf, "%lld", value->lValue);
+		NULLC::SafeSprintf(buf, 32, "%lld", value->lValue);
 
 		unsigned length = unsigned(strlen(buf) + 1);
 
