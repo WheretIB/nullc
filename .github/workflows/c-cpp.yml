@@ -1,4 +1,4 @@
-name: build with make
+name: run tests with make
 
 on:
   push:
