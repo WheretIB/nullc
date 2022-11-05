@@ -668,7 +668,7 @@ namespace NULLCPugiXML
 			::new(doc) pugi::xml_document();
 		}
 		xml_parse_result *res = (xml_parse_result*)nullcAllocate(sizeof(xml_parse_result));
-		*res = doc->load(contents.ptr, options);
+		*res = doc->load_string(contents.ptr, options);
 		return res;
 	}
 
