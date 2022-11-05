@@ -359,6 +359,23 @@ double myGetPreciseTime()
 	return temp*1000.0;
 }
 
+// zero-terminated safe sprintf
+size_t safeprintf(char* dst, size_t size, const char* src, ...)
+{
+	if(size == 0)
+		return 0;
+
+	va_list args;
+	va_start(args, src);
+
+	int result = vsnprintf(dst, size, src, args);
+	dst[size - 1] = '\0';
+
+	va_end(args);
+
+	return result == -1 ? 0 : (unsigned(result) > size ? size : result);
+}
+
 const char* GetLastNullcErrorWindows()
 {
 	const char *src = nullcGetLastError();
@@ -1009,23 +1026,6 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 	SetTimer(hWnd, 1, 100, 0);
 
 	return TRUE;
-}
-
-// zero-terminated safe sprintf
-size_t safeprintf(char* dst, size_t size, const char* src, ...)
-{
-	if(size == 0)
-		return 0;
-
-	va_list args;
-	va_start(args, src);
-
-	int result = vsnprintf(dst, size, src, args);
-	dst[size - 1] = '\0';
-
-	va_end(args);
-
-	return result == -1 ? 0 : (unsigned(result) > size ? size : result);
 }
 
 ExternVarInfo	*codeVars = NULL;
@@ -1789,8 +1789,8 @@ DWORD WINAPI CalcThread(void* param)
 		SetWindowText(hResult, "Finalizing...");
 		nullcFinalize();
 
-		char	result[1024];
-		_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+		char result[1024];
+		safeprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
 		result[1023] = '\0';
 		SetWindowText(hResult, result);
 	}
@@ -2102,7 +2102,7 @@ void IdeRun(bool debug)
 				if(goodRun)
 				{
 					char result[1024];
-					_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+					safeprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
 					result[1023] = '\0';
 					SetWindowText(hResult, result);
 				}
@@ -2133,7 +2133,7 @@ void IdeRun(bool debug)
 				if(goodRun)
 				{
 					char result[1024];
-					_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+					safeprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
 					result[1023] = '\0';
 					SetWindowText(hResult, result);
 				}

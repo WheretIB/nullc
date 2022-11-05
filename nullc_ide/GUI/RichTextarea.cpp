@@ -1,6 +1,7 @@
 #include "RichTextarea.h"
 
 #include "../ObjectPool.h"
+#include "../stdafx.h"
 
 #include "commctrl.h"
 #pragma comment(lib, "comctl32.lib")
@@ -1348,13 +1349,13 @@ VOID CALLBACK RichTextarea::AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEv
 	if(areaStatus)
 	{
 		char buf[256];
-		snprintf(buf, 256, "Ln %d", data->cursorCharY + 1);
+		safeprintf(buf, 256, "Ln %d", data->cursorCharY + 1);
 		SendMessage(areaStatus, (WM_USER+1), 1, (LPARAM)buf);
-		snprintf(buf, 256, "Col %d", posInChars + 1);
+		safeprintf(buf, 256, "Col %d", posInChars + 1);
 		SendMessage(areaStatus, (WM_USER+1), 2, (LPARAM)buf);
-		snprintf(buf, 256, "Ch %d", data->cursorCharX + 1);
+		safeprintf(buf, 256, "Ch %d", data->cursorCharX + 1);
 		SendMessage(areaStatus, (WM_USER+1), 3, (LPARAM)buf);
-		snprintf(buf, 256, "%s", insertionMode ? "OVR" : "INS");
+		safeprintf(buf, 256, "%s", insertionMode ? "OVR" : "INS");
 		SendMessage(areaStatus, (WM_USER+1), 4, (LPARAM)buf);
 	}
 

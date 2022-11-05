@@ -1,12 +1,6 @@
 #pragma once
 #pragma warning(disable: 4275)
 #pragma warning(disable: 4005)
-/*
-#define SUPER_CALC_ON
-#include "MemoryMan/platform.h"
-#include "MemoryMan/MemoryMan.h"
-#pragma comment(lib, "lib/debuglib/MemoryMan.lib")
-#undef pure*/
 
 #include <stdlib.h>
 
@@ -21,3 +15,4 @@
 #include <time.h>
 
 double myGetPreciseTime();
+size_t safeprintf(char* dst, size_t size, const char* src, ...);
