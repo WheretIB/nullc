@@ -35,23 +35,24 @@ bool AddSourceFile(char *&buf, const char *name)
 
 bool SearchAndAddSourceFile(char*& buf, const char* name)
 {
-	char tmp[256];
-	sprintf(tmp, "%s", name);
+	const unsigned tmpSize = 256;
+	char tmp[tmpSize];
+	snprintf(tmp, tmpSize, "%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
 
-	sprintf(tmp, "translation/%s", name);
+	snprintf(tmp, tmpSize, "translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
 
-	sprintf(tmp, "NULLC/translation/%s", name);
+	snprintf(tmp, tmpSize, "NULLC/translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
 
-	sprintf(tmp, "../NULLC/translation/%s", name);
+	snprintf(tmp, tmpSize, "../NULLC/translation/%s", name);
 
 	if(AddSourceFile(buf, tmp))
 		return true;
@@ -208,7 +209,7 @@ int main(int argc, char** argv)
 				if(strstr(dependency, "import_"))
 				{
 					char tmp[256];
-					sprintf(tmp, "%s", dependency + strlen("import_"));
+					snprintf(tmp, 256, "%s", dependency + strlen("import_"));
 
 					if(char *pos = strstr(tmp, "_nc.cpp"))
 						strcpy(pos, "_bind.cpp");
