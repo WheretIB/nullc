@@ -69,11 +69,25 @@ namespace NULLCPugiXML
 
 	int		xml_attribute__set_name(NULLCArray rhs, xml_attribute* ptr)
 	{
+		if(!rhs.ptr)
+		{
+			nullcThrowError("string is empty");
+			return 0;
+		}
 		return ptr->attribute.set_name(rhs.ptr);
 	}
 
 	int		xml_attribute__set_valueS(NULLCArray rhs, xml_attribute* ptr)
 	{
+		if(!rhs.ptr)
+			return ptr->attribute.set_value("");
+
+		if(!rhs.len || rhs.ptr[rhs.len - 1])
+		{
+			nullcThrowError("string has to be null-terminated");
+			return 0;
+		}
+
 		return ptr->attribute.set_value(rhs.ptr);
 	}
 	int		xml_attribute__set_valueI(int rhs, xml_attribute* ptr)
@@ -107,6 +121,11 @@ namespace NULLCPugiXML
 
 	xml_attribute* xml_attribute__operatorSetS(xml_attribute* att, NULLCArray rhs)
 	{
+		if(!rhs.ptr)
+		{
+			nullcThrowError("string is empty");
+			return NULL;
+		}
 		att->attribute = rhs.ptr;
 		return att;
 	}
@@ -181,12 +200,22 @@ namespace NULLCPugiXML
 
 	xml_node xml_node__child(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.child(name.ptr);
 		return ret;
 	}
 	xml_attribute xml_node__attribute(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_attribute();
+		}
 		xml_attribute ret;
 		ret.attribute = ptr->node.attribute(name.ptr);
 		return ret;
@@ -194,6 +223,11 @@ namespace NULLCPugiXML
 
 	xml_node xml_node__next_sibling0(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.next_sibling(name.ptr);
 		return ret;
@@ -207,6 +241,11 @@ namespace NULLCPugiXML
 
 	xml_node xml_node__previous_sibling0(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.previous_sibling(name.ptr);
 		return ret;
@@ -240,6 +279,11 @@ namespace NULLCPugiXML
 	}
 	NULLCArray xml_node__child_value1(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return NULLCArray();
+		}
 		NULLCArray ret;
 		ret.ptr = (pugi::char_t*)ptr->node.child_value(name.ptr);
 		ret.len = (unsigned)strlen(ret.ptr) + 1;
@@ -248,33 +292,63 @@ namespace NULLCPugiXML
 
 	int xml_node__set_name(NULLCArray rhs, xml_node* ptr)
 	{
+		if(!rhs.ptr)
+		{
+			nullcThrowError("string is empty");
+			return 0;
+		}
 		return ptr->node.set_name(rhs.ptr);
 	}
 	int xml_node__set_value(NULLCArray rhs, xml_node* ptr)
 	{
+		if(!rhs.ptr)
+		{
+			nullcThrowError("string is empty");
+			return 0;
+		}
 		return ptr->node.set_value(rhs.ptr);
 	}
 
 	xml_attribute xml_node__append_attribute(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_attribute();
+		}
 		xml_attribute ret;
 		ret.attribute = ptr->node.append_attribute(name.ptr);
 		return ret;
 	}
 	xml_attribute xml_node__prepend_attribute(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_attribute();
+		}
 		xml_attribute ret;
 		ret.attribute = ptr->node.prepend_attribute(name.ptr);
 		return ret;
 	}
 	xml_attribute xml_node__insert_attribute_after(NULLCArray name, xml_attribute* attr, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_attribute();
+		}
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_attribute_after(name.ptr, attr->attribute);
 		return ret;
 	}
 	xml_attribute xml_node__insert_attribute_before(NULLCArray name, xml_attribute* attr, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_attribute();
+		}
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_attribute_before(name.ptr, attr->attribute);
 		return ret;
@@ -332,24 +406,44 @@ namespace NULLCPugiXML
 
 	xml_node xml_node__append_child1(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.append_child(name.ptr);
 		return ret;
 	}
 	xml_node xml_node__prepend_child1(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.prepend_child(name.ptr);
 		return ret;
 	}
 	xml_node xml_node__insert_child_after1(NULLCArray name, xml_node* node, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.insert_child_after(name.ptr, node->node);
 		return ret;
 	}
 	xml_node xml_node__insert_child_before1(NULLCArray name, xml_node* node, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.insert_child_before(name.ptr, node->node);
 		return ret;
@@ -386,6 +480,11 @@ namespace NULLCPugiXML
 	}
 	void xml_node__remove_attribute1(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return;
+		}
 		ptr->node.remove_attribute(name.ptr);
 	}
 
@@ -395,6 +494,11 @@ namespace NULLCPugiXML
 	}
 	void xml_node__remove_child1(NULLCArray name, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return;
+		}
 		ptr->node.remove_child(name.ptr);
 	}
 
@@ -426,12 +530,37 @@ namespace NULLCPugiXML
 
 	xml_node xml_node__find_child_by_attribute0(NULLCArray name, NULLCArray attr_name, NULLCArray attr_value, xml_node* ptr)
 	{
+		if(!name.ptr)
+		{
+			nullcThrowError("name is empty");
+			return xml_node();
+		}
+		if(!attr_name.ptr)
+		{
+			nullcThrowError("attr_name is empty");
+			return xml_node();
+		}
+		if(!attr_value.ptr)
+		{
+			nullcThrowError("attr_value is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.find_child_by_attribute(name.ptr, attr_name.ptr, attr_value.ptr);
 		return ret;
 	}
 	xml_node xml_node__find_child_by_attribute1(NULLCArray attr_name, NULLCArray attr_value, xml_node* ptr)
 	{
+		if(!attr_name.ptr)
+		{
+			nullcThrowError("attr_name is empty");
+			return xml_node();
+		}
+		if(!attr_value.ptr)
+		{
+			nullcThrowError("attr_value is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.find_child_by_attribute(attr_name.ptr, attr_value.ptr);
 		return ret;
@@ -439,6 +568,11 @@ namespace NULLCPugiXML
 
 	xml_node xml_node__first_element_by_path(NULLCArray path, char delimiter, xml_node* ptr)
 	{
+		if(!path.ptr)
+		{
+			nullcThrowError("path is empty");
+			return xml_node();
+		}
 		xml_node ret;
 		ret.node = ptr->node.first_element_by_path(path.ptr, delimiter);
 		return ret;
@@ -668,7 +802,7 @@ namespace NULLCPugiXML
 			::new(doc) pugi::xml_document();
 		}
 		xml_parse_result *res = (xml_parse_result*)nullcAllocate(sizeof(xml_parse_result));
-		*res = doc->load(contents.ptr, options);
+		*res = doc->load_string(contents.ptr, options);
 		return res;
 	}
 
