@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Array.h"
+#include "StrAlgo.h"
 
 struct CompilerStatistics
 {

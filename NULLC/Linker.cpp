@@ -5,6 +5,7 @@
 #include "DenseMap.h"
 #include "InstructionTreeRegVmLowerGraph.h"
 #include "Trace.h"
+#include "StrAlgo.h"
 
 extern "C"
 {

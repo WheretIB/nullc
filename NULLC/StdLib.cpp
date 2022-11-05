@@ -8,6 +8,7 @@
 #include "stdafx.h"
 #include "Pool.h"
 #include "Tree.h"
+#include "StrAlgo.h"
 
 #include "Executor_Common.h"
 #include "Linker.h"

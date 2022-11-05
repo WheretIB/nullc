@@ -14,6 +14,7 @@
 #include "StdLib.h"
 #include "InstructionTreeRegVmLowerGraph.h"
 #include "Trace.h"
+#include "StrAlgo.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc

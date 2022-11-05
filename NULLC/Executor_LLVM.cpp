@@ -3,6 +3,7 @@
 #include "nullc.h"
 #include "Linker.h"
 #include "StdLib.h"
+#include "StrAlgo.h"
 
 #ifdef NULLC_LLVM_SUPPORT
 

@@ -1,7 +1,12 @@
 #pragma once
 
 #include "stdafx.h"
+
+#include "Array.h"
 #include "IntrusiveList.h"
+#include "StrAlgo.h"
+
+struct Allocator;
 
 struct SynBase;
 

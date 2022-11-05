@@ -1,8 +1,6 @@
 #pragma once
 
 #include "stdafx.h"
-#include "Array.h"
-#include "Pool.h"
 
 struct Allocator
 {

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "stdafx.h"
-#include "InstructionTreeRegVm.h"
+
+#include "Array.h"
 #include "CodeGenRegVm_X86.h"
+#include "InstructionTreeRegVm.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;

@@ -1,7 +1,10 @@
 #include "dynamic.h"
+
 #include "../nullc.h"
 #include "../nullbind.h"
 #include "../nullc_debug.h"
+
+#include "../StrAlgo.h"
 
 namespace NULLCDynamic
 {

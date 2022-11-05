@@ -1,5 +1,7 @@
 #pragma once
 
+#include "stdafx.h"
+
 template<int chunkSize>
 class ChunkedStackPool
 {

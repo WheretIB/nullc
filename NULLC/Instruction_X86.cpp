@@ -1,6 +1,7 @@
 #include "Instruction_X86.h"
 
 #include "CodeGenRegVm_X86.h"
+#include "StrAlgo.h"
 
 namespace
 {

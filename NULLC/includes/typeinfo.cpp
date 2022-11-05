@@ -3,6 +3,7 @@
 #include "../nullc.h"
 #include "../nullbind.h"
 #include "../Linker.h"
+#include "../StrAlgo.h"
 
 namespace NULLCTypeInfo
 {

@@ -50,7 +50,6 @@ struct NULLCAutoArray
 
 #if defined(_MSC_VER) && defined(_DEBUG)
 //#define VERBOSE_DEBUG_OUTPUT
-//#define IMPORT_VERBOSE_DEBUG_OUTPUT
 //#define LINK_VERBOSE_DEBUG_OUTPUT
 #endif
 

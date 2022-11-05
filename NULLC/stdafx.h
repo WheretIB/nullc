@@ -79,7 +79,3 @@ namespace NULLC
 	extern const char* (*fileLoad)(const char*, unsigned*);
 	extern void (*fileFree)(const char*);
 }
-
-#include "Array.h"
-#include "Pool.h"
-#include "StrAlgo.h"

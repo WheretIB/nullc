@@ -6,6 +6,7 @@
 #include "nullc_debug.h"
 #include "Linker.h"
 #include "StdLib.h"
+#include "StrAlgo.h"
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4702) // unreachable code
