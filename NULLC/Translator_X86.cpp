@@ -4163,7 +4163,8 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 
 	assert(stream < buf + bufSize);
 
-	char instBuf[128];
+	const unsigned instBufSize = 128;
+	char instBuf[instBufSize];
 
 	unsigned instCount = unsigned(ctx.GetLastInstruction() - instList);
 
@@ -4176,7 +4177,7 @@ void x86TestEncoding(unsigned char *codeLaunchHeader)
 
 	for(unsigned i = 0; i < instCount; i++)
 	{
-		instList[i].Decode(vmState, instBuf);
+		instList[i].Decode(vmState, instBuf, instBufSize);
 
 		output.Print(instBuf);
 		output.Print('\n');

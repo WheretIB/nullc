@@ -46,7 +46,7 @@ namespace
 	};
 }
 
-int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize)
+int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, unsigned bufSize, bool x64, bool useMmWord, bool skipSize)
 {
 	char *curr = buf;
 
@@ -54,28 +54,28 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 	{
 		if(ctx.vsAsmStyle)
 		{
-			curr += sprintf(curr, "%x%s", num, num > 9 ? "h" : "");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%x%s", num, num > 9 ? "h" : "");
 		}
 		else
 		{
 			if(uintptr_t(num) == uintptr_t(&ctx.callInstructionPos))
-				curr += sprintf(curr, "&ctx.callInstructionPos");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.callInstructionPos");
 			else if(uintptr_t(num) == uintptr_t(&ctx.dataStackTop))
-				curr += sprintf(curr, "&ctx.dataStackTop");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.dataStackTop");
 			else if(uintptr_t(num) == uintptr_t(&ctx.callStackTop))
-				curr += sprintf(curr, "&ctx.callStackTop");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.callStackTop");
 			else if(uintptr_t(num) == uintptr_t(&ctx.regFileLastTop))
-				curr += sprintf(curr, "&ctx.regFileLastTop");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.regFileLastTop");
 			else if(uintptr_t(num) == uintptr_t(&ctx.regFileLastPtr))
-				curr += sprintf(curr, "&ctx.regFileLastPtr");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.regFileLastPtr");
 			else if(uintptr_t(num) == uintptr_t(ctx.dataStackBase))
-				curr += sprintf(curr, "ctx.dataStackBase");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "ctx.dataStackBase");
 			else if(uintptr_t(num) == uintptr_t(ctx.ctx->exRegVmConstants))
-				curr += sprintf(curr, "ctx.exRegVmConstants");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "ctx.exRegVmConstants");
 			else if(uintptr_t(num) == uintptr_t(&ctx))
-				curr += sprintf(curr, "&ctx");
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx");
 			else
-				curr += sprintf(curr, "%d", num);
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%d", num);
 		}
 	}
 	else if(type == argReg)
@@ -90,11 +90,11 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 	}
 	else if(type == argLabel)
 	{
-		curr += sprintf(curr, "'0x%x'", labelID);
+		curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "'0x%x'", labelID);
 	}
 	else if(type == argPtrLabel)
 	{
-		curr += sprintf(curr, "['0x%x'+%d]", labelID, ptrNum);
+		curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "['0x%x'+%d]", labelID, ptrNum);
 	}
 	else if(type == argPtr)
 	{
@@ -126,17 +126,17 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 			}
 
 			if(ptrMult > 1)
-				curr += sprintf(curr, "*%d", ptrMult);
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "*%d", ptrMult);
 		}
 
 		if(ptrBase != rNONE)
 		{
 			if(ctx.vsAsmStyle)
-				curr += sprintf(curr, "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
 			else if(ptrIndex != rNONE)
-				curr += sprintf(curr, " + %s", (x64 ? x64RegText : x86RegText)[ptrBase]);
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), " + %s", (x64 ? x64RegText : x86RegText)[ptrBase]);
 			else
-				curr += sprintf(curr, "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
 		}
 
 		if(ctx.vsAsmStyle)
@@ -151,43 +151,43 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 			}
 
 			if(ptrMult > 1)
-				curr += sprintf(curr, "*%d", ptrMult);
+				curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "*%d", ptrMult);
 		}
 
 		if(ptrIndex == rNONE && ptrBase == rNONE && ctx.vsAsmStyle)
-			curr += sprintf(curr, "%x%s", ptrNum, ptrNum > 9 ? "h" : "");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%x%s", ptrNum, ptrNum > 9 ? "h" : "");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.tempStackArrayBase) && uintptr_t(ptrNum) < uintptr_t(ctx.tempStackArrayEnd))
-			curr += sprintf(curr, "temp+%u", unsigned(ptrNum - uintptr_t(ctx.tempStackArrayBase)));
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "temp+%u", unsigned(ptrNum - uintptr_t(ctx.tempStackArrayBase)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.dataStackBase) && uintptr_t(ptrNum) < uintptr_t(ctx.dataStackEnd))
-			curr += sprintf(curr, "globals+%u", unsigned(ptrNum - uintptr_t(ctx.dataStackBase)));
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "globals+%u", unsigned(ptrNum - uintptr_t(ctx.dataStackBase)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) >= uintptr_t(ctx.ctx->exRegVmConstants) && uintptr_t(ptrNum) < uintptr_t(ctx.ctx->exRegVmConstantsEnd))
-			curr += sprintf(curr, "constants+%u", unsigned(ptrNum - uintptr_t(ctx.ctx->exRegVmConstants)));
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "constants+%u", unsigned(ptrNum - uintptr_t(ctx.ctx->exRegVmConstants)));
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callInstructionPos))
-			curr += sprintf(curr, "&ctx.callInstructionPos");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.callInstructionPos");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.dataStackTop))
-			curr += sprintf(curr, "&ctx.dataStackTop");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.dataStackTop");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callStackTop))
-			curr += sprintf(curr, "&ctx.callStackTop");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.callStackTop");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.regFileLastTop))
-			curr += sprintf(curr, "&ctx.regFileLastTop");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.regFileLastTop");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.regFileLastPtr))
-			curr += sprintf(curr, "&ctx.regFileLastPtr");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.regFileLastPtr");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.callWrap))
-			curr += sprintf(curr, "&ctx.callWrap");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.callWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.checkedReturnWrap))
-			curr += sprintf(curr, "&ctx.checkedReturnWrap");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.checkedReturnWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.convertPtrWrap))
-			curr += sprintf(curr, "&ctx.convertPtrWrap");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.convertPtrWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.errorOutOfBoundsWrap))
-			curr += sprintf(curr, "&ctx.errorOutOfBoundsWrap");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.errorOutOfBoundsWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE && uintptr_t(ptrNum) == uintptr_t(&ctx.errorNoReturnWrap))
-			curr += sprintf(curr, "&ctx.errorNoReturnWrap");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.errorNoReturnWrap");
 		else if(ptrIndex == rNONE && ptrBase == rNONE)
-			curr += sprintf(curr, "%d", ptrNum);
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%d", ptrNum);
 		else if(ptrNum != 0 && ctx.vsAsmStyle)
-			curr += sprintf(curr, "+%x%s", ptrNum, ptrNum > 9 ? "h" : "");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "+%x%s", ptrNum, ptrNum > 9 ? "h" : "");
 		else if(ptrNum != 0)
-			curr += sprintf(curr, "%+d", ptrNum);
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%+d", ptrNum);
 
 		*curr++ = ']';
 		*curr = 0;
@@ -195,21 +195,22 @@ int x86Argument::Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool
 	else if(type == argImm64)
 	{
 		if(imm64Arg == uintptr_t(&ctx))
-			curr += sprintf(curr, "&ctx");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx");
 		else if(imm64Arg == uintptr_t(&ctx.tempStackArrayBase))
-			curr += sprintf(curr, "&ctx.tempStackArrayBase");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "&ctx.tempStackArrayBase");
 		else if(imm64Arg == uintptr_t(ctx.tempStackArrayBase))
-			curr += sprintf(curr, "ctx.tempStackArrayBase");
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "ctx.tempStackArrayBase");
 		else if(ctx.vsAsmStyle)
-			curr += sprintf(curr, "%llXh", (unsigned long long)imm64Arg);
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%llXh", (unsigned long long)imm64Arg);
 		else
-			curr += sprintf(curr, "%lld", (long long)imm64Arg);
+			curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "%lld", (long long)imm64Arg);
 	}
 
-	return (int)(curr - buf);
+	assert(buf + bufSize <= curr);
+	return int(curr - buf);
 }
 
-int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
+int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf, unsigned bufSize)
 {
 	char *curr = buf;
 
@@ -218,7 +219,7 @@ int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 
 	if(name == o_label)
 	{
-		curr += sprintf(curr, "0x%p:", (void*)(intptr_t)labelID);
+		curr += NULLC::SafeSprintf(curr, bufSize - unsigned(curr - buf), "0x%p:", (void*)(intptr_t)labelID);
 	}
 	else if(name == o_other)
 	{
@@ -249,7 +250,7 @@ int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 			bool usex64 = name >= o_mov64 || name == o_movsxd || ((argA.type == x86Argument::argPtr || name == o_call || name == o_push || name == o_pop) && sizeof(void*) == 8) || (argB.type == x86Argument::argPtr && argB.ptrSize == sQWORD && name != o_cvttsd2si);
 			bool useMmWord = ctx.vsAsmStyle && argB.type == x86Argument::argXmmReg;
 
-			curr += argA.Decode(ctx, curr, usex64, useMmWord, name == o_lea);
+			curr += argA.Decode(ctx, curr, bufSize, usex64, useMmWord, name == o_lea);
 		}
 		if(argB.type != x86Argument::argNone)
 		{
@@ -261,7 +262,7 @@ int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 			bool usex64 = name >= o_mov64 || (argB.type == x86Argument::argPtr && sizeof(void*) == 8) || name == o_movsxd || (argA.type == x86Argument::argPtr && argA.ptrSize == sQWORD);
 			bool useMmWord = ctx.vsAsmStyle && (argA.type == x86Argument::argXmmReg || name == o_cvttsd2si || name == o_cvttsd2si64);
 
-			curr += argB.Decode(ctx, curr, usex64, useMmWord, name == o_lea);
+			curr += argB.Decode(ctx, curr, bufSize, usex64, useMmWord, name == o_lea);
 		}
 	}
 
@@ -272,5 +273,6 @@ int	x86Instruction::Decode(CodeGenRegVmStateContext &ctx, char *buf)
 		*curr = 0;
 	}
 
-	return (int)(curr-buf);
+	assert(buf + bufSize <= curr);
+	return int(curr - buf);
 }

@@ -316,7 +316,7 @@ bool ExecutorLLVM::TranslateToNative()
 	{
 		char buf[32];
 
-		sprintf(buf, "module_%d", i);
+		NULLC::SafeSprintf(buf, 32, "module_%d", i);
 
 		// Load module code
 		LLVMMemoryBufferRef buffer = LLVMCreateMemoryBufferWithMemoryRange(&exLinker->llvmModuleCodes[offset], exLinker->llvmModuleSizes[i], buf, false);
@@ -331,7 +331,7 @@ bool ExecutorLLVM::TranslateToNative()
 		// Change global code function name, because every module has one
 		LLVMValueRef entryFunction = LLVMGetNamedFunction(moduleData, "__llvmEntry");
 		
-		sprintf(buf, "__llvmEntry_%d", i);
+		NULLC::SafeSprintf(buf, 32, "__llvmEntry_%d", i);
 		LLVMSetValueName2(entryFunction, buf, strlen(buf));
 
 		// TODO: change the type index constant values
@@ -341,7 +341,7 @@ bool ExecutorLLVM::TranslateToNative()
 		for(unsigned k = 0; k < typeCount; k++)
 		{
 			char buf[32];
-			sprintf(buf, "^type_index_%d", k);
+			NULLC::SafeSprintf(buf, 32, "^type_index_%d", k);
 
 			if(llvm::GlobalVariable *typeIndexValue = module->getGlobalVariable(buf, true))
 				typeIndexValue->setInitializer(llvm::ConstantInt::get(llvm::Type::getInt32Ty(getContext()), llvm::APInt(32, uint64_t(typeRemap[k]), false)));
@@ -354,7 +354,7 @@ bool ExecutorLLVM::TranslateToNative()
 		for(unsigned k = 0; k < functionCount; k++)
 		{
 			char buf[32];
-			sprintf(buf, "^func_index_%d", k);
+			NULLC::SafeSprintf(buf, 32, "^func_index_%d", k);
 
 			if(llvm::GlobalVariable *funcIndexValue = module->getGlobalVariable(buf, true))
 				funcIndexValue->setInitializer(llvm::ConstantInt::get(llvm::Type::getInt32Ty(getContext()), llvm::APInt(32, uint64_t(funcRemap[k]), false)));
@@ -569,7 +569,7 @@ bool ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	for(unsigned i = 0; i < exLinker->llvmModuleSizes.size(); i++)
 	{
 		char buf[32];
-		sprintf(buf, "__llvmEntry_%d", i);
+		NULLC::SafeSprintf(buf, 32, "__llvmEntry_%d", i);
 
 		LLVMValueRef function = LLVMGetNamedFunction(ctx->module, buf);
 

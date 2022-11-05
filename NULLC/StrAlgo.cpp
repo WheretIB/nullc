@@ -41,7 +41,7 @@ int	NULLC::SafeSprintf(char* dst, size_t size, const char* src, ...)
 	va_start(args, src);
 
 	int result = vsnprintf(dst, size, src, args);
-	dst[size-1] = '\0';
+	dst[size - 1] = '\0';
 
 	va_end(args);
 

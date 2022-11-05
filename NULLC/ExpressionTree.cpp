@@ -5548,16 +5548,18 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 
 InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx)
 {
-	char *name = (char*)ctx.allocator->alloc(16);
-	sprintf(name, "$func%d", ctx.unnamedFuncCount++);
+	unsigned length = 16;
+	char *name = (char*)ctx.allocator->alloc(length);
+	NULLC::SafeSprintf(name, length, "$func%d", ctx.unnamedFuncCount++);
 
 	return InplaceStr(name);
 }
 
 InplaceStr GetDefaultArgumentWrapperFunctionName(ExpressionContext &ctx, FunctionData *function, InplaceStr argumentName)
 {
-	char *name = (char*)ctx.allocator->alloc(function->name->name.length() + argumentName.length() + 16);
-	sprintf(name, "%.*s_%u_%.*s$", FMT_ISTR(function->name->name), function->type->nameHash, FMT_ISTR(argumentName));
+	unsigned length = function->name->name.length() + argumentName.length() + 16;
+	char *name = (char*)ctx.allocator->alloc(length);
+	NULLC::SafeSprintf(name, length, "%.*s_%u_%.*s$", FMT_ISTR(function->name->name), function->type->nameHash, FMT_ISTR(argumentName));
 
 	return InplaceStr(name);
 }
@@ -9473,9 +9475,10 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 			if(isType<TypeError>(type))
 				return NULL;
 
-			char *name = (char*)ctx.allocator->alloc(param->name->name.length() + 2);
+			unsigned length = param->name->name.length() + 2;
+			char *name = (char*)ctx.allocator->alloc(length);
 
-			sprintf(name, "%.*s$", FMT_ISTR(param->name->name));
+			NULLC::SafeSprintf(name, length, "%.*s$", FMT_ISTR(param->name->name));
 
 			if(expected->type->isGeneric)
 			{
@@ -9579,9 +9582,10 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		if(!conflict)
 			ctx.AddVariable(variable, true);
 
-		char *name = (char*)ctx.allocator->alloc(el->name->name.length() + 2);
+		unsigned length = el->name->name.length() + 2;
+		char *name = (char*)ctx.allocator->alloc(length);
 
-		sprintf(name, "%.*s$", FMT_ISTR(el->name->name));
+		NULLC::SafeSprintf(name, length, "%.*s$", FMT_ISTR(el->name->name));
 
 		ExprBase *access = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(name), false);
 
@@ -9878,8 +9882,9 @@ InplaceStr GetTypeDefaultConstructorName(ExpressionContext &ctx, TypeClass *clas
 {
 	InplaceStr baseName(GetTypeConstructorName(classType));
 
-	char *name = (char*)ctx.allocator->alloc(baseName.length() + 2);
-	sprintf(name, "%.*s$", FMT_ISTR(baseName));
+	unsigned length = baseName.length() + 2;
+	char *name = (char*)ctx.allocator->alloc(length);
+	NULLC::SafeSprintf(name, length, "%.*s$", FMT_ISTR(baseName));
 
 	return InplaceStr(name);
 }

@@ -345,7 +345,7 @@ struct x86Argument
 	int		ptrMult;
 	int		ptrNum;
 
-	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, bool x64, bool useMmWord, bool skipSize);
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, unsigned bufSize, bool x64, bool useMmWord, bool skipSize);
 };
 
 struct x86Instruction
@@ -384,5 +384,5 @@ struct x86Instruction
 	};
 
 	// returns string length
-	int	Decode(CodeGenRegVmStateContext &ctx, char *buf);
+	int	Decode(CodeGenRegVmStateContext &ctx, char *buf, unsigned bufSize);
 };

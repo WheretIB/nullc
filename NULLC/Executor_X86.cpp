@@ -2001,7 +2001,8 @@ void ExecutorX86::SaveListing(OutputContext &output)
 {
 	TRACE_SCOPE("x86", "SaveListing");
 
-	char instBuf[128];
+	const unsigned instBufSize = 128;
+	char instBuf[instBufSize];
 
 	for(unsigned i = 0; i < instList.size(); i++)
 	{
@@ -2080,7 +2081,7 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			output.Print('\n');
 		}
 
-		inst.Decode(vmState, instBuf);
+		inst.Decode(vmState, instBuf, instBufSize);
 
 		output.Print(instBuf);
 		output.Print('\n');
