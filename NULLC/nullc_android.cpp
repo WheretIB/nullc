@@ -292,7 +292,7 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 
 	ExternFuncInfo &function = functions[func.id];
 
-	char *argBuf = (char*)NULLC::alloc(function.bytesToPop + sizeof(void*));
+	char *argBuf = (char*)NULLC::alloc(function.argumentSize + sizeof(void*));
 
 	jsize argCount = env->GetArrayLength(arguments);
 
