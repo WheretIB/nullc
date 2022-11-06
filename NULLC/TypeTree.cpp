@@ -670,7 +670,8 @@ InplaceStr GetTemporaryName(ExpressionContext &ctx, unsigned index, const char *
 
 	unsigned suffixLength = suffix ? (unsigned)strlen(suffix) : 0;
 
-	char *name = (char*)ctx.allocator->alloc(16 + suffixLength);
+	unsigned nameLength = 16 + suffixLength;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
 
 	char *pos = name;
 
@@ -694,6 +695,7 @@ InplaceStr GetTemporaryName(ExpressionContext &ctx, unsigned index, const char *
 
 	*pos = 0;
 
+	assert(strlen(name) < nameLength);
 	return InplaceStr(name, pos);
 }
 

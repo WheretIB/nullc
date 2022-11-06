@@ -63,6 +63,7 @@ LOCAL_SRC_FILES += NULLC/includes/vector.cpp
 
 # std
 LOCAL_SRC_FILES += NULLC/includes/dynamic.cpp
+LOCAL_SRC_FILES += NULLC/includes/error.cpp
 LOCAL_SRC_FILES += NULLC/includes/file.cpp
 LOCAL_SRC_FILES += NULLC/includes/gc.cpp
 LOCAL_SRC_FILES += NULLC/includes/io.cpp
@@ -95,6 +96,6 @@ LOCAL_SRC_FILES += external/dyncall/dyncall_call.S
 
 LOCAL_ARM_MODE := arm
 
-LOCAL_CFLAGS += -DARM -DNULLC_USE_DYNCALL -fsigned-char -fno-omit-frame-pointer
+LOCAL_CFLAGS += -DARM -fsigned-char -fno-omit-frame-pointer
 
 include $(BUILD_SHARED_LIBRARY)
